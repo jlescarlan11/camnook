@@ -1,0 +1,44 @@
+{
+  "name": "camnook",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:start": "pnpm dlx supabase@2.113.0 start",
+    "db:stop": "pnpm dlx supabase@2.113.0 stop",
+    "db:reset": "pnpm dlx supabase@2.113.0 db reset",
+    "db:test": "pnpm dlx supabase@2.113.0 test db",
+    "db:types": "pnpm dlx supabase@2.113.0 gen types typescript --local --schema public,api > src/types/database.generated.ts",
+    "db:types:linked": "pnpm dlx supabase@2.113.0 gen types typescript --linked --schema public,api > src/types/database.generated.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.4",
+    "@supabase/supabase-js": "2.112.3",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "20.19.43",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  },
+  "packageManager": "pnpm@10.33.1",
+  "engines": {
+    "node": ">=24"
+  }
+}

@@ -1,0 +1,2 @@
+-- Intentionally empty. Test fixtures live in supabase/tests/database and production
+-- records are created through authenticated operations or an explicit admin bootstrap.
