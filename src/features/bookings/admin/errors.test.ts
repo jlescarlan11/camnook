@@ -39,7 +39,7 @@ describe("admin booking decision error mapping", () => {
   it.each([
     ["42501", "approval_unauthorized", "unauthorized"],
     ["P0002", "approval_booking_not_found", "not_found"],
-    ["40001", "approval_stale_booking_state", "stale"],
+    ["P0001", "approval_stale_booking_state", "stale"],
     ["22023", "approval_profile_inactive", "profile_inactive"],
     ["22023", "approval_verification_invalid", "verification_invalid"],
     ["22023", "approval_camera_unavailable", "camera_unavailable"],
@@ -56,6 +56,7 @@ describe("admin booking decision error mapping", () => {
   );
 
   it.each([
+    ["40001", "approval_stale_booking_state"],
     ["22003", "approval_profile_inactive"],
     ["42501", "some unrelated permission detail"],
     ["08006", "database.example.internal"],
@@ -69,10 +70,16 @@ describe("admin booking decision error mapping", () => {
     ).toBe("unauthorized");
     expect(
       mapRejectionError({
-        code: "40001",
+        code: "P0001",
         message: "booking state changed or transition precondition failed",
       }),
     ).toBe("stale");
+    expect(
+      mapRejectionError({
+        code: "40001",
+        message: "booking state changed or transition precondition failed",
+      }),
+    ).toBe("indeterminate");
     expect(
       mapRejectionError({ code: "22023", message: "private database detail" }),
     ).toBe("indeterminate");

@@ -106,7 +106,7 @@ describe("approveBooking", () => {
   it.each([
     ["42501", "approval_unauthorized", "unauthorized", "error"],
     ["P0002", "approval_booking_not_found", "not_found", "stale"],
-    ["40001", "approval_stale_booking_state", "stale", "stale"],
+    ["P0001", "approval_stale_booking_state", "stale", "stale"],
     ["22023", "approval_profile_inactive", "profile_inactive", "error"],
     ["22023", "approval_verification_invalid", "verification_invalid", "error"],
     ["22023", "approval_camera_unavailable", "camera_unavailable", "error"],
@@ -300,7 +300,7 @@ describe("rejectBooking", () => {
   it.each([
     ["42501", "admin authorization required", "unauthorized", "error"],
     [
-      "40001",
+      "P0001",
       "booking state changed or transition precondition failed",
       "stale",
       "stale",

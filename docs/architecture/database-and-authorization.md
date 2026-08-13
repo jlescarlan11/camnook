@@ -339,9 +339,9 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains nine forward migrations. Production historically
+The repository contains ten forward migrations. Production historically
 received the seven foundation/auth migrations. The controlled
-Development/Preview rollout owns applying and verifying the two later booking
+Development/Preview rollout owns applying and verifying the three later booking
 milestone migrations; check current linked remote history at rollout time. This
 historical Production context does not authorize a new Production mutation or
 deployment.

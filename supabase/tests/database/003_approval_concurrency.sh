@@ -384,6 +384,36 @@ begin
   end if;
 end;
 $$;
+
+set role authenticated;
+set "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+
+do $$
+begin
+  begin
+    perform api.approve_booking('23000000-0000-4000-8000-000000000001');
+    raise exception 'repeated approval was accepted';
+  exception
+    when sqlstate 'P0001' then
+      if sqlerrm <> 'approval_stale_booking_state' then raise; end if;
+  end;
+
+  begin
+    perform api.reject_booking(
+      '23000000-0000-4000-8000-000000000001',
+      'Stale rejection boundary test'
+    );
+    raise exception 'rejection after approval was accepted';
+  exception
+    when sqlstate 'P0001' then
+      if sqlerrm <> 'booking state changed or transition precondition failed' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
 SQL
 
 echo "ok - separate-session overlapping approvals produce one clean winner"

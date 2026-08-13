@@ -24,7 +24,7 @@ type ProviderError = { code?: string; message?: string };
 const approvalErrorContracts = new Map<string, ApprovalErrorCategory>([
   ["42501/approval_unauthorized", "unauthorized"],
   ["P0002/approval_booking_not_found", "not_found"],
-  ["40001/approval_stale_booking_state", "stale"],
+  ["P0001/approval_stale_booking_state", "stale"],
   ["22023/approval_profile_inactive", "profile_inactive"],
   ["22023/approval_verification_invalid", "verification_invalid"],
   ["22023/approval_camera_unavailable", "camera_unavailable"],
@@ -38,7 +38,7 @@ const approvalErrorContracts = new Map<string, ApprovalErrorCategory>([
 const rejectionErrorContracts = new Map<string, RejectionErrorCategory>([
   ["42501/admin authorization required", "unauthorized"],
   [
-    "40001/booking state changed or transition precondition failed",
+    "P0001/booking state changed or transition precondition failed",
     "stale",
   ],
 ]);

@@ -558,6 +558,16 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    perform api.reject_booking(
+      '14000000-0000-4000-8000-000000000001',
+      'Anonymous rejection attempt'
+    );
+    raise exception 'anonymous caller unexpectedly invoked public rejection RPC';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -565,6 +575,30 @@ reset role;
 
 do $$
 begin
+  if has_function_privilege(
+    'anon',
+    'api.approve_booking(uuid)',
+    'EXECUTE'
+  )
+    or has_function_privilege(
+      'anon',
+      'api.reject_booking(uuid,text)',
+      'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated',
+      'api.approve_booking(uuid)',
+      'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated',
+      'api.reject_booking(uuid,text)',
+      'EXECUTE'
+    )
+  then
+    raise exception 'booking decision API execute privileges are unsafe';
+  end if;
+
   if not exists (
     select 1
     from public.bookings
@@ -838,8 +872,21 @@ begin
     perform api.approve_booking('14000000-0000-4000-8000-000000000001');
     raise exception 'repeated approval was accepted';
   exception
-    when sqlstate '40001' then
+    when sqlstate 'P0001' then
       if sqlerrm <> 'approval_stale_booking_state' then raise; end if;
+  end;
+
+  begin
+    perform api.reject_booking(
+      '14000000-0000-4000-8000-000000000001',
+      'Stale rejection boundary test'
+    );
+    raise exception 'rejection after approval was accepted';
+  exception
+    when sqlstate 'P0001' then
+      if sqlerrm <> 'booking state changed or transition precondition failed' then
+        raise;
+      end if;
   end;
 end;
 $$;
@@ -910,7 +957,9 @@ begin
   if (select count(*) from public.availability_blocks where booking_id = '14000000-0000-4000-8000-000000000001' and released_at is null) <> 1
     or (select count(*) from public.contract_versions where booking_id = '14000000-0000-4000-8000-000000000001') <> 1
     or (select count(*) from public.booking_state_history where booking_id = '14000000-0000-4000-8000-000000000001' and to_state = 'CONTRACT_PENDING') <> 1
+    or (select count(*) from public.booking_state_history where booking_id = '14000000-0000-4000-8000-000000000001' and to_state = 'REJECTED') <> 0
     or (select count(*) from private.audit_logs where action = 'approve_booking' and entity_id = '14000000-0000-4000-8000-000000000001' and outcome = 'success') <> 1
+    or (select count(*) from private.audit_logs where action = 'reject_booking' and entity_id = '14000000-0000-4000-8000-000000000001') <> 0
   then
     raise exception 'successful approval aggregate was missing or duplicated';
   end if;
