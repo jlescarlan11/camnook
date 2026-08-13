@@ -84,6 +84,20 @@ describe("Supabase session proxy", () => {
     );
   });
 
+  it("preserves an admin booking detail path through invite-only sign-in", async () => {
+    mockClaims(null);
+
+    const response = await updateSupabaseSession(
+      new NextRequest(
+        "https://camnook.test/admin/bookings/22222222-2222-4222-8222-222222222222",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://camnook.test/login?next=%2Fadmin%2Fbookings%2F22222222-2222-4222-8222-222222222222",
+    );
+  });
+
   it("redirects a signed-in user away from login to a safe destination", async () => {
     mockClaims({ sub: "user-1" });
 

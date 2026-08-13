@@ -13,6 +13,7 @@ describe("authentication route policy", () => {
     "/account/bookings/new",
     "/account/bookings/22222222-2222-4222-8222-222222222222",
     "/admin",
+    "/admin/bookings/22222222-2222-4222-8222-222222222222",
     "/admin/payments",
   ])(
     "protects %s",
@@ -51,6 +52,19 @@ describe("authentication route policy", () => {
       ),
     ).toBe(
       "/account/bookings/22222222-2222-4222-8222-222222222222?requested=1",
+    );
+  });
+
+  it("preserves the exact nested admin booking destination", () => {
+    expect(
+      sanitizeReturnTo(
+        "/admin/bookings/22222222-2222-4222-8222-222222222222",
+      ),
+    ).toBe("/admin/bookings/22222222-2222-4222-8222-222222222222");
+    expect(
+      loginPath("/admin/bookings/22222222-2222-4222-8222-222222222222"),
+    ).toBe(
+      "/login?next=%2Fadmin%2Fbookings%2F22222222-2222-4222-8222-222222222222",
     );
   });
 

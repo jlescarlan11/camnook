@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((location: string) => {
+    throw new Error(`redirect:${location}`);
+  }),
+}));
 vi.mock("./require-user", () => ({
   AuthenticationRequiredError: class AuthenticationRequiredError extends Error {},
   getAuthenticatedUser: vi.fn(),
@@ -9,9 +13,14 @@ vi.mock("./require-user", () => ({
 }));
 
 import {
+  AdminAuthorizationRequiredError,
   AdminAuthorizationCheckError,
   getAdminStatus,
+  requireAdmin,
+  requirePageAdmin,
 } from "./require-admin";
+import { getAuthenticatedUser, requireUser } from "./require-user";
+import { redirect } from "next/navigation";
 
 function contextWithRpcResult(result: unknown) {
   const rpc = vi.fn().mockResolvedValue(result);
@@ -58,5 +67,38 @@ describe("administrator authorization", () => {
     await expect(getAdminStatus(context)).rejects.toBeInstanceOf(
       AdminAuthorizationCheckError,
     );
+  });
+
+  it("denies an authenticated non-admin at the mutation boundary", async () => {
+    const { context, rpc } = contextWithRpcResult({ data: false, error: null });
+    vi.mocked(requireUser).mockResolvedValue(context);
+
+    await expect(requireAdmin()).rejects.toBeInstanceOf(
+      AdminAuthorizationRequiredError,
+    );
+    expect(rpc).toHaveBeenCalledWith("is_admin");
+  });
+
+  it("redirects an unauthenticated nested admin page through the exact safe return path", async () => {
+    vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
+
+    await expect(
+      requirePageAdmin(
+        "/admin/bookings/22222222-2222-4222-8222-222222222222",
+      ),
+    ).rejects.toThrow("redirect:/login?next=");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?next=%2Fadmin%2Fbookings%2F22222222-2222-4222-8222-222222222222",
+    );
+  });
+
+  it("redirects an authenticated non-admin page to the forbidden route", async () => {
+    const { context } = contextWithRpcResult({ data: false, error: null });
+    vi.mocked(getAuthenticatedUser).mockResolvedValue(context);
+
+    await expect(requirePageAdmin("/admin")).rejects.toThrow(
+      "redirect:/forbidden",
+    );
+    expect(redirect).toHaveBeenCalledWith("/forbidden");
   });
 });

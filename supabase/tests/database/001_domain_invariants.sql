@@ -190,6 +190,17 @@ begin
     raise exception 'configured admin failed the admin authorization check';
   end if;
 
+  perform
+    camera.id,
+    camera.slug,
+    camera.name,
+    camera.status,
+    camera.published_at,
+    camera.daily_rate,
+    camera.security_deposit
+  from public.cameras as camera
+  limit 1;
+
   select id into target_booking_id
   from public.bookings
   where renter_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
