@@ -339,11 +339,12 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains eight forward migrations. Production historically
+The repository contains nine forward migrations. Production historically
 received the seven foundation/auth migrations. The controlled
-Development/Preview rollout owns applying and verifying the eighth migration;
-check current linked remote history at rollout time. This historical Production
-context does not authorize a new Production mutation or deployment.
+Development/Preview rollout owns applying and verifying the two later booking
+milestone migrations; check current linked remote history at rollout time. This
+historical Production context does not authorize a new Production mutation or
+deployment.
 
 Before **each** linked hosted database command, run the target check immediately
 before the command and require the exact Development ref:

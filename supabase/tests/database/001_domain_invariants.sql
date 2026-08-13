@@ -40,12 +40,63 @@ insert into public.cameras (
   statement_timestamp()
 );
 
+insert into public.availability_blocks (
+  id,
+  camera_id,
+  kind,
+  starts_at,
+  ends_at,
+  created_by,
+  reason,
+  released_at,
+  released_by
+) values
+  (
+    'd1000000-0000-4000-8000-000000000001',
+    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    'maintenance',
+    '2099-01-01 00:00:00+00',
+    '2099-01-02 00:00:00+00',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Active public availability fixture',
+    null,
+    null
+  ),
+  (
+    'd1000000-0000-4000-8000-000000000002',
+    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    'manual',
+    '2099-01-03 00:00:00+00',
+    '2099-01-04 00:00:00+00',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Released private availability fixture',
+    statement_timestamp(),
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  );
+
 set local role anon;
 
 do $$
 begin
   if (select count(*) from public.public_cameras) <> 1 then
     raise exception 'anonymous discovery must expose the published camera';
+  end if;
+
+  if (
+    select count(*)
+    from public.public_availability as availability
+    where availability.camera_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+  ) <> 1 then
+    raise exception 'anonymous public availability must expose only the active fixture';
+  end if;
+
+  if (
+    select count(*)
+    from public.availability_blocks as availability
+    where availability.camera_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+  ) <> 1
+  then
+    raise exception 'anonymous availability exposed a released fixture';
   end if;
 
   begin
@@ -58,6 +109,13 @@ begin
   begin
     perform api.is_admin();
     raise exception 'anonymous role unexpectedly called the admin check';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    perform private.is_admin();
+    raise exception 'anonymous role unexpectedly called the private admin predicate';
   exception
     when insufficient_privilege then null;
   end;
@@ -95,8 +153,20 @@ begin
   if (select count(*) from public.bookings) <> 1 then
     raise exception 'renter cannot read their new booking';
   end if;
-  if (select count(*) from public.availability_blocks) <> 0 then
-    raise exception 'FOR_REVIEW must not create an availability block';
+  if (
+    select count(*)
+    from public.public_availability as availability
+    where availability.camera_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+  ) <> 1
+  then
+    raise exception 'authenticated renter public availability must expose only the active fixture';
+  end if;
+  if (
+    select count(*)
+    from public.availability_blocks as availability
+    where availability.camera_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+  ) <> 1 then
+    raise exception 'FOR_REVIEW must not create an additional availability block';
   end if;
 
   begin
@@ -188,6 +258,20 @@ declare
 begin
   if not api.is_admin() then
     raise exception 'configured admin failed the admin authorization check';
+  end if;
+
+  if (
+    select count(*)
+    from public.availability_blocks as availability
+    where availability.camera_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+  ) <> 2
+    or (
+      select count(*)
+      from public.public_availability as availability
+      where availability.camera_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+    ) <> 1
+  then
+    raise exception 'admin availability visibility or public projection changed';
   end if;
 
   perform

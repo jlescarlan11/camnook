@@ -78,11 +78,12 @@ migrations, runs the real two-session approval races, and removes the cluster on
 exit. It refuses a caller-supplied `DATABASE_URL`, so it cannot be redirected to
 a developer or hosted database.
 
-The repository currently contains eight forward migrations. Production
+The repository currently contains nine forward migrations. Production
 historically received the seven foundation/auth migrations. The controlled
-Development/Preview rollout owns applying and verifying the eighth migration,
-not Production; verify the current linked remote migration history before any
-action rather than treating this sequencing record as live status.
+Development/Preview rollout owns applying and verifying the two later booking
+milestone migrations, not Production; verify the current linked remote
+migration history before any action rather than treating this sequencing
+record as live status.
 
 For a hosted Development migration, keep the change migration-first and
 forward-only. Immediately before **each** command that can inspect or mutate
