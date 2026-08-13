@@ -56,6 +56,34 @@ describe("Supabase session proxy", () => {
     );
   });
 
+  it("preserves the exact nested booking path and non-sensitive query", async () => {
+    mockClaims(null);
+
+    const response = await updateSupabaseSession(
+      new NextRequest(
+        "https://camnook.test/account/bookings/new?camera=11111111-1111-4111-8111-111111111111&pickup=2099-08-14T09%3A00&return=2099-08-15T09%3A00",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://camnook.test/login?next=%2Faccount%2Fbookings%2Fnew%3Fcamera%3D11111111-1111-4111-8111-111111111111%26pickup%3D2099-08-14T09%253A00%26return%3D2099-08-15T09%253A00",
+    );
+  });
+
+  it("preserves an owner booking detail path through invite-only sign-in", async () => {
+    mockClaims(null);
+
+    const response = await updateSupabaseSession(
+      new NextRequest(
+        "https://camnook.test/account/bookings/22222222-2222-4222-8222-222222222222?requested=1",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://camnook.test/login?next=%2Faccount%2Fbookings%2F22222222-2222-4222-8222-222222222222%3Frequested%3D1",
+    );
+  });
+
   it("redirects a signed-in user away from login to a safe destination", async () => {
     mockClaims({ sub: "user-1" });
 

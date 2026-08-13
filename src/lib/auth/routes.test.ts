@@ -7,7 +7,14 @@ import {
 } from "./routes";
 
 describe("authentication route policy", () => {
-  it.each(["/account", "/account/bookings", "/admin", "/admin/payments"])(
+  it.each([
+    "/account",
+    "/account/bookings",
+    "/account/bookings/new",
+    "/account/bookings/22222222-2222-4222-8222-222222222222",
+    "/admin",
+    "/admin/payments",
+  ])(
     "protects %s",
     (pathname) => {
       expect(isProtectedRoute(pathname)).toBe(true);
@@ -24,6 +31,26 @@ describe("authentication route policy", () => {
   it("preserves an internal protected destination and query", () => {
     expect(sanitizeReturnTo("/admin?tab=payments")).toBe(
       "/admin?tab=payments",
+    );
+  });
+
+  it("preserves the exact nested booking request destination", () => {
+    expect(
+      sanitizeReturnTo(
+        "/account/bookings/new?camera=11111111-1111-4111-8111-111111111111&pickup=2099-08-14T09%3A00&return=2099-08-15T09%3A00",
+      ),
+    ).toBe(
+      "/account/bookings/new?camera=11111111-1111-4111-8111-111111111111&pickup=2099-08-14T09%3A00&return=2099-08-15T09%3A00",
+    );
+  });
+
+  it("preserves an owner booking detail destination and safe success flag", () => {
+    expect(
+      sanitizeReturnTo(
+        "/account/bookings/22222222-2222-4222-8222-222222222222?requested=1",
+      ),
+    ).toBe(
+      "/account/bookings/22222222-2222-4222-8222-222222222222?requested=1",
     );
   });
 
