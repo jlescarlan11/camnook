@@ -41,23 +41,35 @@ These remain accepted unless implementation reveals a concrete conflict:
 7. PostgreSQL time ranges are half-open `[pickup, return)`; any future turnaround buffer is an explicit separate block/rule.
 8. A renter may submit `FOR_REVIEW` while verification is pending, but admin approval requires a current `verified` decision. This prevents an unverified account from receiving a hold without making random requests block inventory.
 
-## Decisions required before implementation of affected behavior
+## Approved decisions
 
 ### OD-01 — Billable-day formula
 
 Owner: product/business<br>
-Blocks: pricing calculator, approval transaction implementation, public total quote, pricing tests
+Status: approved on 2026-08-13<br>
+Unblocks: pricing calculator, approval transaction, sanitized public quote, pricing tests
 
-Define at minimum:
+One billable day is one started 24-hour duration measured between the authoritative
+`timestamptz` instants. Every positive rental costs at least one day, exact
+24-hour multiples use their exact quotient, and any positive remainder rounds up.
+The calculation is elapsed-duration based: `Asia/Manila` is used for business-date
+checks and presentation, not to count calendar dates. There is no cutoff, grace
+period, hourly price, or automated late-return amount in the MVP.
 
-- whether a “day” is a 24-hour duration or calendar date;
-- timezone (`Asia/Manila` is the proposed business timezone);
-- partial-day rounding;
-- minimum rental duration;
-- pickup/return cutoff or grace rules, if any; and
-- examples across midnight and daylight/clock edge cases.
+Authoritative examples:
 
-The database design can store rate and amount snapshots now, but no implementation may invent this formula or accept renter-supplied authoritative totals.
+- one microsecond, one hour, or `23:59:59.999` costs one day;
+- exactly 24 hours costs one day and exactly 48 hours costs two days;
+- 24 hours plus one microsecond costs two days;
+- `23:30 → 00:30` in Manila costs one day because only one hour elapsed; and
+- equivalent instants expressed with different UTC offsets produce identical days and amounts.
+
+Zero-length, reversed, or missing periods are invalid. The database reads the
+current camera rate and deposit for both quote and approval; callers never supply
+authoritative days or money. Late-return penalties remain manual and separate
+from the original rental quote.
+
+## Decisions required before implementation of affected behavior
 
 ### OD-02 — Post-payment material amendments
 

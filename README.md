@@ -45,8 +45,14 @@ Migrations live in `supabase/migrations/`; database assertions live in
 pnpm db:start
 pnpm db:reset
 pnpm db:test
+pnpm db:test:concurrency
 pnpm db:types
 ```
+
+`db:test:concurrency` requires Homebrew `postgresql@17`. It refuses a
+caller-supplied `DATABASE_URL`, creates a socket-only disposable cluster,
+applies all migrations, runs the real two-session approval races, and removes
+the cluster on exit. It does not require Docker or mutate a developer database.
 
 The three foundation migrations, two advisor/lint follow-up migrations, and the
 sole-admin bootstrap migration were applied to the linked `main` database on
@@ -63,7 +69,7 @@ pnpm db:types:linked
 
 ## Intentional launch gates
 
-- Booking approval fails closed until the billable-day formula is approved.
+- Booking quote and approval pricing use the database-authoritative OD-01 started-24-hour formula.
 - Government-ID uploads fail closed until the privacy notice and retention
   schedule are approved.
 - Paid/submitted-payment cancellation acceptance remains disabled until the

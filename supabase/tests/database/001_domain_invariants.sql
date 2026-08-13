@@ -130,6 +130,54 @@ begin
 end;
 $$;
 
+reset role;
+
+insert into public.verification_records (
+  user_id,
+  status,
+  id_type,
+  document_expiration_date,
+  decided_at,
+  decided_by
+) values (
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'verified',
+  'passport',
+  (statement_timestamp() at time zone 'Asia/Manila')::date + 30,
+  statement_timestamp(),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+);
+
+insert into public.contract_templates (
+  id,
+  version,
+  schema_version,
+  terms,
+  content_sha256,
+  created_by,
+  approved_at,
+  approved_by,
+  activated_at
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  'test-v1',
+  1,
+  '{"pickup":"p","return":"r","cancellation":"c","late-return":"l","damage":"d","loss":"l","non-transferability":"n"}'::jsonb,
+  extensions.digest(
+    convert_to(
+      '{"pickup":"p","return":"r","cancellation":"c","late-return":"l","damage":"d","loss":"l","non-transferability":"n"}'::jsonb::text,
+      'UTF8'
+    ),
+    'sha256'
+  ),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  statement_timestamp(),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  statement_timestamp()
+);
+
+set constraints all deferred;
+set local role authenticated;
 set local "request.jwt.claim.sub" = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 do $$
@@ -166,12 +214,20 @@ begin
     raise exception 'cancellation decision did not persist the enum disposition';
   end if;
 
-  begin
-    perform api.approve_booking(target_booking_id);
-    raise exception 'approval unexpectedly bypassed the pricing launch gate';
-  exception
-    when feature_not_supported then null;
-  end;
+  perform api.approve_booking(target_booking_id);
+
+  if not exists (
+    select 1
+    from public.bookings
+    where id = target_booking_id
+      and state = 'CONTRACT_PENDING'
+      and billable_days_snapshot = 1
+      and rental_amount = 1200
+      and total_due = 6200
+      and current_contract_version_id is not null
+  ) then
+    raise exception 'approval did not create the authoritative aggregate';
+  end if;
 
   perform api.create_manual_block(
     'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
@@ -209,62 +265,7 @@ end;
 $$;
 
 reset role;
-
--- Convert the request into a fully funded fixture through owner-only SQL so
--- immutable finance/refund operations can be tested while approval is gated.
-set constraints all deferred;
-
-update public.bookings
-set state = 'CONTRACT_PENDING',
-    approved_at = statement_timestamp(),
-    approval_deadline_at = statement_timestamp() + interval '24 hours',
-    approved_by = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    daily_rate_snapshot = 1200,
-    rental_amount = 1200,
-    security_deposit_amount = 5000
-where renter_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-
-insert into public.booking_state_history (
-  booking_id,
-  from_state,
-  to_state,
-  actor_user_id,
-  actor_type,
-  reason_code
-)
-select
-  id,
-  'FOR_REVIEW',
-  'CONTRACT_PENDING',
-  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  'admin',
-  'test_approval_fixture'
-from public.bookings
-where renter_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-
 set constraints all immediate;
-
-insert into public.contract_templates (
-  id,
-  version,
-  schema_version,
-  terms,
-  content_sha256,
-  created_by,
-  approved_at,
-  approved_by,
-  activated_at
-) values (
-  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
-  'test-v1',
-  1,
-  '{"terms":"test"}'::jsonb,
-  decode(repeat('00', 32), 'hex'),
-  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  statement_timestamp(),
-  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  statement_timestamp()
-);
 
 insert into public.payment_transactions (
   id,

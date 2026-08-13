@@ -145,7 +145,8 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
 - `pickup_at < return_at`; request times are immutable after approval except through the contract-supersession operation.
 - `approval_deadline_at = approved_at + interval '24 hours'` and cannot be updated independently.
 - Price fields are null in `FOR_REVIEW` and required once approved. `total_due = rental_amount + security_deposit_amount` is generated or constrained.
-- No calculator is implemented until the billable-day formula is approved. The future approval function reads the camera rate itself and calls an approved pure pricing function; it never accepts an authoritative total from a renter.
+- `billable_days_snapshot` is positive and present exactly when approval facts are present; `rental_amount = daily_rate_snapshot × billable_days_snapshot`.
+- OD-01 pricing uses one started 24-hour elapsed duration. Quote and approval call the same pure database pricing function, and approval reads the camera rate itself rather than accepting an authoritative total from a renter.
 
 `public.availability_blocks`
 

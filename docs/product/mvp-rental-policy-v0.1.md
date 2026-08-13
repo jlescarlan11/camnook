@@ -87,6 +87,16 @@ RETURN_REVIEW → ISSUE_REVIEW → COMPLETED
 - **DEADLINE-04 — No review timeout.** `PAYMENT_REVIEW` does not automatically expire. Admin review has a 12-hour operational target, not an automatic state deadline.
 - **DEADLINE-05 — Rejected payment.** A rejected payment returns to `TO_PAY` only while the original deadline remains open. If rejection occurs after that deadline, the reservation expires and its block is released.
 
+## Authoritative pricing
+
+- **PRICE-01 — Started 24-hour periods.** One billable day is one started 24-hour elapsed duration between authoritative pickup and return instants.
+- **PRICE-02 — Minimum and rounding.** Every valid positive rental is at least one billable day. Exact 24-hour multiples use the exact quotient; any positive remainder rounds up.
+- **PRICE-03 — Duration, not calendar dates.** Crossing midnight in `Asia/Manila` does not add a day unless another 24-hour period has started. Equivalent instants written with different UTC offsets produce identical pricing.
+- **PRICE-04 — Database authority.** The database reads the current published camera rate and deposit, calculates the quote and approval snapshots, and rejects caller-supplied authoritative days or amounts.
+- **PRICE-05 — No automatic extras.** MVP pricing has no hourly rate, cutoff, grace period, coupon, promotion, or automated late-return penalty. Late-return amounts remain manual and separate from the original rental quote.
+
+Examples: one microsecond, one hour, and `23:59:59.999` each cost one day; exactly 24 hours costs one day; exactly 48 hours costs two days; 24 hours plus one microsecond costs two days; and `23:30 → 00:30` in Manila costs one day.
+
 ## Availability
 
 - **AVAIL-01 — Blocking states.** Booking blocks are active in `CONTRACT_PENDING`, `TO_PAY`, `PAYMENT_REVIEW`, `CONFIRMED`, `ACTIVE`, `RETURN_REVIEW`, and `ISSUE_REVIEW`.
@@ -148,7 +158,7 @@ The admin dashboard must surface work queues for review, signature, payment, pic
 
 ## Accepted assumptions
 
-1. One daily rate exists per camera; the billable-day formula is not yet approved.
+1. One daily rate exists per camera; OD-01 defines one billable day as one started 24-hour elapsed duration.
 2. Penalties, deductions, and exceptional amounts are manual.
 3. The approval deadline is one continuous 24-hour period.
 4. One government ID is sufficient for MVP.
@@ -163,7 +173,6 @@ Ready for design and later implementation: product architecture, normalized data
 
 Not ready for public production use:
 
-- pricing calculation until the billable-day formula is approved;
 - public ID collection until the privacy notice and retention policy are approved;
 - final contracts until legal wording is approved; and
 - paid launch until legal, tax, business-registration, security, and operational readiness are confirmed.
