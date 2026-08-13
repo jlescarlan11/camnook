@@ -55,7 +55,11 @@ Contains domain tables and privacy-safe views. Every table has RLS enabled befor
 
 Contains the narrow functions exposed to the Data API. Each is a `SECURITY INVOKER` wrapper around one non-exposed implementation function. The schema is explicitly exposed and granted only where required.
 
-PostgreSQL grants function execution to `PUBLIC` by default. Migrations must revoke that default at schema and function level, then grant individual operations to `authenticated` or `service_role` only.
+PostgreSQL grants function execution to `PUBLIC` by default. Migrations revoke
+that default at schema and function level, then grant each exact function
+signature only to the roles that require it. `api.quote_booking` is the
+deliberate anonymous exception: both `anon` and `authenticated` may request a
+public catalog quote.
 
 ### `private`
 
@@ -64,11 +68,18 @@ Not exposed through the Data API. Contains the admin singleton, append-only audi
 - `search_path = ''`;
 - fully qualified object names;
 - an explicit `auth.uid()` presence and ownership/admin check;
-- execution revoked from `PUBLIC` and `anon`;
+- execution revoked from `PUBLIC`, followed by an explicit per-signature grant
+  only where an API wrapper requires invoker access;
 - the smallest explicit execution grant; and
 - tests for direct-call and cross-account attacks.
 
-This keeps privileged code out of `public` while allowing a reviewed `api` wrapper to be the only reachable entrypoint.
+The pure `private.calculate_booking_price` helper is `SECURITY INVOKER`, reads
+no tables, and receives an exact-signature grant for `anon` and `authenticated`
+because the invoker-mode quote wrapper calls it. Transactional private
+operations are not trusted merely because `authenticated` can execute them:
+each implementation repeats the same ownership/admin and state guards as its
+`api` wrapper. The `api` schema remains the supported Data API surface, while
+the unexposed `private` schema contains the implementation boundary.
 
 ## Identity and sole-admin model
 
@@ -165,6 +176,8 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
 - `approval_deadline_at = approved_at + interval '24 hours'` and cannot be updated independently.
 - Price fields are null in `FOR_REVIEW` and required once approved. `total_due = rental_amount + security_deposit_amount` is generated or constrained.
 - `billable_days_snapshot` is positive and present exactly when approval facts are present; `rental_amount = daily_rate_snapshot × billable_days_snapshot`.
+- An approval timestamp must precede the immutable pickup timestamp; approval
+  rechecks this condition at the transaction boundary.
 - OD-01 pricing uses one started 24-hour elapsed duration. Quote and approval call the same pure database pricing function, and approval reads the camera rate itself rather than accepting an authoritative total from a renter.
 
 `public.availability_blocks`
@@ -278,7 +291,7 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | --- | --- |
 | `ensure_profile` | Idempotently create the authenticated user's profile |
 | `request_booking` | Create own `FOR_REVIEW` booking and history; no availability block |
-| `approve_booking` | Validate admin and current verification; lock booking/camera; calculate approved snapshots; recheck overlap; insert block; set 24-hour deadline; issue contract v1; append history/audit |
+| `approve_booking` | Validate admin, future pickup, and current verification; stabilize the append-only verification and accessory sets; lock booking/camera; calculate approved snapshots; recheck overlap; insert block; set 24-hour deadline; issue contract v1; append history/audit |
 | `reject_booking` | Transition `FOR_REVIEW → REJECTED`; append reason/history |
 | `supersede_contract` | Recheck overlap for material schedule changes; supersede current version; create new snapshot; require new signature; never reset deadline |
 | `sign_contract` | Validate current version/renter/deadline; append signature; transition to `TO_PAY` |
@@ -303,6 +316,7 @@ The expiration function is safe to invoke on a schedule and opportunistically be
 | Resource | Anonymous | Renter | Admin |
 | --- | --- | --- | --- |
 | Public camera views/photos | Read published | Read published | Read all; mutate through operations |
+| Public booking quote | Quote published cameras through `api.quote_booking`; no booking or private-table access | Same public quote; authoritative request/approval rules still apply | Same public quote; approval calculates its own authoritative snapshot |
 | Sanitized availability view | Read busy ranges | Read busy ranges | Read full operational schedule |
 | Profile | None | Read/update approved own fields | Read accounts; controlled status operations |
 | Verification records/docs metadata | None | Read own; create upload intent while feature enabled | Read all; decide through operation |
@@ -339,9 +353,9 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains ten forward migrations. Production historically
+The repository contains eleven forward migrations. Production historically
 received the seven foundation/auth migrations. The controlled
-Development/Preview rollout owns applying and verifying the three later booking
+Development/Preview rollout owns applying and verifying the four later booking
 milestone migrations; check current linked remote history at rollout time. This
 historical Production context does not authorize a new Production mutation or
 deployment.

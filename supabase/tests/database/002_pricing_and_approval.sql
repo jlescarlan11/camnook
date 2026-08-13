@@ -526,6 +526,15 @@ insert into public.bookings (
     '2099-07-08 00:00:00+00',
     'Newer explicit expired verification guard',
     'Manila'
+  ),
+  (
+    '14000000-0000-4000-8000-000000000009',
+    '10000000-0000-4000-8000-000000000002',
+    '12000000-0000-4000-8000-000000000001',
+    '2000-01-01 00:00:00+00',
+    '2000-01-02 00:00:00+00',
+    'Elapsed pickup guard',
+    'Makati City'
   );
 
 insert into public.booking_state_history (
@@ -597,6 +606,32 @@ begin
     )
   then
     raise exception 'booking decision API execute privileges are unsafe';
+  end if;
+
+  if not has_function_privilege(
+    'anon',
+    'api.quote_booking(uuid,timestamptz,timestamptz)',
+    'EXECUTE'
+  )
+    or not has_function_privilege(
+      'anon',
+      'private.calculate_booking_price(timestamptz,timestamptz,numeric,numeric)',
+      'EXECUTE'
+    )
+    or exists (
+      select 1
+      from pg_catalog.pg_proc as procedure
+      join pg_catalog.pg_namespace as namespace
+        on namespace.oid = procedure.pronamespace
+      where namespace.nspname in ('api', 'private')
+        and has_function_privilege('anon', procedure.oid, 'EXECUTE')
+        and procedure.oid not in (
+          'api.quote_booking(uuid,timestamptz,timestamptz)'::regprocedure::oid,
+          'private.calculate_booking_price(timestamptz,timestamptz,numeric,numeric)'::regprocedure::oid
+        )
+    )
+  then
+    raise exception 'anonymous operation execute allowlist is unsafe';
   end if;
 
   if not exists (
@@ -834,6 +869,97 @@ insert into public.contract_templates (
   '10000000-0000-4000-8000-000000000001',
   statement_timestamp()
 );
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = '10000000-0000-4000-8000-000000000001';
+
+do $$
+begin
+  begin
+    perform api.approve_booking('14000000-0000-4000-8000-000000000009');
+    raise exception 'approval accepted a booking after its pickup instant';
+  exception
+    when sqlstate '22023' then
+      if sqlerrm <> 'approval_invalid_period' then raise; end if;
+  end;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  violated_constraint text;
+begin
+  if not exists (
+    select 1
+    from public.bookings
+    where id = '14000000-0000-4000-8000-000000000009'
+      and state = 'FOR_REVIEW'
+      and approved_at is null
+      and approval_deadline_at is null
+      and approved_by is null
+      and billable_days_snapshot is null
+      and daily_rate_snapshot is null
+      and rental_amount is null
+      and security_deposit_amount is null
+      and current_contract_version_id is null
+  )
+    or exists (
+      select 1 from public.contract_versions
+      where booking_id = '14000000-0000-4000-8000-000000000009'
+    )
+    or exists (
+      select 1 from public.availability_blocks
+      where booking_id = '14000000-0000-4000-8000-000000000009'
+    )
+    or exists (
+      select 1 from public.booking_state_history
+      where booking_id = '14000000-0000-4000-8000-000000000009'
+        and to_state = 'CONTRACT_PENDING'
+    )
+    or exists (
+      select 1 from private.audit_logs
+      where action = 'approve_booking'
+        and entity_id = '14000000-0000-4000-8000-000000000009'
+        and outcome = 'success'
+    )
+  then
+    raise exception 'elapsed-pickup denial left a partial approval aggregate';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.bookings'::regclass
+      and conname = 'bookings_approval_precedes_pickup'
+      and contype = 'c'
+      and convalidated
+  ) then
+    raise exception 'approved-before-pickup invariant is missing or unvalidated';
+  end if;
+
+  begin
+    update public.bookings
+    set approved_at = statement_timestamp(),
+        approval_deadline_at = statement_timestamp() + interval '24 hours',
+        approved_by = '10000000-0000-4000-8000-000000000001',
+        billable_days_snapshot = 1,
+        daily_rate_snapshot = 1200.00,
+        rental_amount = 1200.00,
+        security_deposit_amount = 5000.00
+    where id = '14000000-0000-4000-8000-000000000009';
+
+    raise exception 'direct write bypassed approved-before-pickup invariant';
+  exception
+    when check_violation then
+      get stacked diagnostics violated_constraint = constraint_name;
+      if violated_constraint <> 'bookings_approval_precedes_pickup' then
+        raise;
+      end if;
+  end;
+end;
+$$;
 
 insert into public.availability_blocks (
   id,
