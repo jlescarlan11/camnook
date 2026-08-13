@@ -98,6 +98,7 @@ export type Database = {
         }
         Returns: string
       }
+      is_admin: { Args: never; Returns: boolean }
       record_refund: {
         Args: {
           p_amount: number

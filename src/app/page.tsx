@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-stone-100 px-6 text-stone-950">
@@ -12,6 +14,12 @@ export default function Home() {
           The secure booking foundation is being prepared. Public rentals remain
           closed until pricing, privacy, and contract launch checks are complete.
         </p>
+        <Link
+          className="mt-8 inline-block rounded-xl bg-stone-950 px-5 py-3 font-medium text-white transition hover:bg-stone-800"
+          href="/login"
+        >
+          Sign in
+        </Link>
       </main>
     </div>
   );

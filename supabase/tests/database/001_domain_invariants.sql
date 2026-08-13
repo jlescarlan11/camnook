@@ -54,6 +54,13 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    perform api.is_admin();
+    raise exception 'anonymous role unexpectedly called the admin check';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -63,6 +70,10 @@ set local "request.jwt.claim.sub" = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 do $$
 begin
+  if api.is_admin() then
+    raise exception 'non-admin account passed the admin authorization check';
+  end if;
+
   perform api.ensure_profile('First Renter', '+639000000002');
   perform api.request_booking(
     'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
@@ -127,6 +138,10 @@ declare
   adjacent_block_id uuid;
   cancellation_request_id uuid;
 begin
+  if not api.is_admin() then
+    raise exception 'configured admin failed the admin authorization check';
+  end if;
+
   select id into target_booking_id
   from public.bookings
   where renter_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
