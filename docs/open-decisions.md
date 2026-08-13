@@ -1,6 +1,6 @@
 # CamNook Open Decisions and Readiness
 
-Status: architecture approved; launch gates remain open<br>
+Status: architecture approved; public-paid-launch gates remain closed<br>
 Last updated: 2026-08-13
 
 ## Outcome
@@ -87,7 +87,7 @@ Blocks: renter-facing cancellation copy, fee/refund decisions, production contra
 
 The architecture already records cancellation requests, admin decisions, blocks, transactions, and refunds. Still define notice periods, whether any rental fee may be retained, and who can accept a renter request in each pre-pickup state. No automatic fee logic is assumed.
 
-## Configuration inputs still required before public application deployment
+## Configuration inputs still required before public paid launch
 
 These are not architecture questions, but implementation cannot finish without them:
 
@@ -96,7 +96,26 @@ These are not architecture questions, but implementation cannot finish without t
 - allowed upload file types and maximum sizes per bucket; and
 - whether Supabase Cron is enabled for the idempotent expiration/retention functions.
 
-The CamNook Supabase project is confirmed healthy at project ref `iegcixcevvkryfwfotqz`. CLI access was reauthenticated under the requested account on 2026-08-12, and local CLI metadata points to that existing project. On 2026-08-13, the owner approved temporarily using `main` as both development and production while the product remains private. The three foundation migrations, two forward advisor/lint fixes, and the sole-admin bootstrap migration were then applied to `main`; linked types were regenerated, and the custom `api` schema was added to the hosted Data API's exposed schemas. The public-launch gates below remain fail-closed.
+The live Production project remains Supabase `CamNook`
+(`iegcixcevvkryfwfotqz`) at [camnook.shop](https://camnook.shop). The separate
+Supabase `CamNook Development` project (`ekmoiepalelqpmemvrkl`, Tokyo /
+`ap-northeast-1`) is the current target for migration and Preview verification;
+ignored local CLI metadata points to Development, not Production. Production
+historically received the seven foundation/auth migrations. The controlled
+Development/Preview rollout owns applying and verifying the booking-approval
+migration; current linked remote migration history must be checked at rollout
+time. Production is not a rollout target without separate explicit
+authorization.
+
+Vercel Preview has two app-owned, Preview-scoped Supabase records for the
+Development project: browser-visible `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Vercel platform-provided variables are
+separate, and Production retains separate Production application records.
+Preview Deployment Protection remains enabled. Hosted
+Development Auth is invite-only, uses a six-digit email OTP with a 15-minute
+expiry, and uses hosted SMTP configuration. The local `supabase/config.toml`
+intentionally differs and must not be pushed to hosted Auth. The public-launch
+gates below remain fail-closed.
 
 ## Public-launch blockers
 
@@ -139,9 +158,21 @@ Approval of this milestone means agreement that:
 
 ## Implementation status after approval
 
-1. The Next.js/Supabase workspace is initialized without UI feature work.
-2. The existing Supabase project is linked under the approved account.
-3. The migration files translate the approved architecture and are applied to the temporarily shared `main` database.
-4. RLS, concurrency, immutability, Storage, advisor, and application verification are maintained as release checks.
-5. Linked TypeScript database types are generated and Supabase clients use them.
-6. The sole application admin is a separately confirmed CamNook Auth user. Its authenticated session and admin-only RPC authorization were verified on 2026-08-13; Supabase dashboard access remains a separate management identity.
+1. The Next.js/Supabase workspace and current booking-request/admin-review UI
+   are implemented; later paid-rental stages remain gated.
+2. Ignored local CLI metadata links routine hosted work only to the separate
+   Development project. Production remains live, isolated, and unlinked.
+3. Eight forward migration files translate the approved architecture.
+   Production received the seven foundation/auth migrations; the separately
+   controlled Development/Preview rollout owns application and verification of
+   the booking-approval migration. Current remote history is operational state
+   to verify, not a durable documentation assumption.
+4. The approved OD-01 pricing transaction is implemented by
+   [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
+5. RLS, concurrency, immutability, Storage, advisor, and application
+   verification remain release checks.
+6. Generated TypeScript database types and Supabase clients preserve the
+   repository's explicit `public`/`api` contracts.
+7. The sole application admin remains a separately confirmed CamNook Auth user;
+   Supabase dashboard access remains a separate management identity. No user or
+   environment-specific admin UUID belongs in this document.

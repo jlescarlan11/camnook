@@ -2,13 +2,32 @@
 
 Status: approved on 2026-08-12<br>
 Policy source: [`docs/product/mvp-rental-policy-v0.1.md`](../product/mvp-rental-policy-v0.1.md)<br>
-Target project: Supabase `CamNook` (`iegcixcevvkryfwfotqz`), PostgreSQL 17, `ap-northeast-1`
+Production architecture target: Supabase `CamNook`
+(`iegcixcevvkryfwfotqz`), PostgreSQL 17, `ap-northeast-1`<br>
+Current implementation target: separate Supabase `CamNook Development`
+(`ekmoiepalelqpmemvrkl`), PostgreSQL 17, Tokyo / `ap-northeast-1`
 
 ## Architecture decision
 
 Confirm the preferred stack: Next.js 16 App Router, strict TypeScript, pnpm, Tailwind CSS, shadcn/ui, Supabase Auth/Postgres/Storage, PostgreSQL RLS, Vercel, and Vitest for pure domain rules. This is sufficient for the MVP; no additional service is justified.
 
-The Supabase project already exists outside Vercel Marketplace. During the application milestone, connect that existing project and synchronize only its publishable URL/key and server-only secrets. Do not provision a duplicate database. Use Vercel's default Node.js Fluid Compute runtime; streaming or Server Actions do not require Edge runtime.
+Both Supabase projects already exist outside Vercel Marketplace. The separate
+Development project is the only linked target for routine hosted migration and
+Preview verification; the live Production project is not linked. Local linkage
+is ignored machine state, not committed architecture. Vercel Preview has two
+app-owned, Preview-scoped Supabase records for the Development project's
+publishable URL/key; Vercel platform-provided variables are separate, and
+Production retains its separate application records. Browsers can see every
+`NEXT_PUBLIC_` value, so those records must never contain secret/service-role
+material. Use Vercel's default Node.js Fluid Compute runtime; streaming or
+Server Actions do not require Edge runtime.
+
+Hosted Development Auth is invite-only (signup disabled), sends a six-digit
+email OTP with a 15-minute expiry, and uses hosted SMTP configuration. The local
+`supabase/config.toml` intentionally models local defaults and differs from
+hosted Auth; `supabase config push` is prohibited because it could overwrite
+that hosted behavior. Credentials, SMTP values, provider keys, user UUIDs, and
+deployment-protection bypass material are never architecture inputs.
 
 Application data flow:
 
@@ -320,7 +339,37 @@ Policy rules:
 
 ## Migration acceptance tests
 
-Before any production migration is accepted:
+The repository contains eight forward migrations. Production historically
+received the seven foundation/auth migrations. The controlled
+Development/Preview rollout owns applying and verifying the eighth migration;
+check current linked remote history at rollout time. This historical Production
+context does not authorize a new Production mutation or deployment.
+
+Before **each** linked hosted database command, run the target check immediately
+before the command and require the exact Development ref:
+
+```bash
+cat supabase/.temp/project-ref
+# Must print exactly: ekmoiepalelqpmemvrkl
+pnpm dlx supabase@2.113.0 db push --linked --dry-run
+
+cat supabase/.temp/project-ref
+# Must print exactly: ekmoiepalelqpmemvrkl
+pnpm dlx supabase@2.113.0 db push --linked
+```
+
+A missing or different ref is a hard stop. Migration work is forward-only and
+migration-first; verify flags against the repository-pinned CLI's `--help`.
+Never run `supabase db reset --linked` directly or forward `--linked` through
+`pnpm db:reset` (including `pnpm db:reset -- --linked` or any equivalent), link
+Production for routine work, or run `supabase config push`. The exact
+no-argument `pnpm db:reset` command documented in the README targets Local.
+Docker-backed resets are local-only when a healthy local stack is intentionally
+in use; Docker reset/prune is not CamNook troubleshooting, and the socket-only
+concurrency harness does not require Docker.
+
+Before a Development migration can be considered for a separately authorized
+Production rollout:
 
 1. Run tests as `anon`, renter A, renter B, admin, and service role.
 2. Prove renter A cannot enumerate or mutate renter B data or files.
@@ -332,3 +381,10 @@ Before any production migration is accepted:
 8. Prove public views reveal no private identifiers.
 9. Run Supabase security and performance advisors and resolve applicable findings.
 10. Generate TypeScript database types only after the approved migration is applied.
+
+Run the database, RLS, concurrency, and advisor validation in Local and then
+against Development. Protected Vercel Preview is the application/browser smoke
+validation target after the Development database is verified; Preview is not a
+database-test environment. A Production migration, Production
+environment-variable change, deployment, or promotion is a separate release
+action that requires explicit authorization.
