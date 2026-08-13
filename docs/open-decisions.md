@@ -101,10 +101,11 @@ The live Production project remains Supabase `CamNook`
 Supabase `CamNook Development` project (`ekmoiepalelqpmemvrkl`, Tokyo /
 `ap-northeast-1`) is the current target for migration and Preview verification;
 ignored local CLI metadata points to Development, not Production. Production
-historically received the seven foundation/auth migrations. The controlled
-Development/Preview rollout owns applying and verifying the four later booking
-milestone migrations; current linked remote migration history must be checked
-at rollout time. Production is not a rollout target without separate explicit
+received the four booking-milestone migrations on 13 August 2026 through a
+separately authorized, database-first rollout after Development/Preview
+verification. Development and Production both had an exact 11/11 migration
+history after the rollout. Current remote history must still be checked at
+rollout time. Production is not a rollout target without separate explicit
 authorization.
 
 Vercel Preview has two app-owned, Preview-scoped Supabase records for the
@@ -163,10 +164,11 @@ Approval of this milestone means agreement that:
 2. Ignored local CLI metadata links routine hosted work only to the separate
    Development project. Production remains live, isolated, and unlinked.
 3. Eleven forward migration files translate the approved architecture.
-   Production received the seven foundation/auth migrations; the separately
-   controlled Development/Preview rollout owns application and verification of
-   the four later booking milestone migrations. Current remote history is
-   operational state to verify, not a durable documentation assumption.
+   Production received the four booking-milestone migrations on 13 August 2026
+   through a separately authorized database-first rollout. Development and
+   Production both had an exact 11/11 history immediately afterward. Current
+   remote history is operational state to verify, not a durable documentation
+   assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
 5. RLS, concurrency, immutability, Storage, advisor, and application

@@ -353,12 +353,12 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains eleven forward migrations. Production historically
-received the seven foundation/auth migrations. The controlled
-Development/Preview rollout owns applying and verifying the four later booking
-milestone migrations; check current linked remote history at rollout time. This
-historical Production context does not authorize a new Production mutation or
-deployment.
+The repository contains eleven forward migrations. On 13 August 2026, the four
+booking-milestone migrations were applied to Production through a separately
+authorized, database-first rollout after Development/Preview verification.
+Development and Production both had an exact 11/11 migration history after the
+rollout. Check current remote history at every future rollout; this recorded
+state does not authorize another Production mutation or deployment.
 
 Before **each** linked hosted database command, run the target check immediately
 before the command and require the exact Development ref:
@@ -383,8 +383,8 @@ Docker-backed resets are local-only when a healthy local stack is intentionally
 in use; Docker reset/prune is not CamNook troubleshooting, and the socket-only
 concurrency harness does not require Docker.
 
-Before a Development migration can be considered for a separately authorized
-Production rollout:
+Before any future Development migration can be considered for a separately
+authorized Production rollout:
 
 1. Run tests as `anon`, renter A, renter B, admin, and service role.
 2. Prove renter A cannot enumerate or mutate renter B data or files.
