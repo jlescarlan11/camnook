@@ -63,7 +63,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
         </Link>
         <h1 className="mt-5 text-4xl font-semibold tracking-tight">Request this rental</h1>
         <p className="mt-3 max-w-2xl leading-7 text-stone-600">
-          Review the freshly quoted period, complete your owner-only profile if
+          Review the freshly quoted period, complete your renter profile if
           needed, then submit one real request for review.
         </p>
 

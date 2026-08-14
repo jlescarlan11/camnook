@@ -45,7 +45,7 @@ describe("authentication route policy", () => {
     );
   });
 
-  it("preserves an owner booking detail destination and safe success flag", () => {
+  it("preserves a renter booking detail destination and safe success flag", () => {
     expect(
       sanitizeReturnTo(
         "/account/bookings/22222222-2222-4222-8222-222222222222?requested=1",

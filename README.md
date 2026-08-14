@@ -38,6 +38,12 @@ Copy `.env.example` to `.env.local`, then set the project URL and publishable
 key. Never expose a Supabase secret/service-role key with a `NEXT_PUBLIC_`
 prefix.
 
+When hosted Auth CAPTCHA is enabled for an environment, also set
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` to that environment's browser-visible
+Cloudflare Turnstile site key. The matching secret belongs only in the target
+Supabase project's hosted Auth configuration; it must never be placed in Git,
+Vercel, or a browser bundle.
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev
@@ -74,17 +80,19 @@ reset a hosted project. Do not start, reset, or prune Docker as CamNook
 troubleshooting; Docker may contain unrelated local data. The socket-only
 `pnpm db:test:concurrency` harness does not require Docker. It requires Homebrew
 `postgresql@17`, creates a socket-only disposable cluster, applies all
-migrations, runs the real two-session approval races, and removes the cluster on
-exit. It refuses a caller-supplied `DATABASE_URL`, so it cannot be redirected to
-a developer or hosted database.
+migrations, runs the domain/authorization invariants and real two-session
+approval races, and removes the cluster on exit. It refuses a caller-supplied
+`DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
 
-The repository currently contains eleven forward migrations. On 13 August 2026,
+The repository currently contains thirteen forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
-verification. Development and Production both had an exact 11/11 migration
-history after that rollout. Treat this as a recorded release result, not a
-substitute for checking current remote migration history before any future
-action.
+verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
+August 2026, the catalog-photo publication and unpublished-availability
+migrations were applied and exercised only in Development. Development is now
+recorded at 13/13 while Production remains at 11/13. Treat those counts as
+recorded release evidence, not a substitute for checking current remote
+migration history before any future action.
 
 For a hosted Development migration, keep the change migration-first and
 forward-only. Immediately before **each** command that can inspect or mutate
@@ -111,11 +119,34 @@ against the pinned CLI's `--help` before use. Never:
   then target the live database; or
 - reset or prune Docker as part of CamNook work.
 
-Hosted Development Auth is invite-only (signup disabled), sends a six-digit
-email OTP with a 15-minute expiry, and uses hosted SMTP configuration. Those
-hosted settings are the operational truth; the local `supabase/config.toml` is
-not a pushable copy of them. SMTP credentials and provider keys remain only in
-hosted configuration.
+The application supports public email-OTP registration and sign-in: a missing
+email is eligible for an ordinary renter identity, and successful verification
+is required before a usable local session exists.
+Administrative authority remains a separate database record in
+`private.admin_accounts`; signup never grants it. Hosted Development Auth now
+has public email signup and Cloudflare Turnstile CAPTCHA enabled after the
+protected-Preview activation and smoke test. It sends a six-digit email OTP with
+a 15-minute expiry through proven custom SMTP; the Development email-send
+ceiling remains four per hour for protected manual QA. Production remains
+fail-closed with signup and CAPTCHA disabled and has not yet been moved from its
+confirmation-link template to the OTP template. Hosted settings are the
+operational truth; the local `supabase/config.toml` is not a pushable copy of
+them. SMTP and CAPTCHA secrets remain only in hosted provider configuration.
+
+Use [`docs/operations/public-renter-registration.md`](docs/operations/public-renter-registration.md)
+for the environment-specific activation and rollback sequence. Application,
+public site-key, hosted CAPTCHA/signup, and SMTP/rate-limit changes must be
+validated in Development and protected Preview before a separately approved
+Production rollout. Never run `supabase config push` for this flow.
+
+The first real camera catalog is a separate, business-approved data release.
+Use [`docs/operations/catalog-publication.md`](docs/operations/catalog-publication.md)
+for its Development rehearsal, user-scoped operator commands, publication and
+privacy checks, and recovery sequence. The workflow was applied and rehearsed
+in Development on 14 August 2026; it remains unavailable in Production until a
+separately approved migration and catalog release. Do not place real inventory
+manifests or private serial/cost values in Git, and do not bypass private staging
+with a direct public-bucket upload.
 
 To refresh types from the linked database:
 

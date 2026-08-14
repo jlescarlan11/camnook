@@ -5,7 +5,11 @@ import { useActionState, useState } from "react";
 import { saveProfile } from "@/features/bookings/actions/profile";
 import { initialProfileActionState } from "@/features/bookings/form-state";
 
-export function ProfileForm() {
+export function ProfileForm({
+  successMessage = "Profile saved. You can continue when the request form appears.",
+}: {
+  successMessage?: string;
+}) {
   const [legalName, setLegalName] = useState("");
   const [phone, setPhone] = useState("");
   const [state, formAction, pending] = useActionState(
@@ -72,7 +76,7 @@ export function ProfileForm() {
       ) : null}
       {state.status === "success" ? (
         <p className="text-sm text-emerald-800" role="status">
-          Profile saved. You can continue when the request form appears.
+          {successMessage}
         </p>
       ) : null}
       <button

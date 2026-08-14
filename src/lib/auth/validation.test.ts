@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { emailOtpSchema, emailSchema } from "./validation";
+import { captchaTokenSchema, emailOtpSchema, emailSchema } from "./validation";
 
 describe("authentication input validation", () => {
   it("normalizes a valid email address", () => {
@@ -25,6 +25,19 @@ describe("authentication input validation", () => {
     "rejects an invalid OTP: %s",
     (token) => {
       expect(emailOtpSchema.safeParse(token).success).toBe(false);
+    },
+  );
+
+  it("accepts a trimmed CAPTCHA response within the provider token bound", () => {
+    expect(captchaTokenSchema.parse(" verified-token ")).toBe(
+      "verified-token",
+    );
+  });
+
+  it.each(["", "   ", "x".repeat(4097)])(
+    "rejects an invalid CAPTCHA response",
+    (token) => {
+      expect(captchaTokenSchema.safeParse(token).success).toBe(false);
     },
   );
 });

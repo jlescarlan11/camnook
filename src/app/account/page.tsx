@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { logout } from "@/features/auth/actions";
+import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountData } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
@@ -55,18 +56,7 @@ export default async function AccountPage() {
           <>
             <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="profile-heading">
               <h2 className="text-2xl font-semibold" id="profile-heading">Profile</h2>
-              {account.profile ? (
-                <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-                  <SummaryValue label="Legal name" value={account.profile.legalName} />
-                  <SummaryValue label="Phone" value={account.profile.phone} />
-                  <SummaryValue label="Account status" value={account.profile.accountStatus} />
-                </dl>
-              ) : (
-                <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-                  <p>Your booking profile is not complete yet.</p>
-                  <Link className="mt-2 inline-block font-semibold underline" href="/">Choose a camera to begin</Link>
-                </div>
-              )}
+              <AccountProfile profile={account.profile} />
             </section>
 
             <section className="mt-8" aria-labelledby="bookings-heading">
@@ -103,15 +93,6 @@ export default async function AccountPage() {
           </>
         )}
       </main>
-    </div>
-  );
-}
-
-function SummaryValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-stone-50 p-4">
-      <dt className="text-sm text-stone-500">{label}</dt>
-      <dd className="mt-1 break-words font-medium capitalize">{value}</dd>
     </div>
   );
 }

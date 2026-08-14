@@ -22,12 +22,30 @@ Production retains its separate application records. Browsers can see every
 material. Use Vercel's default Node.js Fluid Compute runtime; streaming or
 Server Actions do not require Edge runtime.
 
-Hosted Development Auth is invite-only (signup disabled), sends a six-digit
-email OTP with a 15-minute expiry, and uses hosted SMTP configuration. The local
-`supabase/config.toml` intentionally models local defaults and differs from
-hosted Auth; `supabase config push` is prohibited because it could overwrite
-that hosted behavior. Credentials, SMTP values, provider keys, user UUIDs, and
-deployment-protection bypass material are never architecture inputs.
+The application requests passwordless email OTPs with missing-user creation
+enabled. Supabase may provision the Auth identity when it accepts the OTP
+request; successful verification is required before the browser receives a
+usable local session. Neither step creates an administrator or an application
+profile. The renter completes the existing idempotent `api.ensure_profile` flow
+after authentication.
+Hosted Development Auth now has public signup and Cloudflare Turnstile CAPTCHA
+enabled after the reviewed Development/Preview activation. It uses a six-digit
+email OTP with a 15-minute expiry and proven custom SMTP configuration; the
+Development email-send ceiling remains four per hour for protected manual QA.
+Production remains fail-closed with signup and CAPTCHA disabled and still uses
+its confirmation-link template until a separately approved release converts it
+to OTP. The local `supabase/config.toml` intentionally models local defaults and
+differs from hosted Auth; `supabase config push` is prohibited because it could
+overwrite hosted behavior. Credentials, SMTP values, CAPTCHA secrets, provider
+keys, user UUIDs, and deployment-protection bypass material are never
+architecture inputs.
+
+When enabled for a target environment, Cloudflare Turnstile is rendered only on
+the OTP request and resend forms. The browser receives the public site key and
+submits the short-lived response through `options.captchaToken`; Supabase owns
+secret-side validation. Hosted signup, CAPTCHA, rate limits, SMTP capacity, and
+the matching public site key are rolled out together per environment using
+[`docs/operations/public-renter-registration.md`](../operations/public-renter-registration.md).
 
 Application data flow:
 
@@ -155,6 +173,18 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
 - `id` PK, `camera_id` FK, opaque public object path unique, alt text, sort position, and active/archive timestamps.
 - Unique `(camera_id, sort_position)` among active photos.
 
+`private.catalog_photo_publications`
+
+- Holds the non-public, immutable expected image type, byte size, SHA-256,
+  exact staging/public UUID paths, alt text, sort position, initiating admin,
+  short upload-intent expiry, and retryable lifecycle state.
+- Narrow admin-only API operations move an intent through staging verification,
+  copy verification, active photo metadata, staging cleanup, abort, or archive.
+  A database row never claims publication until the destination object exists.
+- Application roles cannot read or mutate the table directly. Storage policies
+  join the exact path to a current state and `private.is_admin()`; no `UPDATE`
+  policy permits object overwrite.
+
 `public.camera_accessories`
 
 - `id` PK, `camera_id` FK, name, quantity (`> 0`), optional replacement value, sort position, and archive timestamp.
@@ -163,7 +193,7 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
 `public.public_cameras`, `public.public_camera_photos`, and `public.public_availability`
 
 - `security_invoker = true` views containing only approved public columns.
-- `public_availability` returns camera ID plus busy range and generalized reason (`booked` or `unavailable`), never booking ID or renter data.
+- `public_availability` returns active blocks only for currently published cameras, with camera ID plus busy range and generalized reason (`booked` or `unavailable`), never booking ID or renter data. Anonymous and ordinary authenticated direct-table policies enforce the same publication boundary; explicit admins retain private inventory visibility.
 - Because RLS controls rows rather than columns, anonymous access also uses explicit column-level grants on the source tables. `anon` receives no privilege on serial, cost/value, booking, renter, or internal-note columns and cannot bypass the projection with a direct Data API query.
 
 ### Requests, reservations, and exclusion constraint
@@ -353,12 +383,15 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains eleven forward migrations. On 13 August 2026, the four
+The repository contains thirteen forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
-authorized, database-first rollout after Development/Preview verification.
-Development and Production both had an exact 11/11 migration history after the
-rollout. Check current remote history at every future rollout; this recorded
-state does not authorize another Production mutation or deployment.
+authorized, database-first rollout after Development/Preview verification,
+leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
+catalog-photo publication and unpublished-availability migrations were applied
+and exercised only in Development. Development is recorded at 13/13 while
+Production remains at 11/13. Check current remote history at every future
+rollout; these recorded counts do not authorize another Production mutation or
+deployment.
 
 Before **each** linked hosted database command, run the target check immediately
 before the command and require the exact Development ref:

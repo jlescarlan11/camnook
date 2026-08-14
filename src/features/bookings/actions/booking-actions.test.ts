@@ -151,7 +151,7 @@ describe("quoteBooking", () => {
 describe("saveProfile", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("trims valid owner profile fields and sends only the two RPC parameters", async () => {
+  it("trims valid renter profile fields and sends only the two RPC parameters", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { account_status: "active" }, error: null });
     const existing = profileQuery({ data: null, error: null });
     const api = rpcClient(rpc);
@@ -190,7 +190,7 @@ describe("saveProfile", () => {
     expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it("fails closed for a suspended owner without calling ensure_profile", async () => {
+  it("fails closed for a suspended renter without calling ensure_profile", async () => {
     const rpc = vi.fn();
     const existing = profileQuery({
       data: { account_status: "suspended" },
@@ -308,7 +308,7 @@ describe("requestBooking", () => {
     expect(getAuthenticatedUser).not.toHaveBeenCalled();
   });
 
-  it("routes an unauthenticated direct action call through invite-only login", async () => {
+  it("routes an unauthenticated direct action call through public registration", async () => {
     vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
 
     await expect(

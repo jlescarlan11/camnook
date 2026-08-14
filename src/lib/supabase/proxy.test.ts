@@ -70,7 +70,7 @@ describe("Supabase session proxy", () => {
     );
   });
 
-  it("preserves an owner booking detail path through invite-only sign-in", async () => {
+  it("preserves a renter booking detail path through public sign-in", async () => {
     mockClaims(null);
 
     const response = await updateSupabaseSession(
@@ -84,7 +84,7 @@ describe("Supabase session proxy", () => {
     );
   });
 
-  it("preserves an admin booking detail path through invite-only sign-in", async () => {
+  it("preserves an admin booking detail path through public sign-in", async () => {
     mockClaims(null);
 
     const response = await updateSupabaseSession(

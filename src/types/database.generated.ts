@@ -21,6 +21,10 @@ export type Database = {
     }
     Functions: {
       approve_booking: { Args: { p_booking_id: string }; Returns: undefined }
+      confirm_catalog_photo_staging_removed: {
+        Args: { p_operation_id: string; p_publication_id: string }
+        Returns: Json
+      }
       complete_issue_review: {
         Args: { p_booking_id: string; p_note: string }
         Returns: undefined
@@ -44,6 +48,19 @@ export type Database = {
           p_starts_at: string
         }
         Returns: string
+      }
+      create_catalog_photo_publication: {
+        Args: {
+          p_alt_text: string
+          p_byte_size: number
+          p_camera_id: string
+          p_media_type: string
+          p_operation_id: string
+          p_publication_id: string
+          p_sha256_hex: string
+          p_sort_position: number
+        }
+        Returns: Json
       }
       create_payment_proof_upload: {
         Args: {
@@ -88,6 +105,24 @@ export type Database = {
         }
       }
       expire_due_bookings: { Args: never; Returns: number }
+      finalize_catalog_photo_abort: {
+        Args: { p_operation_id: string; p_publication_id: string }
+        Returns: Json
+      }
+      finalize_catalog_photo_archive: {
+        Args: { p_operation_id: string; p_publication_id: string }
+        Returns: Json
+      }
+      finalize_catalog_photo_publication: {
+        Args: {
+          p_operation_id: string
+          p_publication_id: string
+          p_verified_byte_size: number
+          p_verified_media_type: string
+          p_verified_sha256_hex: string
+        }
+        Returns: Json
+      }
       finalize_deposit_settlement: {
         Args: {
           p_booking_id: string
@@ -99,6 +134,45 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: never; Returns: boolean }
+      get_catalog_photo_publication: {
+        Args: { p_publication_id: string }
+        Returns: Json
+      }
+      list_catalog_photo_publications: {
+        Args: never
+        Returns: {
+          alt_text: string
+          camera_id: string
+          camera_name: string
+          created_at: string
+          expires_at: string
+          id: string
+          sort_position: number
+          status: string
+        }[]
+      }
+      mark_catalog_photo_ready: {
+        Args: {
+          p_operation_id: string
+          p_publication_id: string
+          p_verified_byte_size: number
+          p_verified_media_type: string
+          p_verified_sha256_hex: string
+        }
+        Returns: Json
+      }
+      prepare_catalog_photo_abort: {
+        Args: { p_operation_id: string; p_publication_id: string }
+        Returns: Json
+      }
+      prepare_catalog_photo_archive: {
+        Args: { p_operation_id: string; p_publication_id: string }
+        Returns: Json
+      }
+      publish_camera: {
+        Args: { p_camera_id: string; p_operation_id: string }
+        Returns: Json
+      }
       quote_booking: {
         Args: { p_camera_id: string; p_pickup_at: string; p_return_at: string }
         Returns: {

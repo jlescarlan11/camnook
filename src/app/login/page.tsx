@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LoginForm } from "@/features/auth/components/login-form";
+import { getTurnstileSiteKey } from "@/lib/auth/captcha-config";
 import { sanitizeReturnTo } from "@/lib/auth/routes";
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const next = Array.isArray(params.next) ? params.next[0] : params.next;
   const returnTo = sanitizeReturnTo(next);
   const signedOut = params.signed_out === "1";
+  const captchaSiteKey = getTurnstileSiteKey();
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-stone-100 px-6 py-12 text-stone-950">
@@ -34,7 +36,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Sign in securely
         </h1>
         <p className="mt-3 leading-7 text-stone-600">
-          Enter the email for your invited account. We&apos;ll send a one-time
+          Enter your email to register or sign in. We&apos;ll send a one-time
           code—no password or email link required.
         </p>
         {signedOut ? (
@@ -45,10 +47,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             You&apos;ve been signed out on this device.
           </p>
         ) : null}
-        <LoginForm returnTo={returnTo} />
+        <LoginForm captchaSiteKey={captchaSiteKey} returnTo={returnTo} />
         <p className="mt-6 text-sm leading-6 text-stone-500">
-          CamNook is private during launch preparation. Requesting a code does
-          not create a new account.
+          New accounts are ordinary renter accounts. Administrative access is
+          granted separately and cannot be requested from this page.
         </p>
       </section>
     </main>

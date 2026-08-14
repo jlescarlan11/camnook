@@ -49,11 +49,29 @@ verification_writer_sql="$test_dir/verification-writer.sql"
 verification_ready_file="$test_dir/verification-approval-ready"
 verification_release_file="$test_dir/verification-approval-release"
 verification_writer_application_name="camnook-verification-writer-$$"
+catalog_archive_a_log="$test_dir/catalog-archive-a.log"
+catalog_archive_b_log="$test_dir/catalog-archive-b.log"
+catalog_archive_a_sql="$test_dir/catalog-archive-a.sql"
+catalog_archive_b_sql="$test_dir/catalog-archive-b.sql"
+catalog_archive_ready_file="$test_dir/catalog-archive-a-ready"
+catalog_archive_release_file="$test_dir/catalog-archive-a-release"
+catalog_archive_b_application_name="camnook-catalog-archive-b-$$"
+catalog_publish_archive_log="$test_dir/catalog-publish-archive.log"
+catalog_publish_log="$test_dir/catalog-publish.log"
+catalog_publish_archive_sql="$test_dir/catalog-publish-archive.sql"
+catalog_publish_sql="$test_dir/catalog-publish.sql"
+catalog_publish_ready_file="$test_dir/catalog-publish-archive-ready"
+catalog_publish_release_file="$test_dir/catalog-publish-archive-release"
+catalog_publish_application_name="camnook-catalog-publish-$$"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
 verification_approval_pid=""
 verification_writer_pid=""
+catalog_archive_a_pid=""
+catalog_archive_b_pid=""
+catalog_publish_archive_pid=""
+catalog_publish_pid=""
 
 cleanup() {
   set +e
@@ -63,7 +81,11 @@ cleanup() {
     "$accessory_approval_pid" \
     "$accessory_writer_pid" \
     "$verification_approval_pid" \
-    "$verification_writer_pid"; do
+    "$verification_writer_pid" \
+    "$catalog_archive_a_pid" \
+    "$catalog_archive_b_pid" \
+    "$catalog_publish_archive_pid" \
+    "$catalog_publish_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -147,6 +169,12 @@ for migration in "$repo_root"/supabase/migrations/*.sql; do
   echo "applying $(basename "$migration")"
   "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
+
+echo "running domain and authorization invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/001_domain_invariants.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -738,3 +766,345 @@ $$;
 SQL
 
 echo "ok - approval stabilizes verification membership against concurrent decisions"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+insert into public.cameras (
+  id, slug, serial_number, name, description, status,
+  daily_rate, security_deposit, published_at
+) values (
+  '26000000-0000-4000-8000-000000000001',
+  'catalog-archive-race',
+  'CATALOG-RACE-SERIAL',
+  'Catalog Archive Race Camera',
+  'Concurrency-only catalog fixture.',
+  'published',
+  1000,
+  3000,
+  statement_timestamp()
+);
+
+insert into private.catalog_photo_publications (
+  id, camera_id, created_by, staging_object_path, public_object_path,
+  alt_text, sort_position, expected_media_type, expected_byte_size,
+  expected_sha256, status, source_verified_at, destination_verified_at,
+  staging_removed_at
+) values
+  (
+    '26000000-0000-4000-8000-000000000002',
+    '26000000-0000-4000-8000-000000000001',
+    '20000000-0000-4000-8000-000000000001',
+    'camera-listings/26000000-0000-4000-8000-000000000001/26000000-0000-4000-8000-000000000002.png',
+    '26000000-0000-4000-8000-000000000001/26000000-0000-4000-8000-000000000002.png',
+    'Catalog race photo A',
+    0,
+    'image/png',
+    3,
+    decode(repeat('a', 64), 'hex'),
+    'published',
+    statement_timestamp(),
+    statement_timestamp(),
+    statement_timestamp()
+  ),
+  (
+    '26000000-0000-4000-8000-000000000003',
+    '26000000-0000-4000-8000-000000000001',
+    '20000000-0000-4000-8000-000000000001',
+    'camera-listings/26000000-0000-4000-8000-000000000001/26000000-0000-4000-8000-000000000003.png',
+    '26000000-0000-4000-8000-000000000001/26000000-0000-4000-8000-000000000003.png',
+    'Catalog race photo B',
+    1,
+    'image/png',
+    3,
+    decode(repeat('b', 64), 'hex'),
+    'published',
+    statement_timestamp(),
+    statement_timestamp(),
+    statement_timestamp()
+  );
+
+insert into public.camera_photos (
+  id, camera_id, object_path, alt_text, sort_position
+)
+select id, camera_id, public_object_path, alt_text, sort_position
+from private.catalog_photo_publications
+where camera_id = '26000000-0000-4000-8000-000000000001';
+SQL
+
+cat >"$catalog_archive_a_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.prepare_catalog_photo_archive(
+  '26000000-0000-4000-8000-000000000002',
+  '26000000-0000-4000-8000-000000000004'
+);
+\! touch "$catalog_archive_ready_file"
+\! while [[ ! -f "$catalog_archive_release_file" ]]; do sleep 0.025; done
+commit;
+SQL
+
+cat >"$catalog_archive_b_sql" <<SQL
+\set ON_ERROR_STOP off
+\set VERBOSITY terse
+set application_name = '$catalog_archive_b_application_name';
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.prepare_catalog_photo_archive(
+  '26000000-0000-4000-8000-000000000003',
+  '26000000-0000-4000-8000-000000000005'
+);
+\if :ERROR
+rollback;
+\else
+commit;
+\endif
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$catalog_archive_a_sql" >"$catalog_archive_a_log" 2>&1 &
+catalog_archive_a_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$catalog_archive_ready_file" ]] && break
+  if ! kill -0 "$catalog_archive_a_pid" 2>/dev/null; then
+    wait "$catalog_archive_a_pid" || true
+    cat "$catalog_archive_a_log" >&2
+    echo "catalog archive A exited before reaching its transaction barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$catalog_archive_ready_file" ]]; then
+  cat "$catalog_archive_a_log" >&2
+  echo "timed out waiting for catalog archive transaction barrier" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -f "$catalog_archive_b_sql" >"$catalog_archive_b_log" 2>&1 &
+catalog_archive_b_pid=$!
+
+catalog_archive_lock_observed="false"
+for _ in {1..200}; do
+  if ! kill -0 "$catalog_archive_b_pid" 2>/dev/null; then
+    wait "$catalog_archive_b_pid" || true
+    cat "$catalog_archive_b_log" >&2
+    cat "$catalog_archive_a_log" >&2
+    echo "catalog archive B exited before PostgreSQL reported its row lock wait" >&2
+    exit 1
+  fi
+
+  if [[ "$("$postgres_bin/psql" "$database_url" -Atq -v ON_ERROR_STOP=1 -c "
+    select exists (
+      select 1
+      from pg_catalog.pg_stat_activity
+      where application_name = '$catalog_archive_b_application_name'
+        and wait_event_type = 'Lock'
+        and wait_event = 'transactionid'
+    );
+  ")" == "t" ]]; then
+    catalog_archive_lock_observed="true"
+    break
+  fi
+  sleep 0.025
+done
+
+if [[ "$catalog_archive_lock_observed" != "true" ]]; then
+  cat "$catalog_archive_b_log" >&2
+  cat "$catalog_archive_a_log" >&2
+  echo "catalog archive B did not wait on the serialized camera row" >&2
+  exit 1
+fi
+
+touch "$catalog_archive_release_file"
+wait "$catalog_archive_a_pid"
+catalog_archive_a_pid=""
+wait "$catalog_archive_b_pid"
+catalog_archive_b_pid=""
+
+if ! grep -q "a published camera must retain at least one active photo" "$catalog_archive_b_log"; then
+  cat "$catalog_archive_b_log" >&2
+  echo "second concurrent catalog archive did not fail the last-photo precondition" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if (
+    select count(*)
+    from public.camera_photos
+    where camera_id = '26000000-0000-4000-8000-000000000001'
+      and archived_at is null
+  ) <> 1 then
+    raise exception 'concurrent catalog archives did not preserve one active photo';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - concurrent catalog archives preserve one active photo"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+insert into public.cameras (
+  id, slug, serial_number, name, description, status,
+  daily_rate, security_deposit
+) values (
+  '26000000-0000-4000-8000-000000000006',
+  'catalog-publish-archive-race',
+  'CATALOG-PUBLISH-RACE-SERIAL',
+  'Catalog Publish Archive Race Camera',
+  'Concurrency-only guarded publication fixture.',
+  'draft',
+  1000,
+  3000
+);
+
+insert into private.catalog_photo_publications (
+  id, camera_id, created_by, staging_object_path, public_object_path,
+  alt_text, sort_position, expected_media_type, expected_byte_size,
+  expected_sha256, status, source_verified_at, destination_verified_at,
+  staging_removed_at
+) values (
+  '26000000-0000-4000-8000-000000000007',
+  '26000000-0000-4000-8000-000000000006',
+  '20000000-0000-4000-8000-000000000001',
+  'camera-listings/26000000-0000-4000-8000-000000000006/26000000-0000-4000-8000-000000000007.png',
+  '26000000-0000-4000-8000-000000000006/26000000-0000-4000-8000-000000000007.png',
+  'Catalog publish archive race photo',
+  0,
+  'image/png',
+  3,
+  decode(repeat('c', 64), 'hex'),
+  'published',
+  statement_timestamp(),
+  statement_timestamp(),
+  statement_timestamp()
+);
+
+insert into public.camera_photos (id, camera_id, object_path, alt_text, sort_position)
+select id, camera_id, public_object_path, alt_text, sort_position
+from private.catalog_photo_publications
+where id = '26000000-0000-4000-8000-000000000007';
+
+insert into storage.objects (bucket_id, name, owner)
+values (
+  'camera-listings',
+  '26000000-0000-4000-8000-000000000006/26000000-0000-4000-8000-000000000007.png',
+  '20000000-0000-4000-8000-000000000001'
+);
+SQL
+
+cat >"$catalog_publish_archive_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.prepare_catalog_photo_archive(
+  '26000000-0000-4000-8000-000000000007',
+  '26000000-0000-4000-8000-000000000008'
+);
+\! touch "$catalog_publish_ready_file"
+\! while [[ ! -f "$catalog_publish_release_file" ]]; do sleep 0.025; done
+commit;
+SQL
+
+cat >"$catalog_publish_sql" <<SQL
+\set ON_ERROR_STOP off
+\set VERBOSITY terse
+set application_name = '$catalog_publish_application_name';
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.publish_camera(
+  '26000000-0000-4000-8000-000000000006',
+  '26000000-0000-4000-8000-000000000009'
+);
+\if :ERROR
+rollback;
+\else
+commit;
+\endif
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$catalog_publish_archive_sql" >"$catalog_publish_archive_log" 2>&1 &
+catalog_publish_archive_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$catalog_publish_ready_file" ]] && break
+  if ! kill -0 "$catalog_publish_archive_pid" 2>/dev/null; then
+    wait "$catalog_publish_archive_pid" || true
+    cat "$catalog_publish_archive_log" >&2
+    echo "catalog publish/archive fixture exited before its barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$catalog_publish_ready_file" ]]; then
+  cat "$catalog_publish_archive_log" >&2
+  echo "timed out waiting for catalog publish/archive transaction barrier" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -f "$catalog_publish_sql" >"$catalog_publish_log" 2>&1 &
+catalog_publish_pid=$!
+
+publish_lock_observed="false"
+for _ in {1..200}; do
+  if ! kill -0 "$catalog_publish_pid" 2>/dev/null; then
+    wait "$catalog_publish_pid" || true
+    cat "$catalog_publish_log" >&2
+    echo "guarded camera publish exited before its lock wait" >&2
+    exit 1
+  fi
+  if [[ "$("$postgres_bin/psql" "$database_url" -Atq -v ON_ERROR_STOP=1 -c "
+    select exists (
+      select 1 from pg_catalog.pg_stat_activity
+      where application_name = '$catalog_publish_application_name'
+        and wait_event_type = 'Lock'
+        and wait_event = 'transactionid'
+    );
+  ")" == "t" ]]; then
+    publish_lock_observed="true"
+    break
+  fi
+  sleep 0.025
+done
+
+if [[ "$publish_lock_observed" != "true" ]]; then
+  cat "$catalog_publish_log" >&2
+  cat "$catalog_publish_archive_log" >&2
+  echo "guarded camera publish did not serialize on the camera row" >&2
+  exit 1
+fi
+
+touch "$catalog_publish_release_file"
+wait "$catalog_publish_archive_pid"
+catalog_publish_archive_pid=""
+wait "$catalog_publish_pid"
+catalog_publish_pid=""
+
+if ! grep -q "camera publication requires an active verified listing photo" "$catalog_publish_log"; then
+  cat "$catalog_publish_log" >&2
+  echo "guarded camera publish did not reject the concurrent photo archive" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1 from public.cameras
+    where id = '26000000-0000-4000-8000-000000000006'
+      and status = 'draft'
+      and published_at is null
+  ) then
+    raise exception 'archive/publish race exposed an incomplete camera';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - guarded camera publication loses safely to a concurrent last-photo archive"

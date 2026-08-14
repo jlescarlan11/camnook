@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import {
   resendEmailOtp,
@@ -9,7 +9,18 @@ import {
 } from "@/features/auth/actions";
 import { initialAuthFormState } from "@/lib/auth/state";
 
-export function OtpForm() {
+import {
+  CaptchaChallenge,
+  type CaptchaChallengeHandle,
+} from "./captcha-challenge";
+
+export function OtpForm({
+  captchaSiteKey,
+  startAgainHref,
+}: {
+  captchaSiteKey: string | null;
+  startAgainHref: string;
+}) {
   const [state, formAction, pending] = useActionState(
     verifyEmailOtp,
     initialAuthFormState,
@@ -18,6 +29,15 @@ export function OtpForm() {
     resendEmailOtp,
     initialAuthFormState,
   );
+  const captchaRef = useRef<CaptchaChallengeHandle>(null);
+  const [captchaReady, setCaptchaReady] = useState(!captchaSiteKey);
+
+  function resend(formData: FormData) {
+    resendAction(formData);
+    if (captchaSiteKey) {
+      captchaRef.current?.reset();
+    }
+  }
 
   return (
     <div className="mt-8 space-y-6">
@@ -58,7 +78,7 @@ export function OtpForm() {
         </div>
         <button
           className="w-full rounded-xl bg-stone-950 px-5 py-3 font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={pending}
+          disabled={pending || resendPending}
           type="submit"
         >
           {pending ? "Checking code…" : "Verify and sign in"}
@@ -66,10 +86,20 @@ export function OtpForm() {
       </form>
 
       <div className="border-t border-stone-200 pt-5 text-sm text-stone-600">
-        <form action={resendAction}>
+        <form action={resend}>
+          {captchaSiteKey ? (
+            <div className="mb-4">
+              <CaptchaChallenge
+                action="resend_email_otp"
+                onTokenChange={setCaptchaReady}
+                ref={captchaRef}
+                siteKey={captchaSiteKey}
+              />
+            </div>
+          ) : null}
           <button
             className="font-medium text-amber-800 underline decoration-amber-300 underline-offset-4 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={resendPending}
+            disabled={pending || resendPending || !captchaReady}
             type="submit"
           >
             {resendPending ? "Sending…" : "Send another code"}
@@ -87,7 +117,7 @@ export function OtpForm() {
           Wrong email?{" "}
           <Link
             className="font-medium text-stone-900 underline decoration-stone-300 underline-offset-4"
-            href="/login"
+            href={startAgainHref}
           >
             Start again
           </Link>

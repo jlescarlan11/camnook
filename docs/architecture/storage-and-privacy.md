@@ -1,6 +1,7 @@
 # Storage and Privacy Architecture
 
 Status: approved on 2026-08-12<br>
+Implementation updated: 2026-08-14<br>
 Policy source: [`docs/product/mvp-rental-policy-v0.1.md`](../product/mvp-rental-policy-v0.1.md)
 
 ## Decision
@@ -29,8 +30,8 @@ The database and bucket policies may be prepared and tested before that approval
 
 | Bucket | Visibility | Contents | Writers | Readers |
 | --- | --- | --- | --- | --- |
-| `camera-listing-staging` | Private | Draft/unpublished camera photos | Admin upload operation | Admin only |
-| `camera-listings` | Public | Published camera photos only | Server-side publish operation | Anyone |
+| `draft-staging` | Private | Draft/unpublished camera photos under the `camera-listings/` prefix | Exact-path authenticated admin publication operation | Exact-path authenticated admin publication operation |
+| `camera-listings` | Public | Approved camera listing photos only | Exact-path authenticated admin publication operation | Anyone |
 | `verification-documents` | Private | Government ID files | Renter through upload intent; admin correction operation | Owning renter and audited admin |
 | `contracts` | Private | Rendered immutable contract versions | Server contract operation | Booking renter and audited admin |
 | `payment-proofs` | Private | Optional GCash submission screenshots | Booking renter through upload intent | Booking renter and audited admin |
@@ -43,7 +44,7 @@ Do not mix public camera media with private evidence. Bucket privacy is an indep
 Paths use UUIDs and generated extensions only. They never contain legal names, email addresses, phone numbers, ID types/numbers, camera serial numbers, GCash references, or free-form notes.
 
 ```text
-camera-listing-staging/{camera_uuid}/{photo_uuid}.{ext}
+draft-staging/camera-listings/{camera_uuid}/{photo_uuid}.{ext}
 camera-listings/{camera_uuid}/{photo_uuid}.{ext}
 verification-documents/{owner_uuid}/{record_uuid}/{document_uuid}.{ext}
 contracts/{booking_uuid}/{contract_version_uuid}/{artifact_uuid}.pdf
@@ -84,7 +85,7 @@ Application roles receive no `UPDATE` permission on private `storage.objects`. S
 - The older object remains under its retention rule unless an approved deletion policy removes it.
 - Contract versions and submitted evidence cannot be replaced in place.
 
-Public listing photos may be archived/reordered through database metadata, but revised bytes still use a new versioned object path to avoid stale CDN content and destructive overwrite. Publishing copies an approved staging object to a new public path, commits the `camera_photos` reference, and then removes the staging object; rollback/reconciliation must never leave sensitive evidence in a public bucket.
+Public listing photos may be archived/reordered through database metadata, but revised bytes still use a new versioned object path to avoid stale CDN content and destructive overwrite. Publishing copies an approved staging object to a new public path, verifies its expected size/hash, commits the `camera_photos` reference, and then removes the staging object. A retry accepts an existing destination only when its exact approved size/hash match; otherwise it allocates a new path or fails closed. Rollback/reconciliation must never leave sensitive evidence in a public bucket. The repository implements this audited state machine and its local operator in `20260813163420_add_catalog_photo_publication_workflow.sql` and `scripts/catalog-photo-publication.mjs`. The migration and exact Storage sequence were applied and rehearsed in Development on 14 August 2026. They remain unavailable in Production until a separately approved migration and catalog release.
 
 ## Read access
 
@@ -114,11 +115,11 @@ Policies on `storage.objects` are bucket- and operation-specific.
 | Operation | Public listing | Private owner evidence | Private admin evidence |
 | --- | --- | --- | --- |
 | `SELECT` | Public delivery by bucket setting | Exact path must join metadata owned by `auth.uid()` and a permitted parent record | Exact path plus `private.is_admin()`; URL issuance audited by app operation |
-| `INSERT` | Service-side publish copy only; draft upload goes to private staging | Exact unexpired upload-intent path owned by `auth.uid()` | Exact server/admin-created intent |
+| `INSERT` | Exact-path authenticated admin copy only; draft upload goes to private staging | Exact unexpired upload-intent path owned by `auth.uid()` | Exact server/admin-created intent |
 | `UPDATE` | Denied | Denied | Denied |
-| `DELETE` | Controlled admin archive/cleanup operation | Denied | Retention worker/service role only |
+| `DELETE` | Exact-path admin abort/archive cleanup only | Denied | Retention worker/service role only |
 
-Storage policies do not depend on `user_metadata`. `TO authenticated` is combined with ownership. The service key remains server-only and bypasses Storage RLS, so every service-role operation performs its own authorization and audit checks.
+Storage policies do not depend on `user_metadata`. `TO authenticated` is combined with ownership or `private.is_admin()`. Catalog photo publication uses the admin's short-lived user token so Storage RLS remains authoritative; it does not need a service key. Where an unrelated future operation genuinely uses a service key, that key remains server-only and every bypass operation must repeat authorization and audit checks.
 
 ## File metadata and lifecycle
 

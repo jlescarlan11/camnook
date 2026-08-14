@@ -1,6 +1,9 @@
 import "server-only";
 
-import { createServerClient } from "@supabase/ssr";
+import {
+  clearAuthCookiesAtScopes,
+  createServerClient,
+} from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import type { Database } from "@/types/database.generated";
@@ -27,5 +30,26 @@ export async function createSupabaseServerClient() {
         }
       },
     },
+  });
+}
+
+export async function clearSupabaseAuthCookies() {
+  const cookieStore = await cookies();
+  const { url } = getSupabasePublicConfig();
+  const projectRef = new URL(url).hostname.split(".")[0];
+
+  if (!projectRef) {
+    throw new Error("Unable to determine the Supabase Auth cookie namespace");
+  }
+
+  await clearAuthCookiesAtScopes({
+    getAll: () => cookieStore.getAll(),
+    scopes: [{ path: "/" }],
+    setAll(cookiesToSet) {
+      cookiesToSet.forEach(({ name, options, value }) => {
+        cookieStore.set(name, value, options);
+      });
+    },
+    storageKey: `sb-${projectRef}-auth-token`,
   });
 }

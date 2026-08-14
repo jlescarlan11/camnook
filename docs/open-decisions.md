@@ -1,7 +1,7 @@
 # CamNook Open Decisions and Readiness
 
 Status: architecture approved; public-paid-launch gates remain closed<br>
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## Outcome
 
@@ -103,20 +103,29 @@ Supabase `CamNook Development` project (`ekmoiepalelqpmemvrkl`, Tokyo /
 ignored local CLI metadata points to Development, not Production. Production
 received the four booking-milestone migrations on 13 August 2026 through a
 separately authorized, database-first rollout after Development/Preview
-verification. Development and Production both had an exact 11/11 migration
-history after the rollout. Current remote history must still be checked at
-rollout time. Production is not a rollout target without separate explicit
-authorization.
+verification, leaving both projects at 11/11 at that checkpoint. On 14 August
+2026, the two catalog migrations were applied and exercised only in Development.
+Development is recorded at 13/13 while Production remains at 11/13. Current
+remote history must still be checked at rollout time. Production is not a
+rollout target without separate explicit authorization.
 
 Vercel Preview has two app-owned, Preview-scoped Supabase records for the
 Development project: browser-visible `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Vercel platform-provided variables are
 separate, and Production retains separate Production application records.
-Preview Deployment Protection remains enabled. Hosted
-Development Auth is invite-only, uses a six-digit email OTP with a 15-minute
-expiry, and uses hosted SMTP configuration. The local `supabase/config.toml`
-intentionally differs and must not be pushed to hosted Auth. The public-launch
-gates below remain fail-closed.
+Preview Deployment Protection remains enabled. Hosted Development now supports
+public email-OTP account creation with Cloudflare Turnstile, a six-digit code,
+a 15-minute expiry, and proven custom SMTP after the completed protected-Preview
+activation. The Development email-send ceiling remains four per hour for manual
+QA. The local `supabase/config.toml` intentionally differs and must not be pushed
+to hosted Auth. Production signup and CAPTCHA remain disabled and its email
+template still uses a confirmation link; changing those settings requires a
+separate explicit release approval. Public registration creates only ordinary
+renter identities; `private.admin_accounts` remains the sole admin authority.
+The public-launch gates below remain fail-closed.
+
+The durable activation, validation, cleanup, and rollback sequence is recorded
+in [`docs/operations/public-renter-registration.md`](operations/public-renter-registration.md).
 
 ## Public-launch blockers
 
@@ -163,12 +172,14 @@ Approval of this milestone means agreement that:
    are implemented; later paid-rental stages remain gated.
 2. Ignored local CLI metadata links routine hosted work only to the separate
    Development project. Production remains live, isolated, and unlinked.
-3. Eleven forward migration files translate the approved architecture.
+3. Thirteen forward migration files translate the approved architecture.
    Production received the four booking-milestone migrations on 13 August 2026
-   through a separately authorized database-first rollout. Development and
-   Production both had an exact 11/11 history immediately afterward. Current
-   remote history is operational state to verify, not a durable documentation
-   assumption.
+   through a separately authorized database-first rollout. Both projects were
+   at 11/11 immediately afterward. The catalog-photo publication and
+   unpublished-availability migrations were then applied and exercised only in
+   Development on 14 August 2026, leaving Development recorded at 13/13 and
+   Production at 11/13. Current remote history remains operational state to
+   verify, not a durable documentation assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
 5. RLS, concurrency, immutability, Storage, advisor, and application
