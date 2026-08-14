@@ -108,11 +108,11 @@ Completion checkpoint:
   deposit, no pre-approval inventory hold, owner-only profile/booking reads,
   ordinary-renter admin denial, safe logout redirects, and zero retained Auth
   sessions for the QA renter.
-- Production remained unchanged: signup and CAPTCHA disabled, zero published
-  cameras, and the confirmation-link template still awaiting an approved OTP
-  conversion. The final non-sensitive issue #8 checkpoint was posted on
-  14 August 2026, and the issue was closed as completed without changing any
-  Production resource.
+- At the issue #8 checkpoint, Production remained unchanged: signup and CAPTCHA
+  were disabled, zero cameras were published, and the confirmation-link
+  template still awaited an approved OTP conversion. The final non-sensitive
+  checkpoint was posted on 14 August 2026, and issue #8 was closed without
+  changing any Production resource.
 
 If any step fails before signup enablement, keep signup disabled. If CAPTCHA is
 enabled and the Preview cannot submit a valid response, disable hosted signup
@@ -198,6 +198,39 @@ inferred during an incident. Do not delete Auth users as a session-revocation
 mechanism. In either rollback mode, confirm the existing admin can sign in and
 that unrelated gates remain closed.
 
-The real Production camera catalog is a separate data release with separate
-business-approved inventory and photo inputs. The honest zero-camera empty state
-remains correct until that work is explicitly authorized and completed.
+The real Production camera catalog remains a separate data release with its own
+business-approved inventory, photo inputs, authorization, and rollback control.
+
+## Completed Production rollout and validation
+
+The separately authorized Production rollout completed on 15 August 2026. The
+reviewed application candidate at Git SHA
+`f4d58360ec4a019957434dd87680bbfb2da33c54` is READY as Vercel deployment
+`dpl_DChPZu3dayB9hr9XsiJjix7uWDsE` on the apex and `www` redirect. Deployment
+`dpl_Ap9aYHRdCUacr9BbAy59ff8uEWCb` remains the verified application rollback
+artifact.
+
+Production Supabase remained explicitly targeted as
+`iegcixcevvkryfwfotqz`, while the local CLI link remained Development
+`ekmoiepalelqpmemvrkl` before every mutation. Hosted signup, Managed Turnstile,
+the six-digit/15-minute code contract, reviewed native limits, custom SMTP, and
+the redirect allowlist now match the validated release contract. Both the
+first-time confirmation template and existing-user magic-link template render
+the code rather than a confirmation URL.
+
+The smoke validation proved one previously unknown owner-controlled identity
+could verify once, persist one active renter profile, receive no admin row or
+authority, and read only its own records. The existing sole admin retained
+access. After the separately authorized real catalog publication, the renter
+submitted and read one owner-scoped `FOR_REVIEW` request with a one-day PHP 450
+rental estimate, PHP 1,000 deposit, and no pre-approval availability hold.
+Invalid/replayed codes, missing CAPTCHA, controlled rate limiting, direct admin
+access, private projections, and unrelated launch gates remained fail closed.
+
+The final window showed no Vercel warning/error/fatal event or 5xx and no severe
+Supabase Auth, Postgres, or Storage event. Observed Auth warnings were limited to
+the deliberately exercised OTP replay/expiry, CAPTCHA refusal, rate limit, and
+platform deprecation notices. Both smoke sessions were revoked, Production
+reported zero remaining renter/admin smoke sessions, and signed-out protected
+routes redirected to login. No renter identity, OTP, token, private object path,
+provider payload, or secret is retained in this record.

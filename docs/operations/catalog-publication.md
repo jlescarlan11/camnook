@@ -215,8 +215,8 @@ remains absent from public UI, logs, documentation, migrations, and handoffs.
 This fixture satisfied issue #8's protected-Preview prerequisite, and the real
 public-registration-to-`FOR_REVIEW` booking smoke passed. The final non-sensitive
 issue #8 checkpoint was posted and the issue was closed as completed on
-14 August 2026. Issue #9/Production registration and issue #10/Production
-catalog publication still require their own explicit authorization and inputs.
+14 August 2026. Issues #9 and #10 subsequently completed their separately
+authorized Production windows on 15 August 2026.
 
 Run application validation and the disposable database authorization/
 concurrency harness for any repository change. Inspect database lint and
@@ -260,3 +260,48 @@ payloads.
 Catalog publication and public Auth activation retain separate approval and
 rollback controls. Coordinate them only after the Development OTP-to-booking
 smoke passes and for the final authorized customer-flow validation.
+
+## Completed Production publication and validation
+
+The separately authorized Production catalog window completed on 15 August
+2026 against Supabase project `iegcixcevvkryfwfotqz`. The local CLI link was
+re-read as Development `ekmoiepalelqpmemvrkl` before every mutation, and the two
+reviewed forward migrations brought Production to the repository's complete
+13-migration history without using `supabase config push`, a linked reset, or a
+Production local link. Database lint reported no errors; security and
+performance advisors reported no error-level finding.
+
+The approved public manifest contains one Canon EOS R50 with RF-S 18–45mm kit
+lens at PHP 450 per day and a refundable PHP 1,000 deposit. Its fixed inclusions
+are one camera bag, one tripod, two batteries, one battery charger, and one 32 GB
+SD card, with no published busy period. Three owner-approved PNG originals were
+promoted through the private-staging workflow with exact media type, byte-size,
+and SHA-256 verification. All three publication intents are verified and
+cleanup-complete, the private staging bucket has zero retained objects for the
+listing, and the public bucket contains exactly the three matching objects. The
+private serial remains present only in its non-public inventory field and is not
+recorded here.
+
+Anonymous homepage and detail checks on 1440-by-900 desktop and 390-by-844 mobile
+viewports rendered the accurate content, price, deposit, accessories,
+availability, approved lead image, and useful alt text without a broken asset.
+Direct anonymous projections returned exactly one listing, three ordered photo
+records, and five accessories; the serial column and all five private Storage
+buckets remained denied. A valid one-day quote returned PHP 450 rent plus the
+PHP 1,000 deposit, while invalid and unavailable inputs failed closed.
+
+An ordinary Production renter followed the preserved booking path and created
+exactly one owner-scoped `FOR_REVIEW` request and one matching history entry.
+The request created no pre-approval availability hold, exposed no cross-account
+booking, and granted no admin capability. Both renter and admin smoke sessions
+were revoked after validation.
+
+The tested application was Git SHA
+`f4d58360ec4a019957434dd87680bbfb2da33c54` in READY Vercel deployment
+`dpl_DChPZu3dayB9hr9XsiJjix7uWDsE`. The final monitoring window contained no
+Vercel warning/error/fatal event or 5xx, no severe Supabase Auth, Postgres, or
+Storage event, and no Supabase API 5xx. Recovery remains reversible: archive the
+camera first to remove it from public projections, then use the controlled photo
+archive workflow to verify public-object removal while preserving booking and
+audit history. No renter identity, credential, OTP, private identifier, private
+object path, or secret is retained in this release record.
