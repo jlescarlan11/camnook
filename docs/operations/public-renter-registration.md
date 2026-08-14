@@ -110,8 +110,9 @@ Completion checkpoint:
   sessions for the QA renter.
 - Production remained unchanged: signup and CAPTCHA disabled, zero published
   cameras, and the confirmation-link template still awaiting an approved OTP
-  conversion. The final non-sensitive issue #8 checkpoint also remains pending
-  separate authorization.
+  conversion. The final non-sensitive issue #8 checkpoint was posted on
+  14 August 2026, and the issue was closed as completed without changing any
+  Production resource.
 
 If any step fails before signup enablement, keep signup disabled. If CAPTCHA is
 enabled and the Preview cannot submit a valid response, disable hosted signup

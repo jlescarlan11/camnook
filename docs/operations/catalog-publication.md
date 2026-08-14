@@ -214,8 +214,9 @@ remains absent from public UI, logs, documentation, migrations, and handoffs.
 
 This fixture satisfied issue #8's protected-Preview prerequisite, and the real
 public-registration-to-`FOR_REVIEW` booking smoke passed. The final non-sensitive
-issue #8 checkpoint has not yet been posted, and issue #9/Production work still
-requires separate explicit authorization.
+issue #8 checkpoint was posted and the issue was closed as completed on
+14 August 2026. Issue #9/Production registration and issue #10/Production
+catalog publication still require their own explicit authorization and inputs.
 
 Run application validation and the disposable database authorization/
 concurrency harness for any repository change. Inspect database lint and
