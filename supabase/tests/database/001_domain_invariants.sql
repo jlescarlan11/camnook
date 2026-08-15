@@ -1062,7 +1062,12 @@ insert into public.payment_transactions (
   amount,
   reference,
   counterparty_display_name,
-  submitted_by
+  submitted_by,
+  submission_attempt_id,
+  contract_version_id,
+  recipient_config_version,
+  recipient_name_snapshot,
+  recipient_account_snapshot
 )
 select
   'ffffffff-ffff-4fff-8fff-ffffffffffff',
@@ -1071,11 +1076,22 @@ select
   6200,
   'VALID-REFERENCE-001',
   'First Renter',
-  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'facefeed-face-4eed-8ace-facefeed0001',
+  current_contract_version_id,
+  0,
+  'Test GCash Recipient',
+  '09170000000'
 from public.bookings
 where renter_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 set constraints all deferred;
+
+select set_config(
+  'camnook.payment_operation_id',
+  'facefeed-face-4eed-8ace-facefeed0002',
+  true
+);
 
 update public.payment_transactions
 set status = 'verified',
@@ -1190,7 +1206,8 @@ begin
       and policyname not in (
         'catalog_photo_staging_delete',
         'camera_listing_objects_publication_delete',
-        'verification_documents_owner_delete'
+        'verification_documents_owner_delete',
+        'payment_proof_objects_owner_delete_unfinished'
       )
   ) or (
     select count(*) from pg_policies
@@ -1200,9 +1217,10 @@ begin
       and policyname in (
         'catalog_photo_staging_delete',
         'camera_listing_objects_publication_delete',
-        'verification_documents_owner_delete'
+        'verification_documents_owner_delete',
+        'payment_proof_objects_owner_delete_unfinished'
       )
-  ) <> 3 then
+  ) <> 4 then
     raise exception 'storage delete access expanded beyond catalog publication recovery';
   end if;
 

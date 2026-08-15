@@ -80,6 +80,16 @@ contract_retry_b_log="$test_dir/contract-retry-b.log"
 contract_retry_a_sql="$test_dir/contract-retry-a.sql"
 contract_retry_b_sql="$test_dir/contract-retry-b.sql"
 contract_retry_ready_file="$test_dir/contract-retry-ready"
+payment_submit_a_log="$test_dir/payment-submit-a.log"
+payment_submit_b_log="$test_dir/payment-submit-b.log"
+payment_submit_a_sql="$test_dir/payment-submit-a.sql"
+payment_submit_b_sql="$test_dir/payment-submit-b.sql"
+payment_submit_ready_file="$test_dir/payment-submit-ready"
+payment_decision_a_log="$test_dir/payment-decision-a.log"
+payment_decision_b_log="$test_dir/payment-decision-b.log"
+payment_decision_a_sql="$test_dir/payment-decision-a.sql"
+payment_decision_b_sql="$test_dir/payment-decision-b.sql"
+payment_decision_ready_file="$test_dir/payment-decision-ready"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
@@ -93,6 +103,8 @@ evidence_create_pid=""
 evidence_finalize_pid=""
 contract_sign_pid=""
 contract_retry_a_pid=""
+payment_submit_a_pid=""
+payment_decision_a_pid=""
 
 cleanup() {
   set +e
@@ -110,7 +122,9 @@ cleanup() {
     "$evidence_create_pid" \
     "$evidence_finalize_pid" \
     "$contract_sign_pid" \
-    "$contract_retry_a_pid"; do
+    "$contract_retry_a_pid" \
+    "$payment_submit_a_pid" \
+    "$payment_decision_a_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -224,6 +238,12 @@ echo "running versioned contract lifecycle invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/008_contract_lifecycle.sql"
+
+echo "running manual GCash reconciliation invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/009_manual_gcash_reconciliation.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -1552,3 +1572,311 @@ $$;
 SQL
 
 echo "ok - concurrent exact-version signing retry is idempotent"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+begin;
+set constraints all deferred;
+
+insert into public.bookings (
+  id, renter_id, camera_id, state, pickup_at, return_at,
+  intended_use, expected_location, requested_at, approved_at,
+  approval_deadline_at, approved_by, billable_days_snapshot,
+  daily_rate_snapshot, rental_amount, security_deposit_amount,
+  current_contract_version_id
+) values
+  (
+    '29000000-0000-4000-8000-000000000001',
+    '20000000-0000-4000-8000-000000000002',
+    '21000000-0000-4000-8000-000000000001',
+    'TO_PAY',
+    '2101-01-01 00:00:00+00',
+    '2101-01-03 00:00:00+00',
+    'Concurrent payment submission',
+    'Makati City',
+    statement_timestamp(),
+    statement_timestamp(),
+    statement_timestamp() + interval '24 hours',
+    '20000000-0000-4000-8000-000000000001',
+    2,
+    1000,
+    2000,
+    4000,
+    '29100000-0000-4000-8000-000000000001'
+  ),
+  (
+    '29000000-0000-4000-8000-000000000002',
+    '20000000-0000-4000-8000-000000000002',
+    '21000000-0000-4000-8000-000000000001',
+    'PAYMENT_REVIEW',
+    '2101-02-01 00:00:00+00',
+    '2101-02-03 00:00:00+00',
+    'Concurrent payment decision',
+    'Taguig City',
+    statement_timestamp(),
+    statement_timestamp(),
+    statement_timestamp() + interval '24 hours',
+    '20000000-0000-4000-8000-000000000001',
+    2,
+    1000,
+    2000,
+    4000,
+    '29100000-0000-4000-8000-000000000002'
+  );
+
+insert into public.contract_versions (
+  id, booking_id, version_no, template_id, snapshot,
+  snapshot_schema_version, content_sha256, issued_by
+) values
+  (
+    '29100000-0000-4000-8000-000000000001',
+    '29000000-0000-4000-8000-000000000001',
+    1,
+    '22000000-0000-4000-8000-000000000001',
+    '{"pricing":{"rental_amount":2000,"security_deposit":4000,"total_due":6000,"currency":"PHP"}}'::jsonb,
+    1,
+    extensions.digest(convert_to('{"pricing":{"rental_amount":2000,"security_deposit":4000,"total_due":6000,"currency":"PHP"}}'::jsonb::text, 'UTF8'), 'sha256'),
+    '20000000-0000-4000-8000-000000000001'
+  ),
+  (
+    '29100000-0000-4000-8000-000000000002',
+    '29000000-0000-4000-8000-000000000002',
+    1,
+    '22000000-0000-4000-8000-000000000001',
+    '{"pricing":{"rental_amount":2000,"security_deposit":4000,"total_due":6000,"currency":"PHP"}}'::jsonb,
+    1,
+    extensions.digest(convert_to('{"pricing":{"rental_amount":2000,"security_deposit":4000,"total_due":6000,"currency":"PHP"}}'::jsonb::text, 'UTF8'), 'sha256'),
+    '20000000-0000-4000-8000-000000000001'
+  );
+
+insert into public.contract_signatures (
+  contract_version_id, renter_id, signature_intent, attestation_text,
+  acknowledged_content_sha256
+)
+select
+  version.id,
+  '20000000-0000-4000-8000-000000000002',
+  'electronic_signature',
+  'I have reviewed and agree to this exact rental contract version.',
+  version.content_sha256
+from public.contract_versions as version
+where version.id in (
+  '29100000-0000-4000-8000-000000000001',
+  '29100000-0000-4000-8000-000000000002'
+);
+
+insert into public.booking_state_history (
+  booking_id, from_state, to_state, actor_user_id, actor_type, reason_code
+)
+select fixture.booking_id, fixture.from_state, fixture.to_state,
+       fixture.actor_user_id, fixture.actor_type, fixture.reason_code
+from (values
+  ('29000000-0000-4000-8000-000000000001'::uuid, null::public.booking_state, 'FOR_REVIEW'::public.booking_state, '20000000-0000-4000-8000-000000000002'::uuid, 'renter'::public.booking_actor_type, 'booking_requested'),
+  ('29000000-0000-4000-8000-000000000001'::uuid, 'FOR_REVIEW'::public.booking_state, 'CONTRACT_PENDING'::public.booking_state, '20000000-0000-4000-8000-000000000001'::uuid, 'admin'::public.booking_actor_type, 'booking_approved'),
+  ('29000000-0000-4000-8000-000000000001'::uuid, 'CONTRACT_PENDING'::public.booking_state, 'TO_PAY'::public.booking_state, '20000000-0000-4000-8000-000000000002'::uuid, 'renter'::public.booking_actor_type, 'contract_signed'),
+  ('29000000-0000-4000-8000-000000000002'::uuid, null::public.booking_state, 'FOR_REVIEW'::public.booking_state, '20000000-0000-4000-8000-000000000002'::uuid, 'renter'::public.booking_actor_type, 'booking_requested'),
+  ('29000000-0000-4000-8000-000000000002'::uuid, 'FOR_REVIEW'::public.booking_state, 'CONTRACT_PENDING'::public.booking_state, '20000000-0000-4000-8000-000000000001'::uuid, 'admin'::public.booking_actor_type, 'booking_approved'),
+  ('29000000-0000-4000-8000-000000000002'::uuid, 'CONTRACT_PENDING'::public.booking_state, 'TO_PAY'::public.booking_state, '20000000-0000-4000-8000-000000000002'::uuid, 'renter'::public.booking_actor_type, 'contract_signed'),
+  ('29000000-0000-4000-8000-000000000002'::uuid, 'TO_PAY'::public.booking_state, 'PAYMENT_REVIEW'::public.booking_state, '20000000-0000-4000-8000-000000000002'::uuid, 'renter'::public.booking_actor_type, 'payment_submitted')
+) as fixture(booking_id, from_state, to_state, actor_user_id, actor_type, reason_code);
+
+insert into public.payment_transactions (
+  id, booking_id, direction, amount, reference, counterparty_display_name,
+  submitted_by, submission_attempt_id, contract_version_id,
+  recipient_config_version, recipient_name_snapshot, recipient_account_snapshot
+) values (
+  '29200000-0000-4000-8000-000000000001',
+  '29000000-0000-4000-8000-000000000002',
+  'incoming',
+  6000,
+  'PAYMENT-DECISION-RACE',
+  'Race Renter A',
+  '20000000-0000-4000-8000-000000000002',
+  '29200000-0000-4000-8000-000000000002',
+  '29100000-0000-4000-8000-000000000002',
+  1,
+  'Race Recipient',
+  '09171234567'
+);
+
+set constraints all immediate;
+commit;
+
+set role authenticated;
+set "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.configure_gcash_recipient(
+  'Race Recipient',
+  '09171234567',
+  true,
+  '29300000-0000-4000-8000-000000000001'
+);
+reset role;
+SQL
+
+cat >"$payment_submit_a_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000002';
+select api.submit_payment(
+  '29000000-0000-4000-8000-000000000001',
+  '29300000-0000-4000-8000-000000000002',
+  6000,
+  'PAYMENT-SUBMIT-RACE',
+  'Race Renter A'
+);
+\! touch "$payment_submit_ready_file"
+select pg_sleep(1);
+commit;
+SQL
+
+cat >"$payment_submit_b_sql" <<'SQL'
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000002';
+select api.submit_payment(
+  '29000000-0000-4000-8000-000000000001',
+  '29300000-0000-4000-8000-000000000002',
+  6000,
+  'PAYMENT SUBMIT RACE',
+  'Race Renter A'
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$payment_submit_a_sql" >"$payment_submit_a_log" 2>&1 &
+payment_submit_a_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$payment_submit_ready_file" ]] && break
+  if ! kill -0 "$payment_submit_a_pid" 2>/dev/null; then
+    wait "$payment_submit_a_pid" || true
+    cat "$payment_submit_a_log" >&2
+    echo "first payment submission exited before its lock barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$payment_submit_ready_file" ]]; then
+  cat "$payment_submit_a_log" >&2
+  echo "timed out waiting for payment submission barrier" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -f "$payment_submit_b_sql" >"$payment_submit_b_log" 2>&1
+wait "$payment_submit_a_pid"
+payment_submit_a_pid=""
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if (select count(*) from public.payment_transactions where booking_id = '29000000-0000-4000-8000-000000000001' and direction = 'incoming') <> 1
+    or not exists (
+      select 1 from public.bookings
+      where id = '29000000-0000-4000-8000-000000000001'
+        and state = 'PAYMENT_REVIEW'
+    )
+  then
+    raise exception 'concurrent identical submission retry created duplicates or lost state';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - concurrent identical payment submission retry is idempotent"
+
+cat >"$payment_decision_a_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.verify_payment(
+  '29200000-0000-4000-8000-000000000001',
+  6000,
+  'PAYMENT DECISION RACE',
+  true,
+  '29300000-0000-4000-8000-000000000003'
+);
+\! touch "$payment_decision_ready_file"
+select pg_sleep(1);
+commit;
+SQL
+
+cat >"$payment_decision_b_sql" <<'SQL'
+\set ON_ERROR_STOP on
+\set VERBOSITY verbose
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.reject_payment(
+  '29200000-0000-4000-8000-000000000001',
+  'unconfirmed_transfer',
+  '29300000-0000-4000-8000-000000000004'
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$payment_decision_a_sql" >"$payment_decision_a_log" 2>&1 &
+payment_decision_a_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$payment_decision_ready_file" ]] && break
+  if ! kill -0 "$payment_decision_a_pid" 2>/dev/null; then
+    wait "$payment_decision_a_pid" || true
+    cat "$payment_decision_a_log" >&2
+    echo "payment verification exited before its lock barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$payment_decision_ready_file" ]]; then
+  cat "$payment_decision_a_log" >&2
+  echo "timed out waiting for payment decision barrier" >&2
+  exit 1
+fi
+
+set +e
+"$postgres_bin/psql" "$database_url" -f "$payment_decision_b_sql" >"$payment_decision_b_log" 2>&1
+payment_decision_b_status=$?
+set -e
+wait "$payment_decision_a_pid"
+payment_decision_a_pid=""
+
+if [[ "$payment_decision_b_status" -eq 0 ]] || ! grep -Eq '40001|payment_rejection_retry_conflict' "$payment_decision_b_log"; then
+  cat "$payment_decision_a_log" >&2
+  cat "$payment_decision_b_log" >&2
+  echo "competing payment rejection did not lose with an explicit stale outcome" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1 from public.bookings
+    where id = '29000000-0000-4000-8000-000000000002'
+      and state = 'CONFIRMED'
+  )
+    or not exists (
+      select 1 from public.payment_transactions
+      where id = '29200000-0000-4000-8000-000000000001'
+        and status = 'verified'
+    )
+    or (select count(*) from public.payment_allocations where transaction_id = '29200000-0000-4000-8000-000000000001') <> 2
+    or exists (
+      select 1 from private.audit_logs
+      where entity_type = 'payment_transaction'
+        and entity_id = '29200000-0000-4000-8000-000000000001'
+        and action = 'reject_payment'
+        and outcome = 'success'
+    )
+  then
+    raise exception 'competing payment decisions did not preserve one atomic winner';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - competing payment verify/reject decisions preserve one atomic winner"
