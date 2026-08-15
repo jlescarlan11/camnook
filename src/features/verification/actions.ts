@@ -25,9 +25,9 @@ type AdminSupabaseClient = ReturnType<typeof createSupabaseAdminClient>;
 
 export type VerificationUploadActionState = {
   error?:
+    | "consent_required"
     | "invalid_input"
     | "policy_unavailable"
-    | "privacy_not_accepted"
     | "restart_required"
     | "suspended"
     | "upload_failed";
@@ -37,8 +37,7 @@ export type VerificationUploadActionState = {
 
 export type VerificationDeletionActionState = {
   error?: "delete_failed" | "invalid_input" | "legal_hold";
-  result?: "deleted" | "scheduled";
-  retentionUntil?: string;
+  result?: "deleted";
   status: "error" | "idle" | "success";
 };
 
@@ -51,9 +50,6 @@ function isSupportedFileSignature(bytes: Buffer, mediaType: string) {
       bytes.length >= 8 &&
       bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
     );
-  }
-  if (mediaType === "application/pdf") {
-    return bytes.length >= 5 && bytes.subarray(0, 5).toString("ascii") === "%PDF-";
   }
   return false;
 }
@@ -184,8 +180,8 @@ export async function submitVerificationEvidence(
       status: "error",
     };
   }
-  if (formData.get("privacyAcknowledgement") !== "accepted") {
-    return { error: "privacy_not_accepted", status: "error" };
+  if (formData.get("privacyConsent") !== "consent-government-id-processing") {
+    return { error: "consent_required", status: "error" };
   }
   if (document.size < 1 || document.size > MAX_UPLOAD_BYTES) {
     return {
@@ -219,7 +215,7 @@ export async function submitVerificationEvidence(
   ) {
     return {
       error: "invalid_input",
-      fieldErrors: { document: "Use an accepted JPEG, PNG, or PDF no larger than 5 MiB." },
+      fieldErrors: { document: "Use an accepted JPEG or PNG no larger than 5 MiB." },
       status: "error",
     };
   }
@@ -228,7 +224,7 @@ export async function submitVerificationEvidence(
   if (!isSupportedFileSignature(bytes, document.type)) {
     return {
       error: "invalid_input",
-      fieldErrors: { document: "The file contents do not match its JPEG, PNG, or PDF type." },
+      fieldErrors: { document: "The file contents do not match its JPEG or PNG type." },
       status: "error",
     };
   }
@@ -402,12 +398,7 @@ export async function requestVerificationEvidenceDeletion(
     return { result: "deleted", status: "success" };
   }
   if (deletion.data.status === "scheduled") {
-    revalidatePath("/account");
-    return {
-      result: "scheduled",
-      retentionUntil: deletion.data.retention_until,
-      status: "success",
-    };
+    return { error: "delete_failed", status: "error" };
   }
   if (!deletion.data.object_path) {
     return { error: "delete_failed", status: "error" };

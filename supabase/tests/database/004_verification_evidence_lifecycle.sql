@@ -37,8 +37,8 @@ begin
       'image/jpeg',
       4,
       repeat('00', 32),
-      'government-id-evidence-v1',
-      'government-id-privacy-v1',
+      'government-id-evidence-v2',
+      'government-id-privacy-v2',
       true,
       '39000000-0000-4000-8000-000000000000',
       '30000000-0000-4000-8000-000000000001',
@@ -64,8 +64,8 @@ begin
       'image/jpeg',
       4,
       repeat('00', 32),
-      'government-id-evidence-v1',
-      'government-id-privacy-v1',
+      'government-id-evidence-v2',
+      'government-id-privacy-v2',
       true,
       '39000000-0000-4000-8000-000000000000',
       '30000000-0000-4000-8000-000000000001',
@@ -109,14 +109,14 @@ begin
       'image/jpeg',
       4,
       repeat('05', 32),
-      'government-id-evidence-v1',
-      'government-id-privacy-v1',
+      'government-id-evidence-v2',
+      'government-id-privacy-v2',
       false,
       '39000000-0000-4000-8000-000000000005',
       '30000000-0000-4000-8000-000000000001',
       '30000000-0000-4000-8000-000000000001'
     );
-    raise exception 'missing privacy acknowledgement issued an upload intent';
+    raise exception 'missing notice-specific consent issued an upload intent';
   exception
     when object_not_in_prerequisite_state then null;
   end;
@@ -128,7 +128,7 @@ begin
       'image/jpeg',
       4,
       repeat('01', 32),
-      'government-id-evidence-v1',
+      'government-id-evidence-v2',
       'wrong-notice-version',
       true,
       '39000000-0000-4000-8000-000000000001',
@@ -147,8 +147,8 @@ begin
       'image/jpeg',
       4,
       repeat('02', 32),
-      'government-id-evidence-v1',
-      'government-id-privacy-v1',
+      'government-id-evidence-v2',
+      'government-id-privacy-v2',
       true,
       '39000000-0000-4000-8000-000000000002',
       '30000000-0000-4000-8000-000000000001',
@@ -166,8 +166,8 @@ begin
       'image/gif',
       4,
       repeat('03', 32),
-      'government-id-evidence-v1',
-      'government-id-privacy-v1',
+      'government-id-evidence-v2',
+      'government-id-privacy-v2',
       true,
       '39000000-0000-4000-8000-000000000003',
       '30000000-0000-4000-8000-000000000001',
@@ -180,13 +180,32 @@ begin
 
   begin
     perform api.create_verification_upload_intent(
+      '31000000-0000-4000-8000-000000000006',
+      'philippine_passport',
+      'application/pdf',
+      5,
+      repeat('06', 32),
+      'government-id-evidence-v2',
+      'government-id-privacy-v2',
+      true,
+      '39000000-0000-4000-8000-000000000006',
+      '30000000-0000-4000-8000-000000000001',
+      '30000000-0000-4000-8000-000000000001'
+    );
+    raise exception 'PDF evidence bypassed the v2 image-only policy';
+  exception
+    when invalid_parameter_value then null;
+  end;
+
+  begin
+    perform api.create_verification_upload_intent(
       '31000000-0000-4000-8000-000000000004',
       'philippine_passport',
       'image/jpeg',
       5242881,
       repeat('04', 32),
-      'government-id-evidence-v1',
-      'government-id-privacy-v1',
+      'government-id-evidence-v2',
+      'government-id-privacy-v2',
       true,
       '39000000-0000-4000-8000-000000000004',
       '30000000-0000-4000-8000-000000000001',
@@ -203,8 +222,8 @@ begin
     'image/jpeg',
     4,
     repeat('10', 32),
-    'government-id-evidence-v1',
-    'government-id-privacy-v1',
+    'government-id-evidence-v2',
+    'government-id-privacy-v2',
     true,
     '39000000-0000-4000-8000-000000000010',
     '30000000-0000-4000-8000-000000000001',
@@ -277,8 +296,8 @@ begin
     'image/jpeg',
     4,
     repeat('10', 32),
-    'government-id-evidence-v1',
-    'government-id-privacy-v1',
+    'government-id-evidence-v2',
+    'government-id-privacy-v2',
     true,
     '39000000-0000-4000-8000-000000000013',
     '30000000-0000-4000-8000-000000000001',
@@ -447,11 +466,11 @@ begin
   replacement := api.create_verification_upload_intent(
     '31000000-0000-4000-8000-000000000020',
     'drivers_license',
-    'application/pdf',
-    5,
+    'image/png',
+    8,
     repeat('20', 32),
-    'government-id-evidence-v1',
-    'government-id-privacy-v1',
+    'government-id-evidence-v2',
+    'government-id-privacy-v2',
     true,
     '39000000-0000-4000-8000-000000000030',
     '30000000-0000-4000-8000-000000000001',
@@ -464,17 +483,17 @@ begin
     'verification-documents',
     replacement_path,
     '30000000-0000-4000-8000-000000000001',
-    jsonb_build_object('mimetype', 'application/pdf', 'size', 5)
+    jsonb_build_object('mimetype', 'image/png', 'size', 8)
   );
 
   replacement := api.create_verification_upload_intent(
     '31000000-0000-4000-8000-000000000021',
     'drivers_license',
-    'application/pdf',
-    5,
+    'image/png',
+    8,
     repeat('20', 32),
-    'government-id-evidence-v1',
-    'government-id-privacy-v1',
+    'government-id-evidence-v2',
+    'government-id-privacy-v2',
     true,
     '39000000-0000-4000-8000-000000000032',
     '30000000-0000-4000-8000-000000000001',
@@ -489,8 +508,8 @@ begin
 
   perform api.finalize_verification_upload(
     '31000000-0000-4000-8000-000000000020',
-    'application/pdf',
-    5,
+    'image/png',
+    8,
     repeat('20', 32),
     '39000000-0000-4000-8000-000000000031',
     '30000000-0000-4000-8000-000000000001',
@@ -503,6 +522,14 @@ begin
     where id = first_document_id
   ) or replacement_path = first_path then
     raise exception 'replacement overwrote or failed to supersede earlier evidence';
+  end if;
+
+  if not (
+    select retention_until <= statement_timestamp()
+    from public.verification_documents
+    where id = first_document_id
+  ) then
+    raise exception 'superseded evidence did not become due for deletion';
   end if;
 
   if (
@@ -541,8 +568,8 @@ begin
     'image/png',
     8,
     repeat('30', 32),
-    'government-id-evidence-v1',
-    'government-id-privacy-v1',
+    'government-id-evidence-v2',
+    'government-id-privacy-v2',
     true,
     '39000000-0000-4000-8000-000000000040',
     '30000000-0000-4000-8000-000000000001',
@@ -780,8 +807,8 @@ begin
     'image/png',
     8,
     repeat('31', 32),
-    'government-id-evidence-v1',
-    'government-id-privacy-v1',
+    'government-id-evidence-v2',
+    'government-id-privacy-v2',
     true,
     '39000000-0000-4000-8000-000000000043',
     '30000000-0000-4000-8000-000000000001',
@@ -868,7 +895,8 @@ reset role;
 update public.verification_documents
 set legal_hold_at = null,
     legal_hold_by = null,
-    legal_hold_reason = null
+    legal_hold_reason = null,
+    retention_until = statement_timestamp() + interval '7 days'
 where owner_user_id = '30000000-0000-4000-8000-000000000001'
   and superseded_at is null
   and verified_deleted_at is null;
@@ -899,7 +927,7 @@ begin
     '30000000-0000-4000-8000-000000000001'
   );
   if deletion ->> 'status' <> 'eligible' then
-    raise exception 'eligible verification evidence was not prepared for deletion';
+    raise exception 'pre-deadline owner deletion was not immediately prepared';
   end if;
   if not exists (
     select 1 from public.verification_documents
@@ -966,8 +994,8 @@ begin
     'image/jpeg',
     4,
     repeat('40', 32),
-    'government-id-evidence-v1',
-    'government-id-privacy-v1',
+    'government-id-evidence-v2',
+    'government-id-privacy-v2',
     true,
     '39000000-0000-4000-8000-000000000060',
     '30000000-0000-4000-8000-000000000002',
@@ -1173,8 +1201,7 @@ begin
       and file_size_limit = 5242880
       and allowed_mime_types = array[
         'image/jpeg',
-        'image/png',
-        'application/pdf'
+        'image/png'
       ]::text[]
   ) then
     raise exception 'verification bucket restrictions diverged from the approved policy';

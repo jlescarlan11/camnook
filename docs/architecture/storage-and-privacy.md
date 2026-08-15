@@ -1,6 +1,6 @@
 # Storage and Privacy Architecture
 
-Status: approved on 2026-08-12<br>
+Status: architecture approved on 2026-08-12; government-ID v2 collection not legally approved<br>
 Implementation updated: 2026-08-15<br>
 Policy source: [`docs/product/mvp-rental-policy-v0.1.md`](../product/mvp-rental-policy-v0.1.md)
 
@@ -19,23 +19,28 @@ Current guidance:
 
 ## Launch gate
 
-Government-ID evidence policy `government-id-evidence-v1` and privacy notice
-`government-id-privacy-v1` are approved for implementation. The versioned
-notice is linked from the account UI and defines purpose, owner-only Sprint 1
-access, 30-day live-object retention, deletion, and legal-hold handling.
+Government-ID evidence policy `government-id-evidence-v2` and draft notice
+`government-id-privacy-v2` are implemented only as a fail-closed technical
+control. They are not approval to collect real IDs. The versioned notice is
+linked from the account UI and makes the missing legal and operational facts
+explicit.
 
 Production collection remains feature-disabled until all of these release gates
 are satisfied:
 
 1. CamNook publishes and tests a monitored privacy/DPO contact;
-2. Philippine legal counsel approves the final wording, lawful basis, legal-hold procedure, and backup treatment;
-3. the migration and RLS/advisor suite pass in Development; and
-4. the complete flow passes with synthetic evidence in protected Preview.
+2. the legal controller/address, DPO, Section 13 basis, decline consequences and alternative, processor locations, cross-border safeguards, retention schedules, PIA/ROPA/PMP, registration assessment, and breach plan are documented;
+3. an authorized reviewer flow with strong authentication, raw-byte read audit, decision criteria, escalation, and appeal is implemented;
+4. the legal-hold procedure and provider backup treatment are operationally proven or removed as claims;
+5. Philippine privacy counsel approves the final notice and workflow;
+6. the migration and RLS/advisor suite pass in Development; and
+7. the complete flow passes with synthetic evidence in protected Preview.
 
 The database policy row is the authority. No intent is issued when it is off or
 when the exact rendered policy/notice versions are stale. A hidden button is not
-an adequate control. Because the migration activates v1 when applied, it must
-not be applied to Production until every Production gate above is complete.
+an adequate control. The v2 hardening migration resets the policy to disabled
+and clears its activation time; a later reviewed migration is required to turn
+collection on.
 
 ## Buckets
 
@@ -80,9 +85,9 @@ The relevant operation:
 - returns only what is needed for an authenticated upload.
 
 For verification documents, no intent is issued until the privacy/retention
-launch gate and exact notice acknowledgement are current. Authenticated clients
+launch gate and exact notice-specific consent are current. Authenticated clients
 have no execute grant on mutation/path RPCs. The Server Action authenticates the
-owner, validates the bytes and acknowledgement, and calls a narrow server-only
+owner, validates the bytes and affirmative consent, and calls a narrow server-only
 service-role RPC with matching owner/actor IDs.
 
 ### 2. Upload and finalize
@@ -97,7 +102,7 @@ Application roles receive no `UPDATE` permission on private `storage.objects`. S
 
 - A corrected ID scan, payment proof, contract render, or condition photo receives a new UUID path and metadata row.
 - Metadata uses `supersedes_id` where the relationship matters.
-- The older object remains under its retention rule unless an approved deletion policy removes it.
+- A superseded government-ID object becomes immediately due for the protected cleanup worker; it is never overwritten.
 - Contract versions and submitted evidence cannot be replaced in place.
 
 Public listing photos may be archived/reordered through database metadata, but revised bytes still use a new versioned object path to avoid stale CDN content and destructive overwrite. Publishing copies an approved staging object to a new public path, verifies its expected size/hash, commits the `camera_photos` reference, and then removes the staging object. A retry accepts an existing destination only when its exact approved size/hash match; otherwise it allocates a new path or fails closed. Rollback/reconciliation must never leave sensitive evidence in a public bucket. The repository implements this audited state machine and its local operator in `20260813163420_add_catalog_photo_publication_workflow.sql` and `scripts/catalog-photo-publication.mjs`. The migration and exact Storage sequence were applied and rehearsed in Development on 14 August 2026. They remain unavailable in Production until a separately approved migration and catalog release.
@@ -121,10 +126,12 @@ Preferred access is an authenticated Storage download where RLS is evaluated. Wh
 
 Supabase signed URLs remain valid until their expiry even if Auth signing keys rotate and currently cannot be individually revoked. That is why expiry is deliberately short. URLs are never logged, persisted, emailed, or embedded in durable HTML.
 
-Sprint 1 deliberately grants no administrator access to government-ID bytes. A
-future review flow must add a stated UI purpose, short-lived access, and an audit
-event in a separate reviewed migration. Other private-evidence admin access must
-follow the same rule. Bulk export is not part of MVP.
+Sprint 1 deliberately grants no administrator access to government-ID bytes.
+Consequently, the current code verifies file integrity but cannot verify an
+identity. A future review flow must add a stated UI purpose, strong reviewer
+authentication, short-lived access, and a read audit event in a separate
+reviewed migration. Other private-evidence admin access must follow the same
+rule. Bulk export is not part of MVP.
 
 ## Storage RLS design
 
@@ -135,7 +142,7 @@ Policies on `storage.objects` are bucket- and operation-specific.
 | `SELECT` | Public delivery by bucket setting | Exact path must join finalized owner metadata or an active owner upload/cleanup intent | Denied for government IDs in Sprint 1; future access requires a separate audited operation |
 | `INSERT` | Exact-path authenticated admin copy only; draft upload goes to private staging | Exact unexpired upload-intent path owned by `auth.uid()` with matching MIME/size | Denied for government IDs in Sprint 1 |
 | `UPDATE` | Denied | Denied | Denied |
-| `DELETE` | Exact-path admin abort/archive cleanup only | Exact owner path only while intent cleanup is pending or deletion has been durably claimed after retention and is not held | Retention worker deletes only database-claimed due paths; application admin is denied |
+| `DELETE` | Exact-path admin abort/archive cleanup only | Exact owner path only while intent cleanup is pending or deletion has been durably claimed after an owner request and is not held | Retention worker deletes only database-claimed due paths; application admin is denied |
 
 Storage policies do not depend on `user_metadata`. `TO authenticated` is combined with ownership or `private.is_admin()`. Catalog photo publication uses the admin's short-lived user token so Storage RLS remains authoritative; it does not need a service key. The government-ID Server Action uses the renter token for owner Storage RLS and a server-only service key only for narrow mutation RPCs. The protected retention worker uses that service key to delete only paths atomically claimed by the database; its finalizer independently verifies absence and preserves system audit history.
 
@@ -159,13 +166,15 @@ Deleting file bytes never deletes the verification decision, booking state histo
 
 ## Retention and verified deletion
 
-Government-ID v1 assigns every finalized object a 30-day
-`retention_until`. A renter may request deletion before that date; the request
-is recorded as scheduled but Storage delete RLS remains closed. Once due and
-not under legal hold, the owner flow or protected daily worker:
+Government-ID v2 assigns every finalized object a 30-day outside
+`retention_until`. The date is a maximum, not a minimum. A renter may withdraw
+consent and request deletion before that date; an unheld object is claimed and
+removed immediately. Replacement makes the superseded object due for the
+protected daily worker. For an owner request or a due automatic cleanup, the
+flow:
 
 1. locks and rechecks the exact document and owner;
-2. records an attributed renter request or a system retention action and atomically acquires a durable deletion claim;
+2. records an attributed renter consent-withdrawal/privacy request or a system retention action and atomically acquires a durable deletion claim;
 3. returns the private path only to that in-flight authenticated action;
 4. removes the exact object through owner-scoped Storage RLS;
 5. asks the database to verify the object is absent; and
@@ -187,7 +196,9 @@ listing media remains a later policy decision.
 
 ## Privacy minimization
 
-- Do not store a full government ID number unless legal/operational review proves it necessary. Prefer ID type, expiry, and a masked suffix if needed for pickup recheck.
+- Require a single masked JPEG/PNG side or page. Cover document numbers (including PSN/PCN/CRN), address, full birth date, signature, QR/barcode, and machine-readable zone; leave only the name, portrait, ID type, and expiry needed for the proposed review.
+- Do not accept PDF until an approved sanitizer removes extra pages, embedded content, and metadata.
+- Do not store a full government ID number unless legal/operational review proves it necessary.
 - Do not OCR documents in MVP.
 - Do not copy sensitive file contents into logs, analytics, error monitoring, or generated test fixtures.
 - Do not include renter identity in public availability or camera URLs.
@@ -202,7 +213,7 @@ Before enabling each bucket:
 1. Test `anon`, owner renter, different renter, admin, suspended user, and service role.
 2. Prove a guessed UUID/path cannot be read or overwritten.
 3. Prove direct upload without a valid intent fails.
-4. Prove upsert fails; owner delete fails unless exact intent cleanup or a due, durably claimed, non-held document authorizes it.
+4. Prove upsert fails; owner delete fails unless exact intent cleanup or a durably claimed, non-held owner request authorizes it.
 5. Prove signed URL issuance audits admin access and expires within policy.
 6. Prove deleting an ID object leaves the verification decision and audit record intact.
 7. Reconcile metadata rows to objects and objects to metadata rows.

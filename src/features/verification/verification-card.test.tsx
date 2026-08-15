@@ -15,12 +15,12 @@ const baseState: VerificationState = {
   intent: null,
   policy: {
     allowed_id_types: ["philippine_passport", "philsys_id"],
-    allowed_media_types: ["image/jpeg", "image/png", "application/pdf"],
+    allowed_media_types: ["image/jpeg", "image/png"],
     document_retention_days: 30,
     enabled: true,
     max_byte_size: 5 * 1024 * 1024,
-    policy_version: "government-id-evidence-v1",
-    privacy_notice_version: "government-id-privacy-v1",
+    policy_version: "government-id-evidence-v2",
+    privacy_notice_version: "government-id-privacy-v2",
     upload_intent_seconds: 900,
   },
   record: null,
@@ -35,11 +35,13 @@ describe("government ID privacy card", () => {
     );
     expect(markup).toContain("Philippine passport");
     expect(markup).toContain("PhilSys ID or ePhilID");
-    expect(markup).toContain("JPEG, PNG, or PDF");
+    expect(markup).toContain("JPEG or PNG");
     expect(markup).toContain("5.0 MiB");
     expect(markup).toContain("30 days");
-    expect(markup).toContain('accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"');
-    expect(markup).toContain('name="privacyAcknowledgement"');
+    expect(markup).toContain('accept="image/jpeg,image/png,.jpg,.jpeg,.png"');
+    expect(markup).toContain('name="privacyConsent"');
+    expect(markup).toContain("specifically consent");
+    expect(markup).toContain("does not verify identity");
     expect(markup).not.toContain("object_path");
   });
 
@@ -83,6 +85,7 @@ describe("government ID privacy card", () => {
     expect(markup).toContain("Superseded");
     expect(markup).toContain('name="documentId"');
     expect(markup).toContain(`value="${documentId}"`);
+    expect(markup).toContain("Delete this evidence now");
     expect(markup).not.toContain("object_path");
   });
 

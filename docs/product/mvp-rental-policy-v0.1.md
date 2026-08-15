@@ -25,13 +25,13 @@ The MVP does not include multiple lenders, lender onboarding or payouts, escrow 
 ## Account verification
 
 - **VER-01 — Account level.** Verification belongs to the renter account, not to an individual booking.
-- **VER-02 — One document.** MVP collects one valid Philippine passport, PhilSys ID/ePhilID, driver’s license, or UMID. Selfies and proof of address are not required by default.
-- **VER-03 — Manual decision.** An admin manually assigns `pending`, `verified`, `rejected`, or `expired`. `expired` means the reviewed ID has passed its expiration date.
+- **VER-02 — One document.** The planned MVP flow accepts one masked Philippine passport, PhilSys ID/ePhilID, driver’s license, or UMID image only after the public-launch gate is approved. Selfies and proof of address are not required by default.
+- **VER-03 — Planned manual decision.** An authorized reviewer may assign `pending`, `verified`, `rejected`, or `expired` only after a separately approved raw-byte review, read-audit, escalation, and appeal workflow exists. The current pipeline performs no identity decision. `expired` means the reviewed ID has passed its expiration date.
 - **VER-04 — Separate decision and file.** The verification decision and its audit history must survive deletion of the sensitive document.
 - **VER-05 — Named renter only.** The renter named on the account and contract must personally collect the camera. The contract is non-transferable; representatives and substitute renters are prohibited.
 - **VER-06 — Pickup recheck.** The original ID must be presented and rechecked at every pickup.
-- **VER-07 — Public-launch gate.** Evidence policy `government-id-evidence-v1` and notice `government-id-privacy-v1` are approved for implementation. Production collection remains disabled until a monitored privacy/DPO contact, final Philippine legal review, Development verification, and protected-Preview smoke evidence are approved.
-- **VER-08 — Evidence limits.** Accept one JPEG, PNG, or PDF up to 5 MiB through a 15-minute upload intent. Each finalized object has 30-day live retention; a documented legal hold may delay deletion.
+- **VER-07 — Public-launch gate.** Evidence policy `government-id-evidence-v2` and draft notice `government-id-privacy-v2` are technical release controls, not approval for real-ID collection. Production remains disabled until every legal, governance, reviewer, provider, retention, rights, incident, Development, protected-Preview, and written Philippine privacy-counsel gate in the versioned notice is complete.
+- **VER-08 — Evidence limits.** The draft accepts one masked JPEG or PNG side/page up to 5 MiB through a 15-minute upload intent. Delete the image when no longer necessary and no later than 30 days; permit immediate owner withdrawal/deletion unless a documented legal exception applies.
 
 ## Booking states
 

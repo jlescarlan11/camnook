@@ -27,12 +27,12 @@ const policy = {
     "drivers_license",
     "umid",
   ],
-  allowed_media_types: ["image/jpeg", "image/png", "application/pdf"],
+  allowed_media_types: ["image/jpeg", "image/png"],
   document_retention_days: 30,
   enabled: true,
   max_byte_size: 5 * 1024 * 1024,
-  policy_version: "government-id-evidence-v1",
-  privacy_notice_version: "government-id-privacy-v1",
+  policy_version: "government-id-evidence-v2",
+  privacy_notice_version: "government-id-privacy-v2",
   upload_intent_seconds: 900,
 };
 
@@ -41,7 +41,7 @@ function uploadForm(file = new File([JPEG_BYTES], "id.jpg", { type: "image/jpeg"
   data.set("document", file);
   data.set("idType", "philippine_passport");
   data.set("policyVersion", policy.policy_version);
-  data.set("privacyAcknowledgement", "accepted");
+  data.set("privacyConsent", "consent-government-id-processing");
   data.set("privacyNoticeVersion", policy.privacy_notice_version);
   return data;
 }
@@ -77,7 +77,7 @@ function mockClient(
 describe("government ID evidence actions", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("rejects invalid input or a missing privacy acknowledgement before authentication", async () => {
+  it("rejects invalid input or missing specific consent before authentication", async () => {
     const invalid = new FormData();
     invalid.set("idType", "not-approved");
 
@@ -87,10 +87,10 @@ describe("government ID evidence actions", () => {
     expect(requireUser).not.toHaveBeenCalled();
 
     const noConsent = uploadForm();
-    noConsent.delete("privacyAcknowledgement");
+    noConsent.delete("privacyConsent");
     await expect(
       submitVerificationEvidence({ status: "idle" }, noConsent),
-    ).resolves.toEqual({ error: "privacy_not_accepted", status: "error" });
+    ).resolves.toEqual({ error: "consent_required", status: "error" });
     expect(requireUser).not.toHaveBeenCalled();
   });
 
@@ -98,7 +98,7 @@ describe("government ID evidence actions", () => {
     const { rpc } = mockClient(async (name) => {
       expect(name).toBe("get_verification_upload_policy");
       return {
-        data: { ...policy, privacy_notice_version: "government-id-privacy-v2" },
+        data: { ...policy, privacy_notice_version: "government-id-privacy-v3" },
         error: null,
       };
     });
@@ -120,6 +120,22 @@ describe("government ID evidence actions", () => {
     ).resolves.toEqual({ error: "policy_unavailable", status: "error" });
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(createSupabaseAdminClient).not.toHaveBeenCalled();
+  });
+
+  it("rejects PDF evidence under the image-only v2 policy", async () => {
+    const { bucket, rpc } = mockClient(async (name) => {
+      expect(name).toBe("get_verification_upload_policy");
+      return { data: policy, error: null };
+    });
+    const pdf = new File([Uint8Array.from([0x25, 0x50, 0x44, 0x46, 0x2d])], "id.pdf", {
+      type: "application/pdf",
+    });
+
+    await expect(
+      submitVerificationEvidence({ status: "idle" }, uploadForm(pdf)),
+    ).resolves.toMatchObject({ error: "invalid_input", status: "error" });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(bucket.upload).not.toHaveBeenCalled();
   });
 
   it("verifies the stored bytes and finalizes exactly one pending submission", async () => {
@@ -163,6 +179,14 @@ describe("government ID evidence actions", () => {
       expect.objectContaining({ contentType: "image/jpeg", upsert: false }),
     );
     expect(bucket.download).toHaveBeenCalledWith(OBJECT_PATH);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_verification_upload_intent",
+      expect.objectContaining({
+        p_policy_version: "government-id-evidence-v2",
+        p_privacy_acknowledged: true,
+        p_privacy_notice_version: "government-id-privacy-v2",
+      }),
+    );
     expect(rpc).toHaveBeenCalledWith(
       "finalize_verification_upload",
       expect.objectContaining({
@@ -344,7 +368,7 @@ describe("government ID evidence actions", () => {
     expect(bucket.remove).toHaveBeenCalledWith([OBJECT_PATH]);
   });
 
-  it("schedules early deletion without exposing or removing the object", async () => {
+  it("fails closed if the database has not applied immediate owner deletion", async () => {
     const { bucket } = mockClient(async (name) => {
       expect(name).toBe("request_verification_document_deletion");
       return {
@@ -362,11 +386,7 @@ describe("government ID evidence actions", () => {
 
     await expect(
       requestVerificationEvidenceDeletion({ status: "idle" }, data),
-    ).resolves.toEqual({
-      result: "scheduled",
-      retentionUntil: "2099-09-14T00:00:00Z",
-      status: "success",
-    });
+    ).resolves.toEqual({ error: "delete_failed", status: "error" });
     expect(bucket.remove).not.toHaveBeenCalled();
   });
 

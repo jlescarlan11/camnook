@@ -1,14 +1,14 @@
 # Government ID Evidence Operations
 
-Status: Development rollout authorized; Production collection remains disabled
-Policy: `government-id-evidence-v1`
-Notice: `government-id-privacy-v1`
+Status: synthetic-evidence validation only; real-ID collection is not authorized
+Policy: `government-id-evidence-v2`
+Notice: `government-id-privacy-v2`
 
 ## Environment boundary
 
 The migration is forward-only. Local and hosted validation use synthetic files. Before any routine linked hosted database command, require `supabase/.temp/project-ref` to equal Development ref `ekmoiepalelqpmemvrkl`. Production ref `iegcixcevvkryfwfotqz` is never a routine Development target. Production schema deployment is available only through the manually dispatched, protected GitHub Actions environment.
 
-The migration installs the v1 policy disabled and with no activation timestamp, so schema deployment cannot start ID collection. Production activation additionally requires a monitored privacy/DPO contact, final Philippine legal review (tracked separately in #26), Development RLS/advisor evidence, and protected-Preview browser smoke evidence. There is deliberately no automated activation workflow: activation requires a later, separately reviewed migration after those gates are recorded.
+The v2 hardening migration updates the policy to JPEG/PNG only, resets it to disabled, and clears the activation timestamp, so schema deployment cannot start ID collection. Production activation requires every governance, reviewer, processor/location, retention/backup, rights, incident, and legal gate in the v2 notice. There is deliberately no automated activation workflow: activation requires a later, separately reviewed migration after those gates are recorded.
 
 The runtime also requires server-only `SUPABASE_SERVICE_ROLE_KEY` and
 `CRON_SECRET` values. The former is used only by authenticated Server Actions
@@ -72,21 +72,21 @@ hosted advisor workflow.
 ## Upload and retry lifecycle
 
 1. The account page loads the current database policy and safe account state.
-2. The renter reads and acknowledges the exact rendered notice version.
-3. The Server Action validates accepted ID type, MIME, magic bytes, and 5 MiB maximum; computes SHA-256; and uses the server-only RPC boundary to create a 15-minute database intent with the exact acknowledgement version and time.
+2. The renter reads the exact rendered notice and affirmatively gives purpose-specific consent; the checkbox is required and not preselected.
+3. The Server Action validates accepted ID type, JPEG/PNG MIME, magic bytes, and 5 MiB maximum; computes SHA-256; and uses the server-only RPC boundary to create a 15-minute database intent with the exact notice/consent event and time. The legacy database column name uses “acknowledged,” but the recorded UI event is specific consent.
 4. The renter session uploads through Storage RLS, which rechecks the exact owner path, expected metadata, active account, current policy/notice, and expiry. Upsert/overwrite remains off.
-5. The Server Action downloads the owner-authorized object, verifies size/hash, and uses the server-only RPC boundary to finalize. Finalization independently rechecks active-account and current-policy state. The pending verification and current document appear only then.
+5. The Server Action downloads the owner-authorized object, verifies size/hash, and uses the server-only RPC boundary to finalize. Finalization independently rechecks active-account and current-policy state. The pending record and current document appear only then. This verifies file integrity, not identity.
 6. If an upload response is ambiguous, the same file resumes the existing intent and is downloaded/reconciled even when a new Server Action proposed another UUID. If the renter chooses different evidence while an intent is open, the action prepares and verifies cleanup before issuing the new intent. A byte mismatch or expired intent follows the same exact cleanup path.
 
 Repeated account submissions are safe. Operators must not manually edit intent status, fabricate metadata, upload to a path, or delete Storage rows in the dashboard.
 
 ## Replacement
 
-Only a pending decision can be replaced in Sprint 1. Replacement creates a new document UUID/path, updates the pending record’s selected ID type on finalization, and marks the prior document superseded. A verified decision requires a separately designed new-review operation.
+Only a pending decision can be replaced in Sprint 1. Replacement creates a new document UUID/path, updates the pending record’s selected ID type on finalization, marks the prior document superseded, and makes the prior object due for protected cleanup. A verified decision requires a separately designed new-review operation.
 
 ## Retention and deletion
 
-Each finalized object receives its own 30-day `retention_until`. A renter request before that time is recorded as scheduled. When eligible and not under legal hold, the account flow removes the exact object and calls finalization; the database refuses completion if the object remains.
+Each finalized object receives a 30-day maximum `retention_until`. An owner may withdraw consent or request deletion at any time; if no documented hold exists, the account flow immediately claims and removes the exact object and calls finalization. The database refuses completion if the object remains. Unrequested objects become due at the outside deadline, and superseded objects become due immediately.
 
 Eligibility acquisition is a durable database transition. A pre-existing hold
 prevents the claim; once a due deletion is claimed, later hold placement is
@@ -112,7 +112,16 @@ verify the system-actor audit entries and absence checks, and confirm the Vercel
 Cron appears. Vercel does not retry a failed cron invocation, so alert on 5xx and
 re-run the same protected route after correcting the dependency failure.
 
-Legal holds may be set or released only by a future narrow audited admin operation. Direct table edits are not an application workflow. Until that operation exists, a legal hold row is a database-enforced exception that must be managed only under a separately authorized incident/legal procedure.
+Legal holds may be set or released only by a future narrow audited admin operation. Direct table edits are not an application workflow. Because that operation and procedure do not yet exist, legal hold is an activation blocker, not a Production-ready exception.
+
+## Activation decision record
+
+The current decision is **NOT APPROVABLE YET**. Before any real-ID collection,
+complete every governance requirement listed in
+[`docs/product/government-id-privacy-notice-v2.md`](../product/government-id-privacy-notice-v2.md),
+obtain written Philippine privacy-counsel approval, and implement activation in
+a new migration that identifies the approved policy and notice versions. A
+Dashboard edit or manual SQL toggle is not an authorized activation path.
 
 ## Safe diagnostics
 

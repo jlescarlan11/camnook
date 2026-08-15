@@ -150,17 +150,19 @@ separately approved migration and catalog release. Do not place real inventory
 manifests or private serial/cost values in Git, and do not bypass private staging
 with a direct public-bucket upload.
 
-Government-ID evidence policy `government-id-evidence-v1` and privacy notice
-`government-id-privacy-v1` implement Sprint 1 issues #13–#21. Use
+Government-ID evidence policy `government-id-evidence-v2` and draft privacy notice
+`government-id-privacy-v2` harden the Sprint 1 issues #13–#21 implementation. Use
 [`docs/product/sprint-1-government-id-evidence.md`](docs/product/sprint-1-government-id-evidence.md)
 for the acceptance matrix,
-[`docs/product/government-id-privacy-notice-v1.md`](docs/product/government-id-privacy-notice-v1.md)
+[`docs/product/government-id-privacy-notice-v2.md`](docs/product/government-id-privacy-notice-v2.md)
 for the versioned notice, and
 [`docs/operations/government-id-evidence.md`](docs/operations/government-id-evidence.md)
-for validation and recovery. The migration is installed in Development with
-the policy disabled; it has not been applied to Production. Production
-collection additionally requires a monitored privacy/DPO contact and final
-Philippine legal approval. Vercel has separate server-only
+for validation and recovery. The v2 migration resets the database policy to
+disabled wherever it is applied. Real-ID collection is not authorized in any
+environment; Local, Development, and protected Preview may use synthetic
+evidence only. Production requires every controller/DPO, lawful-basis, reviewer,
+vendor/location, backup/retention, rights, governance, incident, validation, and
+written Philippine privacy-counsel gate in the v2 notice. Vercel has separate server-only
 `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` values for Development/Preview and
 Production. The protected daily route enforces due retention and
 abandoned-intent cleanup with durable, retryable claims and database-verified
@@ -193,10 +195,11 @@ collection.
 - Booking quote and approval pricing use the database-authoritative OD-01
   started-24-hour formula approved in `docs/open-decisions.md` and implemented
   by [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
-- Government-ID upload is implemented behind the database-authoritative v1
-  privacy gate. Production remains closed until the contact/legal and hosted
-  validation gates in the evidence runbook are satisfied; verification review
-  decisions remain outside Sprint 1.
+- Government-ID upload is implemented behind the database-authoritative v2
+  privacy gate, which is disabled. The current pipeline verifies file integrity,
+  not identity. Production remains closed until every legal, governance,
+  reviewer, provider, retention, rights, and hosted-validation gate in the
+  evidence runbook is satisfied.
 - Paid/submitted-payment cancellation acceptance remains disabled until the
   cancellation and refund policy is approved.
 - Admin access to private Storage objects remains disabled until an audited,

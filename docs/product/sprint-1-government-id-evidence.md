@@ -1,23 +1,23 @@
 # Sprint 1 Government ID Evidence — Acceptance Matrix
 
-Status: implemented locally on 2026-08-15
+Status: v2 privacy hardening implemented locally on 2026-08-15; real-ID collection not authorized
 Issues: [#13](https://github.com/jlescarlan11/camnook/issues/13) through [#21](https://github.com/jlescarlan11/camnook/issues/21)
-Hosted rollout: not included; Development and Production remain unchanged
+Hosted rollout: not included; the forward migration resets every environment to disabled when applied
 
-## Approved decisions
+## Current technical constraints (not legal approval)
 
-| Decision | Approved value |
+| Decision | Current value |
 | --- | --- |
-| Evidence policy | `government-id-evidence-v1` |
-| Privacy notice | `government-id-privacy-v1` |
+| Evidence policy | `government-id-evidence-v2` |
+| Privacy notice | `government-id-privacy-v2` |
 | Accepted IDs | Philippine passport, PhilSys ID/ePhilID, driver’s license, UMID |
-| Accepted files | JPEG, PNG, PDF |
-| Maximum | 5 MiB, one file |
+| Accepted files | JPEG or PNG; PDF rejected |
+| Maximum | 5 MiB, one masked side/page |
 | Intent lifetime | 15 minutes |
-| Live-object retention | 30 days per finalized object |
+| Live-object retention | Delete when no longer needed and no later than 30 days; owner withdrawal is immediate; superseded evidence becomes due for cleanup |
 | Raw-byte readers in Sprint 1 | Owning renter workflow only; anonymous, other renters, and application admin are denied; the server-only retention worker can delete but never returns bytes |
 | Replacement | New object and metadata; earlier evidence is superseded, never overwritten |
-| Deletion | Request anytime; remove when retention is due and no legal hold; verify absence before completion |
+| Deletion | Request anytime; immediately remove if unheld; verify absence before completion |
 | Deliberately excluded metadata | Full ID number, OCR output, private URL/path on account pages, raw content/digest in audit logs |
 
 ## Issue-by-issue criteria
@@ -30,8 +30,8 @@ Hosted rollout: not included; Development and Production remain unchanged
 | #13 | No overwrite or public URL exists. | No Storage `UPDATE` policy; opaque private bucket path; no signed/permanent URL returned. |
 | #13 | Exit tests cover renter A, renter B, and admin isolation. | `004_verification_evidence_lifecycle.sql`. |
 | #14 | Notice appears before upload. | Account verification card renders the full summary before the form and links the versioned notice. |
-| #14 | Purpose, access, retention, deletion, and legal hold are clear. | Account copy plus `government-id-privacy-notice-v1.md` and public notice page. |
-| #14 | No intent is issued unless the gate, acknowledgement, and exact rendered notice version are current. | Server re-reads policy; hidden version tokens and acknowledgement must match; service-only database mutation records acknowledgement time and checks `enabled`, policy version, and notice version. |
+| #14 | Purpose, access, retention, deletion, legal hold limits, missing controller/DPO facts, and non-approval status are clear. | Account copy plus `government-id-privacy-notice-v2.md` and public draft-notice page. |
+| #14 | No intent is issued unless the gate, specific consent, and exact rendered notice version are current. | Server re-reads policy; hidden version tokens and affirmative consent must match; the service-only mutation records the consent event time and checks `enabled`, policy version, and notice version. |
 | #15 | Only approved media and size can be uploaded. | Browser `accept`/size check, server MIME/signature/size check, bucket limits, and exact intent metadata RLS. |
 | #15 | Path is opaque and owner/record/document scoped. | `{owner_uuid}/{record_uuid}/{document_uuid}.{ext}` generated only in the database. |
 | #15 | Other renters cannot create/read/replace/finalize. | Authenticated clients have no mutation-RPC execute grant; Server Actions pass the authenticated owner through a service-only boundary; RLS and negative SQL tests cover metadata, Storage, upload, and finalization. |
@@ -42,18 +42,29 @@ Hosted rollout: not included; Development and Production remain unchanged
 | #17 | Byte deletion preserves decision/audit history. | Lifecycle updates metadata only; record and audit assertions remain after verified deletion. |
 | #17 | Retention audit contains no URL/content/digest. | Minimal actor-aware verification audit metadata and leakage assertions. |
 | #18 | Accepted ID/media/maximum are clear to the renter. | Policy-driven account lists and privacy notice. |
-| #18 | Client, server, bucket, and Storage RLS restrictions agree. | Shared 5 MiB/JPEG/PNG/PDF policy enforced at all four layers. |
+| #18 | Client, server, bucket, and Storage RLS restrictions agree. | Shared 5 MiB/JPEG/PNG policy enforced at all four layers; PDF is negatively tested. |
 | #18 | No full government ID number is requested or stored. | No form field/API argument; catalog assertion scans verification RPC argument names. |
 | #19 | Expired, suspended, or policy-revoked intents cannot accept Storage insert or finalize. | Exact RLS predicates plus independent finalization rechecks with SQL tests. |
 | #19 | Retry reconciles an already-present exact object. | Matching owner/file/policy metadata resumes the existing intent even when a new form action proposes another UUID; downloaded size/hash verification and idempotent finalize retry have SQL and unit regression tests. |
 | #19 | Ambiguity fails closed with cleanup/restart. | Cleanup-pending state, exact owner delete, database absence verification, and safe client error. |
 | #20 | Replacement allocates new object and metadata. | New UUID intent/document path and `supersedes_id`. |
-| #20 | Earlier evidence is superseded, never overwritten. | `superseded_at`, no Storage `UPDATE`, distinct-path SQL assertion. |
+| #20 | Earlier evidence is superseded, never overwritten, and promptly removed. | `superseded_at`, no Storage `UPDATE`, distinct-path SQL assertion, and a trigger that makes the old object due for protected cleanup. |
 | #20 | Only one current submission controls account state. | Current-record/document partial unique indexes and replacement concurrency locks. |
-| #21 | Retention and legal hold control deletion. | Request RPC schedules early requests and blocks held evidence. |
+| #21 | Retention and legal hold control deletion. | Thirty days is the outside deadline; the request RPC immediately claims an unheld owner object and blocks held evidence. |
 | #21 | Completion requires verified object absence. | Account deletion and the scheduled worker both perform exact Storage removal followed by database-side absence checks before `verified_deleted_at`. |
-| #21 | Scheduled requests and unrequested objects are enforced when retention becomes due. | Daily CRON-secret-protected cleanup claims every due, non-held object plus abandoned intent; batch/unit and SQL tests prove retryable removal and system-audited completion. |
+| #21 | Unrequested objects are enforced when retention becomes due. | Daily CRON-secret-protected cleanup claims every due, non-held object plus abandoned intent; batch/unit and SQL tests prove retryable removal and system-audited completion. |
 | #21 | Decision and path-free audit history remain. | No row deletion; SQL assertions verify both histories after byte removal. |
+
+## Activation blockers
+
+The implemented storage workflow does not perform identity verification because
+no authorized reviewer can read the evidence. Production remains blocked until
+the legal controller and address, DPO/privacy lead, Section 13 basis, consent
+decline/alternative design, provider roles and regions, cross-border safeguards,
+backup facts, metadata schedule, reviewer/read-audit workflow, legal-hold
+operation, rights procedure, PIA/ROPA/PMP, NPC registration assessment, breach
+plan, and written Philippine privacy-counsel approval are complete. See
+[`government-id-privacy-notice-v2.md`](government-id-privacy-notice-v2.md).
 
 ## Verification commands
 

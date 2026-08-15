@@ -74,21 +74,26 @@ from the original rental quote.
 ### OD-04 — Government-ID evidence policy
 
 Owner: product/business, with Philippine legal/privacy review before Production<br>
-Status: approved for implementation on 2026-08-15<br>
+Status: v2 technical hardening implemented on 2026-08-15; legal approval withheld<br>
 Unblocks: Sprint 1 issues #13–#21 in Local and Development
 
-Policy `government-id-evidence-v1` accepts one Philippine passport, PhilSys
-ID/ePhilID, driver’s license, or UMID as JPEG, PNG, or PDF up to 5 MiB. Upload
-intents last 15 minutes. Each finalized object has 30-day live retention;
-renter deletion requests are scheduled until due, and a documented legal hold
-blocks removal. Sprint 1 grants only the owning renter raw-byte access. It stores
-no full ID number or OCR output and creates no permanent/signed URL.
+Policy `government-id-evidence-v2` limits the draft flow to one masked side/page
+of a Philippine passport, PhilSys ID/ePhilID, driver’s license, or UMID as JPEG
+or PNG up to 5 MiB. PDFs are rejected. Upload intents last 15 minutes. Every
+finalized object is deleted when no longer necessary and no later than 30 days;
+an owner request deletes an unheld object immediately, and replacement makes
+the superseded object due for cleanup. Sprint 1 grants only the owning renter
+raw-byte access, so the current pipeline verifies file integrity but cannot
+perform identity review. It stores no full ID number or OCR output and creates
+no permanent/signed URL.
 
-Notice `government-id-privacy-v1` is approved for implementation and must be
-shown before upload. Production collection remains closed until CamNook has a
-monitored privacy/DPO contact, final Philippine legal review, Development RLS
-and advisor evidence, and protected-Preview browser evidence. That release gate
-does not prevent synthetic Local/Development validation.
+Draft notice `government-id-privacy-v2` requires affirmative, purpose-specific
+consent and is shown before upload. It is not legally approved. Production
+collection remains closed until the complete controller/DPO, lawful-basis,
+reviewer, processor/location, cross-border, backup, metadata-retention, rights,
+PIA/ROPA/PMP, registration, incident-response, Development, Preview, and written
+Philippine privacy-counsel gates are complete. Synthetic Local/Development
+validation remains permitted.
 
 ### OD-02 — Post-payment material amendments
 
@@ -157,12 +162,12 @@ in [`docs/operations/public-renter-registration.md`](operations/public-renter-re
 
 ### LB-01 — Privacy and retention
 
-Policy `government-id-evidence-v1` and notice `government-id-privacy-v1` approve
-the 30-day live-object schedule, metadata/decision preservation, legal holds, and
-verified deletion for implementation. Production collection stays disabled
-until the monitored privacy/DPO contact, final Philippine legal review (including
-lawful basis and backup treatment), Development evidence, and protected-Preview
-smoke gates in OD-04 are complete.
+Policy `government-id-evidence-v2` and draft notice
+`government-id-privacy-v2` implement a fail-closed 30-day maximum,
+consent-withdrawal deletion, superseded-object cleanup, metadata/decision
+preservation, and verified deletion. They do not approve real-ID collection.
+Production stays disabled until every legal, governance, operational, vendor,
+security, Development, and protected-Preview gate in OD-04 is complete.
 
 ### LB-02 — Contract legal review
 

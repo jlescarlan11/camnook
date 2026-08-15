@@ -1,9 +1,15 @@
 # CamNook Government ID Privacy Notice
 
-Version: `government-id-privacy-v1`
-Policy: `government-id-evidence-v1`
-Approved for implementation: 2026-08-15
-Production activation gate: tested monitored privacy contact and Philippine legal review
+Version: `government-id-privacy-v1`<br>
+Policy: `government-id-evidence-v1`<br>
+Status: superseded draft; never approved for Production collection<br>
+Superseded by: [`government-id-privacy-v2`](government-id-privacy-notice-v2.md) on 2026-08-15
+
+> Do not use this version to collect personal data or obtain consent. It is
+> retained only to preserve the review history. The v1 wording treated 30 days
+> as a minimum, accepted PDFs, recorded acknowledgement rather than specific
+> consent, and omitted legally material controller, processor, location,
+> retention, rights, and consequence details.
 
 ## What CamNook collects
 

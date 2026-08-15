@@ -31,8 +31,8 @@ function uploadErrorMessage(error: VerificationUploadActionState["error"]) {
   switch (error) {
     case "policy_unavailable":
       return "Government ID uploads are temporarily unavailable because the privacy gate is not active.";
-    case "privacy_not_accepted":
-      return "Read the privacy notice and check the acknowledgement before uploading.";
+    case "consent_required":
+      return "Read the privacy notice and give specific consent before uploading.";
     case "restart_required":
       return "We could not safely finish this attempt. Retry with the same file; CamNook will reconcile or clean up the earlier attempt first.";
     case "suspended":
@@ -71,7 +71,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
             Private evidence
           </p>
           <h2 className="mt-2 text-2xl font-semibold" id="verification-heading">
-            Government ID verification
+            Government ID evidence (not active)
           </h2>
         </div>
         {record ? (
@@ -85,16 +85,16 @@ export function VerificationCard({ state }: { state: VerificationState }) {
         <h3 className="font-semibold text-amber-950">Privacy notice — read before uploading</h3>
         <div className="mt-3 space-y-3 text-sm leading-6 text-amber-950">
           <p>
-            <strong>Purpose.</strong> CamNook collects one government ID image or PDF to confirm the renter’s identity and reduce fraud before a rental decision. Do not enter or upload a separate full ID number.
+            <strong>Status and purpose.</strong> Production collection is disabled. The draft flow is intended to let an authorized reviewer compare a masked ID image with the named renter for account-level fraud prevention. The current upload pipeline checks file integrity only; it does not verify identity or make a decision.
           </p>
           <p>
-            <strong>Access.</strong> The file stays in private Storage. You may retrieve your own current file. Sprint 1 grants no staff access to raw ID bytes; any future reviewer access must be separately approved, purpose-limited, time-limited, and audited.
+            <strong>Minimize first.</strong> Use one JPEG or PNG showing one side or page only. Cover the ID or document number (including PSN/PCN/CRN), address, full birth date, signature, QR/barcode, and machine-readable zone. Leave only the name, portrait, ID type, and expiry needed for the proposed comparison. Do not upload an unmasked or real ID in a test environment.
           </p>
           <p>
-            <strong>Retention and deletion.</strong> Each finalized file is retained for {policy.document_retention_days} days, then a protected daily process removes it and verifies absence. You may request deletion here at any time; an early request is scheduled for that date. A documented legal hold placed before cleanup is claimed delays deletion. Verification decisions and path-free audit events remain after file deletion.
+            <strong>Access and retention.</strong> The image stays in private Storage. The owning renter can retrieve it; the current system grants staff no raw-byte access. A future reviewer flow requires separate approval, short-lived access, and read auditing. The image must be deleted as soon as it is no longer needed and no later than {policy.document_retention_days} days after finalization. You may withdraw consent and delete it immediately unless a documented legal exception applies. Superseded evidence becomes due for the protected cleanup worker.
           </p>
           <p>
-            <strong>Your choice and rights.</strong> Uploading is optional until a rental flow requires verification. You may access your evidence, request deletion, or raise a correction or privacy concern by emailing <a className="font-semibold underline underline-offset-4" href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>. Never attach or send your government ID by email; use only this protected account upload. CamNook must test the monitored privacy contact before Production activation.
+            <strong>Your rights.</strong> Collection will not be enabled until CamNook publishes the legal personal-information-controller identity, address, DPO details, processing basis, recipients and locations, complete retention schedule, consequences and any alternative to providing an ID, and a working rights process. Email <a className="font-semibold underline underline-offset-4" href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> for access, correction, deletion, objection, withdrawal, or complaint handling. Never send an ID file by email.
           </p>
           <p className="text-xs text-amber-800">
             Notice {policy.privacy_notice_version} · policy {policy.policy_version}
@@ -117,7 +117,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
         <div className="rounded-2xl bg-stone-50 p-4">
           <h3 className="font-semibold">Accepted files</h3>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            JPEG, PNG, or PDF · one file · up to {formatBytes(policy.max_byte_size)}. File contents must match the selected format.
+            JPEG or PNG · one masked side/page · up to {formatBytes(policy.max_byte_size)}. File contents must match the selected format.
           </p>
         </div>
       </div>
@@ -145,7 +145,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-stone-500">Retention date</dt>
+                  <dt className="text-stone-500">Delete no later than</dt>
                   <dd className="mt-1 font-medium">
                     {document.retention_until
                       ? formatManilaDateTime(document.retention_until)
@@ -208,10 +208,10 @@ export function VerificationCard({ state }: { state: VerificationState }) {
           </div>
           <div>
             <label className="block text-sm font-medium" htmlFor="verification-document">
-              ID image or PDF
+              Masked ID image
             </label>
             <input
-              accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
               aria-describedby={clientFileError || uploadState.fieldErrors?.document ? "verification-document-error" : "verification-document-help"}
               aria-invalid={Boolean(clientFileError || uploadState.fieldErrors?.document)}
               className="mt-2 block w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-stone-950 file:px-4 file:py-2 file:font-medium file:text-white"
@@ -222,7 +222,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
                 const message = !file
                   ? undefined
                   : !policy.allowed_media_types.includes(file.type as never)
-                    ? "Choose a JPEG, PNG, or PDF."
+                    ? "Choose a JPEG or PNG."
                     : file.size > policy.max_byte_size
                       ? "Choose a file no larger than 5 MiB."
                       : file.size === 0
@@ -235,7 +235,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
               type="file"
             />
             <p className="mt-2 text-xs text-stone-500" id="verification-document-help">
-              The server verifies the file type, byte limit, stored size, and SHA-256 digest before creating a pending record.
+              Upload one masked side/page only. The server checks file type, byte limit, stored size, and SHA-256 integrity; those checks do not establish identity.
             </p>
             {clientFileError || uploadState.fieldErrors?.document ? (
               <p className="mt-2 text-sm text-red-700" id="verification-document-error" role="alert">
@@ -246,13 +246,13 @@ export function VerificationCard({ state }: { state: VerificationState }) {
           <label className="flex items-start gap-3 rounded-xl border border-stone-200 p-4 text-sm leading-6">
             <input
               className="mt-1 size-4"
-              name="privacyAcknowledgement"
+              name="privacyConsent"
               required
               type="checkbox"
-              value="accepted"
+              value="consent-government-id-processing"
             />
             <span>
-              I read notice {policy.privacy_notice_version} and understand the purpose, private access boundary, {policy.document_retention_days}-day retention, deletion process, and legal-hold exception.
+              I have read notice {policy.privacy_notice_version}. I specifically consent to CamNook processing this masked image for the stated account-level identity-comparison and fraud-prevention purpose. I understand that I may withdraw this consent and request immediate deletion of the image, subject only to a documented legal exception.
             </span>
           </label>
           {uploadState.error ? (
@@ -262,7 +262,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
           ) : null}
           {uploadState.status === "success" ? (
             <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
-              Your private evidence was verified in Storage and the pending submission is recorded. Refreshing or retrying will not create a duplicate current record.
+              File integrity was verified in private Storage and the pending submission is recorded. This does not mean that identity has been verified. Refreshing or retrying will not create a duplicate current record.
             </p>
           ) : null}
           <button
@@ -270,7 +270,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
             disabled={uploadPending || Boolean(clientFileError)}
             type="submit"
           >
-            {uploadPending ? "Verifying private upload…" : document ? "Replace evidence" : "Upload evidence"}
+            {uploadPending ? "Checking private upload…" : document ? "Replace evidence" : "Upload evidence"}
           </button>
         </form>
       ) : null}
@@ -297,8 +297,8 @@ export function VerificationCard({ state }: { state: VerificationState }) {
                           : storedDocument.legal_hold
                             ? "Deletion blocked by documented legal hold"
                             : storedDocument.deletion_eligible
-                              ? "Retention period ended; eligible for deletion"
-                              : `Retained until ${storedDocument.retention_until ? formatManilaDateTime(storedDocument.retention_until) : "the approved retention date"}`}
+                              ? "Due for deletion"
+                              : `Delete no later than ${storedDocument.retention_until ? formatManilaDateTime(storedDocument.retention_until) : "the policy deadline"}`}
                       </p>
                     </div>
                     {storedDocument.superseded_at ? (
@@ -313,13 +313,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
                         disabled={deletionPending}
                         type="submit"
                       >
-                        {deletionPending
-                          ? "Checking deletion…"
-                          : storedDocument.deletion_eligible
-                            ? "Delete this evidence now"
-                            : storedDocument.deletion_requested_at
-                              ? "Recheck scheduled deletion"
-                              : "Request deletion"}
+                        {deletionPending ? "Deleting evidence…" : "Delete this evidence now"}
                       </button>
                     </form>
                   ) : null}
@@ -336,9 +330,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
           ) : null}
           {deletionState.status === "success" ? (
             <p className="mt-3 text-sm text-emerald-800" role="status">
-              {deletionState.result === "deleted"
-                ? "The private object is absent and deletion is recorded."
-                : `Deletion is scheduled after the retention period${deletionState.retentionUntil ? ` (${formatManilaDateTime(deletionState.retentionUntil)})` : ""}.`}
+              The private object is absent and deletion is recorded.
             </p>
           ) : null}
         </div>

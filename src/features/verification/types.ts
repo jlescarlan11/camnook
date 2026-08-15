@@ -19,7 +19,6 @@ export const ID_TYPE_LABELS: Record<AcceptedIdType, string> = {
 export const ACCEPTED_MEDIA_TYPES = [
   "image/jpeg",
   "image/png",
-  "application/pdf",
 ] as const;
 
 export const verificationPolicySchema = z.object({
