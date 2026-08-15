@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SiteHeader } from "@/features/bookings/components/site-header";
+import { PRIVACY_EMAIL } from "@/features/privacy-email/constants";
 
 export const metadata: Metadata = {
   title: "Government ID privacy notice | CamNook",
@@ -32,11 +33,11 @@ export default function GovernmentIdPrivacyNoticePage() {
             </section>
             <section>
               <h2 className="text-xl font-semibold text-stone-950">Security and your choices</h2>
-              <p className="mt-2">Opaque UUID paths, 15-minute upload intents, exact-path authorization, file signature/size/hash checks, and a no-overwrite rule protect the evidence. You may view submission state, replace pending evidence, request deletion, and raise access, correction, objection, or other privacy concerns through the verified CamNook account-support channel.</p>
+              <p className="mt-2">Opaque UUID paths, 15-minute upload intents, exact-path authorization, file signature/size/hash checks, and a no-overwrite rule protect the evidence. You may view submission state, replace pending evidence, request deletion, and raise access, correction, objection, or other privacy concerns by emailing <a className="font-semibold underline decoration-amber-300 underline-offset-4" href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>. Do not attach or send government ID files by email; use only the protected account upload.</p>
             </section>
             <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
               <h2 className="font-semibold">Production activation notice</h2>
-              <p className="mt-2">CamNook must publish and test a monitored privacy/DPO contact and complete Philippine legal review before Production ID collection is enabled. Live-object deletion does not mean every infrastructure backup disappears instantly; backups age out under their separate protected cycle.</p>
+              <p className="mt-2">CamNook must test delivery to the monitored privacy contact and complete Philippine legal review before Production ID collection is enabled. Live-object deletion does not mean every infrastructure backup disappears instantly; backups age out under their separate protected cycle.</p>
             </section>
           </div>
 
