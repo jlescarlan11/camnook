@@ -63,6 +63,13 @@ catalog_publish_sql="$test_dir/catalog-publish.sql"
 catalog_publish_ready_file="$test_dir/catalog-publish-archive-ready"
 catalog_publish_release_file="$test_dir/catalog-publish-archive-release"
 catalog_publish_application_name="camnook-catalog-publish-$$"
+evidence_create_log="$test_dir/evidence-create.log"
+evidence_finalize_log="$test_dir/evidence-finalize.log"
+evidence_create_sql="$test_dir/evidence-create.sql"
+evidence_finalize_sql="$test_dir/evidence-finalize.sql"
+evidence_ready_file="$test_dir/evidence-create-ready"
+evidence_release_file="$test_dir/evidence-create-release"
+evidence_finalize_application_name="camnook-evidence-finalize-$$"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
@@ -72,6 +79,8 @@ catalog_archive_a_pid=""
 catalog_archive_b_pid=""
 catalog_publish_archive_pid=""
 catalog_publish_pid=""
+evidence_create_pid=""
+evidence_finalize_pid=""
 
 cleanup() {
   set +e
@@ -85,7 +94,9 @@ cleanup() {
     "$catalog_archive_a_pid" \
     "$catalog_archive_b_pid" \
     "$catalog_publish_archive_pid" \
-    "$catalog_publish_pid"; do
+    "$catalog_publish_pid" \
+    "$evidence_create_pid" \
+    "$evidence_finalize_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -175,6 +186,12 @@ echo "running domain and authorization invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/001_domain_invariants.sql"
+
+echo "running verification evidence lifecycle invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/004_verification_evidence_lifecycle.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -1108,3 +1125,189 @@ $$;
 SQL
 
 echo "ok - guarded camera publication loses safely to a concurrent last-photo archive"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+insert into auth.users (id)
+values ('20000000-0000-4000-8000-000000000004');
+
+insert into public.profiles (user_id, legal_name, phone)
+values (
+  '20000000-0000-4000-8000-000000000004',
+  'Evidence Race Renter',
+  '+639200000004'
+);
+
+set role service_role;
+
+do $$
+declare
+  created jsonb;
+begin
+  created := api.create_verification_upload_intent(
+    '27000000-0000-4000-8000-000000000001',
+    'philippine_passport',
+    'image/jpeg',
+    4,
+    repeat('de', 32),
+    'government-id-evidence-v1',
+    'government-id-privacy-v1',
+    true,
+    '28000000-0000-4000-8000-000000000001',
+    '20000000-0000-4000-8000-000000000004',
+    '20000000-0000-4000-8000-000000000004'
+  );
+
+  insert into storage.objects (bucket_id, name, owner, metadata)
+  values (
+    'verification-documents',
+    created ->> 'object_path',
+    '20000000-0000-4000-8000-000000000004',
+    jsonb_build_object('mimetype', 'image/jpeg', 'size', 4)
+  );
+end;
+$$;
+
+reset role;
+SQL
+
+cat >"$evidence_create_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+select user_id
+from public.profiles
+where user_id = '20000000-0000-4000-8000-000000000004'
+for update;
+set local role service_role;
+\! touch "$evidence_ready_file"
+\! barrier_count=0; while [ ! -f "$evidence_release_file" ] && [ "\$barrier_count" -lt 400 ]; do sleep 0.025; barrier_count=\$((barrier_count + 1)); done
+select api.create_verification_upload_intent(
+  '27000000-0000-4000-8000-000000000002',
+  'philippine_passport',
+  'image/jpeg',
+  4,
+  repeat('de', 32),
+  'government-id-evidence-v1',
+  'government-id-privacy-v1',
+  true,
+  '28000000-0000-4000-8000-000000000002',
+  '20000000-0000-4000-8000-000000000004',
+  '20000000-0000-4000-8000-000000000004'
+);
+commit;
+SQL
+
+cat >"$evidence_finalize_sql" <<SQL
+\set ON_ERROR_STOP on
+set application_name = '$evidence_finalize_application_name';
+begin;
+set local role service_role;
+select api.finalize_verification_upload(
+  '27000000-0000-4000-8000-000000000001',
+  'image/jpeg',
+  4,
+  repeat('de', 32),
+  '28000000-0000-4000-8000-000000000003',
+  '20000000-0000-4000-8000-000000000004',
+  '20000000-0000-4000-8000-000000000004'
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$evidence_create_sql" >"$evidence_create_log" 2>&1 &
+evidence_create_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$evidence_ready_file" ]] && break
+  if ! kill -0 "$evidence_create_pid" 2>/dev/null; then
+    wait "$evidence_create_pid" || true
+    cat "$evidence_create_log" >&2
+    echo "evidence create retry exited before reaching its profile-row barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$evidence_ready_file" ]]; then
+  cat "$evidence_create_log" >&2
+  echo "timed out waiting for evidence create retry transaction barrier" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -f "$evidence_finalize_sql" >"$evidence_finalize_log" 2>&1 &
+evidence_finalize_pid=$!
+
+evidence_finalize_wait_observed="false"
+for _ in {1..200}; do
+  if ! kill -0 "$evidence_finalize_pid" 2>/dev/null; then
+    wait "$evidence_finalize_pid" || true
+    cat "$evidence_finalize_log" >&2
+    echo "evidence finalization exited before its profile-row lock wait" >&2
+    exit 1
+  fi
+
+  if [[ "$("$postgres_bin/psql" "$database_url" -Atq -v ON_ERROR_STOP=1 -c "
+    select exists (
+      select 1 from pg_catalog.pg_stat_activity
+      where application_name = '$evidence_finalize_application_name'
+        and wait_event_type = 'Lock'
+        and wait_event = 'transactionid'
+    );
+  ")" == "t" ]]; then
+    evidence_finalize_wait_observed="true"
+    break
+  fi
+  sleep 0.025
+done
+
+if [[ "$evidence_finalize_wait_observed" != "true" ]]; then
+  cat "$evidence_finalize_log" >&2
+  cat "$evidence_create_log" >&2
+  echo "evidence finalization did not wait on the owner profile row" >&2
+  exit 1
+fi
+
+touch "$evidence_release_file"
+wait "$evidence_create_pid"
+evidence_create_pid=""
+wait "$evidence_finalize_pid"
+evidence_finalize_pid=""
+
+if grep -Fq '40P01' "$evidence_create_log" "$evidence_finalize_log"; then
+  cat "$evidence_create_log" >&2
+  cat "$evidence_finalize_log" >&2
+  echo "verification create/finalize lock order deadlocked" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1
+    from private.verification_upload_intents
+    where id = '27000000-0000-4000-8000-000000000001'
+      and status = 'finalized'
+  ) then
+    raise exception 'evidence finalization did not commit after the create retry';
+  end if;
+
+  if exists (
+    select 1
+    from private.verification_upload_intents
+    where id = '27000000-0000-4000-8000-000000000002'
+  ) then
+    raise exception 'same-file create retry persisted a duplicate upload intent';
+  end if;
+
+  if (
+    select count(*)
+    from public.verification_documents
+    where owner_user_id = '20000000-0000-4000-8000-000000000004'
+  ) <> 1 then
+    raise exception 'evidence create/finalize race did not produce one document';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - verification create/finalize share one deadlock-free lock order"

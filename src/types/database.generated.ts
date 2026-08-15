@@ -74,17 +74,21 @@ export type Database = {
           proof_id: string
         }[]
       }
-      create_verification_document_upload: {
+      create_verification_upload_intent: {
         Args: {
+          p_actor_user_id: string
           p_byte_size: number
+          p_id_type: string
+          p_intent_id: string
           p_media_type: string
-          p_sha256: string
-          p_verification_record_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+          p_policy_version: string
+          p_privacy_acknowledged: boolean
+          p_privacy_notice_version: string
+          p_sha256_hex: string
         }
-        Returns: {
-          document_id: string
-          object_path: string
-        }[]
+        Returns: Json
       }
       decide_cancellation: {
         Args: { p_accept: boolean; p_note: string; p_request_id: string }
@@ -123,6 +127,52 @@ export type Database = {
         }
         Returns: Json
       }
+      finalize_verification_document_deletion: {
+        Args: {
+          p_actor_user_id: string
+          p_document_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
+      }
+      finalize_due_verification_document_deletion: {
+        Args: {
+          p_document_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
+      }
+      finalize_due_verification_upload_cleanup: {
+        Args: {
+          p_intent_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
+      }
+      finalize_verification_upload: {
+        Args: {
+          p_actor_user_id: string
+          p_intent_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+          p_verified_byte_size: number
+          p_verified_media_type: string
+          p_verified_sha256_hex: string
+        }
+        Returns: Json
+      }
+      finalize_verification_upload_cleanup: {
+        Args: {
+          p_actor_user_id: string
+          p_intent_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
+      }
       finalize_deposit_settlement: {
         Args: {
           p_booking_id: string
@@ -134,6 +184,16 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: never; Returns: boolean }
+      get_my_verification_upload_state: { Args: never; Returns: Json }
+      get_verification_upload_intent: {
+        Args: { p_intent_id: string; p_owner_user_id: string }
+        Returns: Json
+      }
+      claim_verification_evidence_cleanup: {
+        Args: { p_limit: number; p_operation_id: string }
+        Returns: Json
+      }
+      get_verification_upload_policy: { Args: never; Returns: Json }
       get_catalog_photo_publication: {
         Args: { p_publication_id: string }
         Returns: Json
@@ -167,6 +227,15 @@ export type Database = {
       }
       prepare_catalog_photo_archive: {
         Args: { p_operation_id: string; p_publication_id: string }
+        Returns: Json
+      }
+      prepare_verification_upload_cleanup: {
+        Args: {
+          p_actor_user_id: string
+          p_intent_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
         Returns: Json
       }
       publish_camera: {
@@ -230,6 +299,15 @@ export type Database = {
       request_cancellation: {
         Args: { p_booking_id: string; p_reason: string }
         Returns: string
+      }
+      request_verification_document_deletion: {
+        Args: {
+          p_actor_user_id: string
+          p_document_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
       }
       sign_contract: {
         Args: {
@@ -1279,14 +1357,28 @@ export type Database = {
           byte_size: number
           created_at: string
           deleted_at: string | null
+          deletion_claim_operation_id: string | null
+          deletion_claimed_at: string | null
+          deletion_operation_id: string | null
+          deletion_request_source: string | null
+          deletion_requested_by: string | null
           deletion_requested_at: string | null
+          finalized_at: string | null
           id: string
+          legal_hold_at: string | null
+          legal_hold_by: string | null
+          legal_hold_reason: string | null
           media_type: string
           object_path: string
           owner_user_id: string
+          privacy_acknowledged_at: string | null
+          privacy_notice_version: string | null
+          retention_policy_version: string | null
           retention_until: string | null
           sha256: string
+          superseded_at: string | null
           supersedes_id: string | null
+          upload_intent_id: string | null
           verification_record_id: string
           verified_deleted_at: string | null
         }
@@ -1294,14 +1386,28 @@ export type Database = {
           byte_size: number
           created_at?: string
           deleted_at?: string | null
+          deletion_claim_operation_id?: string | null
+          deletion_claimed_at?: string | null
+          deletion_operation_id?: string | null
+          deletion_request_source?: string | null
+          deletion_requested_by?: string | null
           deletion_requested_at?: string | null
+          finalized_at?: string | null
           id?: string
+          legal_hold_at?: string | null
+          legal_hold_by?: string | null
+          legal_hold_reason?: string | null
           media_type: string
           object_path: string
           owner_user_id: string
+          privacy_acknowledged_at?: string | null
+          privacy_notice_version?: string | null
+          retention_policy_version?: string | null
           retention_until?: string | null
           sha256: string
+          superseded_at?: string | null
           supersedes_id?: string | null
+          upload_intent_id?: string | null
           verification_record_id: string
           verified_deleted_at?: string | null
         }
@@ -1309,14 +1415,28 @@ export type Database = {
           byte_size?: number
           created_at?: string
           deleted_at?: string | null
+          deletion_claim_operation_id?: string | null
+          deletion_claimed_at?: string | null
+          deletion_operation_id?: string | null
+          deletion_request_source?: string | null
+          deletion_requested_by?: string | null
           deletion_requested_at?: string | null
+          finalized_at?: string | null
           id?: string
+          legal_hold_at?: string | null
+          legal_hold_by?: string | null
+          legal_hold_reason?: string | null
           media_type?: string
           object_path?: string
           owner_user_id?: string
+          privacy_acknowledged_at?: string | null
+          privacy_notice_version?: string | null
+          retention_policy_version?: string | null
           retention_until?: string | null
           sha256?: string
+          superseded_at?: string | null
           supersedes_id?: string | null
+          upload_intent_id?: string | null
           verification_record_id?: string
           verified_deleted_at?: string | null
         }

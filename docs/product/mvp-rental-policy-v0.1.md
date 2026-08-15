@@ -25,12 +25,13 @@ The MVP does not include multiple lenders, lender onboarding or payouts, escrow 
 ## Account verification
 
 - **VER-01 — Account level.** Verification belongs to the renter account, not to an individual booking.
-- **VER-02 — One document.** MVP collects one valid government-issued ID. Selfies and proof of address are not required by default.
+- **VER-02 — One document.** MVP collects one valid Philippine passport, PhilSys ID/ePhilID, driver’s license, or UMID. Selfies and proof of address are not required by default.
 - **VER-03 — Manual decision.** An admin manually assigns `pending`, `verified`, `rejected`, or `expired`. `expired` means the reviewed ID has passed its expiration date.
 - **VER-04 — Separate decision and file.** The verification decision and its audit history must survive deletion of the sensitive document.
 - **VER-05 — Named renter only.** The renter named on the account and contract must personally collect the camera. The contract is non-transferable; representatives and substitute renters are prohibited.
 - **VER-06 — Pickup recheck.** The original ID must be presented and rechecked at every pickup.
-- **VER-07 — Public-launch gate.** Public ID collection remains disabled until the privacy notice and document-retention policy are approved.
+- **VER-07 — Public-launch gate.** Evidence policy `government-id-evidence-v1` and notice `government-id-privacy-v1` are approved for implementation. Production collection remains disabled until a monitored privacy/DPO contact, final Philippine legal review, Development verification, and protected-Preview smoke evidence are approved.
+- **VER-08 — Evidence limits.** Accept one JPEG, PNG, or PDF up to 5 MiB through a 15-minute upload intent. Each finalized object has 30-day live retention; a documented legal hold may delay deletion.
 
 ## Booking states
 
@@ -151,6 +152,7 @@ Examples: one microsecond, one hour, and `23:59:59.999` each cost one day; exact
 - **FILE-06 — Audit.** Sensitive admin access is audited.
 - **FILE-07 — Lifecycle metadata.** Files record retention, deletion request, deletion completion, and verified-deletion metadata.
 - **FILE-08 — Owner isolation.** Renters access only objects tied to their own records.
+- **FILE-09 — ID minimization.** Verification metadata contains no full government ID number or OCR output. Account projections and audits contain no private path, signed URL, raw content, or digest.
 
 ## Dashboard accounting rules
 
@@ -164,7 +166,7 @@ The admin dashboard must surface work queues for review, signature, payment, pic
 4. One government ID is sufficient for MVP.
 5. The named renter personally collects the camera.
 6. Refunds happen outside the application.
-7. Retention policy, final legal wording, and launch readiness will be completed before public paid operation.
+7. Government-ID live-object retention is 30 days under v1; final legal wording, monitored privacy contact, backup schedule confirmation, and launch readiness remain required before Production collection.
 8. Exactly one admin exists for MVP.
 
 ## Readiness boundary

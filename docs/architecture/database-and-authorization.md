@@ -155,9 +155,16 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
 
 `public.verification_documents`
 
-- `id` PK, `verification_record_id`, `owner_user_id`, opaque `object_path` unique, media type, byte size, SHA-256, created time, retention/deletion timestamps, and optional `supersedes_id`.
+- `id` PK, `verification_record_id`, `owner_user_id`, opaque `object_path` unique, media type, byte size, SHA-256, intent/finalization/privacy-acknowledgement timestamps, policy/notice versions, retention/deletion/legal-hold timestamps, durable cleanup claim, and optional `supersedes_id`.
 - Ownership is duplicated from the parent intentionally for cheap RLS and Storage-policy checks; a constraint trigger verifies it matches the record owner.
 - Rows are append-only after upload finalization. Deleting the Storage object updates lifecycle metadata but never deletes the verification decision.
+- Only one unsuperseded, not-yet-deleted document is current per verification record. Replacement of a pending decision uses a new object and updates the pending record’s selected ID type at finalization.
+
+`private.verification_upload_intents`
+
+- Stores one open owner intent at a time with exact owner/record/document path, expected MIME/size/hash, 15-minute expiry, policy/notice/acknowledgement evidence, replacement target, cleanup state, and timestamps.
+- Authenticated clients can read only policy and path-free account state. Mutation/path RPCs execute only for the server-side service role after a Server Action authenticates and supplies the same owner/actor; direct renter RPC calls are denied.
+- Finalization creates the pending verification row only after Storage metadata is present; the application independently downloads and hashes stored bytes before calling it, while the database rechecks active-account and current-policy state.
 
 ### Inventory and public discovery
 
@@ -349,7 +356,7 @@ The expiration function is safe to invoke on a schedule and opportunistically be
 | Public booking quote | Quote published cameras through `api.quote_booking`; no booking or private-table access | Same public quote; authoritative request/approval rules still apply | Same public quote; approval calculates its own authoritative snapshot |
 | Sanitized availability view | Read busy ranges | Read busy ranges | Read full operational schedule |
 | Profile | None | Read/update approved own fields | Read accounts; controlled status operations |
-| Verification records/docs metadata | None | Read own; create upload intent while feature enabled | Read all; decide through operation |
+| Verification records/docs metadata | None | Read own safe state; create upload intent while feature enabled | Read decision records required for operations; document path/hash metadata remains owner-only until a separate audited review operation |
 | Bookings/history/cancellations | None | Read own; request/cancel through operations | Read all; transition through operations |
 | Contract versions/signatures | None | Read own; sign current version only | Read all; issue/supersede through operations |
 | Payments/proofs/deposit | None | Read own; submit only in allowed state | Read all; decide/reverse/settle through operations |
@@ -383,13 +390,14 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains thirteen forward migrations. On 13 August 2026, the four
+The repository contains fourteen forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
-and exercised only in Development. Development is recorded at 13/13 while
-Production remains at 11/13. Check current remote history at every future
+and exercised only in Development. Development is recorded at 13/14 while
+Production remains at 11/14 because the Sprint 1 evidence migration is local
+and unapplied. Check current remote history at every future
 rollout; these recorded counts do not authorize another Production mutation or
 deployment.
 
