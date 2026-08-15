@@ -49,8 +49,15 @@ jobs:
           supabase start
           supabase db reset
 
-      - name: Run database authorization tests
-        run: supabase test db supabase/tests/database/*.sql
+      - name: Run Supabase-backed database tests
+        # 001 and 004 intentionally model Storage API deletion at the SQL
+        # boundary and run in the disposable PostgreSQL harness below. Hosted
+        # Storage blocks direct table deletion with protect_delete().
+        run: >-
+          supabase test db
+          supabase/tests/database/002_pricing_and_approval.sql
+          supabase/tests/database/005_verification_policy_disabled.sql
+          supabase/tests/database/006_hosted_verification_rls.sql
 
       - name: Verify generated database types
         run: |
