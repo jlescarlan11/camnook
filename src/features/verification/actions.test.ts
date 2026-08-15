@@ -109,6 +109,19 @@ describe("government ID evidence actions", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it("fails closed while the hosted policy is disabled", async () => {
+    const { rpc } = mockClient(async (name) => {
+      expect(name).toBe("get_verification_upload_policy");
+      return { data: { ...policy, enabled: false }, error: null };
+    });
+
+    await expect(
+      submitVerificationEvidence({ status: "idle" }, uploadForm()),
+    ).resolves.toEqual({ error: "policy_unavailable", status: "error" });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled();
+  });
+
   it("verifies the stored bytes and finalizes exactly one pending submission", async () => {
     const { bucket, rpc } = mockClient(async (name, args) => {
       if (name === "get_verification_upload_policy") {

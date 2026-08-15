@@ -8,7 +8,9 @@ insert into auth.users (id) values
   ('30000000-0000-4000-8000-000000000003');
 
 insert into private.admin_accounts (user_id)
-values ('30000000-0000-4000-8000-000000000003');
+values ('30000000-0000-4000-8000-000000000003')
+on conflict (singleton) do update
+set user_id = excluded.user_id;
 
 insert into public.profiles (user_id, legal_name, phone) values
   ('30000000-0000-4000-8000-000000000001', 'Verification Owner A', '+639300000001'),
@@ -79,7 +81,9 @@ $$;
 reset role;
 
 update private.verification_evidence_policies
-set enabled = true
+set
+  enabled = true,
+  activated_at = statement_timestamp()
 where singleton;
 
 set local role service_role;
@@ -95,7 +99,7 @@ declare
   target_path text;
 begin
   if (api.get_verification_upload_policy() ->> 'enabled')::boolean is not true then
-    raise exception 'approved government-ID policy is not enabled';
+    raise exception 'test fixture government-ID policy is not enabled';
   end if;
 
   begin

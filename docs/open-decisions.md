@@ -124,10 +124,11 @@ received the four booking-milestone migrations on 13 August 2026 through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both projects at 11/11 at that checkpoint. On 14 August
 2026, the two catalog migrations were applied and exercised only in Development.
-Development is recorded at 13/14 while Production remains at 11/14; the Sprint
-1 evidence migration is local and unapplied. Current
-remote history must still be checked at rollout time. Production is not a
-rollout target without separate explicit authorization.
+On 15 August 2026, the Sprint 1 evidence migration was applied to Development
+with its policy disabled and verified with hosted fail-closed and cross-owner
+Storage RLS checks. Development is recorded at 14/14 while Production remains
+at 11/14. Current remote history must still be checked at rollout time.
+Production is not a rollout target without separate explicit authorization.
 
 Vercel Preview has two app-owned, Preview-scoped Supabase records for the
 Development project: browser-visible `NEXT_PUBLIC_SUPABASE_URL` and
@@ -135,9 +136,9 @@ Development project: browser-visible `NEXT_PUBLIC_SUPABASE_URL` and
 separate, and Production retains separate Production application records.
 Sprint 1 evidence rollout additionally requires server-only
 `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` records in the target environment;
-neither is configured by the repository change, and both remain a separate
-authorized release step. Missing values fail evidence mutations and cleanup
-closed.
+separate values are configured in Vercel for Development/Preview and Production.
+They are not GitHub Actions secrets and never use a `NEXT_PUBLIC_` prefix.
+Missing values fail evidence mutations and cleanup closed.
 Preview Deployment Protection remains enabled. Hosted Development now supports
 public email-OTP account creation with Cloudflare Turnstile, a six-digit code,
 a 15-minute expiry, and proven custom SMTP after the completed protected-Preview
@@ -207,10 +208,10 @@ Approval of this milestone means agreement that:
    through a separately authorized database-first rollout. Both projects were
    at 11/11 immediately afterward. The catalog-photo publication and
    unpublished-availability migrations were then applied and exercised only in
-   Development on 14 August 2026, leaving Development recorded at 13/14 and
-   Production at 11/14 after the unapplied Sprint 1 evidence migration was
-   added locally. Current remote history remains operational state to
-   verify, not a durable documentation assumption.
+   Development on 14 August 2026. The Sprint 1 evidence migration followed in
+   Development on 15 August 2026 with its policy disabled, leaving Development
+   recorded at 14/14 and Production at 11/14. Current remote history remains
+   operational state to verify, not a durable documentation assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
 5. RLS, concurrency, immutability, Storage, advisor, and application

@@ -89,11 +89,12 @@ the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
 August 2026, the catalog-photo publication and unpublished-availability
-migrations were applied and exercised only in Development. Development is now
-recorded at 13/14 while Production remains at 11/14; the Sprint 1 government-ID
-evidence migration is local and unapplied. Treat those counts as
-recorded release evidence, not a substitute for checking current remote
-migration history before any future action.
+migrations were applied and exercised only in Development. On 15 August 2026,
+the Sprint 1 government-ID evidence migration was applied to Development with
+its policy disabled, then verified with hosted fail-closed and cross-owner RLS
+tests. Development is recorded at 14/14 while Production remains at 11/14.
+Treat those counts as recorded release evidence, not a substitute for checking
+current remote migration history before any future action.
 
 For a hosted Development migration, keep the change migration-first and
 forward-only. Immediately before **each** command that can inspect or mutate
@@ -102,11 +103,11 @@ the linked hosted database, verify the ignored local link:
 ```bash
 cat supabase/.temp/project-ref
 # Must print exactly: ekmoiepalelqpmemvrkl
-pnpm dlx supabase@2.113.0 db push --linked --dry-run
+pnpm dlx supabase@2.114.0 db push --linked --dry-run
 
 cat supabase/.temp/project-ref
 # Must print exactly: ekmoiepalelqpmemvrkl
-pnpm dlx supabase@2.113.0 db push --linked
+pnpm dlx supabase@2.114.0 db push --linked
 ```
 
 Treat a missing or different result as a hard stop. Recheck changing flags
@@ -156,14 +157,14 @@ for the acceptance matrix,
 [`docs/product/government-id-privacy-notice-v1.md`](docs/product/government-id-privacy-notice-v1.md)
 for the versioned notice, and
 [`docs/operations/government-id-evidence.md`](docs/operations/government-id-evidence.md)
-for validation and recovery. The migration has not been applied to either
-hosted project. Production collection additionally requires a monitored
-privacy/DPO contact, legal review, Development verification, and protected
-Preview smoke evidence. Runtime activation also requires reviewed server-only
-`SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` values; this repository change
-does not configure hosted environments. The protected daily route enforces due
-retention and abandoned-intent cleanup with durable, retryable claims and
-database-verified object absence.
+for validation and recovery. The migration is installed in Development with
+the policy disabled; it has not been applied to Production. Production
+collection additionally requires a monitored privacy/DPO contact and final
+Philippine legal approval. Vercel has separate server-only
+`SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` values for Development/Preview and
+Production. The protected daily route enforces due retention and
+abandoned-intent cleanup with durable, retryable claims and database-verified
+object absence.
 
 The public privacy contact is `privacy@camnook.shop`. It uses a
 signature-verified Resend inbound webhook and forwards to one existing monitored
@@ -182,8 +183,10 @@ cat supabase/.temp/project-ref
 pnpm db:types:linked
 ```
 
-No Production migration, environment-variable change, deployment, or promotion
-is part of Development/Preview work without separate explicit authorization.
+No Production migration, ID-policy activation, deployment, or promotion is part
+of Development/Preview work without separate explicit authorization. The
+Production server-only values are staged for a future release but do not enable
+collection.
 
 ## Intentional launch gates
 
