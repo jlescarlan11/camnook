@@ -165,6 +165,15 @@ does not configure hosted environments. The protected daily route enforces due
 retention and abandoned-intent cleanup with durable, retryable claims and
 database-verified object absence.
 
+The public privacy contact is `privacy@camnook.shop`. It uses a
+signature-verified Resend inbound webhook and forwards to one existing monitored
+inbox; it is not a Hostinger mailbox. See
+[`docs/operations/privacy-email.md`](docs/operations/privacy-email.md) for DNS,
+server-only `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, and `PRIVACY_FORWARD_TO`
+configuration, activation testing, and rollback. Publishing the address does not
+by itself satisfy the Production gate: end-to-end delivery and reply handling
+must be proven, and Philippine legal review remains separate.
+
 To refresh types from the linked database:
 
 ```bash

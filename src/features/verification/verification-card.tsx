@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { PRIVACY_EMAIL } from "@/features/privacy-email/constants";
 
 import {
   requestVerificationEvidenceDeletion,
@@ -93,7 +94,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
             <strong>Retention and deletion.</strong> Each finalized file is retained for {policy.document_retention_days} days, then a protected daily process removes it and verifies absence. You may request deletion here at any time; an early request is scheduled for that date. A documented legal hold placed before cleanup is claimed delays deletion. Verification decisions and path-free audit events remain after file deletion.
           </p>
           <p>
-            <strong>Your choice and rights.</strong> Uploading is optional until a rental flow requires verification. You may access your evidence, request deletion, or raise a correction or privacy concern through the verified CamNook account-support channel. CamNook must publish a monitored privacy contact before Production activation.
+            <strong>Your choice and rights.</strong> Uploading is optional until a rental flow requires verification. You may access your evidence, request deletion, or raise a correction or privacy concern by emailing <a className="font-semibold underline underline-offset-4" href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>. Never attach or send your government ID by email; use only this protected account upload. CamNook must test the monitored privacy contact before Production activation.
           </p>
           <p className="text-xs text-amber-800">
             Notice {policy.privacy_notice_version} · policy {policy.policy_version}

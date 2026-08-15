@@ -3,7 +3,7 @@
 Version: `government-id-privacy-v1`
 Policy: `government-id-evidence-v1`
 Approved for implementation: 2026-08-15
-Production activation gate: monitored privacy contact and Philippine legal review
+Production activation gate: tested monitored privacy contact and Philippine legal review
 
 ## What CamNook collects
 
@@ -37,6 +37,6 @@ CamNook retains no full government ID number or OCR output in verification metad
 
 ## Renter choices and privacy requests
 
-Uploading remains optional until a rental workflow requires verification. A renter may use the account page to see the current submission state and retention date, replace pending evidence, request deletion, or complete eligible deletion. Correction, access, objection, and other privacy concerns may be raised through the verified CamNook account-support channel.
+Uploading remains optional until a rental workflow requires verification. A renter may use the account page to see the current submission state and retention date, replace pending evidence, request deletion, or complete eligible deletion. Correction, access, objection, and other privacy concerns may be sent to `privacy@camnook.shop`.
 
-CamNook must publish and test a monitored privacy/DPO contact before enabling this feature in Production. Until that contact and final legal review exist, Production ID collection remains closed even though the Development implementation can be tested with synthetic evidence.
+Do not attach or send a government ID file to the privacy address. ID evidence belongs only in the protected account upload. CamNook must verify end-to-end delivery to the monitored privacy/DPO contact before enabling this feature in Production. Until that delivery test and final legal review are complete, Production ID collection remains closed even though the Development implementation can be tested with synthetic evidence.
