@@ -185,8 +185,8 @@ begin
       '41000000-0000-4000-8000-000000000001',
       '42000000-0000-4000-8000-000000000011',
       'rejected',
-      null,
-      null,
+      '',
+      '',
       'document_not_readable',
       gen_random_uuid()
     );
@@ -281,8 +281,8 @@ begin
       '41000000-0000-4000-8000-000000000001',
       '42000000-0000-4000-8000-000000000012',
       'rejected',
-      null,
-      null,
+      '',
+      '',
       'document_not_readable',
       gen_random_uuid()
     );
@@ -297,8 +297,8 @@ begin
       '41000000-0000-4000-8000-000000000001',
       '42000000-0000-4000-8000-000000000011',
       'rejected',
-      null,
-      null,
+      '',
+      '',
       'free text with sensitive details',
       gen_random_uuid()
     );
@@ -312,8 +312,8 @@ begin
     '41000000-0000-4000-8000-000000000001',
     '42000000-0000-4000-8000-000000000011',
     'rejected',
-    null,
-    null,
+    '',
+    '',
     'document_not_readable',
     '49000000-0000-4000-8000-000000000011'
   );
@@ -327,8 +327,8 @@ begin
       '42000000-0000-4000-8000-000000000012',
       'verified',
       'umid',
-      (statement_timestamp() at time zone 'Asia/Manila')::date,
-      null,
+      (statement_timestamp() at time zone 'Asia/Manila')::date::text,
+      '',
       gen_random_uuid()
     );
     raise exception 'verification with a non-future expiration date was accepted';
@@ -342,8 +342,8 @@ begin
     '42000000-0000-4000-8000-000000000012',
     'verified',
     'umid',
-    (statement_timestamp() at time zone 'Asia/Manila')::date + 30,
-    null,
+    ((statement_timestamp() at time zone 'Asia/Manila')::date + 30)::text,
+    '',
     '49000000-0000-4000-8000-000000000012'
   );
 end;

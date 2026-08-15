@@ -176,7 +176,7 @@ describe("admin verification actions", () => {
       p_operation_id: expect.any(String),
       p_record_id: RECORD_ID,
       p_reviewed_document_id: DOCUMENT_ID,
-      p_rejection_reason_code: null,
+      p_rejection_reason_code: "",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith(
@@ -281,8 +281,8 @@ describe("admin verification actions", () => {
     expect(api.rpc).toHaveBeenCalledWith(
       "decide_verification",
       expect.objectContaining({
-        p_approved_id_type: null,
-        p_document_expiration_date: null,
+        p_approved_id_type: "",
+        p_document_expiration_date: "",
         p_rejection_reason_code: "document_not_readable",
         p_reviewed_document_id: DOCUMENT_ID,
       }),

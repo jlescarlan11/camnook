@@ -205,15 +205,15 @@ export async function decideVerification(
     const result = await context.supabase.schema("api").rpc(
       "decide_verification",
       {
-        p_approved_id_type: decision === "verified" ? approvedIdType : null,
+        p_approved_id_type: decision === "verified" ? approvedIdType : "",
         p_decision: decision,
         p_document_expiration_date:
-          decision === "verified" ? documentExpirationDate : null,
+          decision === "verified" ? documentExpirationDate : "",
         p_operation_id: randomUUID(),
         p_record_id: recordId,
         p_reviewed_document_id: reviewedDocumentId,
         p_rejection_reason_code:
-          decision === "rejected" ? rejectionReasonCode : null,
+          decision === "rejected" ? rejectionReasonCode : "",
       },
     );
 

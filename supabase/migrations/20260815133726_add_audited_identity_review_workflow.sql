@@ -994,7 +994,7 @@ create function api.decide_verification(
   p_reviewed_document_id uuid,
   p_decision text,
   p_approved_id_type text,
-  p_document_expiration_date date,
+  p_document_expiration_date text,
   p_rejection_reason_code text,
   p_operation_id uuid
 )
@@ -1008,9 +1008,9 @@ as $$
     p_record_id,
     p_reviewed_document_id,
     p_decision,
-    p_approved_id_type,
-    p_document_expiration_date,
-    p_rejection_reason_code,
+    nullif(p_approved_id_type, ''),
+    nullif(p_document_expiration_date, '')::date,
+    nullif(p_rejection_reason_code, ''),
     p_operation_id
   );
 $$;
@@ -1060,7 +1060,7 @@ revoke all on function api.get_verification_review_detail(uuid)
 from public, anon, authenticated, service_role;
 revoke all on function api.authorize_verification_evidence_access(uuid, text, uuid)
 from public, anon, authenticated, service_role;
-revoke all on function api.decide_verification(uuid, uuid, text, text, date, text, uuid)
+revoke all on function api.decide_verification(uuid, uuid, text, text, text, text, uuid)
 from public, anon, authenticated, service_role;
 revoke all on function api.expire_due_verifications(uuid)
 from public, anon, authenticated, service_role;
@@ -1071,7 +1071,7 @@ grant execute on function api.get_verification_review_detail(uuid)
 to authenticated;
 grant execute on function api.authorize_verification_evidence_access(uuid, text, uuid)
 to authenticated;
-grant execute on function api.decide_verification(uuid, uuid, text, text, date, text, uuid)
+grant execute on function api.decide_verification(uuid, uuid, text, text, text, text, uuid)
 to authenticated;
 grant execute on function api.expire_due_verifications(uuid)
 to authenticated, service_role;

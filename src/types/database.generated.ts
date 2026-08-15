@@ -100,13 +100,13 @@ export type Database = {
       }
       decide_verification: {
         Args: {
-          p_approved_id_type: string | null
+          p_approved_id_type: string
           p_decision: string
-          p_document_expiration_date: string | null
+          p_document_expiration_date: string
           p_operation_id: string
           p_record_id: string
           p_reviewed_document_id: string
-          p_rejection_reason_code: string | null
+          p_rejection_reason_code: string
         }
         Returns: Json
       }
