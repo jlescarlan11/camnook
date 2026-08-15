@@ -8,7 +8,7 @@
     "catalog:photos": "node scripts/catalog-photo-publication.mjs",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
     "db:start": "pnpm dlx supabase@2.114.0 start",
