@@ -28,8 +28,10 @@ The route at `/api/webhooks/resend/inbound`:
 3. accepts only `email.received` events whose envelope addresses include exactly
    `privacy@camnook.shop`;
 4. refuses messages whose sender is the privacy alias, preventing a loop;
-5. forwards by Resend email ID with a stable idempotency key, so an at-least-once
-   webhook retry does not intentionally create a second message; and
+5. retrieves the verified inbound message and any attachments by provider ID,
+   re-sends them with `Reply-To` set to the sender's safe reply target, and uses
+   a stable idempotency key so an at-least-once webhook retry does not
+   intentionally create a second message; and
 6. returns only generic status responses and never logs the sender, recipient,
    subject, body, attachment metadata, or provider IDs.
 

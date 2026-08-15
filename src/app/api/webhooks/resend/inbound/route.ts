@@ -34,6 +34,11 @@ function wasSentToPrivacyAddress(addresses: string[]) {
   return addresses.some((address) => normalizeMailbox(address) === PRIVACY_EMAIL);
 }
 
+function retryableForwardingFailure() {
+  console.error("Privacy email forwarding failed; Resend will retry the webhook.");
+  return Response.json({ accepted: false }, { status: 503 });
+}
+
 export async function POST(request: Request) {
   const config = getForwardingConfig();
 
@@ -86,26 +91,76 @@ export async function POST(request: Request) {
     return new Response(null, { status: 204 });
   }
 
+  let receivedEmailResult;
+
+  try {
+    receivedEmailResult = await resend.emails.receiving.get(
+      event.data.email_id,
+      { html_format: "cid" },
+    );
+  } catch {
+    return retryableForwardingFailure();
+  }
+
+  if (receivedEmailResult.error || !receivedEmailResult.data) {
+    return retryableForwardingFailure();
+  }
+
+  const receivedEmail = receivedEmailResult.data;
+  let attachmentResults;
+
+  try {
+    attachmentResults = await Promise.all(
+      receivedEmail.attachments.map((attachment) =>
+        resend.emails.receiving.attachments.get({
+          emailId: event.data.email_id,
+          id: attachment.id,
+        }),
+      ),
+    );
+  } catch {
+    return retryableForwardingFailure();
+  }
+
+  if (attachmentResults.some((result) => result.error || !result.data)) {
+    return retryableForwardingFailure();
+  }
+
+  const attachments = attachmentResults.flatMap((result) =>
+    result.data
+      ? [{
+          contentId: result.data.content_id,
+          contentType: result.data.content_type,
+          path: result.data.download_url,
+          ...(result.data.filename ? { filename: result.data.filename } : {}),
+        }]
+      : [],
+  );
+  const receivedReplyTargets = (receivedEmail.reply_to ?? []).filter(
+    (address) => normalizeMailbox(address) !== PRIVACY_EMAIL,
+  );
+
   let forwardingResult;
 
   try {
-    forwardingResult = await resend.emails.receiving.forward(
+    forwardingResult = await resend.emails.send(
       {
-        emailId: event.data.email_id,
-        to: config.destination,
         from: `CamNook Privacy <${PRIVACY_EMAIL}>`,
-        passthrough: true,
+        to: config.destination,
+        replyTo: receivedReplyTargets.length > 0 ? receivedReplyTargets : receivedEmail.from,
+        subject: receivedEmail.subject,
+        text: receivedEmail.text ?? "The original message did not include plain-text content.",
+        ...(receivedEmail.html ? { html: receivedEmail.html } : {}),
+        ...(attachments.length > 0 ? { attachments } : {}),
       },
       { idempotencyKey: `privacy-forward-${event.data.email_id}` },
     );
   } catch {
-    console.error("Privacy email forwarding failed; Resend will retry the webhook.");
-    return Response.json({ accepted: false }, { status: 503 });
+    return retryableForwardingFailure();
   }
 
   if (forwardingResult.error || !forwardingResult.data) {
-    console.error("Privacy email forwarding failed; Resend will retry the webhook.");
-    return Response.json({ accepted: false }, { status: 503 });
+    return retryableForwardingFailure();
   }
 
   return Response.json({ accepted: true });
