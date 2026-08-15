@@ -6,6 +6,8 @@ import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountData } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { loadVerificationState } from "@/features/verification/data";
+import { VerificationCard } from "@/features/verification/verification-card";
 import { getAdminStatus } from "@/lib/auth/require-admin";
 import { requirePageUser } from "@/lib/auth/require-user";
 
@@ -17,9 +19,10 @@ export const metadata: Metadata = {
 
 export default async function AccountPage() {
   const context = await requirePageUser("/account");
-  const [isAdmin, account] = await Promise.all([
+  const [isAdmin, account, verification] = await Promise.all([
     getAdminStatus(context),
     loadAccountData(context),
+    loadVerificationState(context),
   ]);
 
   return (
@@ -58,6 +61,16 @@ export default async function AccountPage() {
               <h2 className="text-2xl font-semibold" id="profile-heading">Profile</h2>
               <AccountProfile profile={account.profile} />
             </section>
+
+            {verification.status === "success" ? (
+              <VerificationCard state={verification.state} />
+            ) : (
+              <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+                <h2 className="text-xl font-semibold">Verification details unavailable</h2>
+                <p className="mt-2 leading-7">No upload can start until the privacy policy and current verification state load successfully.</p>
+                <Link className="mt-3 inline-block font-semibold underline" href="/account">Try again</Link>
+              </section>
+            )}
 
             <section className="mt-8" aria-labelledby="bookings-heading">
               <h2 className="text-2xl font-semibold" id="bookings-heading">Bookings</h2>

@@ -1,7 +1,7 @@
 # CamNook Open Decisions and Readiness
 
 Status: architecture approved; public-paid-launch gates remain closed<br>
-Last updated: 2026-08-14
+Last updated: 2026-08-15
 
 ## Outcome
 
@@ -71,6 +71,25 @@ from the original rental quote.
 
 ## Decisions required before implementation of affected behavior
 
+### OD-04 — Government-ID evidence policy
+
+Owner: product/business, with Philippine legal/privacy review before Production<br>
+Status: approved for implementation on 2026-08-15<br>
+Unblocks: Sprint 1 issues #13–#21 in Local and Development
+
+Policy `government-id-evidence-v1` accepts one Philippine passport, PhilSys
+ID/ePhilID, driver’s license, or UMID as JPEG, PNG, or PDF up to 5 MiB. Upload
+intents last 15 minutes. Each finalized object has 30-day live retention;
+renter deletion requests are scheduled until due, and a documented legal hold
+blocks removal. Sprint 1 grants only the owning renter raw-byte access. It stores
+no full ID number or OCR output and creates no permanent/signed URL.
+
+Notice `government-id-privacy-v1` is approved for implementation and must be
+shown before upload. Production collection remains closed until CamNook has a
+monitored privacy/DPO contact, final Philippine legal review, Development RLS
+and advisor evidence, and protected-Preview browser evidence. That release gate
+does not prevent synthetic Local/Development validation.
+
 ### OD-02 — Post-payment material amendments
 
 Owner: product/business, with legal/accounting review<br>
@@ -93,7 +112,7 @@ These are not architecture questions, but implementation cannot finish without t
 
 - approved GCash recipient display name/number and safe configuration location;
 - application origins and Supabase Auth redirect URLs for local, preview, and production;
-- allowed upload file types and maximum sizes per bucket; and
+- allowed file types and maximum sizes for buckets other than the approved government-ID v1 policy; and
 - whether Supabase Cron is enabled for the idempotent expiration/retention functions.
 
 The live Production project remains Supabase `CamNook`
@@ -105,7 +124,8 @@ received the four booking-milestone migrations on 13 August 2026 through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both projects at 11/11 at that checkpoint. On 14 August
 2026, the two catalog migrations were applied and exercised only in Development.
-Development is recorded at 13/13 while Production remains at 11/13. Current
+Development is recorded at 13/14 while Production remains at 11/14; the Sprint
+1 evidence migration is local and unapplied. Current
 remote history must still be checked at rollout time. Production is not a
 rollout target without separate explicit authorization.
 
@@ -113,6 +133,11 @@ Vercel Preview has two app-owned, Preview-scoped Supabase records for the
 Development project: browser-visible `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Vercel platform-provided variables are
 separate, and Production retains separate Production application records.
+Sprint 1 evidence rollout additionally requires server-only
+`SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` records in the target environment;
+neither is configured by the repository change, and both remain a separate
+authorized release step. Missing values fail evidence mutations and cleanup
+closed.
 Preview Deployment Protection remains enabled. Hosted Development now supports
 public email-OTP account creation with Cloudflare Turnstile, a six-digit code,
 a 15-minute expiry, and proven custom SMTP after the completed protected-Preview
@@ -131,7 +156,12 @@ in [`docs/operations/public-renter-registration.md`](operations/public-renter-re
 
 ### LB-01 — Privacy and retention
 
-Public government-ID collection stays disabled until the privacy notice and retention/deletion schedule are approved. The schedule must cover live Storage objects, metadata, database rows, audit records, and backups; it must define legal holds and verified deletion.
+Policy `government-id-evidence-v1` and notice `government-id-privacy-v1` approve
+the 30-day live-object schedule, metadata/decision preservation, legal holds, and
+verified deletion for implementation. Production collection stays disabled
+until the monitored privacy/DPO contact, final Philippine legal review (including
+lawful basis and backup treatment), Development evidence, and protected-Preview
+smoke gates in OD-04 are complete.
 
 ### LB-02 — Contract legal review
 
@@ -163,7 +193,7 @@ Approval of this milestone means agreement that:
 - the transition table, including late payment rejection to `EXPIRED`, is correct;
 - pre-payment material changes can return to `CONTRACT_PENDING` without resetting the deadline;
 - post-payment material changes remain prohibited until OD-02 is decided;
-- private Storage uses upload intents, exact-path RLS, no overwrite, short signed URLs, and audited admin access; and
+- private Storage uses upload intents, exact-path RLS, and no overwrite; government-ID v1 is owner-only, while any future admin/signed-URL access requires a separate audited design; and
 - architecture approval is recorded before the application scaffold or migrations are applied.
 
 ## Implementation status after approval
@@ -172,13 +202,14 @@ Approval of this milestone means agreement that:
    are implemented; later paid-rental stages remain gated.
 2. Ignored local CLI metadata links routine hosted work only to the separate
    Development project. Production remains live, isolated, and unlinked.
-3. Thirteen forward migration files translate the approved architecture.
+3. Fourteen forward migration files translate the approved architecture.
    Production received the four booking-milestone migrations on 13 August 2026
    through a separately authorized database-first rollout. Both projects were
    at 11/11 immediately afterward. The catalog-photo publication and
    unpublished-availability migrations were then applied and exercised only in
-   Development on 14 August 2026, leaving Development recorded at 13/13 and
-   Production at 11/13. Current remote history remains operational state to
+   Development on 14 August 2026, leaving Development recorded at 13/14 and
+   Production at 11/14 after the unapplied Sprint 1 evidence migration was
+   added locally. Current remote history remains operational state to
    verify, not a durable documentation assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).

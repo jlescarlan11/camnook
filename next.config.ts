@@ -14,6 +14,13 @@ const supabaseRemotePattern = configuredSupabaseUrl
   : undefined;
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // The lifecycle accepts at most 5 MiB. Multipart framing needs a small
+      // amount of headroom before application and database validation run.
+      bodySizeLimit: "6mb",
+    },
+  },
   images: {
     remotePatterns: supabaseRemotePattern ? [supabaseRemotePattern] : [],
   },

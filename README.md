@@ -84,13 +84,14 @@ migrations, runs the domain/authorization invariants and real two-session
 approval races, and removes the cluster on exit. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
 
-The repository currently contains thirteen forward migrations. On 13 August 2026,
+The repository currently contains fourteen forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
 August 2026, the catalog-photo publication and unpublished-availability
 migrations were applied and exercised only in Development. Development is now
-recorded at 13/13 while Production remains at 11/13. Treat those counts as
+recorded at 13/14 while Production remains at 11/14; the Sprint 1 government-ID
+evidence migration is local and unapplied. Treat those counts as
 recorded release evidence, not a substitute for checking current remote
 migration history before any future action.
 
@@ -148,6 +149,22 @@ separately approved migration and catalog release. Do not place real inventory
 manifests or private serial/cost values in Git, and do not bypass private staging
 with a direct public-bucket upload.
 
+Government-ID evidence policy `government-id-evidence-v1` and privacy notice
+`government-id-privacy-v1` implement Sprint 1 issues #13–#21. Use
+[`docs/product/sprint-1-government-id-evidence.md`](docs/product/sprint-1-government-id-evidence.md)
+for the acceptance matrix,
+[`docs/product/government-id-privacy-notice-v1.md`](docs/product/government-id-privacy-notice-v1.md)
+for the versioned notice, and
+[`docs/operations/government-id-evidence.md`](docs/operations/government-id-evidence.md)
+for validation and recovery. The migration has not been applied to either
+hosted project. Production collection additionally requires a monitored
+privacy/DPO contact, legal review, Development verification, and protected
+Preview smoke evidence. Runtime activation also requires reviewed server-only
+`SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` values; this repository change
+does not configure hosted environments. The protected daily route enforces due
+retention and abandoned-intent cleanup with durable, retryable claims and
+database-verified object absence.
+
 To refresh types from the linked database:
 
 ```bash
@@ -164,9 +181,10 @@ is part of Development/Preview work without separate explicit authorization.
 - Booking quote and approval pricing use the database-authoritative OD-01
   started-24-hour formula approved in `docs/open-decisions.md` and implemented
   by [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
-- Government-ID uploads fail closed until the privacy notice and retention
-  schedule are approved; verification decisions remain outside the current
-  milestone.
+- Government-ID upload is implemented behind the database-authoritative v1
+  privacy gate. Production remains closed until the contact/legal and hosted
+  validation gates in the evidence runbook are satisfied; verification review
+  decisions remain outside Sprint 1.
 - Paid/submitted-payment cancellation acceptance remains disabled until the
   cancellation and refund policy is approved.
 - Admin access to private Storage objects remains disabled until an audited,
