@@ -372,7 +372,10 @@ export async function loadAdminBookingDetail(
   }
 
   const approval = projectApproval(booking, contract);
-  if (booking.state === "CONTRACT_PENDING" && approval === null) {
+  if (
+    (booking.state === "CONTRACT_PENDING" || booking.state === "TO_PAY") &&
+    approval === null
+  ) {
     return { status: "inconsistent" } as const;
   }
   if (booking.state === "REJECTED" && rejection === null) {

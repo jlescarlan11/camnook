@@ -93,7 +93,7 @@ migrations, runs the domain/authorization invariants and real two-session
 approval races, and removes the cluster on exit. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
 
-The repository currently contains sixteen forward migrations. On 13 August 2026,
+The repository currently contains seventeen forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
@@ -101,9 +101,9 @@ August 2026, the catalog-photo publication and unpublished-availability
 migrations were applied and exercised only in Development. On 15 August 2026,
 the Sprint 1 government-ID evidence migration was applied to Development with
 its policy disabled, then verified with hosted fail-closed and cross-owner RLS
-tests. Development is recorded at 14/16 while Production remains at 11/16;
-the v2 hardening and Sprint 2 review migrations are repository-only until a
-separately authorized Development rollout.
+tests. Development is recorded at 14/17 while Production remains at 11/17;
+the v2 hardening, Sprint 2 review, and Sprint 3 contract-lifecycle migrations
+are repository-only until a separately authorized Development rollout.
 Treat those counts as recorded release evidence, not a substitute for checking
 current remote migration history before any future action.
 

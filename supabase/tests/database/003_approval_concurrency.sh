@@ -70,6 +70,16 @@ evidence_finalize_sql="$test_dir/evidence-finalize.sql"
 evidence_ready_file="$test_dir/evidence-create-ready"
 evidence_release_file="$test_dir/evidence-create-release"
 evidence_finalize_application_name="camnook-evidence-finalize-$$"
+contract_sign_log="$test_dir/contract-sign.log"
+contract_supersede_log="$test_dir/contract-supersede.log"
+contract_sign_sql="$test_dir/contract-sign.sql"
+contract_supersede_sql="$test_dir/contract-supersede.sql"
+contract_sign_ready_file="$test_dir/contract-sign-ready"
+contract_retry_a_log="$test_dir/contract-retry-a.log"
+contract_retry_b_log="$test_dir/contract-retry-b.log"
+contract_retry_a_sql="$test_dir/contract-retry-a.sql"
+contract_retry_b_sql="$test_dir/contract-retry-b.sql"
+contract_retry_ready_file="$test_dir/contract-retry-ready"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
@@ -81,6 +91,8 @@ catalog_publish_archive_pid=""
 catalog_publish_pid=""
 evidence_create_pid=""
 evidence_finalize_pid=""
+contract_sign_pid=""
+contract_retry_a_pid=""
 
 cleanup() {
   set +e
@@ -96,7 +108,9 @@ cleanup() {
     "$catalog_publish_archive_pid" \
     "$catalog_publish_pid" \
     "$evidence_create_pid" \
-    "$evidence_finalize_pid"; do
+    "$evidence_finalize_pid" \
+    "$contract_sign_pid" \
+    "$contract_retry_a_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -204,6 +218,12 @@ echo "running admin identity review invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/007_admin_identity_review.sql"
+
+echo "running versioned contract lifecycle invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/008_contract_lifecycle.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -1331,3 +1351,204 @@ $$;
 SQL
 
 echo "ok - verification create/finalize share one deadlock-free lock order"
+
+cat >"$contract_sign_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000002';
+select *
+from api.sign_contract(
+  (
+    select current_contract_version_id
+    from public.bookings
+    where id = '23000000-0000-4000-8000-000000000001'
+  ),
+  true
+);
+\! touch "$contract_sign_ready_file"
+select pg_sleep(2);
+commit;
+SQL
+
+cat >"$contract_supersede_sql" <<'SQL'
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.supersede_contract(
+  '23000000-0000-4000-8000-000000000001',
+  '21000000-0000-4000-8000-000000000002',
+  '2099-08-01 00:00:00+00',
+  '2099-08-03 00:00:00+00'
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$contract_sign_sql" >"$contract_sign_log" 2>&1 &
+contract_sign_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$contract_sign_ready_file" ]] && break
+  if ! kill -0 "$contract_sign_pid" 2>/dev/null; then
+    wait "$contract_sign_pid" || true
+    cat "$contract_sign_log" >&2
+    echo "contract signer exited before its transaction barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$contract_sign_ready_file" ]]; then
+  cat "$contract_sign_log" >&2
+  echo "timed out waiting for contract signing transaction barrier" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -f "$contract_supersede_sql" >"$contract_supersede_log" 2>&1
+wait "$contract_sign_pid"
+contract_sign_pid=""
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+declare
+  current_version uuid;
+begin
+  select current_contract_version_id into current_version
+  from public.bookings
+  where id = '23000000-0000-4000-8000-000000000001';
+
+  if not exists (
+    select 1
+    from public.bookings
+    where id = '23000000-0000-4000-8000-000000000001'
+      and state = 'CONTRACT_PENDING'
+      and camera_id = '21000000-0000-4000-8000-000000000002'
+      and approval_deadline_at = approved_at + interval '24 hours'
+  )
+    or (select count(*) from public.contract_versions
+        where booking_id = '23000000-0000-4000-8000-000000000001') <> 2
+    or (select count(*) from public.contract_signatures as signature
+        join public.contract_versions as version
+          on version.id = signature.contract_version_id
+        where version.booking_id = '23000000-0000-4000-8000-000000000001') <> 1
+    or not exists (
+      select 1
+      from public.contract_versions as version
+      join public.contract_signatures as signature
+        on signature.contract_version_id = version.id
+      where version.booking_id = '23000000-0000-4000-8000-000000000001'
+        and version.version_no = 1
+        and version.status = 'superseded'
+    )
+    or not exists (
+      select 1
+      from public.contract_versions
+      where id = current_version
+        and version_no = 2
+        and status = 'issued'
+    )
+    or exists (
+      select 1 from public.contract_signatures
+      where contract_version_id = current_version
+    )
+  then
+    raise exception 'sign/supersede race did not serialize to one signed historical and one unsigned current version';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - signing and supersession serialize without losing immutable history"
+
+cat >"$contract_retry_a_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000002';
+select created
+from api.sign_contract(
+  (
+    select current_contract_version_id
+    from public.bookings
+    where id = '23000000-0000-4000-8000-000000000001'
+  ),
+  true
+);
+\! touch "$contract_retry_ready_file"
+select pg_sleep(2);
+commit;
+SQL
+
+cat >"$contract_retry_b_sql" <<'SQL'
+\set ON_ERROR_STOP on
+\pset tuples_only on
+\pset format unaligned
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000002';
+select created
+from api.sign_contract(
+  (
+    select current_contract_version_id
+    from public.bookings
+    where id = '23000000-0000-4000-8000-000000000001'
+  ),
+  true
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$contract_retry_a_sql" >"$contract_retry_a_log" 2>&1 &
+contract_retry_a_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$contract_retry_ready_file" ]] && break
+  if ! kill -0 "$contract_retry_a_pid" 2>/dev/null; then
+    wait "$contract_retry_a_pid" || true
+    cat "$contract_retry_a_log" >&2
+    echo "first contract retry exited before its transaction barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$contract_retry_ready_file" ]]; then
+  cat "$contract_retry_a_log" >&2
+  echo "timed out waiting for first contract retry barrier" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -f "$contract_retry_b_sql" >"$contract_retry_b_log" 2>&1
+wait "$contract_retry_a_pid"
+contract_retry_a_pid=""
+
+if ! grep -Fxq 'f' "$contract_retry_b_log"; then
+  cat "$contract_retry_a_log" >&2
+  cat "$contract_retry_b_log" >&2
+  echo "concurrent exact-version retry did not return the existing signature" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1
+    from public.bookings
+    where id = '23000000-0000-4000-8000-000000000001'
+      and state = 'TO_PAY'
+  )
+    or (select count(*) from public.contract_signatures as signature
+        join public.contract_versions as version
+          on version.id = signature.contract_version_id
+        where version.booking_id = '23000000-0000-4000-8000-000000000001'
+          and version.version_no = 2) <> 1
+  then
+    raise exception 'concurrent exact-version signing created a duplicate or lost the transition';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - concurrent exact-version signing retry is idempotent"

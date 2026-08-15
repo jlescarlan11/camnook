@@ -155,9 +155,9 @@ Rejected transition attempts that matter for security or operations are written 
 
 ## Expiration execution
 
-`expire_due_bookings()` is idempotent and processes rows with `FOR UPDATE SKIP LOCKED`. It may transition only `CONTRACT_PENDING` and `TO_PAY` where the deadline has passed. It never expires `PAYMENT_REVIEW`.
+`expire_due_bookings(operation_id)` is idempotent and processes rows with `FOR UPDATE SKIP LOCKED`. It may transition only `CONTRACT_PENDING` and `TO_PAY` where the deadline has passed. It never expires `PAYMENT_REVIEW`.
 
-Run it on a short schedule using an existing Supabase scheduling capability if enabled, and opportunistically before approval/availability operations. User-facing reads must also derive “deadline elapsed” from the database time so a delayed scheduled run cannot falsely invite a signature/payment.
+Supabase Cron runs it every minute when `pg_cron` is available. The protected daily Vercel route is a recovery invocation for the linked Hobby project. Signing and payment still compare the database clock directly with the original deadline, so a delayed scheduled run cannot accept a late action.
 
 ## Pure domain tests
 

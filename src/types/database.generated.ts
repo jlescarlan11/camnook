@@ -128,7 +128,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      expire_due_bookings: { Args: never; Returns: number }
+      expire_due_bookings: {
+        Args: { p_operation_id: string }
+        Returns: number
+      }
       expire_due_verifications: {
         Args: { p_operation_id: string }
         Returns: number
@@ -338,12 +341,36 @@ export type Database = {
         }
         Returns: Json
       }
+      get_contract_audit_history: {
+        Args: { p_booking_id: string }
+        Returns: {
+          action: string
+          actor_type: Database["public"]["Enums"]["booking_actor_type"]
+          actor_user_id: string | null
+          audit_id: number
+          contract_version_id: string
+          occurred_at: string
+          outcome: string
+          version_no: number
+        }[]
+      }
       sign_contract: {
         Args: {
-          p_acknowledged_content_sha256: string
-          p_attestation_text: string
+          p_consent: boolean
+          p_contract_version_id: string
+        }
+        Returns: {
+          created: boolean
+          signature_id: string
+          signed_at: string
+        }[]
+      }
+      supersede_contract: {
+        Args: {
           p_booking_id: string
-          p_signature_intent: string
+          p_camera_id: string
+          p_pickup_at: string
+          p_return_at: string
         }
         Returns: string
       }

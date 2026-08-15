@@ -7,7 +7,17 @@ import { loadAdminBookingDetail } from "@/features/bookings/admin/data";
 import type { ApprovalReadinessReason } from "@/features/bookings/admin/readiness";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { PersistedIntendedUse } from "@/features/bookings/components/persisted-intended-use";
-import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import {
+  formatManilaDateTime,
+  formatManilaDateTimeInput,
+} from "@/features/bookings/manila-time";
+import { ContractDetails } from "@/features/contracts/components/contract-details";
+import { SupersedeContractControl } from "@/features/contracts/components/supersede-contract-control";
+import {
+  loadAdminContractAudit,
+  loadContractHistory,
+  loadPublishedCameraOptions,
+} from "@/features/contracts/data";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +55,19 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
   const result = await loadAdminBookingDetail(context, bookingId);
 
   if (result.status === "missing") notFound();
+
+  const contractData =
+    result.status === "success" && result.booking.approval
+      ? await Promise.all([
+          loadContractHistory(
+            context,
+            result.booking.id,
+            result.booking.approval.currentContractVersionId,
+          ),
+          loadAdminContractAudit(context, result.booking.id),
+          loadPublishedCameraOptions(context),
+        ])
+      : null;
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">
@@ -374,10 +397,73 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               </section>
             )}
 
+            {result.booking.approval && contractData ? (
+              contractData[0].status === "success" ? (
+                <>
+                  <ContractDetails
+                    agreement={contractData[0].agreement}
+                    approvalDeadlineAt={
+                      result.booking.approval.approvalDeadlineAt
+                    }
+                  />
+                  {(result.booking.state === "CONTRACT_PENDING" ||
+                    result.booking.state === "TO_PAY") &&
+                  contractData[2].status === "success" &&
+                  result.booking.camera ? (
+                    <SupersedeContractControl
+                      bookingId={result.booking.id}
+                      cameras={contractData[2].cameras}
+                      currentCameraId={result.booking.camera.id}
+                      pickup={formatManilaDateTimeInput(result.booking.pickupAt)}
+                      returnValue={formatManilaDateTimeInput(
+                        result.booking.returnAt,
+                      )}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <section
+                  className="mt-7 rounded-xl border border-red-200 bg-red-50 p-4 text-red-900"
+                  role="alert"
+                >
+                  Contract history could not be safely loaded. Replacement
+                  controls are disabled; refresh and investigate the persisted
+                  record.
+                </section>
+              )
+            ) : null}
+
+            {contractData ? (
+              contractData[1].status === "success" ? (
+                <details className="mt-7 rounded-xl border border-stone-200 p-4">
+                  <summary className="cursor-pointer font-semibold">
+                    Contract audit history
+                  </summary>
+                  <ol className="mt-4 space-y-3 text-sm leading-6">
+                    {contractData[1].events.map((event) => (
+                      <li key={event.auditId}>
+                        <span className="font-semibold">
+                          Version {event.versionNo} · {event.action}
+                        </span>
+                        {" · "}
+                        {event.outcome} by {event.actorType} ·{" "}
+                        {event.actorUserId ?? "system"} ·{" "}
+                        {formatManilaDateTime(event.occurredAt)}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              ) : (
+                <p className="mt-7 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
+                  Contract audit history is temporarily unavailable.
+                </p>
+              )
+            ) : null}
+
             <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
               Verification decisions/uploads, private document reads, contract
-              signing/PDFs, payments, cancellation, handoff, refunds, and public
-              launch remain disabled in this admin flow.
+              renter signing, payments, cancellation, handoff, refunds, and
+              public launch remain disabled in this admin flow.
             </section>
           </article>
         )}

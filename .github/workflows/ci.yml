@@ -58,6 +58,7 @@ jobs:
           supabase/tests/database/002_pricing_and_approval.sql
           supabase/tests/database/005_verification_policy_disabled.sql
           supabase/tests/database/006_hosted_verification_rls.sql
+          supabase/tests/database/008_contract_lifecycle.sql
 
       - name: Generate database types for validation
         # Local and hosted PostgREST versions can order equivalent definitions

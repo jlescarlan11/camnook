@@ -395,15 +395,15 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains sixteen forward migrations. On 13 August 2026, the four
+The repository contains seventeen forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
 and exercised only in Development. The Sprint 1 evidence migration was then
 applied and tested in Development on 15 August 2026. Development is recorded at
-14/16 and Production at 11/16; the v2 hardening and Sprint 2 review migrations
-remain repository-only. Check current remote history at every future
+14/17 and Production at 11/17; the v2 hardening, Sprint 2 review, and Sprint 3
+contract-lifecycle migrations remain repository-only. Check current remote history at every future
 rollout; these recorded counts do not authorize another Production mutation or
 deployment.
 

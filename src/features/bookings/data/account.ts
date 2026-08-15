@@ -5,8 +5,10 @@ import { z } from "zod";
 import type { requireUser } from "@/lib/auth/require-user";
 import type { Database } from "@/types/database.generated";
 
+import { loadContractHistory } from "../../contracts/data";
+
 export const SAFE_BOOKING_COLUMNS =
-  "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency";
+  "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id";
 
 type UserContext = Awaited<ReturnType<typeof requireUser>>;
 
@@ -16,6 +18,7 @@ export type SafeBookingRow = {
   billable_days_snapshot: number | null;
   camera_id: string;
   currency: string;
+  current_contract_version_id: string | null;
   daily_rate_snapshot: number | null;
   expected_location: string;
   id: string;
@@ -160,18 +163,45 @@ export async function loadBookingDetail(
       ? { name: cameraResult.data.name, slug: cameraResult.data.slug }
       : null;
 
-  return { booking: projectBooking(row, camera), status: "success" } as const;
+  const booking = projectBooking(row, camera);
+  if ("approval" in booking) {
+    if (!row.current_contract_version_id) {
+      return { status: "inconsistent" } as const;
+    }
+    const agreement = await loadContractHistory(
+      context,
+      row.id,
+      row.current_contract_version_id,
+    );
+    if (agreement.status === "error") return { status: "error" } as const;
+    if (agreement.status === "inconsistent") {
+      return { status: "inconsistent" } as const;
+    }
+    return {
+      agreement: agreement.agreement,
+      booking,
+      status: "success",
+    } as const;
+  }
+
+  return { agreement: null, booking, status: "success" } as const;
 }
 
-export function bookingPresentation(
-  result: { status: "missing" } | { status: "error" },
-) {
+export function bookingPresentation(result: {
+  status: "missing" | "error" | "inconsistent";
+}) {
   return result.status === "missing"
     ? {
         kind: "not_found" as const,
         message: "This booking could not be found.",
       }
-    : {
+    : result.status === "inconsistent"
+      ? {
+          kind: "error" as const,
+          message:
+            "This booking’s persisted contract record is incomplete. Signing is disabled while support investigates.",
+        }
+      : {
         kind: "error" as const,
         message:
           "We couldn’t load this booking. Please try again from your account.",

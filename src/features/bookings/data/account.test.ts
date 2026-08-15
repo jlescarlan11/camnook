@@ -16,6 +16,7 @@ const baseRow: SafeBookingRow = {
   billable_days_snapshot: null,
   camera_id: "11111111-1111-4111-8111-111111111111",
   currency: "PHP",
+  current_contract_version_id: null,
   daily_rate_snapshot: null,
   expected_location: "Quezon City",
   id: "22222222-2222-4222-8222-222222222222",
@@ -82,7 +83,7 @@ describe("renter booking projection", () => {
       "legal_name,phone,account_status",
     );
     expect(selections.get("bookings")).toBe(
-      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency",
+      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id",
     );
     expect(selections.get("public_cameras")).toBe("id,name,slug");
     expect(selections.get("bookings")).not.toContain("renter_id");
@@ -152,7 +153,7 @@ describe("renter booking projection", () => {
       status: "success",
     });
     expect(selections.get("bookings")).toBe(
-      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency",
+      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id",
     );
     expect(filters).toContainEqual(["bookings", "id", baseRow.id]);
     expect(filters).toContainEqual(["bookings", "renter_id", "user-1"]);

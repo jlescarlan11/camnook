@@ -95,6 +95,26 @@ export function formatManilaDateTime(instant: string) {
   return manilaDateTimeFormatter.format(new Date(instant));
 }
 
+export function formatManilaDateTimeInput(instant: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "2-digit",
+    timeZone: MANILA_TIME_ZONE,
+    year: "numeric",
+  })
+    .formatToParts(new Date(instant))
+    .reduce<Record<string, string>>((values, part) => {
+      values[part.type] = part.value;
+      return values;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
 export function normalizeQuoteInputKey(input: QuoteInput) {
   return JSON.stringify([input.camera.trim(), input.pickup, input.return]);
 }

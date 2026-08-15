@@ -9,6 +9,8 @@ import {
   loadBookingDetail,
 } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { ContractDetails } from "@/features/contracts/components/contract-details";
+import { SignContractControl } from "@/features/contracts/components/sign-contract-control";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +40,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
         <Link className="inline-flex min-h-11 items-center font-medium text-amber-900 underline decoration-amber-300 underline-offset-4" href="/account">← Back to account</Link>
-        {result.status === "error" ? (
+        {result.status === "error" || result.status === "inconsistent" ? (
           <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
             <h1 className="text-2xl font-semibold">Booking unavailable</h1>
             <p className="mt-2 leading-7">{bookingPresentation(result).message}</p>
@@ -85,6 +87,27 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                     <DetailValue label="Currency" value={result.booking.approval.currency} />
                   </dl>
                 </section>
+              ) : null}
+              {result.agreement && "approval" in result.booking ? (
+                <>
+                  <ContractDetails
+                    agreement={result.agreement}
+                    approvalDeadlineAt={
+                      result.booking.approval.approvalDeadlineAt
+                    }
+                  />
+                  {result.booking.state === "CONTRACT_PENDING" ? (
+                    <SignContractControl
+                      bookingId={result.booking.id}
+                      canSign={
+                        result.booking.state === "CONTRACT_PENDING" &&
+                        result.agreement.current.status === "issued" &&
+                        result.agreement.current.signature === null
+                      }
+                      contractVersionId={result.agreement.current.id}
+                    />
+                  ) : null}
+                </>
               ) : null}
             </article>
           </>
