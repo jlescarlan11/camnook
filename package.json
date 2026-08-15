@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prepare": "node scripts/install-git-hooks.mjs",
     "dev": "next dev",
     "build": "next build",
     "catalog:photos": "node scripts/catalog-photo-publication.mjs",
@@ -11,6 +12,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
+    "verify:push": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:start": "pnpm dlx supabase@2.114.0 start",
     "db:stop": "pnpm dlx supabase@2.114.0 stop",
     "db:reset": "pnpm dlx supabase@2.114.0 db reset",

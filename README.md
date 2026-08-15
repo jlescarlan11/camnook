@@ -58,6 +58,15 @@ pnpm test
 pnpm build
 ```
 
+`pnpm install` also configures the tracked `.githooks/pre-push` hook for this
+checkout. Before Git sends commits, the hook requires a clean tracked worktree,
+checks the outgoing diff for conflict markers and whitespace errors, and runs
+`pnpm verify:push`. The verification command executes all four application
+checks above and blocks the push on the first failure. Run `pnpm prepare` to
+restore the hook configuration if Git settings are reset. The PostgreSQL and
+Supabase suites remain mandatory CI checks because their local prerequisites
+are platform-specific.
+
 ## Database development
 
 Migrations live in `supabase/migrations/`; database assertions live in
