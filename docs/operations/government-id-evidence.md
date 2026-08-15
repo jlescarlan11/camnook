@@ -8,7 +8,7 @@ Notice: `government-id-privacy-v1`
 
 The migration is forward-only. Local and hosted validation use synthetic files. Before any routine linked hosted database command, require `supabase/.temp/project-ref` to equal Development ref `ekmoiepalelqpmemvrkl`. Production ref `iegcixcevvkryfwfotqz` is never a routine Development target. Production schema deployment is available only through the manually dispatched, protected GitHub Actions environment.
 
-The migration installs the v1 policy disabled and with no activation timestamp, so schema deployment cannot start ID collection. Production activation additionally requires a monitored privacy/DPO contact, final Philippine legal review, Development RLS/advisor evidence, and protected-Preview browser smoke evidence. There is deliberately no automated activation workflow: activation requires a later, separately reviewed migration after those gates are recorded.
+The migration installs the v1 policy disabled and with no activation timestamp, so schema deployment cannot start ID collection. Production activation additionally requires a monitored privacy/DPO contact, final Philippine legal review (tracked separately in #26), Development RLS/advisor evidence, and protected-Preview browser smoke evidence. There is deliberately no automated activation workflow: activation requires a later, separately reviewed migration after those gates are recorded.
 
 The runtime also requires server-only `SUPABASE_SERVICE_ROLE_KEY` and
 `CRON_SECRET` values. The former is used only by authenticated Server Actions
@@ -45,14 +45,29 @@ workflow is manual, accepts only project `iegcixcevvkryfwfotqz`, requires the
 protected GitHub `production` environment, and verifies that the ID policy is
 still disabled after any schema deployment.
 
-The shared Supabase access token is stored only in those GitHub environments
-and expires on 14 September 2026; rotate both environment secrets before then.
-Vercel owns the runtime service key and cron secret instead of GitHub.
+The shared Supabase access token is stored only in those GitHub environments.
+It was rotated on 15 August 2026, is valid through 14 August 2027 (the current
+maximum lifetime offered for a new dashboard token), and was proven by a
+successful Development migration/RLS/advisor workflow before the superseded
+token was revoked. Rotate both environment secrets before the new deadline.
+Credential rotation is operational maintenance, not a feature-acceptance or
+Production-activation gate. Vercel owns the runtime service key and cron secret
+instead of GitHub.
 
 On 15 August 2026, Development reached 14/14 migrations. Hosted checks confirmed
 the policy remained disabled and that the server-only RPC and cross-owner
 Storage boundaries held. The security advisor returned no errors; its one
 warning was that leaked-password protection is disabled.
+
+That warning cannot be enabled on the current Free projects: the documented
+setting requires Supabase Pro, and the Management API returned HTTP 402 when
+the Development setting was tested. CamNook's supported authentication flow is
+passwordless email OTP (`signInWithOtp` and `verifyOtp`); the repository exposes
+no password signup, sign-in, reset, or change flow. The warning is therefore a
+documented, non-blocking advisory for the present passwordless application, not
+a claim that leaked-password screening is enabled. Enable it before supporting
+password authentication, or when the projects move to Pro, and rerun the
+hosted advisor workflow.
 
 ## Upload and retry lifecycle
 
