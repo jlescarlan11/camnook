@@ -5,6 +5,10 @@ import { logout } from "@/features/auth/actions";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAdminQueue } from "@/features/bookings/admin/data";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import {
+  loadPaymentAccountingSummary,
+  loadPaymentReviewQueue,
+} from "@/features/payments/data";
 import { loadVerificationReviewQueue } from "@/features/verification/admin-data";
 import { ID_TYPE_LABELS } from "@/features/verification/types";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
@@ -17,9 +21,11 @@ export const metadata: Metadata = {
 
 export default async function AdminPage() {
   const context = await requirePageAdmin("/admin");
-  const [bookingQueue, verificationQueue] = await Promise.all([
+  const [bookingQueue, verificationQueue, paymentQueue, accounting] = await Promise.all([
     loadAdminQueue(context),
     loadVerificationReviewQueue(context),
+    loadPaymentReviewQueue(context),
+    loadPaymentAccountingSummary(context),
   ]);
 
   return (
@@ -67,10 +73,69 @@ export default async function AdminPage() {
             The audited identity-review workflow is implemented for authorized
             administrators, but Production collection of real IDs remains
             disabled until the documented privacy and operating approvals are
-            complete. This does not open contract signing, payments, handoff,
-            refunds, or public-launch actions.
+            complete. Manual payment reconciliation is also fail-closed until
+            an administrator explicitly enables an approved recipient; this
+            does not authorize Production rollout, handoff, refunds, or public
+            launch.
           </p>
         </section>
+
+        {accounting.status === "success" ? (
+          <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm" aria-labelledby="payment-accounting-heading">
+            <h2 className="text-xl font-semibold" id="payment-accounting-heading">Verified payment accounting</h2>
+            <p className="mt-2 text-sm text-stone-600">
+              Rental revenue and refundable security-deposit liability are reported separately.
+            </p>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              <QueueValue label="Verified rental revenue" value={formatPhp(accounting.summary.verified_rental_revenue)} />
+              <QueueValue label="Security-deposit liability" value={formatPhp(accounting.summary.security_deposit_liability)} />
+            </dl>
+          </section>
+        ) : (
+          <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-900" role="alert">
+            Payment accounting totals are unavailable. Do not use this page for financial reporting until they reload.
+          </section>
+        )}
+
+        {paymentQueue.status === "error" ? (
+          <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+            <h2 className="text-xl font-semibold">Payment queue unavailable</h2>
+            <p className="mt-2 leading-7">Current submitted transfers could not be loaded. Refresh before reconciling any payment.</p>
+          </section>
+        ) : paymentQueue.items.length === 0 ? (
+          <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm" role="status">
+            <h2 className="text-xl font-semibold">No payments await reconciliation</h2>
+            <p className="mt-2 text-stone-600">Only current submitted incoming transfers in PAYMENT_REVIEW appear here.</p>
+          </section>
+        ) : (
+          <section className="mt-8" aria-labelledby="payment-waiting-heading">
+            <h2 className="text-2xl font-semibold" id="payment-waiting-heading">Payments waiting for reconciliation</h2>
+            <p className="mt-2 text-sm leading-6 text-stone-600">
+              Oldest submissions appear first and are marked against the 12-hour target. The queue omits proof paths, URLs, digests, and unrelated renter data.
+            </p>
+            <ul className="mt-5 space-y-4">
+              {paymentQueue.items.map((item) => (
+                <li className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6" key={item.transaction_id}>
+                  <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <QueueValue label="Renter" value={item.renter_legal_name} />
+                    <QueueValue label="Camera" value={item.camera_name} />
+                    <QueueValue label="Declared amount" value={formatPhp(item.declared_amount)} />
+                    <QueueValue label="Queue age" value={formatQueueAge(item.age_seconds)} />
+                    <QueueValue label="Review target" value={item.age_seconds >= 43_200 ? "12-hour target exceeded" : "Within 12-hour target"} />
+                    <QueueValue label="Sender" value={item.sender_name} />
+                    <QueueValue label="Reference" value={item.reference} />
+                    <QueueValue label="Original deadline" value={formatManilaDateTime(item.approval_deadline_at)} />
+                    <QueueValue label="Private proof" value={item.proof_exists ? "Attached" : "Not attached"} />
+                  </dl>
+                  <p className="mt-4 text-sm text-stone-500">Submitted {formatManilaDateTime(item.submitted_at)}</p>
+                  <Link className="mt-5 inline-flex min-h-11 items-center font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4" href={`/admin/payments/${item.transaction_id}`}>
+                    Reconcile payment
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {verificationQueue.status === "error" ? (
           <section
@@ -193,6 +258,15 @@ function formatQueueAge(seconds: number) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)} hr`;
   return `${Math.floor(seconds / 86_400)} days`;
+}
+
+const phpFormatter = new Intl.NumberFormat("en-PH", {
+  currency: "PHP",
+  style: "currency",
+});
+
+function formatPhp(value: number) {
+  return phpFormatter.format(value);
 }
 
 function QueueValue({ label, value }: { label: string; value: string }) {

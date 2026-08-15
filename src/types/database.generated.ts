@@ -21,6 +21,15 @@ export type Database = {
     }
     Functions: {
       approve_booking: { Args: { p_booking_id: string }; Returns: undefined }
+      authorize_payment_proof_access: {
+        Args: {
+          p_actor_user_id: string
+          p_operation_id: string
+          p_payment_id: string
+          p_purpose: string
+        }
+        Returns: Json
+      }
       confirm_catalog_photo_staging_removed: {
         Args: { p_operation_id: string; p_publication_id: string }
         Returns: Json
@@ -62,17 +71,27 @@ export type Database = {
         }
         Returns: Json
       }
-      create_payment_proof_upload: {
+      configure_gcash_recipient: {
         Args: {
+          p_enabled: boolean
+          p_operation_id: string
+          p_recipient_account: string
+          p_recipient_name: string
+        }
+        Returns: Json
+      }
+      create_payment_proof_upload_intent: {
+        Args: {
+          p_actor_user_id: string
           p_byte_size: number
+          p_intent_id: string
           p_media_type: string
-          p_sha256: string
+          p_operation_id: string
+          p_owner_user_id: string
+          p_sha256_hex: string
           p_transaction_id: string
         }
-        Returns: {
-          object_path: string
-          proof_id: string
-        }[]
+        Returns: Json
       }
       create_verification_upload_intent: {
         Args: {
@@ -154,6 +173,27 @@ export type Database = {
         }
         Returns: Json
       }
+      finalize_payment_proof_upload: {
+        Args: {
+          p_actor_user_id: string
+          p_intent_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+          p_verified_byte_size: number
+          p_verified_media_type: string
+          p_verified_sha256_hex: string
+        }
+        Returns: Json
+      }
+      finalize_payment_proof_upload_cleanup: {
+        Args: {
+          p_actor_user_id: string
+          p_intent_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
+      }
       finalize_verification_document_deletion: {
         Args: {
           p_actor_user_id: string
@@ -211,7 +251,26 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: never; Returns: boolean }
+      get_my_payment_state: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
       get_my_verification_upload_state: { Args: never; Returns: Json }
+      get_payment_accounting_summary: { Args: never; Returns: Json }
+      get_payment_audit_history: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
+      get_payment_proof_policy: { Args: never; Returns: Json }
+      get_payment_proof_upload_intent: {
+        Args: { p_intent_id: string; p_owner_user_id: string }
+        Returns: Json
+      }
+      get_payment_review_detail: {
+        Args: { p_payment_id: string }
+        Returns: Json
+      }
+      get_payment_review_queue: { Args: never; Returns: Json }
       get_verification_review_detail: {
         Args: { p_record_id: string }
         Returns: Json
@@ -314,8 +373,12 @@ export type Database = {
         Returns: undefined
       }
       reject_payment: {
-        Args: { p_payment_id: string; p_reason: string }
-        Returns: Database["public"]["Enums"]["booking_state"]
+        Args: {
+          p_operation_id: string
+          p_payment_id: string
+          p_reason_code: string
+        }
+        Returns: Json
       }
       release_manual_block: { Args: { p_block_id: string }; Returns: undefined }
       request_booking: {
@@ -336,6 +399,15 @@ export type Database = {
         Args: {
           p_actor_user_id: string
           p_document_id: string
+          p_operation_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
+      }
+      prepare_payment_proof_upload_cleanup: {
+        Args: {
+          p_actor_user_id: string
+          p_intent_id: string
           p_operation_id: string
           p_owner_user_id: string
         }
@@ -377,19 +449,22 @@ export type Database = {
       submit_payment: {
         Args: {
           p_amount: number
+          p_attempt_id: string
           p_booking_id: string
           p_reference: string
           p_sender_name: string
         }
-        Returns: string
+        Returns: Json
       }
       verify_payment: {
         Args: {
-          p_deposit_allocation: number
+          p_actual_account_checked: boolean
+          p_observed_amount: number
+          p_observed_reference: string
+          p_operation_id: string
           p_payment_id: string
-          p_rental_allocation: number
         }
-        Returns: undefined
+        Returns: Json
       }
     }
     Enums: {

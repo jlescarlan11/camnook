@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,6 +13,8 @@ import {
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { ContractDetails } from "@/features/contracts/components/contract-details";
 import { SignContractControl } from "@/features/contracts/components/sign-contract-control";
+import { loadMyPaymentState } from "@/features/payments/data";
+import { PaymentPanel } from "@/features/payments/payment-panel";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +36,10 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
   const context = await requirePageUser(
     `/account/bookings/${bookingId}${requested}`,
   );
-  const result = await loadBookingDetail(context, bookingId);
+  const [result, paymentResult] = await Promise.all([
+    loadBookingDetail(context, bookingId),
+    loadMyPaymentState(context, bookingId),
+  ]);
   if (result.status === "missing") notFound();
 
   return (
@@ -108,6 +115,28 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                     />
                   ) : null}
                 </>
+              ) : null}
+              {result.status === "success" &&
+              "approval" in result.booking &&
+              paymentResult.status === "success" ? (
+                <PaymentPanel
+                  attemptId={randomUUID()}
+                  payment={paymentResult.payment}
+                />
+              ) : result.status === "success" &&
+                "approval" in result.booking &&
+                paymentResult.status !== "success" ? (
+                <section
+                  className="mt-7 border-t border-stone-200 pt-6"
+                  role="alert"
+                >
+                  <h2 className="text-lg font-semibold">Payment unavailable</h2>
+                  <p className="mt-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                    Authoritative payment instructions and state could not be
+                    loaded. Do not transfer funds until this section is
+                    available.
+                  </p>
+                </section>
               ) : null}
             </article>
           </>
