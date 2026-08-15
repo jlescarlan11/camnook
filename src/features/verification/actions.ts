@@ -249,6 +249,13 @@ export async function submitVerificationEvidence(
     return { error: "policy_unavailable", status: "error" };
   }
 
+  const expiry = await admin.schema("api").rpc("expire_due_verifications", {
+    p_operation_id: randomUUID(),
+  });
+  if (expiry.error || !z.number().int().nonnegative().safeParse(expiry.data).success) {
+    return { error: "restart_required", status: "error" };
+  }
+
   let intentResult = await createUploadIntent(admin, intentInput);
   let intent = verificationIntentResponseSchema.safeParse(intentResult.data);
 

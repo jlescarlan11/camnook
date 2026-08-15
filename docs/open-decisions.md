@@ -74,18 +74,20 @@ from the original rental quote.
 ### OD-04 — Government-ID evidence policy
 
 Owner: product/business, with Philippine legal/privacy review before Production<br>
-Status: v2 technical hardening implemented on 2026-08-15; legal approval withheld<br>
-Unblocks: Sprint 1 issues #13–#21 in Local and Development
+Status: v2 technical hardening and Sprint 2 review controls implemented on 2026-08-15; legal approval withheld<br>
+Unblocks: synthetic Sprint 1 issues #13–#21 and Sprint 2 issues #27–#35 locally
 
 Policy `government-id-evidence-v2` limits the draft flow to one masked side/page
 of a Philippine passport, PhilSys ID/ePhilID, driver’s license, or UMID as JPEG
 or PNG up to 5 MiB. PDFs are rejected. Upload intents last 15 minutes. Every
 finalized object is deleted when no longer necessary and no later than 30 days;
 an owner request deletes an unheld object immediately, and replacement makes
-the superseded object due for cleanup. Sprint 1 grants only the owning renter
-raw-byte access, so the current pipeline verifies file integrity but cannot
-perform identity review. It stores no full ID number or OCR output and creates
-no permanent/signed URL.
+the superseded object due for cleanup. Sprint 2 adds a sole-admin review
+operation: the database authorizes and audits the exact `identity_review`
+purpose before the server issues a 60-second signed URL, and a separate atomic
+operation records a verified or predefined renter-safe rejected decision. It
+stores no full ID number or OCR output and creates no permanent URL. Direct
+admin Storage reads remain denied.
 
 Draft notice `government-id-privacy-v2` requires affirmative, purpose-specific
 consent and is shown before upload. It is not legally approved. Production
@@ -131,8 +133,9 @@ verification, leaving both projects at 11/11 at that checkpoint. On 14 August
 2026, the two catalog migrations were applied and exercised only in Development.
 On 15 August 2026, the Sprint 1 evidence migration was applied to Development
 with its policy disabled and verified with hosted fail-closed and cross-owner
-Storage RLS checks. Development is recorded at 14/14 while Production remains
-at 11/14. Current remote history must still be checked at rollout time.
+Storage RLS checks. Development is recorded at 14/16 while Production remains
+at 11/16; the v2 hardening and Sprint 2 review migrations are repository-only.
+Current remote history must still be checked at rollout time.
 Production is not a rollout target without separate explicit authorization.
 
 Vercel Preview has two app-owned, Preview-scoped Supabase records for the
@@ -199,7 +202,7 @@ Approval of this milestone means agreement that:
 - the transition table, including late payment rejection to `EXPIRED`, is correct;
 - pre-payment material changes can return to `CONTRACT_PENDING` without resetting the deadline;
 - post-payment material changes remain prohibited until OD-02 is decided;
-- private Storage uses upload intents, exact-path RLS, and no overwrite; government-ID v1 is owner-only, while any future admin/signed-URL access requires a separate audited design; and
+- private Storage uses upload intents, exact-path RLS, and no overwrite; government-ID admin review is limited to the audited, purpose-bound, 60-second server operation; and
 - architecture approval is recorded before the application scaffold or migrations are applied.
 
 ## Implementation status after approval
@@ -208,14 +211,15 @@ Approval of this milestone means agreement that:
    are implemented; later paid-rental stages remain gated.
 2. Ignored local CLI metadata links routine hosted work only to the separate
    Development project. Production remains live, isolated, and unlinked.
-3. Fourteen forward migration files translate the approved architecture.
+3. Sixteen forward migration files translate the approved architecture.
    Production received the four booking-milestone migrations on 13 August 2026
    through a separately authorized database-first rollout. Both projects were
    at 11/11 immediately afterward. The catalog-photo publication and
    unpublished-availability migrations were then applied and exercised only in
    Development on 14 August 2026. The Sprint 1 evidence migration followed in
    Development on 15 August 2026 with its policy disabled, leaving Development
-   recorded at 14/14 and Production at 11/14. Current remote history remains
+   recorded at 14/16 and Production at 11/16. The v2 hardening and Sprint 2
+   review migrations remain repository-only. Current remote history remains
    operational state to verify, not a durable documentation assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).

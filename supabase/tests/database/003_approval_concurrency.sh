@@ -187,11 +187,23 @@ echo "running domain and authorization invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/001_domain_invariants.sql"
 
+echo "running pricing and approval invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/002_pricing_and_approval.sql"
+
 echo "running verification evidence lifecycle invariants"
 "$postgres_bin/psql" \
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/004_verification_evidence_lifecycle.sql"
+
+echo "running admin identity review invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/007_admin_identity_review.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;

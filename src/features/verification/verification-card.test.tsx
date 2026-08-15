@@ -41,7 +41,7 @@ describe("government ID privacy card", () => {
     expect(markup).toContain('accept="image/jpeg,image/png,.jpg,.jpeg,.png"');
     expect(markup).toContain('name="privacyConsent"');
     expect(markup).toContain("specifically consent");
-    expect(markup).toContain("does not verify identity");
+    expect(markup).toContain("do not verify identity");
     expect(markup).not.toContain("object_path");
   });
 
@@ -126,5 +126,54 @@ describe("government ID privacy card", () => {
     expect(markup).toContain("Verified deleted");
     expect(markup).not.toContain("Current evidence");
     expect(markup).not.toContain("Replace evidence");
+  });
+
+  it("shows a renter-safe rejection reason and a replacement action", () => {
+    const markup = renderToStaticMarkup(
+      <VerificationCard
+        state={{
+          ...baseState,
+          record: {
+            decided_at: "2026-08-15T01:00:00Z",
+            document_expiration_date: null,
+            id: "39000000-0000-4000-8000-000000000032",
+            id_type: "philippine_passport",
+            rejection_reason_code: "document_not_readable",
+            status: "rejected",
+            submitted_at: "2026-08-15T00:00:00Z",
+            supersedes_id: null,
+          },
+        }}
+      />,
+    );
+
+    expect(markup).toContain("could not be read");
+    expect(markup).toContain("Upload evidence");
+    expect(markup).toContain("earlier decision history is preserved");
+    expect(markup).not.toContain("object_path");
+  });
+
+  it("explains Manila-date expiry and permits a new current submission", () => {
+    const markup = renderToStaticMarkup(
+      <VerificationCard
+        state={{
+          ...baseState,
+          record: {
+            decided_at: "2026-07-01T00:00:00Z",
+            document_expiration_date: "2026-08-14",
+            id: "39000000-0000-4000-8000-000000000033",
+            id_type: "umid",
+            rejection_reason_code: null,
+            status: "expired",
+            submitted_at: "2026-07-01T00:00:00Z",
+            supersedes_id: null,
+          },
+        }}
+      />,
+    );
+
+    expect(markup).toContain("expired after 2026-08-14 in Asia/Manila");
+    expect(markup).toContain("cannot authorize booking approval or pickup");
+    expect(markup).toContain("Upload evidence");
   });
 });

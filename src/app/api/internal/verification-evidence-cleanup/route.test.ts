@@ -34,6 +34,7 @@ describe("verification evidence cleanup cron route", () => {
     vi.mocked(cleanupDueVerificationEvidence).mockResolvedValue({
       claimed: 3,
       cleaned: 3,
+      expired: 2,
       failed: 0,
     });
     const response = await GET(
@@ -43,6 +44,11 @@ describe("verification evidence cleanup cron route", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ claimed: 3, cleaned: 3, failed: 0 });
+    await expect(response.json()).resolves.toEqual({
+      claimed: 3,
+      cleaned: 3,
+      expired: 2,
+      failed: 0,
+    });
   });
 });

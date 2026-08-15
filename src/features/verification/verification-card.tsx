@@ -14,6 +14,7 @@ import {
 } from "./actions";
 import {
   ID_TYPE_LABELS,
+  VERIFICATION_REJECTION_MESSAGES,
   type AcceptedIdType,
   type VerificationState,
 } from "./types";
@@ -71,7 +72,7 @@ export function VerificationCard({ state }: { state: VerificationState }) {
             Private evidence
           </p>
           <h2 className="mt-2 text-2xl font-semibold" id="verification-heading">
-            Government ID evidence (not active)
+            Government ID evidence{policy.enabled ? "" : " (not active)"}
           </h2>
         </div>
         {record ? (
@@ -85,13 +86,13 @@ export function VerificationCard({ state }: { state: VerificationState }) {
         <h3 className="font-semibold text-amber-950">Privacy notice — read before uploading</h3>
         <div className="mt-3 space-y-3 text-sm leading-6 text-amber-950">
           <p>
-            <strong>Status and purpose.</strong> Production collection is disabled. The draft flow is intended to let an authorized reviewer compare a masked ID image with the named renter for account-level fraud prevention. The current upload pipeline checks file integrity only; it does not verify identity or make a decision.
+            <strong>Status and purpose.</strong> Production collection is disabled. The flow is intended to let one authorized administrator compare a masked ID image with the named renter for account-level fraud prevention. Upload integrity checks do not verify identity; a separate audited administrator decision does.
           </p>
           <p>
             <strong>Minimize first.</strong> Use one JPEG or PNG showing one side or page only. Cover the ID or document number (including PSN/PCN/CRN), address, full birth date, signature, QR/barcode, and machine-readable zone. Leave only the name, portrait, ID type, and expiry needed for the proposed comparison. Do not upload an unmasked or real ID in a test environment.
           </p>
           <p>
-            <strong>Access and retention.</strong> The image stays in private Storage. The owning renter can retrieve it; the current system grants staff no raw-byte access. A future reviewer flow requires separate approval, short-lived access, and read auditing. The image must be deleted as soon as it is no longer needed and no later than {policy.document_retention_days} days after finalization. You may withdraw consent and delete it immediately unless a documented legal exception applies. Superseded evidence becomes due for the protected cleanup worker.
+            <strong>Access and retention.</strong> The image stays in private Storage. The owning renter can retrieve it. An authorized administrator can request one purpose-bound, audited link that expires after 60 seconds; access tokens and object paths are not written to durable audit records. The image must be deleted as soon as it is no longer needed and no later than {policy.document_retention_days} days after finalization. You may withdraw consent and delete it immediately unless a documented legal exception applies. Superseded evidence becomes due for the protected cleanup worker.
           </p>
           <p>
             <strong>Your rights.</strong> Collection will not be enabled until CamNook publishes the legal personal-information-controller identity, address, DPO details, processing basis, recipients and locations, complete retention schedule, consequences and any alternative to providing an ID, and a working rights process. Email <a className="font-semibold underline underline-offset-4" href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> for access, correction, deletion, objection, withdrawal, or complaint handling. Never send an ID file by email.
@@ -158,6 +159,38 @@ export function VerificationCard({ state }: { state: VerificationState }) {
           <p className="mt-3 text-xs text-stone-500">
             Private object paths, digests, and ID numbers are never shown on this page.
           </p>
+          {record.status === "pending" ? (
+            <p className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-900">
+              This current submission is waiting for administrator review. You
+              may replace it with a clearer or more carefully masked image; only
+              the latest current submission can make a booking eligible.
+            </p>
+          ) : record.status === "verified" ? (
+            <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+              Your identity is verified
+              {record.document_expiration_date
+                ? ` through ${record.document_expiration_date} in Asia/Manila`
+                : ""}
+              . Booking approval will recheck that this remains your latest
+              current decision and has not expired.
+            </p>
+          ) : record.status === "rejected" ? (
+            <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
+              {VERIFICATION_REJECTION_MESSAGES[
+                record.rejection_reason_code ?? "other"
+              ]} Only this safe reason is shown; earlier decision history is
+              preserved when you upload a replacement.
+            </p>
+          ) : (
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              Your verification expired
+              {record.document_expiration_date
+                ? ` after ${record.document_expiration_date} in Asia/Manila`
+                : ""}
+              . Upload a current masked document for a new review. Expired
+              verification cannot authorize booking approval or pickup.
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -173,7 +206,9 @@ export function VerificationCard({ state }: { state: VerificationState }) {
         </p>
       ) : record?.status === "verified" ? (
         <p className="mt-6 text-sm leading-6 text-stone-600">
-          This evidence has a verified decision. Replacement requires a new review workflow and is unavailable in Sprint 1.
+          This is the latest verified decision. A replacement becomes available
+          after expiry; contact support if your document needs correction sooner,
+          without emailing an ID file.
         </p>
       ) : canUpload ? (
         <form action={uploadAction} className="mt-7 space-y-5">

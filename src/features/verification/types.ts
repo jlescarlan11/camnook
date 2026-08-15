@@ -16,6 +16,46 @@ export const ID_TYPE_LABELS: Record<AcceptedIdType, string> = {
   umid: "Unified Multi-Purpose ID (UMID)",
 };
 
+export const VERIFICATION_REJECTION_REASONS = [
+  "details_do_not_match",
+  "document_expired",
+  "document_not_readable",
+  "masking_incomplete",
+  "unsupported_document",
+] as const;
+
+export type VerificationRejectionReason =
+  (typeof VERIFICATION_REJECTION_REASONS)[number];
+
+export const VERIFICATION_REJECTION_LABELS: Record<
+  VerificationRejectionReason,
+  string
+> = {
+  details_do_not_match: "Submitted details do not match",
+  document_expired: "Document is expired",
+  document_not_readable: "Document is not readable",
+  masking_incomplete: "Sensitive details need more masking",
+  unsupported_document: "Document type is not supported",
+};
+
+export const VERIFICATION_REJECTION_MESSAGES: Record<
+  VerificationRejectionReason | "other",
+  string
+> = {
+  details_do_not_match:
+    "The visible name or document details did not match your account. Check your profile and upload a corrected masked image.",
+  document_expired:
+    "The submitted document was already expired. Upload a masked image of a current accepted document.",
+  document_not_readable:
+    "The permitted name, portrait, document type, or expiry could not be read. Upload a clearer masked image.",
+  masking_incomplete:
+    "The image showed information that should be covered. Mask the ID number, address, birth date, signature, QR/barcode, and machine-readable zone, then upload again.",
+  unsupported_document:
+    "This document cannot be used for review. Upload one of the accepted ID types listed below.",
+  other:
+    "This submission could not be verified. Upload a new masked image or contact support without emailing an ID file.",
+};
+
 export const ACCEPTED_MEDIA_TYPES = [
   "image/jpeg",
   "image/png",
@@ -92,12 +132,70 @@ export const verificationStateSchema = z.object({
   policy: verificationPolicySchema,
   record: z
     .object({
+      decided_at: z.string().nullable().optional(),
+      document_expiration_date: z.string().nullable().optional(),
       id: z.uuid(),
       id_type: z.string(),
+      rejection_reason_code: z
+        .enum([...VERIFICATION_REJECTION_REASONS, "other"])
+        .nullable()
+        .optional(),
       status: z.enum(["pending", "verified", "rejected", "expired"]),
       submitted_at: z.string(),
+      supersedes_id: z.uuid().nullable().optional(),
     })
     .nullable(),
 });
 
 export type VerificationState = z.infer<typeof verificationStateSchema>;
+
+export const verificationReviewQueueItemSchema = z
+  .object({
+    age_seconds: z.number().int().nonnegative(),
+    id_type: z.enum(ACCEPTED_ID_TYPES),
+    record_id: z.uuid(),
+    renter_legal_name: z.string().min(1),
+    submitted_at: z.string().min(1),
+  })
+  .strict();
+
+export const verificationReviewQueueSchema = z.array(
+  verificationReviewQueueItemSchema,
+);
+
+export const verificationReviewDetailSchema = z
+  .object({
+    byte_size: z.number().int().positive(),
+    id_type: z.enum(ACCEPTED_ID_TYPES),
+    media_type: z.enum(ACCEPTED_MEDIA_TYPES),
+    record_id: z.uuid(),
+    renter_legal_name: z.string().min(1),
+    retention_until: z.string().min(1),
+    status: z.literal("pending"),
+    submitted_at: z.string().min(1),
+  })
+  .strict();
+
+export const verificationEvidenceAccessGrantSchema = z
+  .object({
+    document_id: z.uuid(),
+    expires_in_seconds: z.literal(60),
+    object_path: z.string().min(1),
+    record_id: z.uuid(),
+  })
+  .strict();
+
+export const verificationDecisionResponseSchema = z
+  .object({
+    decided_at: z.string().min(1),
+    record_id: z.uuid(),
+    status: z.enum(["verified", "rejected"]),
+  })
+  .strict();
+
+export type VerificationReviewQueueItem = z.infer<
+  typeof verificationReviewQueueItemSchema
+>;
+export type VerificationReviewDetail = z.infer<
+  typeof verificationReviewDetailSchema
+>;

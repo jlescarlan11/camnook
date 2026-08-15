@@ -54,7 +54,11 @@ function mockClient(
   rpcImplementation: (name: string, args?: unknown) => Promise<unknown>,
   downloadedBytes = JPEG_BYTES,
 ) {
-  const rpc = vi.fn(rpcImplementation);
+  const rpc = vi.fn((name: string, args?: unknown) =>
+    name === "expire_due_verifications"
+      ? Promise.resolve({ data: 0, error: null })
+      : rpcImplementation(name, args),
+  );
   const upload = vi.fn().mockResolvedValue({ data: { path: OBJECT_PATH }, error: null });
   const download = vi.fn().mockResolvedValue({
     data: new Blob([downloadedBytes], { type: "image/jpeg" }),
@@ -180,6 +184,10 @@ describe("government ID evidence actions", () => {
     );
     expect(bucket.download).toHaveBeenCalledWith(OBJECT_PATH);
     expect(rpc).toHaveBeenCalledWith(
+      "expire_due_verifications",
+      expect.objectContaining({ p_operation_id: expect.any(String) }),
+    );
+    expect(rpc).toHaveBeenCalledWith(
       "create_verification_upload_intent",
       expect.objectContaining({
         p_policy_version: "government-id-evidence-v2",
@@ -198,6 +206,28 @@ describe("government ID evidence actions", () => {
     );
     expect(revalidatePath).toHaveBeenCalledWith("/account");
     expect(JSON.stringify(result)).not.toContain(OBJECT_PATH);
+  });
+
+  it("fails closed before upload when due expiry cannot be recorded", async () => {
+    const { bucket, client } = mockClient(async (name) => {
+      expect(name).toBe("get_verification_upload_policy");
+      return { data: policy, error: null };
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "get_verification_upload_policy") {
+        return { data: policy, error: null };
+      }
+      if (name === "expire_due_verifications") {
+        return { data: null, error: { message: "private database detail" } };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    client.schema = vi.fn(() => ({ rpc })) as never;
+
+    await expect(
+      submitVerificationEvidence({ status: "idle" }, uploadForm()),
+    ).resolves.toEqual({ error: "restart_required", status: "error" });
+    expect(bucket.upload).not.toHaveBeenCalled();
   });
 
   it("reconciles an upload retry when the exact object already exists", async () => {

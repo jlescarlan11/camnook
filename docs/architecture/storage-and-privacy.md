@@ -30,7 +30,7 @@ are satisfied:
 
 1. CamNook publishes and tests a monitored privacy/DPO contact;
 2. the legal controller/address, DPO, Section 13 basis, decline consequences and alternative, processor locations, cross-border safeguards, retention schedules, PIA/ROPA/PMP, registration assessment, and breach plan are documented;
-3. an authorized reviewer flow with strong authentication, raw-byte read audit, decision criteria, escalation, and appeal is implemented;
+3. the implemented sole-admin, purpose-bound, 60-second read and decision flow is supplemented by approved strong reviewer authentication, escalation, and appeal procedures;
 4. the legal-hold procedure and provider backup treatment are operationally proven or removed as claims;
 5. Philippine privacy counsel approves the final notice and workflow;
 6. the migration and RLS/advisor suite pass in Development; and
@@ -48,7 +48,7 @@ collection on.
 | --- | --- | --- | --- | --- |
 | `draft-staging` | Private | Draft/unpublished camera photos under the `camera-listings/` prefix | Exact-path authenticated admin publication operation | Exact-path authenticated admin publication operation |
 | `camera-listings` | Public | Approved camera listing photos only | Exact-path authenticated admin publication operation | Anyone |
-| `verification-documents` | Private | Government ID files | Authenticated owner workflow through an exact upload intent; protected retention worker for deletion only | Owning renter only in Sprint 1; admin raw-byte access is denied |
+| `verification-documents` | Private | Government ID files | Authenticated owner workflow through an exact upload intent; protected retention worker for deletion only | Owning renter; sole admin only through an audited server-issued 60-second review URL |
 | `contracts` | Private | Rendered immutable contract versions | Server contract operation | Booking renter and audited admin |
 | `payment-proofs` | Private | Optional GCash submission screenshots | Booking renter through upload intent | Booking renter and audited admin |
 | `condition-evidence` | Private | Pickup/return photos and issue evidence | Admin handoff/issue operation | Booking renter where appropriate and audited admin |
@@ -126,12 +126,16 @@ Preferred access is an authenticated Storage download where RLS is evaluated. Wh
 
 Supabase signed URLs remain valid until their expiry even if Auth signing keys rotate and currently cannot be individually revoked. That is why expiry is deliberately short. URLs are never logged, persisted, emailed, or embedded in durable HTML.
 
-Sprint 1 deliberately grants no administrator access to government-ID bytes.
-Consequently, the current code verifies file integrity but cannot verify an
-identity. A future review flow must add a stated UI purpose, strong reviewer
-authentication, short-lived access, and a read audit event in a separate
-reviewed migration. Other private-evidence admin access must follow the same
-rule. Bulk export is not part of MVP.
+Sprint 2 adds one narrow government-ID exception to the Sprint 1 direct-read
+denial. The database re-authorizes the current sole application admin, requires
+the exact `identity_review` purpose, checks that the submission and retained
+document are still current, and writes a path-free audit event before returning
+the object path to the Server Action. The Server Action uses the server-only
+Storage client to issue a 60-second signed URL. The URL, token, path, digest, and
+content are never written to database audit metadata or application logs. Direct
+admin Storage `SELECT`, bulk export, and access to terminal/superseded evidence
+remain denied. Strong reviewer authentication and the operating escalation and
+appeal procedures remain Production activation gates.
 
 ## Storage RLS design
 
@@ -139,7 +143,7 @@ Policies on `storage.objects` are bucket- and operation-specific.
 
 | Operation | Public listing | Private owner evidence | Private admin evidence |
 | --- | --- | --- | --- |
-| `SELECT` | Public delivery by bucket setting | Exact path must join finalized owner metadata or an active owner upload/cleanup intent | Denied for government IDs in Sprint 1; future access requires a separate audited operation |
+| `SELECT` | Public delivery by bucket setting | Exact path must join finalized owner metadata or an active owner upload/cleanup intent | Direct read denied; current sole admin receives only a database-authorized, server-issued 60-second signed URL for `identity_review` |
 | `INSERT` | Exact-path authenticated admin copy only; draft upload goes to private staging | Exact unexpired upload-intent path owned by `auth.uid()` with matching MIME/size | Denied for government IDs in Sprint 1 |
 | `UPDATE` | Denied | Denied | Denied |
 | `DELETE` | Exact-path admin abort/archive cleanup only | Exact owner path only while intent cleanup is pending or deletion has been durably claimed after an owner request and is not held | Retention worker deletes only database-claimed due paths; application admin is denied |
@@ -187,7 +191,8 @@ acquisition, Storage delete authorization, and lifecycle finalization. Once a
 due deletion is durably claimed, a new hold cannot race byte removal; transient
 worker failures return the same claim on later runs until absence is verified.
 
-Sprint 1 schedules the CRON-secret-protected cleanup route daily. It claims up
+The CRON-secret-protected cleanup route first records Manila-date expiry for
+latest verified decisions, then claims up
 to 1,000 due documents and 1,000 abandoned intents, removes exact paths in bounded
 batches, returns counts only, and records system-actor audit events. The account
 flow remains available for renter-initiated deletion.

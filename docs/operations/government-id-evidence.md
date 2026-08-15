@@ -29,9 +29,10 @@ pnpm db:test:concurrency
 ```
 
 The database harness proves the server-only mutation boundary, exact owner
-Storage upload/read/delete boundaries, cross-renter denial, admin raw-byte
-denial, suspension and policy revocation, expiry, reconciliation, replacement,
-legal hold, automatic retention claims, and verified deletion. Never use a real
+Storage upload/read/delete boundaries, cross-renter denial, direct admin
+raw-byte denial, audited short-lived review authorization, decision history,
+Manila-date expiry, suspension and policy revocation, reconciliation,
+replacement, legal hold, automatic retention claims, and verified deletion. Never use a real
 government ID in Local, Development, Preview, fixtures, screenshots, or logs.
 
 ## Automated deployment and hosted validation
@@ -54,7 +55,9 @@ Credential rotation is operational maintenance, not a feature-acceptance or
 Production-activation gate. Vercel owns the runtime service key and cron secret
 instead of GitHub.
 
-On 15 August 2026, Development reached 14/14 migrations. Hosted checks confirmed
+On 15 August 2026, Development reached the then-current 14/14 migrations. The
+repository now contains 16 migrations and Development remains recorded at
+14/16; no hosted rollout is part of the Sprint 2 change. Hosted checks confirmed
 the policy remained disabled and that the server-only RPC and cross-owner
 Storage boundaries held. The security advisor returned no errors; its one
 warning was that leaked-password protection is disabled.
@@ -80,9 +83,25 @@ hosted advisor workflow.
 
 Repeated account submissions are safe. Operators must not manually edit intent status, fabricate metadata, upload to a path, or delete Storage rows in the dashboard.
 
-## Replacement
+## Review and replacement
 
-Only a pending decision can be replaced in Sprint 1. Replacement creates a new document UUID/path, updates the pending record’s selected ID type on finalization, marks the prior document superseded, and makes the prior object due for protected cleanup. A verified decision requires a separately designed new-review operation.
+The administrator queue includes only the latest retained pending submission,
+ordered oldest first, and exposes only legal name, selected ID type, submitted
+time, and age. The detail view adds only media type, byte size, and retention
+deadline. To inspect bytes, the administrator states the fixed
+`identity_review` purpose; the database records actor, purpose, target, outcome,
+and time before the server returns a 60-second link. Never paste that URL into a
+ticket, log, message, or document. The decision submits only the reviewed
+document's opaque UUID; the database locks and requires that exact document to
+remain current, so a replacement cannot be verified through an older review.
+
+Verification requires an approved ID type and an expiration date after the
+current Asia/Manila date. Rejection accepts only documented renter-safe reason
+codes. Either decision appends immutable history and audit; terminal records are
+not rewritten. A rejected or expired renter may upload a new record and object.
+The new rows link to and supersede the earlier record/document, whose history is
+preserved and whose bytes become due for cleanup. Only the latest record controls
+booking approval and pickup eligibility.
 
 ## Retention and deletion
 
@@ -99,7 +118,8 @@ requester, and a system-actor audit entry.
 `vercel.json` schedules `GET
 /api/internal/verification-evidence-cleanup` daily at 02:17 UTC. Vercel sends
 `Authorization: Bearer $CRON_SECRET`; missing or invalid authorization receives
-HTTP 401. Each run claims up to 1,000 due documents and 1,000
+HTTP 401. Each run first expires latest verified records whose document date is
+before the current Asia/Manila date, then claims up to 1,000 due documents and 1,000
 expired/cleanup-pending intents, removes exact paths in bounded batches with the
 server-only Storage client, and calls a database absence-verifying finalizer for every item. Partial
 Storage or finalization failures return 503 and remain retryable on the next

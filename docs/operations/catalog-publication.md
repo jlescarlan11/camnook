@@ -20,8 +20,10 @@ or the directly granted source columns. Migration
 `20260813163420_add_catalog_photo_publication_workflow.sql` adds the exact-path,
 audited photo state machine described below. Both migrations were applied and
 verified in Development on 14 August 2026, leaving Development recorded at
-13/14 after the separate Sprint 1 evidence migration was added locally.
-Production remains at 11/14 until separately approved rollouts.
+13/14 at that checkpoint after the separate Sprint 1 evidence migration was
+added locally. After the later evidence rollout and repository-only v2/Sprint 2
+migrations, the current recorded counts are Development 14/16 and Production
+11/16 until separately approved rollouts.
 
 Keep any manifest containing serial numbers, acquisition/replacement values, or
 other private inventory details outside Git and public release evidence. Only

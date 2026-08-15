@@ -18,6 +18,9 @@ describe("due verification evidence cleanup", () => {
 
   it("removes claimed objects and records verified absence without returning paths", async () => {
     const rpc = vi.fn(async (name: string) => {
+      if (name === "expire_due_verifications") {
+        return { data: 1, error: null };
+      }
       if (name === "claim_verification_evidence_cleanup") {
         return {
           data: [
@@ -53,7 +56,11 @@ describe("due verification evidence cleanup", () => {
 
     const result = await cleanupDueVerificationEvidence();
 
-    expect(result).toEqual({ claimed: 2, cleaned: 2, failed: 0 });
+    expect(result).toEqual({ claimed: 2, cleaned: 2, expired: 1, failed: 0 });
+    expect(rpc).toHaveBeenCalledWith(
+      "expire_due_verifications",
+      expect.objectContaining({ p_operation_id: expect.any(String) }),
+    );
     expect(remove).toHaveBeenCalledWith([INTENT_PATH, DOCUMENT_PATH]);
     expect(rpc).toHaveBeenCalledWith(
       "finalize_due_verification_upload_cleanup",
@@ -72,6 +79,9 @@ describe("due verification evidence cleanup", () => {
 
   it("retries a durable claim after a transient Storage removal failure", async () => {
     const rpc = vi.fn(async (name: string) => {
+      if (name === "expire_due_verifications") {
+        return { data: 0, error: null };
+      }
       if (name === "claim_verification_evidence_cleanup") {
         return {
           data: [
@@ -105,16 +115,36 @@ describe("due verification evidence cleanup", () => {
     await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
       claimed: 1,
       cleaned: 0,
+      expired: 0,
       failed: 1,
     });
     await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
       claimed: 1,
       cleaned: 1,
+      expired: 0,
       failed: 0,
     });
     expect(rpc).toHaveBeenCalledWith(
       "finalize_due_verification_document_deletion",
       expect.objectContaining({ p_document_id: DOCUMENT_ID }),
     );
+  });
+
+  it("fails closed before evidence cleanup when Manila-date expiry cannot be recorded", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "private database detail" },
+    });
+    const remove = vi.fn();
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })),
+      storage: { from: vi.fn(() => ({ remove })) },
+    } as never);
+
+    await expect(cleanupDueVerificationEvidence()).rejects.toThrow(
+      "Unable to expire due verification decisions",
+    );
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(remove).not.toHaveBeenCalled();
   });
 });

@@ -90,6 +90,26 @@ export type Database = {
         }
         Returns: Json
       }
+      authorize_verification_evidence_access: {
+        Args: {
+          p_operation_id: string
+          p_purpose: string
+          p_record_id: string
+        }
+        Returns: Json
+      }
+      decide_verification: {
+        Args: {
+          p_approved_id_type: string | null
+          p_decision: string
+          p_document_expiration_date: string | null
+          p_operation_id: string
+          p_record_id: string
+          p_reviewed_document_id: string
+          p_rejection_reason_code: string | null
+        }
+        Returns: Json
+      }
       decide_cancellation: {
         Args: { p_accept: boolean; p_note: string; p_request_id: string }
         Returns: undefined
@@ -109,6 +129,10 @@ export type Database = {
         }
       }
       expire_due_bookings: { Args: never; Returns: number }
+      expire_due_verifications: {
+        Args: { p_operation_id: string }
+        Returns: number
+      }
       finalize_catalog_photo_abort: {
         Args: { p_operation_id: string; p_publication_id: string }
         Returns: Json
@@ -185,6 +209,11 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       get_my_verification_upload_state: { Args: never; Returns: Json }
+      get_verification_review_detail: {
+        Args: { p_record_id: string }
+        Returns: Json
+      }
+      get_verification_review_queue: { Args: never; Returns: Json }
       get_verification_upload_intent: {
         Args: { p_intent_id: string; p_owner_user_id: string }
         Returns: Json

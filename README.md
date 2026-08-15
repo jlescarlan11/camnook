@@ -84,7 +84,7 @@ migrations, runs the domain/authorization invariants and real two-session
 approval races, and removes the cluster on exit. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
 
-The repository currently contains fourteen forward migrations. On 13 August 2026,
+The repository currently contains sixteen forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
@@ -92,7 +92,9 @@ August 2026, the catalog-photo publication and unpublished-availability
 migrations were applied and exercised only in Development. On 15 August 2026,
 the Sprint 1 government-ID evidence migration was applied to Development with
 its policy disabled, then verified with hosted fail-closed and cross-owner RLS
-tests. Development is recorded at 14/14 while Production remains at 11/14.
+tests. Development is recorded at 14/16 while Production remains at 11/16;
+the v2 hardening and Sprint 2 review migrations are repository-only until a
+separately authorized Development rollout.
 Treat those counts as recorded release evidence, not a substitute for checking
 current remote migration history before any future action.
 
@@ -153,7 +155,9 @@ with a direct public-bucket upload.
 Government-ID evidence policy `government-id-evidence-v2` and draft privacy notice
 `government-id-privacy-v2` harden the Sprint 1 issues #13–#21 implementation. Use
 [`docs/product/sprint-1-government-id-evidence.md`](docs/product/sprint-1-government-id-evidence.md)
-for the acceptance matrix,
+for that acceptance matrix,
+[`docs/product/sprint-2-admin-identity-review.md`](docs/product/sprint-2-admin-identity-review.md)
+for the audited reviewer/decision acceptance matrix,
 [`docs/product/government-id-privacy-notice-v2.md`](docs/product/government-id-privacy-notice-v2.md)
 for the versioned notice, and
 [`docs/operations/government-id-evidence.md`](docs/operations/government-id-evidence.md)
@@ -196,14 +200,17 @@ collection.
   started-24-hour formula approved in `docs/open-decisions.md` and implemented
   by [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
 - Government-ID upload is implemented behind the database-authoritative v2
-  privacy gate, which is disabled. The current pipeline verifies file integrity,
-  not identity. Production remains closed until every legal, governance,
+  privacy gate, which is disabled. File finalization verifies integrity, while
+  the separate Sprint 2 sole-admin operation can record a human identity
+  decision through purpose-bound 60-second evidence access. Production remains
+  closed until every legal, governance,
   reviewer, provider, retention, rights, and hosted-validation gate in the
   evidence runbook is satisfied.
 - Paid/submitted-payment cancellation acceptance remains disabled until the
   cancellation and refund policy is approved.
-- Admin access to private Storage objects remains disabled until an audited,
-  server-only signed-URL flow exists.
+- Direct admin Storage reads remain denied. Government-ID review uses the narrow,
+  server-only, purpose-bound 60-second signed-URL operation; its repository
+  implementation does not authorize real-ID collection or a hosted rollout.
 - Final contract wording and legal, tax, operational, security, and recovery
   readiness remain required before launch. Public paid launch remains closed.
 

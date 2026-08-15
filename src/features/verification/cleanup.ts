@@ -21,11 +21,20 @@ const MAX_CLEANUP_ITEMS = 1000;
 export type VerificationCleanupSummary = {
   claimed: number;
   cleaned: number;
+  expired: number;
   failed: number;
 };
 
 export async function cleanupDueVerificationEvidence(): Promise<VerificationCleanupSummary> {
   const admin = createSupabaseAdminClient();
+  const expiry = await admin.schema("api").rpc("expire_due_verifications", {
+    p_operation_id: randomUUID(),
+  });
+
+  if (expiry.error || !z.number().int().nonnegative().safeParse(expiry.data).success) {
+    throw new Error("Unable to expire due verification decisions");
+  }
+
   const operationId = randomUUID();
   const claim = await admin.schema("api").rpc(
     "claim_verification_evidence_cleanup",
@@ -80,5 +89,10 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
     }
   }
 
-  return { claimed: claimed.data.length, cleaned, failed };
+  return {
+    claimed: claimed.data.length,
+    cleaned,
+    expired: expiry.data as number,
+    failed,
+  };
 }

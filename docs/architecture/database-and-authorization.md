@@ -329,7 +329,10 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | `ensure_profile` | Idempotently create the authenticated user's profile |
 | `request_booking` | Create own `FOR_REVIEW` booking and history; no availability block |
 | `approve_booking` | Validate admin, future pickup, and current verification; stabilize the append-only verification and accessory sets; lock booking/camera; calculate approved snapshots; recheck overlap; insert block; set 24-hour deadline; issue contract v1; append history/audit |
-| `reject_booking` | Transition `FOR_REVIEW → REJECTED`; append reason/history |
+| `reject_booking` | Require current `FOR_REVIEW`; transition to `REJECTED`; append reason/history/audit; release any defensive booking hold |
+| `authorize_verification_evidence_access` | Re-authorize sole admin and exact `identity_review` purpose; lock current pending retained evidence; append path-free access audit; return a 60-second target only to the Server Action |
+| `decide_verification` | Lock latest pending record and the exact document authorized for review; require current evidence and active profile; validate allowed verified metadata or renter-safe rejection code; update projection; append immutable decision/audit history |
+| `expire_due_verifications` | Idempotently expire latest verified records after their Asia/Manila document date while preserving the earlier decision facts and appending system history/audit |
 | `supersede_contract` | Recheck overlap for material schedule changes; supersede current version; create new snapshot; require new signature; never reset deadline |
 | `sign_contract` | Validate current version/renter/deadline; append signature; transition to `TO_PAY` |
 | `submit_payment` | Validate `TO_PAY` and deadline; insert submitted transaction/proof metadata; transition to `PAYMENT_REVIEW` |
@@ -386,18 +389,21 @@ Policy rules:
 - Verified allocation sum equals transaction amount at commit.
 - Final deposit settlement balances the held deposit.
 - State history, signatures, verified finance, condition reports, and audit events are append-only.
+- Verification decisions and automatic Manila-date expiry have append-only
+  decision history; only the latest current record controls booking eligibility.
 - Historical foreign keys use `RESTRICT`; no cascade can erase booking or finance history.
 
 ## Migration acceptance tests
 
-The repository contains fourteen forward migrations. On 13 August 2026, the four
+The repository contains sixteen forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
-and exercised only in Development. Development is recorded at 13/14 while
-Production remains at 11/14 because the Sprint 1 evidence migration is local
-and unapplied. Check current remote history at every future
+and exercised only in Development. The Sprint 1 evidence migration was then
+applied and tested in Development on 15 August 2026. Development is recorded at
+14/16 and Production at 11/16; the v2 hardening and Sprint 2 review migrations
+remain repository-only. Check current remote history at every future
 rollout; these recorded counts do not authorize another Production mutation or
 deployment.
 
