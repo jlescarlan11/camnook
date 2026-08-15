@@ -5,7 +5,10 @@
 -- exact, short-lived intent path. A verification record is created only after
 -- the matching Storage object is present and verified. Replacement and
 -- deletion preserve decision and audit history; Storage overwrite remains
--- impossible because no UPDATE policy is created.
+-- impossible because no UPDATE policy is created. The policy is installed
+-- disabled so applying this schema cannot activate ID collection. Production
+-- activation requires a later, separately reviewed migration after legal
+-- approval and the operational launch gates are complete.
 
 drop function api.create_verification_document_upload(uuid, text, bigint, bytea);
 drop function private.create_verification_document_upload(uuid, text, bigint, bytea);
@@ -47,7 +50,7 @@ insert into private.verification_evidence_policies (
 ) values (
   'government-id-evidence-v1',
   'government-id-privacy-v1',
-  true,
+  false,
   array[
     'philippine_passport',
     'philsys_id',
@@ -58,7 +61,7 @@ insert into private.verification_evidence_policies (
   5242880,
   interval '15 minutes',
   interval '30 days',
-  statement_timestamp()
+  null
 );
 
 alter table private.verification_evidence_policies enable row level security;

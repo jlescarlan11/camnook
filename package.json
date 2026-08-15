@@ -8,16 +8,16 @@
     "catalog:photos": "node scripts/catalog-photo-publication.mjs",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
-    "db:start": "pnpm dlx supabase@2.113.0 start",
-    "db:stop": "pnpm dlx supabase@2.113.0 stop",
-    "db:reset": "pnpm dlx supabase@2.113.0 db reset",
-    "db:test": "pnpm dlx supabase@2.113.0 test db",
+    "db:start": "pnpm dlx supabase@2.114.0 start",
+    "db:stop": "pnpm dlx supabase@2.114.0 stop",
+    "db:reset": "pnpm dlx supabase@2.114.0 db reset",
+    "db:test": "pnpm dlx supabase@2.114.0 test db",
     "db:test:concurrency": "bash supabase/tests/database/003_approval_concurrency.sh",
-    "db:types": "pnpm dlx supabase@2.113.0 gen types typescript --local --schema public,api > src/types/database.generated.ts",
-    "db:types:linked": "pnpm dlx supabase@2.113.0 gen types typescript --linked --schema public,api > src/types/database.generated.ts"
+    "db:types": "pnpm dlx supabase@2.114.0 gen types typescript --local --schema public,api > src/types/database.generated.ts",
+    "db:types:linked": "pnpm dlx supabase@2.114.0 gen types typescript --linked --schema public,api > src/types/database.generated.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

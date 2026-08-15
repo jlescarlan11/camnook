@@ -1137,6 +1137,14 @@ values (
   '+639200000004'
 );
 
+-- The migration installs the policy fail-closed. Enable it only inside this
+-- disposable cluster so the create/finalize race can exercise the live path.
+update private.verification_evidence_policies
+set
+  enabled = true,
+  activated_at = statement_timestamp()
+where singleton;
+
 set role service_role;
 
 do $$

@@ -1,21 +1,20 @@
 # Government ID Evidence Operations
 
-Status: Sprint 1 implementation complete locally; no hosted rollout authorized
+Status: Development rollout authorized; Production collection remains disabled
 Policy: `government-id-evidence-v1`
 Notice: `government-id-privacy-v1`
 
 ## Environment boundary
 
-The migration is forward-only. Local validation uses synthetic files. Before any linked hosted database command, require `supabase/.temp/project-ref` to equal Development ref `ekmoiepalelqpmemvrkl`. Production ref `iegcixcevvkryfwfotqz` is never a Sprint 1 target. Do not deploy, promote, change Production configuration, or apply this migration without a separately approved release.
+The migration is forward-only. Local and hosted validation use synthetic files. Before any routine linked hosted database command, require `supabase/.temp/project-ref` to equal Development ref `ekmoiepalelqpmemvrkl`. Production ref `iegcixcevvkryfwfotqz` is never a routine Development target. Production schema deployment is available only through the manually dispatched, protected GitHub Actions environment.
 
-Production activation additionally requires a monitored privacy/DPO contact, final Philippine legal review, Development RLS/advisor evidence, and protected-Preview browser smoke evidence. Because the migration activates the approved v1 policy when applied, do not apply it to an environment where those activation requirements are unmet.
+The migration installs the v1 policy disabled and with no activation timestamp, so schema deployment cannot start ID collection. Production activation additionally requires a monitored privacy/DPO contact, final Philippine legal review, Development RLS/advisor evidence, and protected-Preview browser smoke evidence. There is deliberately no automated activation workflow: activation requires a later, separately reviewed migration after those gates are recorded.
 
 The runtime also requires server-only `SUPABASE_SERVICE_ROLE_KEY` and
 `CRON_SECRET` values. The former is used only by authenticated Server Actions
 and the retention worker for narrow service-role-only RPCs. The latter must be
 a random value of at least 16 characters and protects the internal cron route.
-Neither may use a `NEXT_PUBLIC_` prefix. This change does not configure either
-hosted value.
+Neither may use a `NEXT_PUBLIC_` prefix. Store them only in Vercel, not GitHub.
 
 ## Local validation
 
@@ -34,6 +33,26 @@ Storage upload/read/delete boundaries, cross-renter denial, admin raw-byte
 denial, suspension and policy revocation, expiry, reconciliation, replacement,
 legal hold, automatic retention claims, and verified deletion. Never use a real
 government ID in Local, Development, Preview, fixtures, screenshots, or logs.
+
+## Automated deployment and hosted validation
+
+Pull requests and pushes to `main` run application, local database, generated
+type, and real-session concurrency checks. After `main` CI succeeds, the
+Development workflow links only project `ekmoiepalelqpmemvrkl`, previews and
+applies pending migrations, runs the hosted fail-closed and cross-owner Storage
+RLS transactions, and runs the Supabase security advisor. The Production
+workflow is manual, accepts only project `iegcixcevvkryfwfotqz`, requires the
+protected GitHub `production` environment, and verifies that the ID policy is
+still disabled after any schema deployment.
+
+The shared Supabase access token is stored only in those GitHub environments
+and expires on 14 September 2026; rotate both environment secrets before then.
+Vercel owns the runtime service key and cron secret instead of GitHub.
+
+On 15 August 2026, Development reached 14/14 migrations. Hosted checks confirmed
+the policy remained disabled and that the server-only RPC and cross-owner
+Storage boundaries held. The security advisor returned no errors; its one
+warning was that leaked-password protection is disabled.
 
 ## Upload and retry lifecycle
 
