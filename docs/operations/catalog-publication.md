@@ -22,8 +22,8 @@ audited photo state machine described below. Both migrations were applied and
 verified in Development on 14 August 2026, leaving Development recorded at
 13/14 at that checkpoint after the separate Sprint 1 evidence migration was
 added locally. After the later evidence rollout and repository-only v2/Sprint 2
-migrations, the current recorded counts are Development 14/17 and Production
-11/17 until separately approved rollouts.
+migrations, the current recorded counts are Development 14/18 and Production
+11/18 until separately approved rollouts.
 
 Keep any manifest containing serial numbers, acquisition/replacement values, or
 other private inventory details outside Git and public release evidence. Only

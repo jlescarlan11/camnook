@@ -63,11 +63,11 @@ RETURN_REVIEW
 | `CONTRACT_PENDING` | `TO_PAY` | Renter | Current version; correct renter; valid signature; `now() < approval_deadline_at` | Append immutable signature and transition history; deadline unchanged |
 | `CONTRACT_PENDING` | `EXPIRED` | System/admin | `now() >= approval_deadline_at`; no timely submitted payment | Release block; append system history/audit |
 | `CONTRACT_PENDING` | `CANCELLED` | Renter or admin | Eligible pre-pickup cancellation | Release block; resolve request; append history |
-| `TO_PAY` | `PAYMENT_REVIEW` | Renter | Current renter; `now() < approval_deadline_at`; required GCash fields valid | Insert submitted transaction and optional proof metadata; append history; deadline unchanged |
+| `TO_PAY` | `PAYMENT_REVIEW` | Renter | Current renter; `now() < approval_deadline_at`; current signed contract, configured recipient, and required GCash fields valid | Insert one immutable submitted transaction; append history; deadline/block unchanged; optional proof may finalize separately |
 | `TO_PAY` | `EXPIRED` | System/admin | `now() >= approval_deadline_at`; no timely submitted payment | Release block; append history |
 | `TO_PAY` | `CONTRACT_PENDING` | Admin | A permitted material pre-payment amendment creates a new contract version; deadline still open | Recheck date overlap if needed; supersede/issue; require new signature; deadline unchanged |
 | `TO_PAY` | `CANCELLED` | Renter or admin | Eligible pre-pickup cancellation | Release block; append history |
-| `PAYMENT_REVIEW` | `CONFIRMED` | Admin | Transaction found in actual GCash account; normalized reference unique; allocations balanced | Mark transaction verified; freeze allocations; append history/audit |
+| `PAYMENT_REVIEW` | `CONFIRMED` | Admin | Transaction found in actual GCash account; exact amount matched; normalized reference unique; authoritative allocations balanced | Under the booking lock mark transaction verified, derive/freeze two allocations, and append history/audit; deadline/block unchanged |
 | `PAYMENT_REVIEW` | `TO_PAY` | Admin | Submission rejected and `now() < approval_deadline_at` | Mark submitted transaction rejected; append reason/history; deadline unchanged |
 | `PAYMENT_REVIEW` | `EXPIRED` | Admin | Submission rejected and `now() >= approval_deadline_at` | Mark rejected; release block; append history/audit |
 | `PAYMENT_REVIEW` | `CANCELLED` | Admin | Exceptional cancellation is authorized and financial follow-up is recorded | Release block; append history; preserve submitted transaction |

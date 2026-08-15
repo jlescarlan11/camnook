@@ -335,8 +335,11 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | `expire_due_verifications` | Idempotently expire latest verified records after their Asia/Manila document date while preserving the earlier decision facts and appending system history/audit |
 | `supersede_contract` | Recheck overlap for material schedule changes; supersede current version; create new snapshot; require new signature; never reset deadline |
 | `sign_contract` | Validate current version/renter/deadline; append signature; transition to `TO_PAY` |
-| `submit_payment` | Validate `TO_PAY` and deadline; insert submitted transaction/proof metadata; transition to `PAYMENT_REVIEW` |
-| `decide_payment` | Verify or reject against real GCash; balance allocations; transition to `CONFIRMED`, `TO_PAY`, or `EXPIRED`; release block when expired |
+| `submit_payment` | Validate owner, `TO_PAY`, current signed contract, versioned recipient, exact amount, and strict deadline; insert one idempotent submitted transaction and enter `PAYMENT_REVIEW` |
+| Payment-proof intent/finalize/cleanup operations | Bind exact owner and submitted transaction to a private no-overwrite object; verify stored metadata/digest; preserve correction supersession and interrupted-upload recovery |
+| `authorize_payment_proof_access` | Re-authorize sole admin and exact reconciliation purpose; append a path-free access audit; return a 60-second target only to the Server Action |
+| `verify_payment` | Confirm actual-account check, amount, timely submission, and normalized unique reference; derive balanced allocations and enter `CONFIRMED` atomically |
+| `reject_payment` | Apply a safe reason and choose `TO_PAY` or `EXPIRED` from the database clock; preserve deadline and release the block only on expiry |
 | `expire_due_bookings` | Idempotently expire only `CONTRACT_PENDING`/`TO_PAY` past deadline; release blocks; append system history |
 | `complete_pickup` | Validate verification and all checklist fields; insert immutable handoff/report; transition `CONFIRMED → ACTIVE` |
 | `record_return` | Insert return handoff/report; transition `ACTIVE → RETURN_REVIEW` |
@@ -362,7 +365,7 @@ The expiration function is safe to invoke on a schedule and opportunistically be
 | Verification records/docs metadata | None | Read own safe state; create upload intent while feature enabled | Read decision records required for operations; document path/hash metadata remains owner-only until a separate audited review operation |
 | Bookings/history/cancellations | None | Read own; request/cancel through operations | Read all; transition through operations |
 | Contract versions/signatures | None | Read own; sign current version only | Read all; issue/supersede through operations |
-| Payments/proofs/deposit | None | Read own; submit only in allowed state | Read all; decide/reverse/settle through operations |
+| Payments/proofs/deposit | None | Read narrow own state; submit/finalize only in allowed state | Read narrow queue/detail/accounting/audit projections; access proof and decide/reverse/settle only through audited operations |
 | Handoffs/conditions/evidence metadata | None | Read own booking records | Read all; create through handoff operations |
 | Admin singleton/audit log | None | None | Read via narrow admin views; never mutate directly |
 
@@ -395,15 +398,16 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains seventeen forward migrations. On 13 August 2026, the four
+The repository contains eighteen forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
 and exercised only in Development. The Sprint 1 evidence migration was then
 applied and tested in Development on 15 August 2026. Development is recorded at
-14/17 and Production at 11/17; the v2 hardening, Sprint 2 review, and Sprint 3
-contract-lifecycle migrations remain repository-only. Check current remote history at every future
+14/18 and Production at 11/18; the v2 hardening, Sprint 2 review, Sprint 3
+contract lifecycle, and Sprint 4 payment reconciliation migrations remain
+repository-only. Check current remote history at every future
 rollout; these recorded counts do not authorize another Production mutation or
 deployment.
 

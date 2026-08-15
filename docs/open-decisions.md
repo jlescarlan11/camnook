@@ -1,7 +1,7 @@
 # CamNook Open Decisions and Readiness
 
 Status: architecture approved; public-paid-launch gates remain closed<br>
-Last updated: 2026-08-15
+Last updated: 2026-08-16
 
 ## Outcome
 
@@ -117,7 +117,8 @@ The architecture already records cancellation requests, admin decisions, blocks,
 
 These are not architecture questions, but implementation cannot finish without them:
 
-- approved GCash recipient display name/number and safe configuration location;
+- approved GCash recipient display name/number (the safe location is the
+  disabled-by-default private versioned database configuration);
 - application origins and Supabase Auth redirect URLs for local, preview, and production;
 - allowed file types and maximum sizes for buckets other than the approved government-ID v1 policy; and
 - whether Supabase Cron is enabled for the idempotent expiration/retention functions.
@@ -133,9 +134,9 @@ verification, leaving both projects at 11/11 at that checkpoint. On 14 August
 2026, the two catalog migrations were applied and exercised only in Development.
 On 15 August 2026, the Sprint 1 evidence migration was applied to Development
 with its policy disabled and verified with hosted fail-closed and cross-owner
-Storage RLS checks. Development is recorded at 14/17 while Production remains
-at 11/17; the v2 hardening, Sprint 2 review, and Sprint 3 contract-lifecycle
-migrations are repository-only.
+Storage RLS checks. Development is recorded at 14/18 while Production remains
+at 11/18; the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle, and
+Sprint 4 payment reconciliation migrations are repository-only.
 Current remote history must still be checked at rollout time.
 Production is not a rollout target without separate explicit authorization.
 
@@ -212,15 +213,16 @@ Approval of this milestone means agreement that:
    are implemented; later paid-rental stages remain gated.
 2. Ignored local CLI metadata links routine hosted work only to the separate
    Development project. Production remains live, isolated, and unlinked.
-3. Seventeen forward migration files translate the approved architecture.
+3. Eighteen forward migration files translate the approved architecture.
    Production received the four booking-milestone migrations on 13 August 2026
    through a separately authorized database-first rollout. Both projects were
    at 11/11 immediately afterward. The catalog-photo publication and
    unpublished-availability migrations were then applied and exercised only in
    Development on 14 August 2026. The Sprint 1 evidence migration followed in
    Development on 15 August 2026 with its policy disabled, leaving Development
-   recorded at 14/17 and Production at 11/17. The v2 hardening, Sprint 2 review,
-   and Sprint 3 contract-lifecycle migrations remain repository-only. Current remote history remains
+   recorded at 14/18 and Production at 11/18. The v2 hardening, Sprint 2 review,
+   Sprint 3 contract lifecycle, and Sprint 4 payment reconciliation migrations
+   remain repository-only. Current remote history remains
    operational state to verify, not a durable documentation assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).

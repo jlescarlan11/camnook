@@ -50,7 +50,7 @@ collection on.
 | `camera-listings` | Public | Approved camera listing photos only | Exact-path authenticated admin publication operation | Anyone |
 | `verification-documents` | Private | Government ID files | Authenticated owner workflow through an exact upload intent; protected retention worker for deletion only | Owning renter; sole admin only through an audited server-issued 60-second review URL |
 | `contracts` | Private | Rendered immutable contract versions | Server contract operation | Booking renter and audited admin |
-| `payment-proofs` | Private | Optional GCash submission screenshots | Booking renter through upload intent | Booking renter and audited admin |
+| `payment-proofs` | Private | Optional GCash submission screenshots | Exact booking owner through an owner-bound upload intent | Booking owner after finalization; sole admin only through audited purpose-bound 60-second access |
 | `condition-evidence` | Private | Pickup/return photos and issue evidence | Admin handoff/issue operation | Booking renter where appropriate and audited admin |
 
 Do not mix public camera media with private evidence. Bucket privacy is an independent safety boundary in addition to object RLS.
@@ -64,7 +64,7 @@ draft-staging/camera-listings/{camera_uuid}/{photo_uuid}.{ext}
 camera-listings/{camera_uuid}/{photo_uuid}.{ext}
 verification-documents/{owner_uuid}/{record_uuid}/{document_uuid}.{ext}
 contracts/{booking_uuid}/{contract_version_uuid}/{artifact_uuid}.pdf
-payment-proofs/{owner_uuid}/{transaction_uuid}/{proof_uuid}.{ext}
+payment-proofs/{intent_uuid}/{proof_uuid}.{ext}
 condition-evidence/{booking_uuid}/{condition_report_uuid}/{photo_uuid}.{ext}
 ```
 
@@ -90,11 +90,21 @@ have no execute grant on mutation/path RPCs. The Server Action authenticates the
 owner, validates the bytes and affirmative consent, and calls a narrow server-only
 service-role RPC with matching owner/actor IDs.
 
+Payment proof intents use the same server-owned trust boundary but are tied to
+the owner's exact submitted transaction. The fixed policy accepts JPEG/PNG up to
+5 MiB. The server validates the file signature, records expected metadata and a
+SHA-256 digest, uploads with no overwrite, downloads the object through the
+server-only client, and supplies observed metadata/digest to finalization.
+
 ### 2. Upload and finalize
 
 The Storage `INSERT` policy requires an unexpired pending metadata row whose owner matches `(select auth.uid())`, bucket, exact object path, MIME, and byte size, and rechecks that the profile is active and the current policy/notice still match. `UPDATE`/upsert is denied. For government IDs, the Server Action also checks the file signature, downloads the stored object, and verifies byte size and SHA-256 before database finalization. Finalization rechecks Storage metadata, active-account status, and the current policy/notice, freezes the evidence row, and appends minimal audit data.
 
-Abandoned upload intents expire and may be cleaned without affecting domain history. A database row that claims finalization without a matching object is invalid and surfaced by a reconciliation job.
+Abandoned upload intents expire and may be cleaned without affecting domain
+history. A retry that finds an existing immutable payment-proof object first
+downloads and verifies the exact bytes before finalizing it, which recovers an
+interrupted response without overwrite. A database row that claims finalization
+without a matching object is invalid and surfaced by reconciliation.
 
 ## No-overwrite and correction policy
 
