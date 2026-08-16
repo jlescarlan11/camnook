@@ -76,6 +76,18 @@ export type Database = {
         }
         Returns: Json
       }
+      create_condition_photo_replacement_intent: {
+        Args: {
+          p_byte_size: number
+          p_condition_report_id: string
+          p_intent_id: string
+          p_media_type: string
+          p_operation_id: string
+          p_sha256_hex: string
+          p_supersedes_photo_id: string
+        }
+        Returns: Json
+      }
       create_manual_block: {
         Args: {
           p_camera_id: string
@@ -157,13 +169,33 @@ export type Database = {
         }
         Returns: Json
       }
+      decide_cancellation_resolution: {
+        Args: {
+          p_accept: boolean
+          p_fee_amount: number
+          p_operation_id: string
+          p_reason: string
+          p_refund_liability_amount: number
+          p_request_id: string
+        }
+        Returns: Json
+      }
       decide_cancellation: {
-        Args: { p_accept: boolean; p_note: string; p_request_id: string }
+        Args: {
+          p_accept: boolean
+          p_note: string
+          p_request_id: string
+        }
         Returns: undefined
       }
-      decide_return_review: {
-        Args: { p_booking_id: string; p_has_issue: boolean; p_note: string }
-        Returns: Database["public"]["Enums"]["booking_state"]
+      decide_return_inspection: {
+        Args: {
+          p_booking_id: string
+          p_note: string
+          p_operation_id: string
+          p_outcome: string
+        }
+        Returns: Json
       }
       ensure_profile: {
         Args: { p_legal_name: string; p_phone: string }
@@ -327,6 +359,15 @@ export type Database = {
         Returns: Json
       }
       get_pickup_queue: { Args: never; Returns: Json }
+      get_my_resolution_state: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
+      get_resolution_detail: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
+      get_resolution_queues: { Args: never; Returns: Json }
       get_verification_review_detail: {
         Args: { p_record_id: string }
         Returns: Json
@@ -416,17 +457,59 @@ export type Database = {
         }
         Returns: string
       }
-      record_return: {
+      record_return_inspection: {
         Args: {
-          p_accessories: Json
+          p_accessory_results: Json
           p_actual_at: string
           p_booking_id: string
+          p_camera_has_damage: boolean
+          p_camera_serial: string
           p_condition_summary: string
-          p_has_damage: boolean
-          p_has_missing_items: boolean
           p_notes: string
+          p_operation_id: string
         }
-        Returns: string
+        Returns: Json
+      }
+      add_return_issue_note: {
+        Args: {
+          p_booking_id: string
+          p_note: string
+          p_operation_id: string
+        }
+        Returns: Json
+      }
+      record_external_refund: {
+        Args: {
+          p_amount: number
+          p_booking_id: string
+          p_external_moved_at: string
+          p_operation_id: string
+          p_recipient_name: string
+          p_reference: string
+        }
+        Returns: Json
+      }
+      resolve_return_issue: {
+        Args: {
+          p_booking_id: string
+          p_customer_explanation: string
+          p_decision_kind: string
+          p_deduction_amount: number
+          p_internal_reason: string
+          p_operation_id: string
+        }
+        Returns: Json
+      }
+      reverse_external_refund: {
+        Args: {
+          p_counterparty_name: string
+          p_external_moved_at: string
+          p_operation_id: string
+          p_reason: string
+          p_reference: string
+          p_refund_record_id: string
+        }
+        Returns: Json
       }
       reject_booking: {
         Args: { p_booking_id: string; p_reason: string }
@@ -450,6 +533,14 @@ export type Database = {
           p_return_at: string
         }
         Returns: string
+      }
+      request_cancellation_resolution: {
+        Args: {
+          p_booking_id: string
+          p_operation_id: string
+          p_reason: string
+        }
+        Returns: Json
       }
       request_cancellation: {
         Args: { p_booking_id: string; p_reason: string }
@@ -611,6 +702,7 @@ export type Database = {
           decision_note: string | null
           disposition: Database["public"]["Enums"]["cancellation_disposition"]
           id: string
+          operation_id: string | null
           reason: string
           requested_at: string
           requester_id: string
@@ -622,6 +714,7 @@ export type Database = {
           decision_note?: string | null
           disposition?: Database["public"]["Enums"]["cancellation_disposition"]
           id?: string
+          operation_id?: string | null
           reason: string
           requested_at?: string
           requester_id: string
@@ -633,6 +726,7 @@ export type Database = {
           decision_note?: string | null
           disposition?: Database["public"]["Enums"]["cancellation_disposition"]
           id?: string
+          operation_id?: string | null
           reason?: string
           requested_at?: string
           requester_id?: string
@@ -643,6 +737,63 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cancellation_decisions: {
+        Row: {
+          booking_id: string
+          booking_state_at_decision: Database["public"]["Enums"]["booking_state"]
+          decided_at: string
+          decided_by: string
+          fee_amount: number
+          id: string
+          operation_id: string
+          outcome: string
+          reason: string
+          refund_liability_amount: number
+          request_id: string
+        }
+        Insert: {
+          booking_id: string
+          booking_state_at_decision: Database["public"]["Enums"]["booking_state"]
+          decided_at?: string
+          decided_by: string
+          fee_amount?: number
+          id?: string
+          operation_id: string
+          outcome: string
+          reason: string
+          refund_liability_amount?: number
+          request_id: string
+        }
+        Update: {
+          booking_id?: string
+          booking_state_at_decision?: Database["public"]["Enums"]["booking_state"]
+          decided_at?: string
+          decided_by?: string
+          fee_amount?: number
+          id?: string
+          operation_id?: string
+          outcome?: string
+          reason?: string
+          refund_liability_amount?: number
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_decisions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_decisions_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "booking_cancellation_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -1218,6 +1369,118 @@ export type Database = {
           },
         ]
       }
+      deposit_deductions: {
+        Row: {
+          amount: number
+          booking_id: string
+          id: string
+          issue_decision_id: string
+          operation_id: string
+          reason_snapshot: string
+          recorded_at: string
+          recorded_by: string
+        }
+        Insert: {
+          amount: number
+          booking_id: string
+          id?: string
+          issue_decision_id: string
+          operation_id: string
+          reason_snapshot: string
+          recorded_at?: string
+          recorded_by: string
+        }
+        Update: {
+          amount?: number
+          booking_id?: string
+          id?: string
+          issue_decision_id?: string
+          operation_id?: string
+          reason_snapshot?: string
+          recorded_at?: string
+          recorded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposit_deductions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_deductions_issue_decision_id_fkey"
+            columns: ["issue_decision_id"]
+            isOneToOne: true
+            referencedRelation: "return_issue_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deposit_refund_records: {
+        Row: {
+          amount: number
+          booking_id: string
+          entry_kind: string
+          external_moved_at: string
+          id: string
+          operation_id: string
+          recorded_at: string
+          recorded_by: string
+          reversal_of: string | null
+          reversal_reason: string | null
+          transaction_id: string
+        }
+        Insert: {
+          amount: number
+          booking_id: string
+          entry_kind: string
+          external_moved_at: string
+          id?: string
+          operation_id: string
+          recorded_at?: string
+          recorded_by: string
+          reversal_of?: string | null
+          reversal_reason?: string | null
+          transaction_id: string
+        }
+        Update: {
+          amount?: number
+          booking_id?: string
+          entry_kind?: string
+          external_moved_at?: string
+          id?: string
+          operation_id?: string
+          recorded_at?: string
+          recorded_by?: string
+          reversal_of?: string | null
+          reversal_reason?: string | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposit_refund_records_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_refund_records_reversal_of_fkey"
+            columns: ["reversal_of"]
+            isOneToOne: false
+            referencedRelation: "deposit_refund_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_refund_records_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deposit_settlements: {
         Row: {
           booking_id: string
@@ -1228,6 +1491,8 @@ export type Database = {
           deduction_reason: string | null
           held_amount: number
           id: string
+          issue_decision_id: string | null
+          operation_id: string | null
           refund_amount: number
           refund_transaction_id: string | null
           status: Database["public"]["Enums"]["deposit_settlement_status"]
@@ -1242,6 +1507,8 @@ export type Database = {
           deduction_reason?: string | null
           held_amount: number
           id?: string
+          issue_decision_id?: string | null
+          operation_id?: string | null
           refund_amount?: number
           refund_transaction_id?: string | null
           status?: Database["public"]["Enums"]["deposit_settlement_status"]
@@ -1256,6 +1523,8 @@ export type Database = {
           deduction_reason?: string | null
           held_amount?: number
           id?: string
+          issue_decision_id?: string | null
+          operation_id?: string | null
           refund_amount?: number
           refund_transaction_id?: string | null
           status?: Database["public"]["Enums"]["deposit_settlement_status"]
@@ -1267,6 +1536,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_settlements_issue_decision_id_fkey"
+            columns: ["issue_decision_id"]
+            isOneToOne: false
+            referencedRelation: "return_issue_decisions"
             referencedColumns: ["id"]
           },
           {
@@ -1581,6 +1857,105 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      return_issue_decisions: {
+        Row: {
+          booking_id: string
+          condition_report_id: string
+          customer_explanation: string
+          decided_at: string
+          decided_by: string
+          decision_kind: string
+          deduction_amount: number
+          id: string
+          internal_reason: string
+          operation_id: string
+        }
+        Insert: {
+          booking_id: string
+          condition_report_id: string
+          customer_explanation: string
+          decided_at?: string
+          decided_by: string
+          decision_kind: string
+          deduction_amount: number
+          id?: string
+          internal_reason: string
+          operation_id: string
+        }
+        Update: {
+          booking_id?: string
+          condition_report_id?: string
+          customer_explanation?: string
+          decided_at?: string
+          decided_by?: string
+          decision_kind?: string
+          deduction_amount?: number
+          id?: string
+          internal_reason?: string
+          operation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_issue_decisions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_issue_decisions_condition_report_id_fkey"
+            columns: ["condition_report_id"]
+            isOneToOne: false
+            referencedRelation: "condition_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_issue_notes: {
+        Row: {
+          booking_id: string
+          condition_report_id: string
+          created_at: string
+          created_by: string
+          id: string
+          note: string
+          operation_id: string
+        }
+        Insert: {
+          booking_id: string
+          condition_report_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          note: string
+          operation_id: string
+        }
+        Update: {
+          booking_id?: string
+          condition_report_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          note?: string
+          operation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_issue_notes_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_issue_notes_condition_report_id_fkey"
+            columns: ["condition_report_id"]
+            isOneToOne: false
+            referencedRelation: "condition_reports"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       verification_documents: {
         Row: {

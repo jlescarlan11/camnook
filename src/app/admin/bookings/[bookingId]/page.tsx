@@ -23,6 +23,11 @@ import {
 import { requirePageAdmin } from "@/lib/auth/require-admin";
 import { loadPickupDetail } from "@/features/pickup/data";
 import { PickupControls } from "@/features/pickup/pickup-controls";
+import { loadResolutionDetail } from "@/features/resolution/data";
+import {
+  ResolutionControls,
+  type ResolutionOperationIds,
+} from "@/features/resolution/resolution-controls";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Admin booking review | CamNook" };
@@ -60,15 +65,16 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
 
   if (result.status === "missing") notFound();
 
-  const pickupData =
+  const [pickupData, resolutionData, contractData] = await Promise.all([
     result.status === "success" &&
     (result.booking.state === "CONFIRMED" || result.booking.state === "ACTIVE")
-      ? await loadPickupDetail(context, bookingId)
-      : null;
-
-  const contractData =
+      ? loadPickupDetail(context, bookingId)
+      : Promise.resolve(null),
+    result.status === "success"
+      ? loadResolutionDetail(context, bookingId)
+      : Promise.resolve(null),
     result.status === "success" && result.booking.approval
-      ? await Promise.all([
+      ? Promise.all([
           loadContractHistory(
             context,
             result.booking.id,
@@ -77,6 +83,24 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
           loadAdminContractAudit(context, result.booking.id),
           loadPublishedCameraOptions(context),
         ])
+      : Promise.resolve(null),
+  ]);
+  const resolutionOperationIds: ResolutionOperationIds | null =
+    resolutionData?.status === "success"
+      ? {
+          cancellation: randomUUID(),
+          issueNote: randomUUID(),
+          recordReturn: randomUUID(),
+          refund: randomUUID(),
+          resolveIssue: randomUUID(),
+          returnReview: randomUUID(),
+          reversals: Object.fromEntries(
+            resolutionData.resolution.refunds.map((refund) => [
+              refund.refund_record_id,
+              randomUUID(),
+            ]),
+          ),
+        }
       : null;
 
   return (
@@ -482,11 +506,27 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               </p>
             ) : null}
 
+            {resolutionData?.status === "success" && resolutionOperationIds ? (
+              <ResolutionControls
+                actualAt={formatManilaDateTimeInput(
+                  new Date().toISOString(),
+                  true,
+                )}
+                operationIds={resolutionOperationIds}
+                resolution={resolutionData.resolution}
+              />
+            ) : resolutionData ? (
+              <p className="mt-7 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
+                Return, cancellation, and deposit resolution data could not be safely loaded. Do not record a resolution off-system.
+              </p>
+            ) : null}
+
             <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
               Verification decisions/uploads, private document reads, contract
-              renter signing, cancellation, returns, refunds, and public launch
-              remain subject to their separate controls. Pickup never authorizes
-              Production ID collection or paid public launch.
+              renter signing, paid-cancellation acceptance, and public launch
+              remain subject to their separate approvals. Pickup and return
+              controls never authorize Production ID collection or paid public
+              launch.
             </section>
           </article>
         )}

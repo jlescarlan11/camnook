@@ -110,13 +110,18 @@ Maintenance/manual blocks use the same constraint and cannot be created over an 
 
 ## Cancellation model
 
-Renters request cancellation; they do not issue arbitrary state updates. A controlled operation may immediately accept an eligible renter-owned request or leave it pending for admin decision, depending on the later approved cancellation terms.
+Renters request cancellation; they do not issue arbitrary state updates. The
+request is append-only and never changes state or releases a block. The sole
+admin later locks and rechecks the pending request and current booking.
 
 MVP cancellation eligibility is pre-pickup only:
 
-- `FOR_REVIEW`, `CONTRACT_PENDING`, and `TO_PAY`: renter or admin operation;
-- `PAYMENT_REVIEW`: admin operation because submitted money must be reviewed/preserved;
-- `CONFIRMED`: admin operation because verified funds create a refund liability;
+- `FOR_REVIEW`, `CONTRACT_PENDING`, and `TO_PAY`: admin may accept the owned
+  request with explicit zero fee/refund liability and release any block;
+- `PAYMENT_REVIEW`: requests are allowed, but acceptance is policy-disabled
+  because submitted money must be reviewed/preserved;
+- `CONFIRMED`: requests are allowed, but acceptance is policy-disabled because
+  verified funds require approved cancellation/refund terms;
 - `ACTIVE`, `RETURN_REVIEW`, and `ISSUE_REVIEW`: never cancelled; finish the return/issue path instead.
 
 Cancellation never deletes payment, signature, contract, or history rows. It releases only the active availability block and creates any required refund/deposit work record.
@@ -145,7 +150,22 @@ balanced allocations. The operation records those evidence references and an
 idempotency UUID. The handoff/report/history/audit and `ACTIVE` state commit
 together; a competing operation receives a stale outcome and writes nothing.
 
-`record_return()` captures the physical event before inspection outcome. `RETURN_REVIEW` and `ISSUE_REVIEW` remain blocking states per policy. Completing the booking and recording the external deposit refund are separate facts: a clear rental may become `COMPLETED` while a recorded deposit settlement remains `pending_refund`, keeping the admin dashboard queue accurate.
+`record_return()` captures the actual time, observed serial, written condition,
+camera-damage flag, and exact returned/missing/damaged result for every current
+contract inclusion before inspection outcome. The locked operation writes one
+immutable return handoff/report and moves `ACTIVE → RETURN_REVIEW` exactly once.
+
+`decide_return_review()` derives the path from those facts: clear moves to
+`COMPLETED`; damage, missing items, or a late actual time moves to
+`ISSUE_REVIEW`, with finalized private evidence required for damage/missing
+facts. `resolve_return_issue()` records a manual decision, optional bounded
+decision-linked deduction, separate renter explanation, and
+`ISSUE_REVIEW → COMPLETED`. No amount is calculated automatically.
+
+Completing the booking and recording the external deposit refund are separate
+facts. `COMPLETED` may retain a pending refund liability. Only after an external
+movement does `record_external_refund()` append the outgoing payment/allocation;
+a correction appends one opposite reversal and restores liability.
 
 ## History requirements
 

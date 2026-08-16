@@ -102,6 +102,11 @@ pickup_photo_finalize_sql="$test_dir/pickup-photo-finalize.sql"
 pickup_photo_ready_file="$test_dir/pickup-photo-create-ready"
 pickup_photo_release_file="$test_dir/pickup-photo-create-release"
 pickup_photo_finalize_application_name="camnook-pickup-photo-finalize-$$"
+return_a_log="$test_dir/return-a.log"
+return_b_log="$test_dir/return-b.log"
+return_a_sql="$test_dir/return-a.sql"
+return_b_sql="$test_dir/return-b.sql"
+return_ready_file="$test_dir/return-a-ready"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
@@ -120,6 +125,7 @@ payment_decision_a_pid=""
 pickup_a_pid=""
 pickup_photo_create_pid=""
 pickup_photo_finalize_pid=""
+return_a_pid=""
 
 cleanup() {
   set +e
@@ -142,7 +148,8 @@ cleanup() {
     "$payment_decision_a_pid" \
     "$pickup_a_pid" \
     "$pickup_photo_create_pid" \
-    "$pickup_photo_finalize_pid"; do
+    "$pickup_photo_finalize_pid" \
+    "$return_a_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -173,6 +180,9 @@ mkdir "$socket_dir"
   >/dev/null
 
 database_url="postgresql://postgres@localhost/postgres?host=$socket_dir"
+template_database_url="postgresql://postgres@localhost/template1?host=$socket_dir"
+legacy_guard_database_url="postgresql://postgres@localhost/camnook_legacy_guard?host=$socket_dir"
+legacy_guard_log="$test_dir/legacy-guard-migration.log"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
 create role anon nologin;
@@ -222,6 +232,70 @@ on storage.buckets, storage.objects
 to anon, authenticated, service_role;
 SQL
 
+"$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
+  -c 'create database camnook_legacy_guard template postgres' >/dev/null
+
+for migration in "$repo_root"/supabase/migrations/*.sql; do
+  if [[ "$(basename "$migration")" == \
+    "20260816071918_add_audited_return_cancellation_resolution.sql" ]]; then
+    break
+  fi
+  "$postgres_bin/psql" "$legacy_guard_database_url" \
+    -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
+done
+
+"$postgres_bin/psql" "$legacy_guard_database_url" -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
+set session_replication_role = replica;
+insert into public.booking_cancellation_requests (
+  id,
+  booking_id,
+  requester_id,
+  reason,
+  disposition,
+  decided_by,
+  decided_at,
+  decision_note
+) values (
+  '1f000000-0000-4000-8000-000000000001',
+  '1f000000-0000-4000-8000-000000000002',
+  '1f000000-0000-4000-8000-000000000003',
+  'Legacy accepted cancellation.',
+  'accepted',
+  '1f000000-0000-4000-8000-000000000004',
+  statement_timestamp(),
+  'Legacy decision without a decision-linked record.'
+);
+set session_replication_role = origin;
+SQL
+
+set +e
+"$postgres_bin/psql" "$legacy_guard_database_url" -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/migrations/20260816071918_add_audited_return_cancellation_resolution.sql" \
+  >"$legacy_guard_log" 2>&1
+legacy_guard_status=$?
+set -e
+
+if [[ "$legacy_guard_status" -eq 0 ]] \
+  || ! grep -Fq 'legacy_resolution_history_requires_reviewed_mapping' \
+    "$legacy_guard_log"; then
+  cat "$legacy_guard_log" >&2
+  echo "Sprint 6 migration did not reject unmappable legacy outcomes" >&2
+  exit 1
+fi
+
+if [[ "$("$postgres_bin/psql" "$legacy_guard_database_url" -Atq \
+  -v ON_ERROR_STOP=1 \
+  -c "select to_regprocedure('api.request_cancellation(uuid,text)') is not null;")" \
+  != "t" ]]; then
+  cat "$legacy_guard_log" >&2
+  echo "legacy migration guard changed the old API before failing" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
+  -c 'drop database camnook_legacy_guard' >/dev/null
+echo "ok - legacy resolution outcomes fail before the old API changes"
+
 for migration in "$repo_root"/supabase/migrations/*.sql; do
   echo "applying $(basename "$migration")"
   "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
@@ -268,6 +342,12 @@ echo "running pickup and active-rental invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/010_pickup_active_rental.sql"
+
+echo "running return, cancellation, and resolution invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/011_return_cancellation_resolution.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -2326,3 +2406,96 @@ $$;
 SQL
 
 echo "ok - condition-photo create/finalize share one deadlock-free lock order"
+
+cat >"$return_a_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.record_return_inspection(
+  '2a000000-0000-4000-8000-000000000001',
+  statement_timestamp(),
+  'PRIVATE-PICKUP-RACE-SERIAL',
+  'Returned clean after the concurrent lifecycle test.',
+  '[{"id":"2a200000-0000-4000-8000-000000000001","status":"returned"}]'::jsonb,
+  false,
+  '',
+  '2a700000-0000-4000-8000-000000000001'
+);
+\! touch "$return_ready_file"
+select pg_sleep(1);
+commit;
+SQL
+
+cat >"$return_b_sql" <<'SQL'
+\set ON_ERROR_STOP on
+\set VERBOSITY verbose
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.record_return_inspection(
+  '2a000000-0000-4000-8000-000000000001',
+  statement_timestamp(),
+  'PRIVATE-PICKUP-RACE-SERIAL',
+  'Returned clean after the concurrent lifecycle test.',
+  '[{"id":"2a200000-0000-4000-8000-000000000001","status":"returned"}]'::jsonb,
+  false,
+  '',
+  '2a700000-0000-4000-8000-000000000002'
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$return_a_sql" >"$return_a_log" 2>&1 &
+return_a_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$return_ready_file" ]] && break
+  if ! kill -0 "$return_a_pid" 2>/dev/null; then
+    wait "$return_a_pid" || true
+    cat "$return_a_log" >&2
+    echo "first return exited before its lock barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$return_ready_file" ]]; then
+  cat "$return_a_log" >&2
+  echo "timed out waiting for return barrier" >&2
+  exit 1
+fi
+
+set +e
+"$postgres_bin/psql" "$database_url" -f "$return_b_sql" >"$return_b_log" 2>&1
+return_b_status=$?
+set -e
+wait "$return_a_pid"
+return_a_pid=""
+
+if [[ "$return_b_status" -eq 0 ]] || ! grep -Eq '40001|return_stale_booking_state' "$return_b_log"; then
+  cat "$return_a_log" >&2
+  cat "$return_b_log" >&2
+  echo "competing return did not lose with an explicit stale outcome" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1 from public.bookings
+    where id = '2a000000-0000-4000-8000-000000000001'
+      and state = 'RETURN_REVIEW'
+  )
+    or (select count(*) from public.handoffs where booking_id = '2a000000-0000-4000-8000-000000000001' and type = 'return') <> 1
+    or (select count(*) from public.condition_reports as report join public.handoffs as handoff on handoff.id = report.handoff_id where handoff.booking_id = '2a000000-0000-4000-8000-000000000001' and handoff.type = 'return') <> 1
+    or (select count(*) from public.booking_state_history where booking_id = '2a000000-0000-4000-8000-000000000001' and to_state = 'RETURN_REVIEW') <> 1
+  then
+    raise exception 'competing returns created partial or duplicate state';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - competing returns produce one atomic RETURN_REVIEW handoff"

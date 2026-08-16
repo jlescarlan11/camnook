@@ -56,8 +56,9 @@ Production-activation gate. Vercel owns the runtime service key and cron secret
 instead of GitHub.
 
 On 15 August 2026, Development reached the then-current 14/14 migrations. The
-repository now contains 19 migrations and Development remains recorded at
-14/19; no hosted rollout is part of the Sprint 2, Sprint 3, Sprint 4, or Sprint 5 change. Hosted checks confirmed
+repository now contains 20 migrations and Development remains recorded at
+14/20; no hosted rollout is part of the Sprint 2, Sprint 3, Sprint 4, Sprint 5,
+or Sprint 6 change. Hosted checks confirmed
 the policy remained disabled and that the server-only RPC and cross-owner
 Storage boundaries held. The security advisor returned no errors; its one
 warning was that leaked-password protection is disabled.

@@ -70,6 +70,14 @@ condition-evidence/{booking_uuid}/{condition_report_uuid}/{photo_uuid}.{ext}
 
 UUIDs are identifiers, not authorization. Every policy joins the exact object path to an application metadata row and checks ownership or admin status. Prefix matching alone is insufficient for reads.
 
+Return evidence uses the same opaque shape and upload verification as pickup
+evidence. New evidence may reference one finalized photo through
+`supersedes_photo_id`; the earlier object and metadata remain immutable. Admin
+URL authorization is handoff-specific: `pickup_condition_review` for pickup
+reports and `return_condition_review` for return reports. The purpose is
+validated and recorded before the server signs a 60-second URL. Owner
+projections contain only safe media/size/time identifiers, never path or digest.
+
 Allowed extensions and MIME types are controlled per bucket. File signatures are checked server-side where practical; a client-supplied MIME type is not trusted.
 
 ## Upload workflow
@@ -96,13 +104,15 @@ the owner's exact submitted transaction. The fixed policy accepts JPEG/PNG up to
 SHA-256 digest, uploads with no overwrite, downloads the object through the
 server-only client, and supplies observed metadata/digest to finalization.
 
-Pickup condition-photo intents are available only after the written pickup
-handoff has atomically made the booking `ACTIVE`. They accept JPEG/PNG up to
-5 MiB, allocate `{booking_uuid}/{condition_report_uuid}/{photo_uuid}.{ext}` for
-one current report, cap finalized photos at six, and never gate the valid written
-handoff. The authenticated admin performs the exact Storage insert; the
-server-only client verifies stored bytes and signs only after an owner or
-purpose-bound admin database authorization.
+Condition-photo intents are available after the written pickup handoff makes a
+booking `ACTIVE` and for a return report while it remains in `RETURN_REVIEW` or
+`ISSUE_REVIEW`. They accept JPEG/PNG up to 5 MiB, allocate
+`{booking_uuid}/{condition_report_uuid}/{photo_uuid}.{ext}` for one report, cap
+current finalized photos at six, and never gate a valid written pickup handoff.
+Return damage/missing decisions may require finalized evidence. The
+authenticated admin performs the exact Storage insert; the server-only client
+verifies stored bytes and signs only after an owner or purpose-bound admin
+database authorization.
 
 ### 2. Upload and finalize
 
