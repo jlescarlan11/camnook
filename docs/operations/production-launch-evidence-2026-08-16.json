@@ -2,9 +2,9 @@
   "schemaVersion": 2,
   "audit": {
     "id": "sprint-8-production-first-day-2026-08-16",
-    "observedAt": "2026-08-16T16:20:48Z",
+    "observedAt": "2026-08-16T21:57:56Z",
     "scope": "PUBLIC_PAID_RENTAL_LIFECYCLE",
-    "decision": "NO_GO"
+    "decision": "GO"
   },
   "targets": {
     "production": {
@@ -12,18 +12,18 @@
       "supabaseProjectRef": "iegcixcevvkryfwfotqz"
     },
     "repository": {
-      "auditedCommit": "4b9839d4c67639d52ed257e879cb4ddbd7dc129b",
+      "auditedCommit": "adb20b2beee821cf259ffa924fb1b3a94b1640a7",
       "migrationCount": 22
     },
     "deployment": {
-      "id": "dpl_BQia3VTd7JD2x5EZo6QZ5kvZf6mk",
-      "gitCommit": "b0eded97a5adbb95e0ce02707431f5e1a23bf24f",
+      "id": "dpl_D9n4mhBQxxT3XnWbmNV1z1H67RaM",
+      "gitCommit": "adb20b2beee821cf259ffa924fb1b3a94b1640a7",
       "environment": "production",
       "status": "READY"
     }
   },
   "database": {
-    "appliedMigrationCount": 21,
+    "appliedMigrationCount": 22,
     "appliedMigrations": [
       "20260812154906_initial_domain_schema.sql",
       "20260812154908_authorization_and_operations.sql",
@@ -45,7 +45,8 @@
       "20260815165103_add_manual_gcash_reconciliation_lifecycle.sql",
       "20260816022054_add_audited_pickup_active_rental_lifecycle.sql",
       "20260816071918_add_audited_return_cancellation_resolution.sql",
-      "20260816093757_add_owner_operations_portfolio_reporting.sql"
+      "20260816093757_add_owner_operations_portfolio_reporting.sql",
+      "20260816154611_replace_online_kyc_with_in_person_pickup_check.sql"
     ],
     "securityAdvisorErrors": 0,
     "securityAdvisorWarnings": [
@@ -74,10 +75,10 @@
     "emailConfirmationEnabled": true,
     "otpDigits": 6,
     "otpExpirySeconds": 900,
-    "customSmtpEnabled": false,
+    "customSmtpEnabled": true,
     "leakedPasswordProtectionEnabled": false,
     "passwordAuthenticationUsedByApplication": false,
-    "passwordMinimumLength": 6,
+    "passwordMinimumLength": 15,
     "emailSendLimitPerHour": 4,
     "verificationLimitPerFiveMinutes": 30,
     "signupSignInLimitPerFiveMinutes": 30,
@@ -105,7 +106,7 @@
     "databaseLogWindowMinutes": 60,
     "availability": {
       "auth": "PASS",
-      "smtp": "UNAVAILABLE",
+      "smtp": "PASS",
       "runtime": "PASS",
       "database": "PASS",
       "booking": "PASS"
@@ -177,32 +178,28 @@
   "authorization": {
     "productionMutationAuthorized": true,
     "source": "Owner instruction in the 2026-08-16 Codex task: fix Production, approve the operating sign-offs, and launch.",
-    "windowStartsAt": "2026-08-16T16:21:00Z",
-    "windowEndsAt": "2026-08-16T18:30:00Z"
+    "windowStartsAt": "2026-08-16T21:58:00Z",
+    "windowEndsAt": "2026-08-17T01:58:00Z"
   },
   "failClosed": {
-    "inPersonIdentityCheckRequired": false,
+    "inPersonIdentityCheckRequired": true,
     "onlineGovernmentIdCollectionDisabled": true,
     "paidLifecycleChangeApplied": true,
-    "productionStateChangedByAudit": false
+    "productionStateChangedByAudit": true
   },
-  "declaredBlockers": [
-    "CUSTOM_SMTP_DISABLED",
-    "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
-    "IDENTITY_OR_AUTH_COMPATIBILITY_FAILED",
-    "MONITORING_SIGNAL_UNAVAILABLE",
-    "PRODUCTION_MIGRATIONS_BEHIND_REPOSITORY"
-  ],
+  "declaredBlockers": [],
   "followUps": [
-    "Apply migration 22 through the automatic Development-to-Production chain.",
-    "Deploy the exact audited commit from the repaired Git-linked Vercel project.",
-    "Configure and verify free Resend SMTP and the 15-character hosted minimum.",
-    "Freeze post-release evidence and require launch:require-go before declaring full public paid launch."
+    "Configure the owner-approved real GCash recipient before accepting a payment; submission remains fail closed until then.",
+    "Configure PICKUP_LOCATION, PICKUP_CONTACT, and PICKUP_PROCESS before confirming any pickup; renter instructions remain fail closed until then.",
+    "Keep online government-ID collection disabled and perform the minimized original-ID check only when the named renter is physically present at pickup."
   ],
   "sources": [
     "https://github.com/jlescarlan11/camnook/issues/9",
     "https://github.com/jlescarlan11/camnook/issues/10",
     "https://github.com/jlescarlan11/camnook/issues/26",
+    "https://github.com/jlescarlan11/camnook/actions/runs/31974839789",
+    "https://github.com/jlescarlan11/camnook/actions/runs/31974943138",
+    "https://vercel.com/lester-s-projects4/camnook/D9n4mhBQxxT3XnWbmNV1z1H67RaM",
     "docs/operations/public-renter-registration.md",
     "docs/operations/catalog-publication.md"
   ]
