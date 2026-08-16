@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,6 +21,8 @@ import {
   loadPublishedCameraOptions,
 } from "@/features/contracts/data";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
+import { loadPickupDetail } from "@/features/pickup/data";
+import { PickupControls } from "@/features/pickup/pickup-controls";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Admin booking review | CamNook" };
@@ -55,6 +59,12 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
   const result = await loadAdminBookingDetail(context, bookingId);
 
   if (result.status === "missing") notFound();
+
+  const pickupData =
+    result.status === "success" &&
+    (result.booking.state === "CONFIRMED" || result.booking.state === "ACTIVE")
+      ? await loadPickupDetail(context, bookingId)
+      : null;
 
   const contractData =
     result.status === "success" && result.booking.approval
@@ -460,10 +470,23 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               )
             ) : null}
 
+            {pickupData?.status === "success" ? (
+              <PickupControls
+                actualAt={formatManilaDateTimeInput(new Date().toISOString())}
+                operationId={randomUUID()}
+                pickup={pickupData.pickup}
+              />
+            ) : pickupData ? (
+              <p className="mt-7 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
+                Pickup eligibility or persisted handoff data could not be loaded. Do not release equipment until it reloads.
+              </p>
+            ) : null}
+
             <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
               Verification decisions/uploads, private document reads, contract
-              renter signing, payments, cancellation, handoff, refunds, and
-              public launch remain disabled in this admin flow.
+              renter signing, cancellation, returns, refunds, and public launch
+              remain subject to their separate controls. Pickup never authorizes
+              Production ID collection or paid public launch.
             </section>
           </article>
         )}

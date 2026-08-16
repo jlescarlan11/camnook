@@ -135,7 +135,15 @@ This is an implementation blocker for post-submission amendments, not for the ba
 
 ## Pickup and return guards
 
-`complete_pickup()` refuses the transition unless every `HANDOFF-01` boolean is true and the condition report exists. The verified account identity, current contract renter, and authenticated booking renter must be the same UUID. A stale/expired verification blocks release until the admin completes an allowed verification operation.
+`complete_pickup()` locks the booking and refuses the transition unless every
+`HANDOFF-01` boolean is true, the written condition report is valid, the
+observed serial and complete accessory UUID set match the current issued
+contract snapshot, the latest verification is current on the actual Manila
+pickup date and operation date, the profile is active, the renter signed the
+current contract, and the current verified incoming payment has exactly two
+balanced allocations. The operation records those evidence references and an
+idempotency UUID. The handoff/report/history/audit and `ACTIVE` state commit
+together; a competing operation receives a stale outcome and writes nothing.
 
 `record_return()` captures the physical event before inspection outcome. `RETURN_REVIEW` and `ISSUE_REVIEW` remain blocking states per policy. Completing the booking and recording the external deposit refund are separate facts: a clear rental may become `COMPLETED` while a recorded deposit settlement remains `pending_refund`, keeping the admin dashboard queue accurate.
 
