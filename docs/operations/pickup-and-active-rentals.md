@@ -1,8 +1,7 @@
 # Pickup and Active-Rental Operations
 
-Status: local synthetic validation complete. No hosted migration, real pickup
-configuration, deployment, real-ID collection, equipment handoff, or public
-paid-rental activation is authorized by this runbook.
+Status: owner-approved Production operating procedure. Deployment and launch
+still require the machine-checked release sequence.
 
 ## Runtime and configuration boundary
 
@@ -50,9 +49,9 @@ It cannot target Development or Production.
    not eligible, even if another page or message suggests otherwise.
 2. Open the booking and confirm the expected named renter is physically present.
    Representatives and substitutes are not accepted.
-3. Inspect the original current government ID. Confirm it matches the person,
-   the current verified identity, and the signed contract renter. Do not copy an
-   ID number, scan, or image into handoff notes.
+3. Inspect one original current government ID and confirm its name and photo
+   match the physically present signed-contract renter. Do not photograph or
+   scan it, and do not record its number, type, address, birth date, or expiry.
 4. Enter the serial physically observed on the camera. Do not reveal or send the
    authoritative serial to the renter as a prompt.
 5. Check every inclusion from the current signed contract and select every item
@@ -60,7 +59,7 @@ It cannot target Development or Production.
 6. Write the starting condition plainly and completely. Optional notes are
    private. A photo is not required for a valid written handoff.
 7. Record the actual pickup time and submit once. PostgreSQL locks the booking,
-   rechecks identity/contract/payment/checklist facts, writes the immutable
+   rechecks renter/contract/payment/checklist facts, writes the immutable
    handoff/report/history/audit, and changes the booking to `ACTIVE` together.
 8. If the response is stale, blocked, or indeterminate, do not release equipment
    and do not invent another result. Refresh the persisted booking. A retry with
@@ -113,7 +112,8 @@ or report text in an incident ticket. Preserve the committed winner and ship a
 reviewed forward migration or application fix. Never reset a hosted database or
 delete immutable history.
 
-The current migration is repository-only. Follow the README target check before
-any separately approved Development database command. Production migration,
-environment changes, deployment, real operating details, real-ID collection,
-equipment release, or promotion require separate explicit authorization.
+The migration is installed and verified in Development by the automatic
+`main` rollout. A reviewed merge authorizes the same revision's forward
+Production migration after CI and Development hosted checks succeed. Environment
+changes, deployment, real operating details, equipment release, and promotion
+remain separately controlled. Online ID collection must stay disabled.

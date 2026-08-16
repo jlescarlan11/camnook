@@ -6,8 +6,6 @@ import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountData } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
-import { loadVerificationState } from "@/features/verification/data";
-import { VerificationCard } from "@/features/verification/verification-card";
 import { getAdminStatus } from "@/lib/auth/require-admin";
 import { requirePageUser } from "@/lib/auth/require-user";
 
@@ -19,10 +17,9 @@ export const metadata: Metadata = {
 
 export default async function AccountPage() {
   const context = await requirePageUser("/account");
-  const [isAdmin, account, verification] = await Promise.all([
+  const [isAdmin, account] = await Promise.all([
     getAdminStatus(context),
     loadAccountData(context),
-    loadVerificationState(context),
   ]);
 
   return (
@@ -62,15 +59,11 @@ export default async function AccountPage() {
               <AccountProfile profile={account.profile} />
             </section>
 
-            {verification.status === "success" ? (
-              <VerificationCard state={verification.state} />
-            ) : (
-              <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
-                <h2 className="text-xl font-semibold">Verification details unavailable</h2>
-                <p className="mt-2 leading-7">No upload can start until the privacy policy and current verification state load successfully.</p>
-                <Link className="mt-3 inline-block font-semibold underline" href="/account">Try again</Link>
-              </section>
-            )}
+            <section className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950" aria-labelledby="pickup-id-heading">
+              <h2 className="text-xl font-semibold" id="pickup-id-heading">Identity check happens at pickup</h2>
+              <p className="mt-2 leading-7">You do not need to upload an ID to request or receive approval for a booking. The named renter must bring one original current government ID and appear in person at pickup. CamNook records only that the ID was checked and matched—never its image, number, type, or expiry.</p>
+              <Link className="mt-3 inline-block font-semibold underline" href="/privacy/government-id">Read the in-person identity notice</Link>
+            </section>
 
             <section className="mt-8" aria-labelledby="bookings-heading">
               <h2 className="text-2xl font-semibold" id="bookings-heading">Bookings</h2>

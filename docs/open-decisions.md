@@ -1,6 +1,6 @@
 # CamNook Open Decisions and Readiness
 
-Status: architecture approved; public-paid-launch gates remain closed<br>
+Status: owner launch policy approved; machine evidence controls Production GO<br>
 Last updated: 2026-08-16
 
 ## Outcome
@@ -17,7 +17,7 @@ These are approved and are not open discovery questions:
 - one serialized camera per listing and fixed included accessories;
 - public discovery, authenticated booking, pickup/return only;
 - manual GCash movement with application-side records only;
-- one government ID, account-level manual verification, named-renter pickup;
+- no online KYC; the named renter presents one original current government ID at pickup;
 - no block in `FOR_REVIEW`; atomic approval creates a database-enforced hold;
 - one continuous 24-hour deadline from approval;
 - timely submission preserves `PAYMENT_REVIEW` without automatic expiry;
@@ -34,12 +34,14 @@ These remain accepted unless implementation reveals a concrete conflict:
 
 1. Each camera has one daily rate.
 2. Penalties, deductions, and exceptional amounts are manually decided.
-3. One ID is sufficient for MVP.
+3. One original current government ID shown in person is sufficient for MVP;
+   CamNook retains no copy, number, type, address, birth date, or expiry.
 4. Refunds happen outside the application.
 5. Exactly one admin is bootstrapped and protected by database authorization.
 6. The renter named on the account and contract personally collects the camera.
 7. PostgreSQL time ranges are half-open `[pickup, return)`; any future turnaround buffer is an explicit separate block/rule.
-8. A renter may submit `FOR_REVIEW` while verification is pending, but admin approval requires a current `verified` decision. This prevents an unverified account from receiving a hold without making random requests block inventory.
+8. A renter may submit and receive approval without online identity evidence.
+   Equipment release requires the named renter and physical ID match at pickup.
 
 ## Approved decisions
 
@@ -97,31 +99,26 @@ Unblocks: Sprint 7 issues #78–#86
 
 ## Decisions required before implementation of affected behavior
 
-### OD-04 — Government-ID evidence policy
+### OD-04 — Minimized in-person identity policy
 
-Owner: product/business, with Philippine legal/privacy review before Production<br>
-Status: v2 technical hardening and Sprint 2 review controls implemented on 2026-08-15; legal approval withheld<br>
-Unblocks: synthetic Sprint 1 issues #13–#21 and Sprint 2 issues #27–#35 locally
+Owner: product/business<br>
+Status: approved for Production on 2026-08-16<br>
+Unblocks: booking approval and physical equipment release without online KYC
 
-Policy `government-id-evidence-v2` limits the draft flow to one masked side/page
-of a Philippine passport, PhilSys ID/ePhilID, driver’s license, or UMID as JPEG
-or PNG up to 5 MiB. PDFs are rejected. Upload intents last 15 minutes. Every
-finalized object is deleted when no longer necessary and no later than 30 days;
-an owner request deletes an unheld object immediately, and replacement makes
-the superseded object due for cleanup. Sprint 2 adds a sole-admin review
-operation: the database authorizes and audits the exact `identity_review`
-purpose before the server issues a 60-second signed URL, and a separate atomic
-operation records a verified or predefined renter-safe rejected decision. It
-stores no full ID number or OCR output and creates no permanent URL. Direct
-admin Storage reads remain denied.
+Online government-ID upload and review are retired. Policy
+`government-id-evidence-v2` remains disabled, the renter and owner surfaces no
+longer expose it, and booking approval does not require a verification record.
+At pickup, the named contract renter presents one original current government
+ID. The administrator visually checks name and photo and records only three
+facts: the named renter was present, the original ID was checked, and it
+matched. No copy or ID fields are retained.
 
-Draft notice `government-id-privacy-v2` requires affirmative, purpose-specific
-consent and is shown before upload. It is not legally approved. Production
-collection remains closed until the complete controller/DPO, lawful-basis,
-reviewer, processor/location, cross-border, backup, metadata-retention, rights,
-PIA/ROPA/PMP, registration, incident-response, Development, Preview, and written
-Philippine privacy-counsel gates are complete. Synthetic Local/Development
-validation remains permitted.
+The owner selected this less-intrusive control under the Data Privacy Act of
+2012 (Republic Act No. 10173) principles of transparency, legitimate purpose,
+and proportionality. The purpose is contract performance, preventing release
+to the wrong person, and protecting the renter and equipment. The owner accepts
+the operating policy without representing that outside Philippine counsel
+reviewed it.
 
 ### OD-02 — Post-payment material amendments
 
@@ -167,13 +164,17 @@ verification, leaving both projects at 11/11 at that checkpoint. On 14 August
 15 August 2026, those catalog migrations were separately applied and exercised
 in Production, while the Sprint 1 evidence migration was applied to Development
 with its policy disabled and verified with hosted fail-closed and cross-owner
-Storage RLS checks. Development is recorded at 14/21 and Production at 13/21;
-the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle, Sprint 4 payment
-reconciliation, Sprint 5 pickup/active-rental, Sprint 6
-return/cancellation/resolution, and Sprint 7 owner-reporting migrations are
-repository-only.
-Current remote history must still be checked at rollout time.
-Production is not a rollout target without separate explicit authorization.
+Storage RLS checks. Development was recorded at 14/21 and Production at 13/21
+at that checkpoint. Successful `main` CI and the automatic Development rollout
+brought Development to 21/21 on 16 August 2026. An authorized Production run
+then applied and verified the same 21 migrations. The repository now contains
+22 migrations; the in-person identity replacement is the pending release
+candidate migration. Current
+remote history must still be checked by the rollout workflow. A reviewed merge
+to `main` authorizes the same revision's forward schema migrations after CI and
+Development hosted verification succeed; runtime policy activation, hosted
+configuration, data mutation, and application deployment remain separate
+controls.
 
 Vercel Preview has two app-owned, Preview-scoped Supabase records for the
 Development project: browser-visible `NEXT_PUBLIC_SUPABASE_URL` and
@@ -191,8 +192,10 @@ activation. The Development email-send ceiling remains four per hour for manual
 QA. Production signup, Managed Turnstile, email confirmation, and the code
 template were separately activated and validated on 15 August 2026. A
 2026-08-16 read-only audit found custom SMTP disabled, the Production email-send
-ceiling at four per hour, and leaked-password protection disabled; a future
-paid-launch decision must treat those as blockers. The local
+ceiling at four per hour, and leaked-password protection disabled. The release
+workflow configures free Resend SMTP without exposing its credential. CamNook
+uses passwordless email OTP, so paid leaked-password screening is not applicable;
+the hosted minimum password length is set to 15 as defense in depth. The local
 `supabase/config.toml` intentionally differs and must not be pushed to hosted
 Auth. Public registration creates only ordinary renter identities;
 `private.admin_accounts` remains the sole admin authority. The remaining
@@ -205,28 +208,29 @@ in [`docs/operations/public-renter-registration.md`](operations/public-renter-re
 
 ### LB-01 — Privacy and retention
 
-Policy `government-id-evidence-v2` and draft notice
-`government-id-privacy-v2` implement a fail-closed 30-day maximum,
-consent-withdrawal deletion, superseded-object cleanup, metadata/decision
-preservation, and verified deletion. They do not approve real-ID collection.
-Production stays disabled until every legal, governance, operational, vendor,
-security, Development, and protected-Preview gate in OD-04 is complete.
+Resolved by OD-04 on 2026-08-16: no online ID collection is activated. The
+physical check retains only minimal yes/no handoff attestations.
 
 ### LB-02 — Contract legal review
 
-Final rental, cancellation, late-return, damage/loss, electronic-signature, and non-transferability wording must be reviewed before paid public rentals.
+Owner-approved for the MVP launch on 2026-08-16. Paid-state cancellation still
+fails closed until its separate fee/refund terms are approved and implemented.
 
 ### LB-03 — Legal, tax, and business readiness
 
-The owner must confirm registration, tax/receipt obligations, consumer terms, privacy obligations, recordkeeping, and operational processes before real paid launch.
+Owner confirmed the MVP business, privacy, recordkeeping, and operational posture
+on 2026-08-16 and accepts responsibility for applicable registration, tax,
+receipt, and consumer obligations. This is not outside accounting/legal advice.
 
 ### LB-04 — Security verification
 
-Before production data is accepted, migrations must pass RLS cross-account tests, Storage policy tests, concurrency races, immutable-history tests, Supabase security/performance advisors, secret scanning, and a recovery/backup review.
+Required CI, RLS, cross-account, Storage, concurrency, immutable-history, advisor,
+secret-handling, and forward-recovery checks remain machine release gates.
 
 ### LB-05 — Operations
 
-Define admin coverage for the 12-hour payment-review target, pickup/return checklists, late returns, evidence collection, GCash reconciliation, refund tracking, and incident response.
+The sole owner/admin accepts coverage for payment review, pickup/return,
+reconciliation, refund tracking, and incident response for the MVP launch.
 
 ## Deliberately deferred, not MVP decisions
 
@@ -242,7 +246,8 @@ Approval of this milestone means agreement that:
 - the transition table, including late payment rejection to `EXPIRED`, is correct;
 - pre-payment material changes can return to `CONTRACT_PENDING` without resetting the deadline;
 - post-payment material changes remain prohibited until OD-02 is decided;
-- private Storage uses upload intents, exact-path RLS, and no overwrite; government-ID admin review is limited to the audited, purpose-bound, 60-second server operation; and
+- private Storage uses upload intents, exact-path RLS, and no overwrite; online
+  government-ID collection stays disabled and physical pickup stores no ID copy; and
 - architecture approval is recorded before the application scaffold or migrations are applied.
 
 ## Implementation status after approval
@@ -251,7 +256,7 @@ Approval of this milestone means agreement that:
    are implemented; later paid-rental stages remain gated.
 2. Ignored local CLI metadata links routine hosted work only to the separate
    Development project. Production remains live, isolated, and unlinked.
-3. Twenty-one forward migration files translate the approved architecture.
+3. Twenty-two forward migration files translate the approved architecture.
    Production received the four booking-milestone migrations on 13 August 2026
    through a separately authorized database-first rollout. Both projects were
    at 11/11 immediately afterward. The catalog-photo publication and
@@ -259,11 +264,12 @@ Approval of this milestone means agreement that:
    Development on 14 August 2026 and separately applied to Production with the
    approved catalog on 15 August 2026. The Sprint 1 evidence migration followed
    in Development with its policy disabled, leaving Development recorded at
-   14/21 and Production at 13/21. The v2 hardening, Sprint 2 review,
-   Sprint 3 contract lifecycle, Sprint 4 payment reconciliation, and Sprint 5
-   pickup/active-rental, Sprint 6 return/cancellation/resolution, and Sprint 7
-   owner-reporting migrations remain repository-only. Current remote history
-   remains operational state to verify, not a durable documentation assumption.
+   14/21 and Production at 13/21. Later successful automatic Development
+   rollouts brought Development to 21/21 on 16 August 2026. An authorized
+   Production run then applied and verified the same 21 migrations. Migration
+   22 replaces online KYC with the in-person pickup control and is applied by
+   the automatic release chain after merge. Current remote history remains
+   operational state for each workflow to verify.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
 5. RLS, concurrency, immutability, Storage, advisor, and application
@@ -273,6 +279,7 @@ Approval of this milestone means agreement that:
 7. The sole application admin remains a separately confirmed CamNook Auth user;
    Supabase dashboard access remains a separate management identity. No user or
    environment-specific admin UUID belongs in this document.
-8. The Sprint 8 evidence bundle and current `NO_GO` are recorded in
+8. The launch evidence bundle and current computed decision are recorded in
    [`docs/operations/production-launch.md`](operations/production-launch.md).
-   Closing coordination issues does not authorize a Production mutation.
+   A reviewed merge authorizes its forward migration; other Production changes
+   use the recorded release authorization.

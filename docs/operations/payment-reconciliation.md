@@ -131,5 +131,7 @@ reconcile the existing queue.
 Database rollback is forward-only. Ship a reviewed corrective migration while
 preserving every transaction, allocation, proof version, state-history row, and
 audit event. Never reset a hosted database, rewrite a deadline, or delete
-financial history. Production migration, environment changes, deployment,
-recipient enablement, or promotion require separate explicit authorization.
+financial history. A reviewed `main` merge authorizes its forward Production
+schema migration; the automatic workflow runs only after CI and the same
+revision's Development rollout and hosted checks succeed. Environment changes,
+deployment, recipient enablement, and promotion remain separately controlled.

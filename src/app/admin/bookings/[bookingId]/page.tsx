@@ -47,11 +47,6 @@ const readinessMessages: Record<ApprovalReadinessReason, string> = {
   template_invalid:
     "The active contract template is missing required terms.",
   template_unavailable: "No active approved contract template is available.",
-  verification_expired:
-    "The latest verified document expired before today in Manila.",
-  verification_missing: "No verification record is available.",
-  verification_not_verified:
-    "The latest verification record is not verified.",
 };
 
 type AdminBookingPageProps = {
@@ -206,41 +201,6 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-
-            <section className="mt-7 border-t border-stone-200 pt-6">
-              <h2 className="text-xl font-semibold">Verification metadata</h2>
-              <p className="mt-2 text-sm leading-6 text-stone-600">
-                Metadata only. Identity documents and private Storage remain
-                inaccessible from this flow.
-              </p>
-              {result.booking.latestVerification ? (
-                <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <DetailValue
-                    label="Latest status"
-                    value={result.booking.latestVerification.status}
-                  />
-                  <DetailValue
-                    label="ID type"
-                    value={result.booking.latestVerification.idType}
-                  />
-                  <DetailValue
-                    label="Expiration (Manila date)"
-                    value={
-                      result.booking.latestVerification.documentExpirationDate ??
-                      "Unavailable"
-                    }
-                  />
-                  <DetailValue
-                    label="Submitted (Asia/Manila)"
-                    value={formatManilaDateTime(
-                      result.booking.latestVerification.submittedAt,
-                    )}
-                  />
-                </dl>
-              ) : (
-                <p className="mt-4 text-stone-600">No verification metadata.</p>
               )}
             </section>
 

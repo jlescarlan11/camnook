@@ -387,7 +387,7 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | --- | --- |
 | `ensure_profile` | Idempotently create the authenticated user's profile |
 | `request_booking` | Create own `FOR_REVIEW` booking and history; no availability block |
-| `approve_booking` | Validate admin, future pickup, and current verification; stabilize the append-only verification and accessory sets; lock booking/camera; calculate approved snapshots; recheck overlap; insert block; set 24-hour deadline; issue contract v1; append history/audit |
+| `approve_booking` | Validate admin, future pickup, active renter, camera, pricing, template, and accessory set; lock booking/camera; calculate approved snapshots; recheck overlap; insert block; set 24-hour deadline; issue contract v1; append history/audit |
 | `reject_booking` | Require current `FOR_REVIEW`; transition to `REJECTED`; append reason/history/audit; release any defensive booking hold |
 | `authorize_verification_evidence_access` | Re-authorize sole admin and exact `identity_review` purpose; lock current pending retained evidence; append path-free access audit; return a 60-second target only to the Server Action |
 | `decide_verification` | Lock latest pending record and the exact document authorized for review; require current evidence and active profile; validate allowed verified metadata or renter-safe rejection code; update projection; append immutable decision/audit history |
@@ -401,7 +401,7 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | `reject_payment` | Apply a safe reason and choose `TO_PAY` or `EXPIRED` from the database clock; preserve deadline and release the block only on expiry |
 | `expire_due_bookings` | Idempotently expire only `CONTRACT_PENDING`/`TO_PAY` past deadline; release blocks; append system history |
 | `get_pickup_queue`, `get_pickup_detail` | Return sole-admin, explicit minimized pickup readiness/detail without paths, digests, serial authority, or financial facts |
-| `complete_pickup` | Under the booking lock, validate current profile/verification/signed contract/verified balanced payment and every typed physical checklist fact; insert one immutable handoff/report; transition `CONFIRMED → ACTIVE` idempotently |
+| `complete_pickup` | Under the booking lock, validate the active profile, signed contract, verified balanced payment, named renter, physical original-ID match, and every typed checklist fact; retain no ID copy or fields; insert one immutable handoff/report; transition `CONFIRMED → ACTIVE` idempotently |
 | Condition-photo intent/finalize/cleanup operations | Bind optional pickup evidence to one exact opaque no-overwrite object; verify Storage metadata and caller-confirmed digest; recover unfinished objects |
 | Condition-photo access operations | Return an exact private target only to its renter or after a purpose-bound audited admin authorization for a 60-second server-signed URL |
 | `get_my_pickup_state`, `get_active_rental_queue` | Return an owned safe handoff/timeline or the sole-admin minimum active-rental contact and schedule urgency; never calculate a late amount |
@@ -465,26 +465,24 @@ Policy rules:
 - Utilization intervals are clipped, half-open, and unioned before duration.
 - Final deposit settlement balances the held deposit.
 - State history, signatures, verified finance, condition reports, and audit events are append-only.
-- Verification decisions and automatic Manila-date expiry have append-only
-  decision history; only the latest current record controls booking eligibility.
+- Historical verification decisions and automatic Manila-date expiry remain
+  append-only, but no online verification record controls booking eligibility.
 - Historical foreign keys use `RESTRICT`; no cascade can erase booking or finance history.
 
 ## Migration acceptance tests
 
-The repository contains twenty-one forward migrations. On 13 August 2026, the four
+The repository contains twenty-two forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
 and exercised in Development. They were separately applied to Production with
 the approved catalog on 15 August 2026. The Sprint 1 evidence migration was
-applied and tested in Development that day. Development is recorded at 14/21
-and Production at 13/21; the v2 hardening, Sprint 2 review, Sprint 3
-contract lifecycle, Sprint 4 payment reconciliation, Sprint 5
-pickup/active-rental, Sprint 6 return/cancellation/resolution, and Sprint 7
-owner-reporting migrations remain repository-only. Check current remote history at every future
-rollout; these recorded counts do not authorize another Production mutation or
-deployment.
+applied and tested in Development that day. Development later reached 21/21,
+and an authorized Production run applied and verified the same 21 migrations.
+Migration 22 retires online KYC and introduces the minimized physical pickup
+control. The automatic workflow checks current remote history at every rollout;
+these historical counts are not a substitute for that check.
 
 Before **each** linked hosted database command, run the target check immediately
 before the command and require the exact Development ref:
@@ -526,6 +524,7 @@ authorized Production rollout:
 Run the database, RLS, concurrency, and advisor validation in Local and then
 against Development. Protected Vercel Preview is the application/browser smoke
 validation target after the Development database is verified; Preview is not a
-database-test environment. A Production migration, Production
-environment-variable change, deployment, or promotion is a separate release
-action that requires explicit authorization.
+database-test environment. A reviewed merge to `main` authorizes the same
+revision's forward Production migrations after CI and the automatic Development
+rollout pass. Production environment-variable changes, runtime activation, data
+mutation, deployment, and promotion remain separate release actions.

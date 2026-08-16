@@ -156,8 +156,8 @@ export function QuoteForm({ cameraId, cameraName }: { cameraId: string; cameraNa
           </h3>
           <p className="mt-2 text-sm leading-6 text-stone-600">
             This estimate is current for these inputs until approval. It does
-            not reserve the camera; approval is subject to verification and
-            availability.
+            not reserve the camera; approval is subject to availability and the
+            other booking terms. Identity is checked in person at pickup.
           </p>
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
             <QuoteValue label="Pickup" value={formatManilaDateTime(presentation.quote.pickupAt)} />

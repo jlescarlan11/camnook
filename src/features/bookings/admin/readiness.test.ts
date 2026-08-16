@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   assessApprovalReadiness,
-  manilaBusinessDate,
   REQUIRED_CONTRACT_TERM_KEYS,
   type ApprovalReadinessInput,
 } from "./readiness";
@@ -21,10 +20,6 @@ function readyInput(): ApprovalReadinessInput {
       publishedAt: "2026-01-01T00:00:00.000Z",
       securityDeposit: 5_000,
       status: "published",
-    },
-    latestVerification: {
-      documentExpirationDate: "2026-08-14",
-      status: "verified",
     },
     now: NOW,
     profileStatus: "active",
@@ -48,46 +43,11 @@ function readyInput(): ApprovalReadinessInput {
 }
 
 describe("admin approval readiness", () => {
-  it("derives the Manila business date independently of the process timezone", () => {
-    expect(manilaBusinessDate(NOW)).toBe("2026-08-14");
-  });
-
-  it("treats expiration on the Manila business date as valid", () => {
+  it("passes without an online identity-verification precondition", () => {
     expect(assessApprovalReadiness(readyInput())).toEqual({
       ready: true,
       reasons: [],
     });
-  });
-
-  it("treats an expiration before the Manila business date as expired", () => {
-    const input = readyInput();
-    input.latestVerification!.documentExpirationDate = "2026-08-13";
-
-    expect(assessApprovalReadiness(input)).toEqual({
-      ready: false,
-      reasons: ["verification_expired"],
-    });
-  });
-
-  it("uses the latest verification decision even when an older one was verified", () => {
-    const input = readyInput();
-    input.latestVerification = {
-      documentExpirationDate: "2027-01-01",
-      status: "rejected",
-    };
-
-    expect(assessApprovalReadiness(input).reasons).toEqual([
-      "verification_not_verified",
-    ]);
-  });
-
-  it("blocks when there is no verification record", () => {
-    const input = readyInput();
-    input.latestVerification = null;
-
-    expect(assessApprovalReadiness(input).reasons).toEqual([
-      "verification_missing",
-    ]);
   });
 
   it.each([

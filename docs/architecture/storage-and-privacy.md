@@ -1,7 +1,7 @@
 # Storage and Privacy Architecture
 
-Status: architecture approved on 2026-08-12; government-ID v2 collection not legally approved<br>
-Implementation updated: 2026-08-15<br>
+Status: storage architecture approved; online government-ID design retired<br>
+Implementation updated: 2026-08-16<br>
 Policy source: [`docs/product/mvp-rental-policy-v0.1.md`](../product/mvp-rental-policy-v0.1.md)
 
 ## Decision
@@ -17,30 +17,15 @@ Current guidance:
 - [Storage helper functions](https://supabase.com/docs/guides/storage/schema/helper-functions)
 - [Supabase product security](https://supabase.com/docs/guides/security/product-security)
 
-## Launch gate
+## Retired online-ID design
 
-Government-ID evidence policy `government-id-evidence-v2` and draft notice
-`government-id-privacy-v2` are implemented only as a fail-closed technical
-control. They are not approval to collect real IDs. The versioned notice is
-linked from the account UI and makes the missing legal and operational facts
-explicit.
-
-Production collection remains feature-disabled until all of these release gates
-are satisfied:
-
-1. CamNook publishes and tests a monitored privacy/DPO contact;
-2. the legal controller/address, DPO, Section 13 basis, decline consequences and alternative, processor locations, cross-border safeguards, retention schedules, PIA/ROPA/PMP, registration assessment, and breach plan are documented;
-3. the implemented sole-admin, purpose-bound, 60-second read and decision flow is supplemented by approved strong reviewer authentication, escalation, and appeal procedures;
-4. the legal-hold procedure and provider backup treatment are operationally proven or removed as claims;
-5. Philippine privacy counsel approves the final notice and workflow;
-6. the migration and RLS/advisor suite pass in Development; and
-7. the complete flow passes with synthetic evidence in protected Preview.
-
-The database policy row is the authority. No intent is issued when it is off or
-when the exact rendered policy/notice versions are stale. A hidden button is not
-an adequate control. The v2 hardening migration resets the policy to disabled
-and clears its activation time; a later reviewed migration is required to turn
-collection on.
+Government-ID evidence policy `government-id-evidence-v2` remains disabled.
+Migration 22 removes verification from booking approval and pickup eligibility,
+and the application exposes no upload or reviewer UI. At physical pickup, the
+administrator records only that the named renter appeared and an original ID
+was checked and matched. No ID bytes or identifying fields are retained. The
+older bucket, metadata, and retention design below remains documented only to
+support synthetic test-data cleanup and to prevent accidental reactivation.
 
 ## Buckets
 

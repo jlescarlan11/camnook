@@ -396,26 +396,10 @@ function SupportingQueues({
         Supporting compliance and cancellation work
       </h2>
       <p className="mt-2 text-sm leading-6 text-stone-600">
-        These established workflows remain reachable, while broad responses omit
-        government-ID types, evidence metadata, and free-form cancellation reasons.
+        Online government-ID review is retired. Cancellation review remains
+        reachable while broad responses omit free-form cancellation reasons.
       </p>
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <SupportingList
-          empty="No identity submissions await review."
-          title={`Identity review (${dashboard.supporting_queue_counts.identity_review})`}
-        >
-          {dashboard.supporting_queues.identity_review.map((item) => (
-            <li className="rounded-xl bg-stone-50 p-4" key={item.record_id}>
-              <p className="font-semibold">{item.renter_legal_name}</p>
-              <p className="mt-1 text-sm text-stone-600">
-                Submitted {formatManilaDateTime(item.submitted_at)} · {queueAge(item.age_seconds)}
-              </p>
-              <Link className="mt-2 inline-flex min-h-11 items-center font-semibold text-amber-900 underline" href={`/admin/verifications/${item.record_id}`}>
-                Review identity
-              </Link>
-            </li>
-          ))}
-        </SupportingList>
+      <div className="mt-5 grid gap-5">
         <SupportingList
           empty="No cancellation requests await review."
           title={`Cancellation review (${dashboard.supporting_queue_counts.cancellation})`}

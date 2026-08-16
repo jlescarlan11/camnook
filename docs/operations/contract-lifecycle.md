@@ -26,8 +26,8 @@ schedule—is the primary deadline executor.
 
 ## Rollout verification
 
-Do not apply this migration to a hosted environment as part of ordinary review.
-During a separately authorized Development rollout:
+Do not apply this migration from a developer workstation as part of ordinary
+review. The automatic Development rollout for a successful `main` revision:
 
 1. Reconfirm the ignored Supabase project ref is Development, preview the
    forward migration, and apply it using the repository runbook.
@@ -40,7 +40,9 @@ During a separately authorized Development rollout:
    confirm `EXPIRED`, one released block, voided current version, append-only
    system history/audit, and aggregate-only response/logs.
 6. Run hosted generated-type drift, RLS, advisor, protected Preview, and manual
-   renter/admin accessibility smoke checks before considering Production.
+   renter/admin accessibility smoke checks. A successful automatic Development
+   run authorizes the same revision's forward Production migration; runtime
+   activation and application deployment remain separate controls.
 
 ## Recovery and rollback
 

@@ -366,13 +366,6 @@ describe("admin booking detail data", () => {
           securityDeposit: 5000,
           slug: "sony-a7",
         },
-        latestVerification: {
-          decidedAt: "2026-08-13T00:00:00.000Z",
-          documentExpirationDate: "2027-01-01",
-          idType: "Passport",
-          status: "verified",
-          submittedAt: "2026-08-12T00:00:00.000Z",
-        },
         profile: {
           accountStatus: "active",
           legalName: "Maria Santos",
@@ -398,9 +391,7 @@ describe("admin booking detail data", () => {
     );
 
     expect(harness.from).not.toHaveBeenCalledWith("verification_documents");
-    const verification = harness.builders.find(
-      (item) => item.table === "verification_records",
-    )!;
+    expect(harness.from).not.toHaveBeenCalledWith("verification_records");
     const bookingQuery = harness.builders.find(
       (item) => item.table === "bookings",
     )!;
@@ -417,24 +408,6 @@ describe("admin booking detail data", () => {
     expect(operation(profileQuery, "eq")).toEqual([
       { args: ["user_id", RENTER_ID], name: "eq" },
     ]);
-    expect(operation(verification, "select")[0].args).toEqual([
-      "id,status,id_type,document_expiration_date,submitted_at,decided_at",
-    ]);
-    expect(operation(verification, "eq")).toEqual([
-      { args: ["user_id", RENTER_ID], name: "eq" },
-    ]);
-    expect(operation(verification, "order")).toEqual([
-      { args: ["submitted_at", { ascending: false }], name: "order" },
-      { args: ["id", { ascending: false }], name: "order" },
-    ]);
-    expect(operation(verification, "limit")).toEqual([
-      { args: [1], name: "limit" },
-    ]);
-    expect(
-      operation(verification, "eq").some(
-        (item) => item.args[0] === "status",
-      ),
-    ).toBe(false);
     const cameraQuery = harness.builders.find((item) => item.table === "cameras")!;
     expect(operation(cameraQuery, "select")[0].args).toEqual([
       "id,slug,name,status,published_at,daily_rate,security_deposit",
@@ -493,7 +466,6 @@ describe("admin booking detail data", () => {
     expect(harness.from.mock.calls.map(([table]) => table)).toEqual([
       "bookings",
       "profiles",
-      "verification_records",
       "cameras",
       "camera_accessories",
       "public_availability",
@@ -600,7 +572,6 @@ describe("admin booking detail data", () => {
     expect(harness.from.mock.calls.map(([table]) => table)).toEqual([
       "bookings",
       "profiles",
-      "verification_records",
       "cameras",
       "camera_accessories",
       "public_availability",
@@ -708,7 +679,6 @@ describe("admin booking detail data", () => {
     expect(harness.from.mock.calls.map(([table]) => table)).toEqual([
       "bookings",
       "profiles",
-      "verification_records",
       "cameras",
       "camera_accessories",
       "public_availability",

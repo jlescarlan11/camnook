@@ -9,7 +9,7 @@ const repositoryMigrations = Array.from(
 
 function evidence(overrides = {}) {
   const base = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     audit: {
       decision: "NO_GO",
       id: "sprint-8-audit",
@@ -60,6 +60,8 @@ function evidence(overrides = {}) {
       leakedPasswordProtectionEnabled: false,
       otpDigits: 6,
       otpExpirySeconds: 900,
+      passwordAuthenticationUsedByApplication: false,
+      passwordMinimumLength: 15,
       protectedRouteAuthorization: "PASS",
       signupEnabled: true,
       signupEnabledLastAtActivation: true,
@@ -69,8 +71,8 @@ function evidence(overrides = {}) {
     },
     bookingSmoke: {
       crossAccountReadDenied: "PASS",
-      deploymentId: "dpl_Smoke123",
-      gitCommit: "c".repeat(40),
+      deploymentId: "dpl_Production123",
+      gitCommit: "b".repeat(40),
       historyCount: 1,
       inventorySlug: "canon-eos-r50",
       preApprovalHoldCount: 0,
@@ -136,14 +138,14 @@ function evidence(overrides = {}) {
       windowStartsAt: null,
     },
     failClosed: {
-      governmentIdPolicyEnabled: false,
+      inPersonIdentityCheckRequired: true,
+      onlineGovernmentIdCollectionDisabled: true,
       paidLifecycleChangeApplied: false,
       productionStateChangedByAudit: false,
     },
     declaredBlockers: [
       "CUSTOM_SMTP_DISABLED",
       "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
-      "LEAKED_PASSWORD_PROTECTION_DISABLED",
       "LEGAL_PRIVACY_APPROVAL_OPEN",
       "MONITORING_SIGNAL_UNAVAILABLE",
       "MUTATION_AUTHORIZATION_MISSING",
@@ -163,7 +165,6 @@ describe("production launch readiness evidence", () => {
       blockers: [
         "CUSTOM_SMTP_DISABLED",
         "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
-        "LEAKED_PASSWORD_PROTECTION_DISABLED",
         "LEGAL_PRIVACY_APPROVAL_OPEN",
         "MONITORING_SIGNAL_UNAVAILABLE",
         "MUTATION_AUTHORIZATION_MISSING",
@@ -181,11 +182,11 @@ describe("production launch readiness evidence", () => {
     const value = evidence();
     value.audit.decision = "GO";
     value.targets.deployment.gitCommit = value.targets.repository.auditedCommit;
+    value.bookingSmoke.gitCommit = value.targets.deployment.gitCommit;
+    value.bookingSmoke.deploymentId = value.targets.deployment.id;
     value.database.appliedMigrationCount = repositoryMigrations.length;
     value.database.appliedMigrations = repositoryMigrations;
     value.auth.customSmtpEnabled = true;
-    value.auth.leakedPasswordProtectionEnabled = true;
-    value.database.securityAdvisorWarnings = [];
     value.monitoring.availability.smtp = "PASS";
     value.signoffs = value.signoffs.map((signoff) => ({ ...signoff, state: "APPROVED" }));
     value.authorization = {
@@ -194,7 +195,6 @@ describe("production launch readiness evidence", () => {
       windowEndsAt: "2026-08-16T15:00:00Z",
       windowStartsAt: "2026-08-16T14:00:00Z",
     };
-    value.failClosed.governmentIdPolicyEnabled = true;
     value.failClosed.paidLifecycleChangeApplied = true;
     value.declaredBlockers = [];
 
@@ -221,7 +221,7 @@ describe("production launch readiness evidence", () => {
     const value = evidence();
     value.failClosed.productionStateChangedByAudit = true;
     expect(() => evaluateLaunchReadiness(value, { repositoryMigrations })).toThrow(
-      /remained fail-closed and unchanged/,
+      /audit itself did not mutate Production/,
     );
   });
 

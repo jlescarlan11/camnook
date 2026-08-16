@@ -76,7 +76,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                 <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">{result.booking.state}</span>
               </div>
               <p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-                FOR_REVIEW does not reserve inventory. Approval is subject to verification and availability.
+                FOR_REVIEW does not reserve inventory. Approval is subject to availability; identity is checked in person at pickup.
               </p>
               <dl className="mt-6 grid gap-3 sm:grid-cols-2">
                 <DetailValue label="Pickup (Asia/Manila)" value={formatManilaDateTime(result.booking.pickupAt)} />

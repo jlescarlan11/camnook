@@ -1,4 +1,4 @@
-# CamNook Government ID Privacy Notice — Draft v2
+# CamNook Government ID Privacy Notice — Retired Draft v2
 
 Version: `government-id-privacy-v2`<br>
 Policy: `government-id-evidence-v2`<br>
@@ -6,6 +6,10 @@ Review date: 2026-08-15<br>
 Legal decision: **NOT APPROVABLE YET**<br>
 Permitted use: local, Development, and protected Preview testing with synthetic evidence only<br>
 Production collection: disabled
+
+Superseded on 2026-08-16 by the in-person identity notice at
+`/privacy/government-id`. This draft must not be activated: CamNook performs a
+visual original-ID check at pickup and retains no ID copy or identifying fields.
 
 ## Release-control notice
 

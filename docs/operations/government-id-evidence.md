@@ -1,8 +1,13 @@
 # Government ID Evidence Operations
 
-Status: synthetic-evidence validation only; real-ID collection is not authorized
+Status: retired on 2026-08-16; online collection must remain disabled
 Policy: `government-id-evidence-v2`
 Notice: `government-id-privacy-v2`
+
+This is a historical cleanup and recovery runbook. CamNook no longer collects
+government-ID evidence online, and booking approval no longer depends on this
+policy. The named renter instead presents an original current ID at pickup;
+CamNook retains no copy or ID fields.
 
 ## Environment boundary
 
@@ -137,12 +142,10 @@ Legal holds may be set or released only by a future narrow audited admin operati
 
 ## Activation decision record
 
-The current decision is **NOT APPROVABLE YET**. Before any real-ID collection,
-complete every governance requirement listed in
-[`docs/product/government-id-privacy-notice-v2.md`](../product/government-id-privacy-notice-v2.md),
-obtain written Philippine privacy-counsel approval, and implement activation in
-a new migration that identifies the approved policy and notice versions. A
-Dashboard edit or manual SQL toggle is not an authorized activation path.
+The current decision is **RETIRED — DO NOT ACTIVATE**. Any future proposal to
+collect ID evidence online would be a new product and privacy decision with a
+new migration; a Dashboard edit or manual SQL toggle is never an authorized
+activation path.
 
 ## Safe diagnostics
 

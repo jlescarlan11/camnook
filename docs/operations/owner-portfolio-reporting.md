@@ -1,8 +1,7 @@
 # Owner Operations and Portfolio Reporting
 
-Status: repository implementation and local synthetic validation complete on
-2026-08-16. No hosted migration, deployment, public launch, money movement, or
-Production authorization is included.
+Status: implementation validated and owner-approved for the MVP release on
+2026-08-16. Production activation still follows the machine release gate.
 
 ## Operating surface
 
@@ -16,7 +15,8 @@ The operations response is one database snapshot with nine required queues and
 counts derived from those exact arrays. If the projection or strict server DTO
 fails, every operations section closes with an unavailable warning. Never
 interpret the error state as zero work. Detailed actions remain in the audited
-booking, payment, and verification routes.
+booking, payment, pickup, and cancellation routes. Online identity review is
+retired.
 
 Broad dashboard data intentionally excludes full GCash references and sender
 details, camera serials, private paths/URLs/digests, government-ID type or
@@ -73,7 +73,7 @@ percentage. This is an operating metric, not an accounting/tax statement.
 
 ## Validation and recovery
 
-Before a separately authorized hosted rollout, run:
+The automatic rollout requires these checks before hosted migration:
 
 ```bash
 pnpm lint
@@ -83,10 +83,10 @@ pnpm build
 pnpm db:test:concurrency
 ```
 
-Then verify the exact Development project ref before each linked command, apply
-the forward migration only to Development, regenerate types, run Supabase
-security/performance advisors, and smoke-test the protected Preview with
-synthetic records. Production remains out of scope.
+The Development workflow binds its exact project ref, applies the forward
+migration, runs hosted checks and advisors, and identifies the verified Git SHA.
+After that automatic run succeeds for `main`, Production applies the same
+revision while keeping runtime feature activation and deployment out of scope.
 
 Rollback is forward-only: close the owner page or ship a reviewed corrective
 migration. Never delete or rewrite payment transactions/allocations, deductions,

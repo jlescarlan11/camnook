@@ -28,18 +28,17 @@ const confirmedDetail: PickupDetail = {
     booking_confirmed: true,
     contract_current_signed: true,
     eligible: true,
+    in_person_identity_check_required: true,
     payment_verified: true,
     profile_active: true,
-    verification_current: true,
   },
   handoff: null,
-  renter_legal_name: "Named Renter",
-  verification: {
-    document_expiration_date: "2027-08-16",
-    id_type: "passport",
-    record_id: "84000000-0000-4000-8000-000000000003",
-    status: "verified",
+  identity_check: {
+    mode: "original_id_in_person_no_copy",
+    retains_id_copy: false,
+    retains_id_number: false,
   },
+  renter_legal_name: "Named Renter",
 };
 
 const confirmedOwner: MyPickupState = {
@@ -74,6 +73,7 @@ describe("pickup UI privacy and checklist controls", () => {
     expect(markup).toContain('name="operationId"');
     expect(markup).toContain('name="accessoryId"');
     expect(markup).not.toContain("PRIVATE-SERIAL");
+    expect(markup).toContain("Do not photograph it or record its number");
     expect(markup).not.toMatch(/object_path|sha256|late.amount/i);
   });
 

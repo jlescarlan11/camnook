@@ -244,7 +244,9 @@ Managed Turnstile, the Production application site key, the existing sole-admin
 route, two aggregate Auth identities, and exactly one canonical admin record.
 It also found custom SMTP disabled, the email-send ceiling at four per hour, and
 leaked-password protection disabled. Those findings do not invalidate the
-historical activation evidence, but they block a later paid-lifecycle `GO` until
-fresh compatibility/capacity evidence and approval exist. See
+historical activation evidence. The 16 August remediation configures free Resend
+SMTP; because CamNook uses no password-authentication path, paid leaked-password
+screening is recorded as not applicable while a 15-character hosted minimum is
+kept as defense in depth. See
 [`production-launch.md`](production-launch.md). No Auth setting or session was
 changed by the audit.

@@ -1,8 +1,9 @@
 # CamNook
 
-CamNook is a single-owner camera-rental application. This repository currently
-contains the approved MVP architecture and its secure implementation foundation;
-it is not ready to accept public paid rentals.
+CamNook is a single-owner camera-rental application with a database-authoritative
+paid-rental lifecycle, passwordless email sign-in, and an in-person pickup
+identity check. The current Production decision is recorded by the
+machine-checked launch evidence rather than this overview.
 
 ## Stack
 
@@ -21,7 +22,7 @@ are isolated. Repository tests do not seed or reset either hosted database.
 | Local | Local application and, when intentionally started, local Supabase services | `.env.local`, `supabase/.temp`, and `.vercel` are ignored machine-local state, not committed configuration. |
 | Development | Supabase `CamNook Development` (`ekmoiepalelqpmemvrkl`), Tokyo / `ap-northeast-1` | The ignored local project ref points here for hosted migration work. Production must not be linked for routine development. |
 | Preview | Vercel Preview backed only by the Development Supabase project | Preview has Deployment Protection. Use an authenticated Vercel session for smoke tests; do not weaken protection. |
-| Production | Supabase `CamNook` (`iegcixcevvkryfwfotqz`) and [camnook.shop](https://camnook.shop) | Live and isolated. Production migrations, variables, and deployments require separate explicit authorization. |
+| Production | Supabase `CamNook` (`iegcixcevvkryfwfotqz`) and [camnook.shop](https://camnook.shop) | Live and isolated. A reviewed merge to `main` authorizes its forward schema migrations after CI and the automatic Development rollout succeed. Hosted configuration, data activation, and deployment remain separate controls. |
 
 Vercel Preview has exactly two app-owned, Preview-scoped Supabase records:
 `NEXT_PUBLIC_SUPABASE_URL` and
@@ -95,7 +96,7 @@ also runs the return/cancellation/deposit and owner-portfolio acceptance suites
 before removing the cluster. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
 
-The repository currently contains twenty-one forward migrations. On 13 August 2026,
+The repository currently contains twenty-two forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
@@ -104,11 +105,13 @@ migrations were applied and exercised in Development. On 15 August 2026, those
 two catalog migrations were separately applied and exercised in Production,
 bringing it to 13 migrations, while the Sprint 1 government-ID evidence
 migration was applied to Development with its policy disabled and verified with
-hosted fail-closed and cross-owner RLS tests. Development is recorded at 14/21
-and Production at 13/21. The v2 hardening, Sprint 2 review, Sprint 3 contract
-lifecycle, Sprint 4 payment reconciliation, Sprint 5 pickup/active-rental,
-Sprint 6 return/cancellation/resolution, and Sprint 7 owner
-operations/portfolio-reporting migrations remain repository-only.
+hosted fail-closed and cross-owner RLS tests. Development was recorded at 14/21
+while Production was at 13/21. On 16 August 2026, successful `main` CI and the
+automatic Development rollout brought Development to 21/21; an authorized
+Production run then applied and verified the same 21 migrations. Migration 22
+replaces online government-ID collection with a mandatory in-person pickup
+check. It remains pending in each hosted project until this release candidate
+passes CI and the automatic Development-to-Production migration chain.
 Treat those counts as recorded release evidence, not a substitute for checking
 current remote migration history before any future action.
 
@@ -147,10 +150,12 @@ protected-Preview activation and smoke test. It sends a six-digit email OTP with
 a 15-minute expiry through proven custom SMTP; the Development email-send
 ceiling remains four per hour for protected manual QA. Production signup,
 Managed Turnstile, email confirmation, and the code-based template were
-separately activated and validated on 15 August 2026. The 2026-08-16 Sprint 8
-read-only audit found custom SMTP disabled, the email-send ceiling at four per
-hour, and leaked-password protection disabled; those are future paid-launch
-blockers, not permission to change hosted Auth. Hosted settings are the
+separately activated and validated on 15 August 2026. Production Auth is
+configured through the protected release workflow to use the existing Resend
+credential and free SMTP allowance. CamNook uses email OTP only and exposes no
+password signup or sign-in path, so paid leaked-password screening is not an
+applicable launch dependency; the hosted minimum password length is still set
+to 15 as defense in depth. Hosted settings are the
 operational truth; the local `supabase/config.toml` is not a pushable copy of
 them. SMTP and CAPTCHA secrets remain only in hosted provider configuration.
 
@@ -169,8 +174,10 @@ approved Canon inventory on 15 August 2026. Do not place real inventory
 manifests or private serial/cost values in Git, and do not bypass private
 staging with a direct public-bucket upload.
 
-Government-ID evidence policy `government-id-evidence-v2` and draft privacy notice
-`government-id-privacy-v2` harden the Sprint 1 issues #13–#21 implementation. Use
+The earlier online government-ID evidence and review work is retained only as
+historical implementation material. Policy `government-id-evidence-v2` stays
+disabled, the account and owner UI expose no upload/review workflow, and booking
+approval no longer reads a verification record. Use
 [`docs/product/sprint-1-government-id-evidence.md`](docs/product/sprint-1-government-id-evidence.md)
 for that acceptance matrix,
 [`docs/product/sprint-2-admin-identity-review.md`](docs/product/sprint-2-admin-identity-review.md)
@@ -188,25 +195,21 @@ for the owner dashboard/reporting acceptance matrix,
 [`docs/product/government-id-privacy-notice-v2.md`](docs/product/government-id-privacy-notice-v2.md)
 for the versioned notice, and
 [`docs/operations/government-id-evidence.md`](docs/operations/government-id-evidence.md)
-for validation and recovery. The v2 migration resets the database policy to
-disabled wherever it is applied. Real-ID collection is not authorized in any
-environment; Local, Development, and protected Preview may use synthetic
-evidence only. Production requires every controller/DPO, lawful-basis, reviewer,
-vendor/location, backup/retention, rights, governance, incident, validation, and
-written Philippine privacy-counsel gate in the v2 notice. Vercel has separate server-only
-`SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` values for Development/Preview and
-Production. The protected daily route enforces due retention and
-abandoned-intent cleanup with durable, retryable claims and database-verified
-object absence.
+for the retired design and cleanup controls. At pickup, the named renter must
+show one original current government ID. The administrator records only that
+the renter was present and the ID was checked and matched; no image, number,
+type, address, birth date, or expiry is retained. This minimized policy was
+approved by the owner on 16 August 2026 under the transparency, legitimate
+purpose, and proportionality principles of Republic Act No. 10173. That owner
+approval does not claim outside-counsel review.
 
 The public privacy contact is `privacy@camnook.shop`. It uses a
 signature-verified Resend inbound webhook and forwards to one existing monitored
 inbox; it is not a Hostinger mailbox. See
 [`docs/operations/privacy-email.md`](docs/operations/privacy-email.md) for DNS,
 server-only `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, and `PRIVACY_FORWARD_TO`
-configuration, activation testing, and rollback. Publishing the address does not
-by itself satisfy the Production gate: end-to-end delivery and reply handling
-must be proven, and Philippine legal review remains separate.
+configuration, activation testing, and rollback. Publishing the address does
+not replace monitored delivery and reply handling.
 
 To refresh types from the linked database:
 
@@ -216,10 +219,13 @@ cat supabase/.temp/project-ref
 pnpm db:types:linked
 ```
 
-No Production migration, ID-policy activation, deployment, or promotion is part
-of Development/Preview work without separate explicit authorization. The
-Production server-only values are staged for a future release but do not enable
-collection.
+After a merged `main` revision passes CI and its automatic Development migration
+and hosted checks, `.github/workflows/migrate-production.yml` applies the same
+revision's pending forward migrations to the exact Production project. The merge
+is the schema-migration authorization; manual local Production linking remains
+forbidden. Hosted Auth or environment changes, catalog or other data mutations,
+deployment, and promotion remain separate controls. The retired online-ID
+policy must never be activated by a launch workflow.
 
 Use [`docs/operations/owner-portfolio-reporting.md`](docs/operations/owner-portfolio-reporting.md)
 for owner dashboard period semantics, financial reconciliation, fail-closed
@@ -228,21 +234,17 @@ behavior, and the forward-only recovery boundary.
 Use [`docs/operations/production-launch.md`](docs/operations/production-launch.md)
 and
 [`docs/product/sprint-8-production-launch-readiness.md`](docs/product/sprint-8-production-launch-readiness.md)
-for the machine-checked Sprint 8 evidence bundle, monitoring thresholds,
-independent admission/catalog rollback, first-day audit, and current `NO_GO`.
+for the machine-checked evidence bundle, monitoring thresholds, independent
+admission/catalog rollback, and current Production decision.
 
 ## Intentional launch gates
 
 - Booking quote and approval pricing use the database-authoritative OD-01
   started-24-hour formula approved in `docs/open-decisions.md` and implemented
   by [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
-- Government-ID upload is implemented behind the database-authoritative v2
-  privacy gate, which is disabled. File finalization verifies integrity, while
-  the separate Sprint 2 sole-admin operation can record a human identity
-  decision through purpose-bound 60-second evidence access. Production remains
-  closed until every legal, governance,
-  reviewer, provider, retention, rights, and hosted-validation gate in the
-  evidence runbook is satisfied.
+- Online government-ID collection is retired and remains disabled. The database
+  requires the named renter, original ID check, and match attestations at pickup
+  without storing an ID copy or identifying fields.
 - Paid/submitted-payment cancellation acceptance remains disabled until the
   cancellation and refund policy is approved. Owner requests, explicit
   declines, and unpaid-state zero-fee acceptance are implemented; use
@@ -262,11 +264,12 @@ independent admission/catalog rollback, first-day audit, and current `NO_GO`.
   deposit-liability tracking, external refund recording, and immutable reversal
   corrections are implemented locally. No hosted rollout or real money
   movement is authorized.
-- Direct admin Storage reads remain denied. Government-ID review uses the narrow,
-  server-only, purpose-bound 60-second signed-URL operation; its repository
-  implementation does not authorize real-ID collection or a hosted rollout.
-- Final contract wording and legal, tax, operational, security, and recovery
-  readiness remain required before launch. Public paid launch remains closed.
+- Direct admin Storage reads remain denied. The retired online verification
+  implementation cannot be reactivated without a new reviewed policy migration.
+- The owner approved the current contract, Philippine-law privacy approach,
+  tax/business, operations, release, and security/recovery posture for this MVP
+  launch on 16 August 2026. This is an owner business decision, not a claim of
+  outside legal or accounting review.
 
 See `docs/product/mvp-rental-policy-v0.1.md`, `docs/architecture/`, and
 `docs/open-decisions.md` for the policy and decision record.

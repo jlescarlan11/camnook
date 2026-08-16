@@ -108,7 +108,6 @@ describe("approveBooking", () => {
     ["P0002", "approval_booking_not_found", "not_found", "stale"],
     ["P0001", "approval_stale_booking_state", "stale", "stale"],
     ["22023", "approval_profile_inactive", "profile_inactive", "error"],
-    ["22023", "approval_verification_invalid", "verification_invalid", "error"],
     ["22023", "approval_camera_unavailable", "camera_unavailable", "error"],
     ["22023", "approval_template_unavailable", "template_unavailable", "error"],
     ["22023", "approval_template_invalid", "template_invalid", "error"],
