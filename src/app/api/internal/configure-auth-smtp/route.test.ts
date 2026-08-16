@@ -37,6 +37,7 @@ describe("Production Auth SMTP configuration", () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(
         Response.json({
           password_min_length: 15,
@@ -59,8 +60,10 @@ describe("Production Auth SMTP configuration", () => {
       passwordMinimumLength: 15,
       provider: "resend",
     });
+    expect(fetch).toHaveBeenCalledTimes(3);
     const patchBody = JSON.parse(fetch.mock.calls[1][1].body as string);
     expect(patchBody.smtp_pass).toBe("re_protected_resend_key");
+    expect(patchBody.smtp_port).toBe("465");
     expect(JSON.stringify(body)).not.toContain("re_protected");
   });
 

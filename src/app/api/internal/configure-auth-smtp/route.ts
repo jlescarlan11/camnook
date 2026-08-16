@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         smtp_admin_email: "auth@camnook.shop",
         smtp_host: "smtp.resend.com",
         smtp_pass: resendApiKey,
-        smtp_port: 465,
+        smtp_port: "465",
         smtp_sender_name: "CamNook",
         smtp_user: "resend",
       }),
@@ -80,7 +80,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "provider_rejected_configuration" }, { status: 502 });
     }
 
-    const config = (await updated.json()) as Record<string, unknown>;
+    const verified = await fetch(AUTH_CONFIG_URL, {
+      cache: "no-store",
+      headers,
+      method: "GET",
+    });
+    if (!verified.ok) {
+      return NextResponse.json({ error: "configuration_not_confirmed" }, { status: 502 });
+    }
+
+    const config = (await verified.json()) as Record<string, unknown>;
     const summary = configurationSummary(config);
     if (!summary.customSmtpEnabled || summary.passwordMinimumLength !== 15) {
       return NextResponse.json({ error: "configuration_not_confirmed" }, { status: 502 });
