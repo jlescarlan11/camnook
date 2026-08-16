@@ -291,7 +291,7 @@ The proposed model deliberately omits a redundant `contracts` parent: one bookin
 - `id` PK, transaction ID, allocation kind, amount, and booking ID.
 - Unique `(transaction_id, allocation_kind)` for MVP.
 - Incoming verified transactions allocate to `rental_payment` and `security_deposit`; an outgoing verified refund allocates to `deposit_refund`.
-- A deferred constraint trigger verifies the allocation sum equals the verified transaction amount before commit. The payment-verification operation creates/validates allocations and changes booking state in one transaction.
+- A deferred constraint trigger verifies every allocation uses the transaction booking and that the allocation sum equals the verified transaction amount before commit. A verified reversal must carry the exact allocation kinds, booking, and amounts of the original transaction. The payment-verification operation creates/validates allocations and changes booking state in one transaction.
 
 `public.payment_proofs`
 
@@ -307,6 +307,36 @@ The proposed model deliberately omits a redundant `contracts` parent: one bookin
   `supersedes_id`.
 - A final record requires `refund_amount + deduction_amount = held_amount`; nonzero refund requires an outgoing GCash transaction and reference.
 - Dashboard rental revenue sums verified `rental_payment` allocations net of reversals only. Security-deposit and refund allocations are excluded.
+
+### Owner operations and portfolio reporting
+
+`api.get_owner_operations_dashboard()` is one sole-admin, database-clock
+snapshot. It owns the nine required queues: booking review, contract signature,
+payment review, pickup, active rental, physical return, issue review, held
+deposit, and pending refund. Counts are calculated from the exact returned
+arrays. Supporting identity and cancellation queues preserve earlier workflows
+but omit government-ID type, evidence metadata, and free-form cancellation
+reason. Any function or strict DTO failure closes the operations surface; it is
+never converted into zero.
+
+Deposit reconciliation uses signed verified security-deposit allocations,
+decision-linked deductions, and the immutable external refund/reversal ledger.
+Verified deposits minus deductions minus net refunds equals remaining
+liability; held and terminal pending-refund queues partition that remaining
+liability exactly. Deposit movements never enter rental revenue.
+
+`api.get_owner_portfolio_report(start_date, end_date)` accepts a nonempty Manila
+date interval `[start, end)`. Period revenue is signed verified
+`rental_payment` allocation value recognized at `payment.decided_at`. Camera
+drill-downs attribute through the booking camera and sum to the portfolio
+total. Utilization intersects scheduled booking ranges with both the report
+period and camera creation/archive window before unioning and measuring
+duration. Maintenance/manual ranges use the same lifecycle clipping, ignore
+empty early-release intervals, and remain separate. Archived cameras stay
+reportable. Acquisition cost and recovery exist only in this sole-admin
+projection; null/zero cost returns an explicit unavailable result. Public
+catalog/availability projections remain unchanged and exclude unpublished
+inventory/private fields.
 
 ### Pickup, return, and condition
 
@@ -381,6 +411,7 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | `record_external_refund` | After actual external movement, append verified outgoing GCash transaction, deposit-refund allocation/ledger row, and settlement version; never call a payment API |
 | `reverse_external_refund` | Append one exact opposite verified movement and reversal ledger row; never edit the original refund |
 | Resolution queue/detail/owner projections | Return four admin queues, safe admin detail without paths/digests/serial authority, and an owned final-outcome/amount projection without internal reason or references |
+| Owner operations/portfolio projections | Re-authorize the sole admin; return minimized deterministic current queues or Manila half-open immutable-ledger metrics; reject invalid periods and inconsistent liability |
 | `create_upload_intent` | Authorize owner/admin, allocate opaque path and metadata row before upload |
 | `finalize_upload` | Verify object metadata/hash and freeze evidence row |
 
@@ -401,6 +432,7 @@ The expiration function is safe to invoke on a schedule and opportunistically be
 | Contract versions/signatures | None | Read own; sign current version only | Read all; issue/supersede through operations |
 | Payments/proofs/deposit | None | Read narrow own state; submit/finalize only in allowed state | Read narrow queue/detail/accounting/audit projections; access proof and decide/reverse/settle only through audited operations |
 | Handoffs/conditions/evidence metadata | None | Read owned safe projections and authorized owned photo bytes | Read minimized pickup/active projections; create through handoff operations; finalized condition-photo paths only through audited authorization |
+| Owner operations/performance | None | None | Read only through the two sole-admin API projections; acquisition cost and recovery never enter public/renter views |
 | Admin singleton/audit log | None | None | Read via narrow admin views; never mutate directly |
 
 Policy rules:
@@ -424,6 +456,11 @@ Policy rules:
 - Only one current contract version; all snapshots/signatures are immutable.
 - Verified GCash references cannot be reused.
 - Verified allocation sum equals transaction amount at commit.
+- Every payment allocation uses its transaction's immutable booking.
+- Verified reversal allocations exactly match the original allocation set.
+- Period rental revenue equals its per-camera drill-down and excludes every non-rental allocation.
+- Deposit liabilities reconcile verified deposits, linked deductions, net external refunds, and their exact work queues.
+- Utilization intervals are clipped, half-open, and unioned before duration.
 - Final deposit settlement balances the held deposit.
 - State history, signatures, verified finance, condition reports, and audit events are append-only.
 - Verification decisions and automatic Manila-date expiry have append-only
@@ -432,17 +469,17 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains twenty forward migrations. On 13 August 2026, the four
+The repository contains twenty-one forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
 and exercised only in Development. The Sprint 1 evidence migration was then
 applied and tested in Development on 15 August 2026. Development is recorded at
-14/20 and Production at 11/20; the v2 hardening, Sprint 2 review, Sprint 3
+14/21 and Production at 11/21; the v2 hardening, Sprint 2 review, Sprint 3
 contract lifecycle, Sprint 4 payment reconciliation, Sprint 5
-pickup/active-rental, and Sprint 6 return/cancellation/resolution migrations
-remain repository-only. Check current remote history at every future
+pickup/active-rental, Sprint 6 return/cancellation/resolution, and Sprint 7
+owner-reporting migrations remain repository-only. Check current remote history at every future
 rollout; these recorded counts do not authorize another Production mutation or
 deployment.
 
@@ -452,11 +489,11 @@ before the command and require the exact Development ref:
 ```bash
 cat supabase/.temp/project-ref
 # Must print exactly: ekmoiepalelqpmemvrkl
-pnpm dlx supabase@2.113.0 db push --linked --dry-run
+pnpm dlx supabase@2.114.0 db push --linked --dry-run
 
 cat supabase/.temp/project-ref
 # Must print exactly: ekmoiepalelqpmemvrkl
-pnpm dlx supabase@2.113.0 db push --linked
+pnpm dlx supabase@2.114.0 db push --linked
 ```
 
 A missing or different ref is a hard stop. Migration work is forward-only and

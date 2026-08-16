@@ -1,0 +1,77 @@
+import type {
+  OwnerOperationsDashboard,
+  OwnerPortfolioReport,
+} from "./types";
+
+export const emptyOwnerOperationsDashboard: OwnerOperationsDashboard = {
+  deposit_reconciliation: {
+    approved_deduction_total: 0,
+    currency: "PHP",
+    externally_refunded_total: 0,
+    held_liability_total: 0,
+    pending_refund_total: 0,
+    remaining_liability_total: 0,
+    verified_deposit_total: 0,
+  },
+  generated_at: "2026-08-16T12:00:00+08:00",
+  queue_counts: {
+    active_rental: 0,
+    held_deposit: 0,
+    issue_review: 0,
+    payment: 0,
+    pending_refund: 0,
+    pickup: 0,
+    return: 0,
+    review: 0,
+    signature: 0,
+  },
+  queues: {
+    active_rental: [],
+    held_deposit: [],
+    issue_review: [],
+    payment: [],
+    pending_refund: [],
+    pickup: [],
+    return: [],
+    review: [],
+    signature: [],
+  },
+  supporting_queue_counts: { cancellation: 0, identity_review: 0 },
+  supporting_queues: { cancellation: [], identity_review: [] },
+  time_zone: "Asia/Manila",
+};
+export const emptyOwnerPortfolioReport: OwnerPortfolioReport = {
+  cameras: [],
+  methodology: {
+    inventory_window: "camera_created_at_to_archived_at",
+    overlap_rule: "range_union_before_duration",
+    revenue_allocation: "rental_payment_only",
+    revenue_event: "verified_payment_decided_at",
+    utilization_interval: "scheduled_booking_pickup_to_return",
+    utilization_states: [
+      "CONFIRMED",
+      "ACTIVE",
+      "RETURN_REVIEW",
+      "ISSUE_REVIEW",
+      "COMPLETED",
+    ],
+  },
+  period: {
+    bounds: "[)",
+    end_at_exclusive: "2026-08-17T00:00:00+08:00",
+    end_date_exclusive: "2026-08-17",
+    start_at: "2026-08-01T00:00:00+08:00",
+    start_date: "2026-08-01",
+    time_zone: "Asia/Manila",
+  },
+  portfolio: {
+    camera_count: 0,
+    currency: "PHP",
+    inventory_window_seconds: 0,
+    maintenance_seconds: 0,
+    manual_unavailable_seconds: 0,
+    period_net_verified_rental_revenue: 0,
+    rental_utilization_percent: null,
+    rental_utilized_seconds: 0,
+  },
+};

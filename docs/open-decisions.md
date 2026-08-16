@@ -69,6 +69,32 @@ current camera rate and deposit for both quote and approval; callers never suppl
 authoritative days or money. Late-return penalties remain manual and separate
 from the original rental quote.
 
+### OD-05 — Owner portfolio reporting basis
+
+Owner: product/business with accounting review<br>
+Status: approved for the MVP owner report on 2026-08-16<br>
+Unblocks: Sprint 7 issues #78–#86
+
+- Reporting dates are Manila calendar dates and form a half-open interval:
+  start midnight included, end midnight excluded.
+- Period revenue is the signed sum of verified `rental_payment` allocations by
+  immutable payment decision time. Incoming is positive and outgoing is
+  negative. Deposits, deductions, refunds, liabilities, and unverified
+  transactions are excluded.
+- Per-camera revenue is attributed through the immutable booking camera and
+  must sum to the portfolio total for the same period.
+- Rental utilization unions scheduled `[pickup_at, return_at)` intervals for
+  `CONFIRMED`, `ACTIVE`, `RETURN_REVIEW`, `ISSUE_REVIEW`, and `COMPLETED`
+  bookings after intersecting them with the report and camera inventory windows.
+  Each camera denominator is its inventory overlap from `created_at` to
+  `archived_at`; maintenance and manual blocks are reported separately.
+- Acquisition recovery uses lifetime net verified rental revenue. Null or zero
+  acquisition cost is unavailable. Recovered amount and percentage are capped
+  at cost/100%; remaining cost cannot be negative.
+- These are owner-only operational projections, not public catalog fields and
+  not general-ledger or tax statements. Changing recognition or utilization
+  policy requires a reviewed forward migration and matching historical tests.
+
 ## Decisions required before implementation of affected behavior
 
 ### OD-04 — Government-ID evidence policy
@@ -140,10 +166,11 @@ verification, leaving both projects at 11/11 at that checkpoint. On 14 August
 2026, the two catalog migrations were applied and exercised only in Development.
 On 15 August 2026, the Sprint 1 evidence migration was applied to Development
 with its policy disabled and verified with hosted fail-closed and cross-owner
-Storage RLS checks. Development is recorded at 14/20 while Production remains
-at 11/20; the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle,
+Storage RLS checks. Development is recorded at 14/21 while Production remains
+at 11/21; the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle,
 Sprint 4 payment reconciliation, Sprint 5 pickup/active-rental, and Sprint 6
-return/cancellation/resolution migrations are repository-only.
+return/cancellation/resolution and Sprint 7 owner-reporting migrations are
+repository-only.
 Current remote history must still be checked at rollout time.
 Production is not a rollout target without separate explicit authorization.
 
@@ -220,18 +247,18 @@ Approval of this milestone means agreement that:
    are implemented; later paid-rental stages remain gated.
 2. Ignored local CLI metadata links routine hosted work only to the separate
    Development project. Production remains live, isolated, and unlinked.
-3. Nineteen forward migration files translate the approved architecture.
+3. Twenty-one forward migration files translate the approved architecture.
    Production received the four booking-milestone migrations on 13 August 2026
    through a separately authorized database-first rollout. Both projects were
    at 11/11 immediately afterward. The catalog-photo publication and
    unpublished-availability migrations were then applied and exercised only in
    Development on 14 August 2026. The Sprint 1 evidence migration followed in
    Development on 15 August 2026 with its policy disabled, leaving Development
-   recorded at 14/20 and Production at 11/20. The v2 hardening, Sprint 2 review,
+   recorded at 14/21 and Production at 11/21. The v2 hardening, Sprint 2 review,
    Sprint 3 contract lifecycle, Sprint 4 payment reconciliation, and Sprint 5
-   pickup/active-rental and Sprint 6 return/cancellation/resolution migrations
-   remain repository-only. Current remote history remains
-   operational state to verify, not a durable documentation assumption.
+   pickup/active-rental, Sprint 6 return/cancellation/resolution, and Sprint 7
+   owner-reporting migrations remain repository-only. Current remote history
+   remains operational state to verify, not a durable documentation assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
 5. RLS, concurrency, immutability, Storage, advisor, and application

@@ -29,7 +29,7 @@ pnpm db:test:concurrency
 ```
 
 The database command provisions a disposable PostgreSQL 17 cluster, rejects a
-caller-supplied `DATABASE_URL`, replays all twenty migrations, runs every SQL
+caller-supplied `DATABASE_URL`, replays all twenty-one migrations, runs every SQL
 suite including Sprint 6, proves the legacy-history migration guard before any
 old API change, runs existing real-session races plus competing returns, and
 removes the cluster. It cannot target Development or Production.

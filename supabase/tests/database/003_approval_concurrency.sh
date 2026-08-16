@@ -349,6 +349,12 @@ echo "running return, cancellation, and resolution invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/011_return_cancellation_resolution.sql"
 
+echo "running owner operations and portfolio reporting invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/012_owner_operations_portfolio_reporting.sql"
+
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
 

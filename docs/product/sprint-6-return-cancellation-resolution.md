@@ -81,7 +81,7 @@ pnpm build
 pnpm db:test:concurrency
 ```
 
-The PostgreSQL 17 harness replays all twenty forward migrations and every SQL
+The PostgreSQL 17 harness now replays all twenty-one forward migrations and every SQL
 suite in a disposable socket-only cluster, then runs the existing independent
 approval, catalog, verification, contract, payment, pickup, and condition-photo
 races plus a competing-return race. It separately proves unmappable legacy
@@ -122,7 +122,7 @@ terminal/time ordering, balanced allocations, and reversal uniqueness.
 | Generated database API types | #67–#76; synchronize new RPC signatures. | Type-check and CI regeneration path. | REVIEWED_CLEAN |
 | Forward migration `20260816071918_add_audited_return_cancellation_resolution.sql` | #67–#76; authoritative lifecycle, ledgers, RLS, projections, grants. | Full replay, SQL 011, prior suites, grant/audit/accounting review. | REVIEWED_AFTER_FIX |
 | SQL suite `011_return_cancellation_resolution.sql` | #67–#76; direct acceptance evidence. | Passes locally and wired to both database paths. | REVIEWED_AFTER_FIX |
-| Disposable concurrency harness | Consolidated regression; include SQL 011, migration precondition, and return race. | Guard stops before old API change; all twenty migrations/suites and every real-session race pass. | REVIEWED_AFTER_FIX |
+| Disposable concurrency harness | Consolidated regression; include SQL 011, migration precondition, and return race. | Guard stops before old API change; all twenty-one migrations/suites and every real-session race pass. | REVIEWED_AFTER_FIX |
 
 ## Release boundary
 

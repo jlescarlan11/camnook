@@ -339,6 +339,11 @@ export type Database = {
         Returns: Json
       }
       get_my_verification_upload_state: { Args: never; Returns: Json }
+      get_owner_operations_dashboard: { Args: never; Returns: Json }
+      get_owner_portfolio_report: {
+        Args: { p_period_end: string; p_period_start: string }
+        Returns: Json
+      }
       get_payment_accounting_summary: { Args: never; Returns: Json }
       get_payment_audit_history: {
         Args: { p_booking_id: string }

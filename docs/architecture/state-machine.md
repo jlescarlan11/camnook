@@ -167,6 +167,24 @@ facts. `COMPLETED` may retain a pending refund liability. Only after an external
 movement does `record_external_refund()` append the outgoing payment/allocation;
 a correction appends one opposite reversal and restores liability.
 
+## Owner projections and reporting
+
+The owner operations dashboard never creates a transition. It projects current
+state using the database clock and the same authoritative queue predicates as
+the detailed workflows. Physical return work includes `ACTIVE` bookings that
+need a return handoff and `RETURN_REVIEW` bookings that need an inspection
+decision. Held deposits are nonterminal remaining liabilities; pending refunds
+are remaining liabilities on `COMPLETED`, `CANCELLED`, `REJECTED`, or `EXPIRED`
+bookings. A projection failure closes the owner surface instead of showing an
+empty queue.
+
+Portfolio reporting also never changes state. Utilization includes scheduled
+half-open intervals in `CONFIRMED`, `ACTIVE`, `RETURN_REVIEW`, `ISSUE_REVIEW`,
+and `COMPLETED`, intersected with the report and camera inventory windows;
+range union prevents overlaps from counting twice. Revenue comes only from
+signed verified rental allocations. These rules describe a reproducible
+operational report and do not loosen any transition guard.
+
 ## History requirements
 
 Every accepted transition records:
