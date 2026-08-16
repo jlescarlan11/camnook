@@ -13,7 +13,7 @@ The database operation, not the UI, owns authorization, guard evaluation, concur
 
 ```text
 FOR_REVIEW
-  │ admin approves; verification + availability rechecked
+  │ admin approves; active renter + availability rechecked
   │ create block, immutable contract v1, and one 24-hour deadline
   ▼
 CONTRACT_PENDING
@@ -57,7 +57,7 @@ RETURN_REVIEW
 
 | From | To | Actor | Required guards | Atomic effects |
 | --- | --- | --- | --- | --- |
-| `FOR_REVIEW` | `CONTRACT_PENDING` | Admin | Camera published/operable; renter account active; current verification is `verified`; pricing inputs available; no overlapping active block | Lock aggregate; calculate authoritative snapshots; insert exclusion-protected block; set `approved_at` and deadline once; issue contract v1; append history/audit |
+| `FOR_REVIEW` | `CONTRACT_PENDING` | Admin | Camera published/operable; renter account active; pricing inputs available; no overlapping active block | Lock aggregate; calculate authoritative snapshots; insert exclusion-protected block; set `approved_at` and deadline once; issue contract v1; append history/audit |
 | `FOR_REVIEW` | `REJECTED` | Admin | Request still pending | Record reason; append history/audit; no block operation |
 | `FOR_REVIEW` | `CANCELLED` | Renter or admin | Booking belongs to renter; not already being decided | Record/resolve cancellation request; append history; no block operation |
 | `CONTRACT_PENDING` | `TO_PAY` | Renter | Current version; correct renter; valid signature; `now() < approval_deadline_at` | Append immutable signature and transition history; deadline unchanged |
@@ -71,7 +71,7 @@ RETURN_REVIEW
 | `PAYMENT_REVIEW` | `TO_PAY` | Admin | Submission rejected and `now() < approval_deadline_at` | Mark submitted transaction rejected; append reason/history; deadline unchanged |
 | `PAYMENT_REVIEW` | `EXPIRED` | Admin | Submission rejected and `now() >= approval_deadline_at` | Mark rejected; release block; append history/audit |
 | `PAYMENT_REVIEW` | `CANCELLED` | Admin | Exceptional cancellation is authorized and financial follow-up is recorded | Release block; append history; preserve submitted transaction |
-| `CONFIRMED` | `ACTIVE` | Admin | Named renter present; original ID checked and matches verified account/contract; camera serial and inclusions checked; pickup condition report complete | Insert pickup handoff/report; append history/audit |
+| `CONFIRMED` | `ACTIVE` | Admin | Named renter present; original current ID checked in person and name/photo match the contract renter; camera serial and inclusions checked; pickup condition report complete | Insert pickup handoff/report without retaining ID details; append history/audit |
 | `CONFIRMED` | `CANCELLED` | Admin | Pre-pickup cancellation; any verified incoming funds and refund liability remain recorded | Release block; create refund work item/settlement as applicable; append history |
 | `ACTIVE` | `RETURN_REVIEW` | Admin | Physical return recorded with actual time, checklist, condition, damage/missing indicators, and required evidence | Insert return handoff/report; append history |
 | `RETURN_REVIEW` | `COMPLETED` | Admin | Clear inspection; deposit settlement is at least recorded as pending/final | Release block; append history; financial refund may remain pending outside booking state |
@@ -98,7 +98,7 @@ The last item is the deterministic interpretation of `DEADLINE-05`. Although the
 Approval never relies on a prior calendar read. The transaction:
 
 1. locks the booking row and confirms `FOR_REVIEW`;
-2. validates camera and renter/verification state;
+2. validates camera and active renter state;
 3. reads current authoritative camera/pricing inputs;
 4. creates contract and deadline data;
 5. inserts the active `[pickup_at, return_at)` block; and
@@ -143,11 +143,11 @@ This is an implementation blocker for post-submission amendments, not for the ba
 `complete_pickup()` locks the booking and refuses the transition unless every
 `HANDOFF-01` boolean is true, the written condition report is valid, the
 observed serial and complete accessory UUID set match the current issued
-contract snapshot, the latest verification is current on the actual Manila
-pickup date and operation date, the profile is active, the renter signed the
-current contract, and the current verified incoming payment has exactly two
-balanced allocations. The operation records those evidence references and an
-idempotency UUID. The handoff/report/history/audit and `ACTIVE` state commit
+contract snapshot, the profile is active, the renter signed the current
+contract, and the current verified incoming payment has exactly two balanced
+allocations. It records only that the named renter was present and an original
+ID was checked and matched; it never stores the ID copy, number, type, or expiry.
+The operation records an idempotency UUID. The handoff/report/history/audit and `ACTIVE` state commit
 together; a competing operation receives a stale outcome and writes nothing.
 
 `record_return()` captures the actual time, observed serial, written condition,

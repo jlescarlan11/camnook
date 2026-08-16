@@ -7,9 +7,9 @@ export const pickupEligibilitySchema = z
     booking_confirmed: z.boolean(),
     contract_current_signed: z.boolean(),
     eligible: z.boolean(),
+    in_person_identity_check_required: z.literal(true),
     payment_verified: z.boolean(),
     profile_active: z.boolean(),
-    verification_current: z.boolean(),
   })
   .strict();
 
@@ -36,6 +36,7 @@ export const pickupQueueSchema = z.array(
       accessory_count: z.number().int().nonnegative(),
       booking_id: z.uuid(),
       camera_name: z.string().min(1),
+      identity_check_mode: z.literal("original_id_in_person_no_copy"),
       pickup_at: z.string().min(1),
       readiness: pickupEligibilitySchema,
       renter_legal_name: z.string().min(1),
@@ -48,7 +49,6 @@ export const pickupQueueSchema = z.array(
         z.literal("condition_report_complete"),
       ]),
       return_at: z.string().min(1),
-      verification_expiration_date: z.string().min(1),
     })
     .strict(),
 );
@@ -75,12 +75,11 @@ export const pickupDetailSchema = z
       .strict()
       .nullable(),
     renter_legal_name: z.string().min(1),
-    verification: z
+    identity_check: z
       .object({
-        document_expiration_date: z.string().nullable(),
-        id_type: z.string().min(1),
-        record_id: z.uuid(),
-        status: z.string().min(1),
+        mode: z.literal("original_id_in_person_no_copy"),
+        retains_id_copy: z.literal(false),
+        retains_id_number: z.literal(false),
       })
       .strict(),
   })

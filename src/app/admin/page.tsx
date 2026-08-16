@@ -71,15 +71,16 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
         <section
           className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950"
-          aria-labelledby="closed-gates-heading"
+          aria-labelledby="operating-controls-heading"
         >
-          <h2 className="font-semibold" id="closed-gates-heading">
-            Launch gates remain closed
+          <h2 className="font-semibold" id="operating-controls-heading">
+            Production operating controls
           </h2>
           <p className="mt-1">
-            This owner surface does not authorize Production identity collection,
-            payment enablement, handoff, refunds, public launch, or any other
-            unresolved operational approval. It reports only committed records.
+            Government-ID uploads are disabled. Booking approval does not require
+            online KYC; the named renter and original ID are checked physically at
+            pickup without retaining an ID image or number. This surface reports
+            committed records and keeps money and handoff mutations audited.
           </p>
         </section>
 

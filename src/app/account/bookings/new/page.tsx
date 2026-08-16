@@ -77,7 +77,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
           <>
             <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="fresh-quote-heading">
               <h2 className="text-2xl font-semibold" id="fresh-quote-heading">Fresh authoritative estimate</h2>
-              <p className="mt-2 text-sm leading-6 text-stone-600">{camera.name}. This estimate does not reserve inventory; approval remains subject to verification and availability.</p>
+              <p className="mt-2 text-sm leading-6 text-stone-600">{camera.name}. This estimate does not reserve inventory; approval remains subject to availability. The named renter shows an original ID in person at pickup.</p>
               <dl className="mt-5 grid gap-3 sm:grid-cols-2">
                 <ReviewValue label="Pickup (Asia/Manila)" value={formatManilaDateTime(quote.pickupAt)} />
                 <ReviewValue label="Return (Asia/Manila)" value={formatManilaDateTime(quote.returnAt)} />

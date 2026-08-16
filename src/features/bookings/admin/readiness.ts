@@ -14,10 +14,7 @@ export type ApprovalReadinessReason =
   | "profile_inactive"
   | "quote_unavailable"
   | "template_invalid"
-  | "template_unavailable"
-  | "verification_expired"
-  | "verification_missing"
-  | "verification_not_verified";
+  | "template_unavailable";
 
 export type ApprovalReadinessInput = {
   availability: { endsAt: string; startsAt: string }[];
@@ -26,10 +23,6 @@ export type ApprovalReadinessInput = {
     dailyRate: number | null;
     publishedAt: string | null;
     securityDeposit: number | null;
-    status: string;
-  } | null;
-  latestVerification: {
-    documentExpirationDate: string | null;
     status: string;
   } | null;
   now: Date;
@@ -42,23 +35,6 @@ export type ApprovalReadinessInput = {
     terms: unknown;
   } | null;
 };
-
-const manilaDateFormatter = new Intl.DateTimeFormat("en-CA", {
-  day: "2-digit",
-  month: "2-digit",
-  timeZone: "Asia/Manila",
-  year: "numeric",
-});
-
-export function manilaBusinessDate(now: Date) {
-  const parts = Object.fromEntries(
-    manilaDateFormatter
-      .formatToParts(now)
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
 
 function templateHasRequiredTerms(terms: unknown) {
   if (typeof terms !== "object" || terms === null || Array.isArray(terms)) {
@@ -84,18 +60,6 @@ export function assessApprovalReadiness(input: ApprovalReadinessInput) {
   const reasons: ApprovalReadinessReason[] = [];
 
   if (input.profileStatus !== "active") reasons.push("profile_inactive");
-
-  if (!input.latestVerification) {
-    reasons.push("verification_missing");
-  } else if (input.latestVerification.status !== "verified") {
-    reasons.push("verification_not_verified");
-  } else if (
-    !input.latestVerification.documentExpirationDate ||
-    input.latestVerification.documentExpirationDate <
-      manilaBusinessDate(input.now)
-  ) {
-    reasons.push("verification_expired");
-  }
 
   if (
     !input.camera ||

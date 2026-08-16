@@ -106,11 +106,6 @@ describe("admin decision control presentation", () => {
       "alert",
     ],
     [
-      { action: "approve", category: "verification_invalid" as const, status: "error" as const },
-      "The renter’s latest verification is not valid for approval.",
-      "alert",
-    ],
-    [
       { action: "approve", category: "camera_unavailable" as const, status: "error" as const },
       "The camera is not currently available for approval.",
       "alert",

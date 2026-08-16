@@ -417,10 +417,15 @@ begin
   if jsonb_array_length(queue) <> 1
     or queue #>> '{0,booking_id}' <> '80500000-0000-4000-8000-000000000001'
     or not (queue #>> '{0,readiness,eligible}')::boolean
+    or queue #>> '{0,identity_check_mode}' <> 'original_id_in_person_no_copy'
+    or not (queue #>> '{0,readiness,in_person_identity_check_required}')::boolean
     or jsonb_array_length(queue #> '{0,required_checks}') <> 6
-    or queue::text ~ 'PRIVATE-PICKUP-SERIAL|object_path|sha256|\+6394|total_due|rental_amount'
+    or queue::text ~ 'verification|PRIVATE-PICKUP-SERIAL|object_path|sha256|\+6394|total_due|rental_amount'
     or detail #>> '{accessories,0,name}' <> 'Battery'
-    or detail::text ~ 'replacement_value|PRIVATE-PICKUP-SERIAL|object_path|sha256|\+6394|total_due|rental_amount'
+    or detail #>> '{identity_check,mode}' <> 'original_id_in_person_no_copy'
+    or (detail #>> '{identity_check,retains_id_copy}')::boolean
+    or (detail #>> '{identity_check,retains_id_number}')::boolean
+    or detail::text ~ 'verification|replacement_value|PRIVATE-PICKUP-SERIAL|object_path|sha256|\+6394|total_due|rental_amount'
   then
     raise exception 'pickup queue/detail eligibility or minimization is incorrect';
   end if;
@@ -574,7 +579,7 @@ begin
       from public.handoffs
       where booking_id = '80500000-0000-4000-8000-000000000001'
         and operation_id = '80800000-0000-4000-8000-000000000004'
-        and verification_record_id = '80100000-0000-4000-8000-000000000001'
+        and verification_record_id is null
         and contract_version_id = '80600000-0000-4000-8000-000000000001'
         and payment_transaction_id = '80700000-0000-4000-8000-000000000001'
     )

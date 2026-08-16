@@ -1,34 +1,39 @@
 # Production Launch Control and First-Day Audit
 
-Status: Sprint 8 evidence frozen on 2026-08-16; public paid-rental lifecycle
-decision is **NO_GO**. Existing Production registration and the approved public
-catalog remain live. No deployment, migration, hosted Auth change, catalog
-mutation, session mutation, or policy activation was performed by this audit.
+Status: 16 August 2026 launch remediation in progress. Production is at 21/22
+migrations; migration 22, free Resend SMTP, and the exact Git-linked deployment
+are applied by this release. The machine evidence remains authoritative until
+the post-release decision is frozen.
+
+A reviewed merge to `main` authorizes that revision's forward schema migrations.
+Successful CI triggers the automatic Development rollout and hosted checks; only
+that successful automatic run can trigger Production migration of the exact
+same Git SHA. The owner separately authorized the hosted Auth change, deployment,
+and public launch in this task. Online government-ID collection is retired and
+must remain disabled.
 
 ## Scope and authority boundary
 
-This is the coordinating runbook for issues #88–#96. It composes the already
-completed public-registration and catalog controls with the repository-only
-contract, payment, pickup, return, resolution, and owner-reporting work. Closing
-the Sprint 8 coordination issues records evidence and a release decision; it is
-not authorization to deploy, migrate, change hosted settings, publish/archive
-data, revoke sessions, or enable government-ID collection.
+This runbook composes the public-registration and catalog controls with the
+contract, payment, pickup, return, resolution, and owner-reporting lifecycle.
+It records the exact release evidence and forward-only recovery boundary.
 
 The current boundary is deliberately split:
 
 - Production public email registration, OTP confirmation, Managed Turnstile,
   the Canon EOS R50 catalog, public quote, and `FOR_REVIEW` booking request were
   separately authorized and validated on 15 August 2026.
-- Production currently has 13 applied migrations. The repository has 21. The
-  verification, contract, payment, pickup, return/resolution, and owner-report
-  migrations remain undeployed.
-- Government-ID collection remains disabled. Public paid-rental activation is
-  blocked by open legal/privacy issue #26 and missing contract, tax/business,
-  operations, and security/recovery approvals.
+- Production has the first 21 migrations after the authorized remediation run;
+  the repository has 22 with the in-person identity replacement.
+- Government-ID collection remains disabled. The owner approved the minimized
+  Philippine-law physical-check policy and the contract, business, operations,
+  release, and security/recovery sign-offs on 16 August 2026 without claiming
+  outside-counsel or accounting review.
 
 Never run `supabase db reset --linked` or `supabase config push`. Production
-must remain unlinked for routine local work. A future Production operation must
-have a new, immediate, explicit authorization and must name the exact target.
+must remain unlinked for routine local work. The automated workflow binds the
+Production project ref and exact Development-verified revision; other Production
+operations still require explicit authorization and an exact target.
 
 ## Machine-checked evidence bundle
 
@@ -48,10 +53,9 @@ pnpm launch:require-go
 ```
 
 `launch:verify` succeeds only when the evidence structure, ordered migration
-prefix, privacy scan, declared decision, and computed blockers agree. The
-frozen Sprint 8 bundle correctly verifies as `NO_GO`. `launch:require-go`
-returns a non-zero exit until all blockers are removed in a fresh evidence
-bundle. Never suppress that exit code in a release workflow.
+prefix, privacy scan, declared decision, and computed blockers agree.
+`launch:require-go` returns a non-zero exit until all blockers are removed in
+fresh post-release evidence. Never suppress that exit code in a release workflow.
 
 The evidence format rejects fields or values that look like renter email/phone,
 OTP/session material, provider credentials, service-role keys, CAPTCHA
@@ -82,8 +86,8 @@ all of these facts from the same approved window:
 8. admission and catalog rollback inputs, with each recovery mutation requiring
    its own authority; and
 9. approved release-owner, legal/privacy, contract-legal, tax/business,
-   operations, and security/recovery sign-offs, plus the authorized active
-   government-ID policy needed by the MVP verification/approval path.
+   operations, and security/recovery sign-offs, plus proof that online ID
+   collection is disabled and the in-person pickup check is required.
 
 Missing, stale, contradictory, or indeterminate evidence is a `NO_GO`; it is
 never rounded up to acceptance.
@@ -113,16 +117,18 @@ and SMTP-provider capacity without weakening abuse controls.
 
 ## Ordered activation and smoke
 
-No step below is currently authorized. During a future approved window:
+During the owner-authorized release window:
 
 1. Freeze the before-state evidence while Production remains unchanged. Require
-   `launch:verify` to pass and record its decision/blockers. Production mutations
-   still require the separate approved window; do not relabel a before-state
-   `NO_GO` as authorization.
+   `launch:verify` to pass and record its decision/blockers. Forward schema
+   migration authorization comes from the reviewed `main` merge; hosted setting,
+   data, runtime-policy, and deployment mutations still require the separate
+   approved window. Do not relabel a before-state `NO_GO` as launch authorization.
 2. Prove the existing renter and sole admin can authenticate. Require one
    canonical admin record and correct protected-route ownership/role checks.
-3. Apply only the reviewed forward migration set through the protected manual
-   workflow. Re-read the exact target and remote history before and after.
+3. Confirm the automatic Production workflow applied the exact
+   Development-verified `main` SHA after its dry run, and reconcile the remote
+   history before and after. Do not substitute a local manual migration.
 4. Deploy/promote the exact reviewed commit with the Production public
    Turnstile site key while preserving the hosted app/CAPTCHA pairing.
 5. Re-prove existing-account access before any admission change. Configure and
@@ -200,3 +206,25 @@ The evidence-backed decision is therefore **NO_GO** for the public paid-rental
 lifecycle. The audit left Production unchanged: existing registration and the
 approved catalog remain available, repository-only paid lifecycle code remains
 undeployed, and government-ID collection remains disabled.
+
+## 2026-08-16 remediation decision
+
+The owner explicitly authorized remediation and launch after the frozen audit:
+
+- Production migrations 14–21 were applied and their history verified;
+- the pgTAP-dependent hosted assertion was replaced with a plain SQL check so
+  Production validation does not require an optional extension;
+- Vercel was reconnected to the GitHub repository because the missing project
+  link—not a failed merge—caused the deployed-commit drift;
+- migration 22 removes the online-verification prerequisite and requires only a
+  physical original-ID check at pickup, without retaining ID details;
+- existing Resend credentials are reused for free custom SMTP;
+- leaked-password screening is not applicable to the app's passwordless OTP
+  surface, while a 15-character hosted minimum remains defense in depth; and
+- the owner approved the contract, privacy, tax/business, operations, release,
+  and security/recovery states for the MVP, without representing that outside
+  legal or accounting counsel reviewed them.
+
+The final decision is written only after the exact merge commit is deployed,
+migration 22 is present in both hosted projects, Production Auth is verified,
+the public surface is healthy, and `launch:require-go` passes.

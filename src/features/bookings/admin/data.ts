@@ -14,8 +14,6 @@ export const ADMIN_DETAIL_BOOKING_COLUMNS =
   "id,renter_id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id";
 export const ADMIN_PROFILE_COLUMNS =
   "user_id,legal_name,phone,account_status";
-export const ADMIN_VERIFICATION_COLUMNS =
-  "id,status,id_type,document_expiration_date,submitted_at,decided_at";
 export const ADMIN_CAMERA_COLUMNS =
   "id,slug,name,status,published_at,daily_rate,security_deposit";
 export const ADMIN_ACCESSORY_COLUMNS = "id,name,quantity,sort_position";
@@ -65,14 +63,6 @@ type CameraRow = {
   security_deposit: number | null;
   slug: string;
   status: string;
-};
-
-type VerificationRow = {
-  decided_at: string | null;
-  document_expiration_date: string | null;
-  id_type: string;
-  status: string;
-  submitted_at: string;
 };
 
 type AccessoryRow = {
@@ -263,7 +253,6 @@ export async function loadAdminBookingDetail(
 
   const [
     profileResult,
-    verificationResult,
     cameraResult,
     accessoriesResult,
     availabilityResult,
@@ -273,14 +262,6 @@ export async function loadAdminBookingDetail(
       .from("profiles")
       .select(ADMIN_PROFILE_COLUMNS)
       .eq("user_id", booking.renter_id)
-      .maybeSingle(),
-    context.supabase
-      .from("verification_records")
-      .select(ADMIN_VERIFICATION_COLUMNS)
-      .eq("user_id", booking.renter_id)
-      .order("submitted_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(1)
       .maybeSingle(),
     context.supabase
       .from("cameras")
@@ -313,7 +294,6 @@ export async function loadAdminBookingDetail(
 
   if (
     profileResult.error ||
-    verificationResult.error ||
     cameraResult.error ||
     accessoriesResult.error ||
     availabilityResult.error ||
@@ -323,8 +303,6 @@ export async function loadAdminBookingDetail(
   }
 
   const profile = (profileResult.data as ProfileRow | null) ?? null;
-  const verification =
-    (verificationResult.data as VerificationRow | null) ?? null;
   const camera = (cameraResult.data as CameraRow | null) ?? null;
   const accessories = (accessoriesResult.data ?? []) as AccessoryRow[];
   const availability = sanitizedAvailability(
@@ -393,12 +371,6 @@ export async function loadAdminBookingDetail(
           status: camera.status,
         }
       : null,
-    latestVerification: verification
-      ? {
-          documentExpirationDate: verification.document_expiration_date,
-          status: verification.status,
-        }
-      : null,
     now,
     profileStatus: profile?.account_status ?? null,
     quote,
@@ -435,15 +407,6 @@ export async function loadAdminBookingDetail(
       expectedLocation: booking.expected_location,
       id: booking.id,
       intendedUse: booking.intended_use,
-      latestVerification: verification
-        ? {
-            decidedAt: verification.decided_at,
-            documentExpirationDate: verification.document_expiration_date,
-            idType: verification.id_type,
-            status: verification.status,
-            submittedAt: verification.submitted_at,
-          }
-        : null,
       pickupAt: booking.pickup_at,
       profile: profile
         ? {

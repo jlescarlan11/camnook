@@ -42,19 +42,19 @@ describe("pickup data loaders", () => {
         booking_id: BOOKING_ID,
         camera_name: "Camera",
         camera_serial: "PRIVATE-SERIAL",
+        identity_check_mode: "original_id_in_person_no_copy",
         pickup_at: "2026-08-16T02:00:00Z",
         readiness: {
           booking_confirmed: true,
           contract_current_signed: true,
           eligible: true,
+          in_person_identity_check_required: true,
           payment_verified: true,
           profile_active: true,
-          verification_current: true,
         },
         renter_legal_name: "Renter",
         required_checks: [],
         return_at: "2026-08-18T02:00:00Z",
-        verification_expiration_date: "2027-08-16",
       },
     ]);
     const activeApi = contextWith([

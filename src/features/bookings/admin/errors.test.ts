@@ -41,7 +41,6 @@ describe("admin booking decision error mapping", () => {
     ["P0002", "approval_booking_not_found", "not_found"],
     ["P0001", "approval_stale_booking_state", "stale"],
     ["22023", "approval_profile_inactive", "profile_inactive"],
-    ["22023", "approval_verification_invalid", "verification_invalid"],
     ["22023", "approval_camera_unavailable", "camera_unavailable"],
     ["22023", "approval_template_unavailable", "template_unavailable"],
     ["22023", "approval_template_invalid", "template_invalid"],

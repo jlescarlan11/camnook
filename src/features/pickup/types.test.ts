@@ -9,15 +9,13 @@ import {
 
 const BOOKING_ID = "81000000-0000-4000-8000-000000000001";
 const ACCESSORY_ID = "81000000-0000-4000-8000-000000000002";
-const VERIFICATION_ID = "81000000-0000-4000-8000-000000000003";
-
 const eligibility = {
   booking_confirmed: true,
   contract_current_signed: true,
   eligible: true,
+  in_person_identity_check_required: true,
   payment_verified: true,
   profile_active: true,
-  verification_current: true,
 };
 
 describe("pickup projection schemas", () => {
@@ -27,6 +25,7 @@ describe("pickup projection schemas", () => {
         accessory_count: 1,
         booking_id: BOOKING_ID,
         camera_name: "Camera",
+        identity_check_mode: "original_id_in_person_no_copy",
         pickup_at: "2026-08-16T02:00:00Z",
         readiness: eligibility,
         renter_legal_name: "Named Renter",
@@ -39,7 +38,6 @@ describe("pickup projection schemas", () => {
           "condition_report_complete",
         ],
         return_at: "2026-08-18T02:00:00Z",
-        verification_expiration_date: "2027-08-16",
       },
     ];
     const detail = {
@@ -48,13 +46,12 @@ describe("pickup projection schemas", () => {
       booking_state: "CONFIRMED",
       eligibility,
       handoff: null,
-      renter_legal_name: "Named Renter",
-      verification: {
-        document_expiration_date: "2027-08-16",
-        id_type: "passport",
-        record_id: VERIFICATION_ID,
-        status: "verified",
+      identity_check: {
+        mode: "original_id_in_person_no_copy",
+        retains_id_copy: false,
+        retains_id_number: false,
       },
+      renter_legal_name: "Named Renter",
     };
 
     expect(pickupQueueSchema.safeParse(queue).success).toBe(true);

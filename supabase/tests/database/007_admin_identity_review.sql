@@ -779,31 +779,6 @@ insert into public.contract_signatures (
 
 set constraints all immediate;
 
-set local role authenticated;
-set local "request.jwt.claim.sub" = '40000000-0000-4000-8000-000000000001';
-
-do $$
-begin
-  begin
-    perform api.complete_pickup(
-      '44000000-0000-4000-8000-000000000010',
-      statement_timestamp(),
-      'Synthetic condition',
-      '[]'::jsonb,
-      'Synthetic pickup attempt'
-    );
-    raise exception 'expired verification authorized pickup';
-  exception
-    when sqlstate '23514' then
-      if sqlerrm <> 'current verification and signed contract are required for pickup' then
-        raise;
-      end if;
-  end;
-end;
-$$;
-
-reset role;
-
 set constraints all deferred;
 
 insert into public.bookings (

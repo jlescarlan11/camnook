@@ -698,14 +698,6 @@ begin
   end;
 
   begin
-    perform api.approve_booking('14000000-0000-4000-8000-000000000002');
-    raise exception 'approval with expired verification was accepted';
-  exception
-    when sqlstate '22023' then
-      if sqlerrm <> 'approval_verification_invalid' then raise; end if;
-  end;
-
-  begin
     perform api.approve_booking('14000000-0000-4000-8000-000000000003');
     raise exception 'approval of a draft camera was accepted';
   exception
@@ -721,76 +713,10 @@ begin
       if sqlerrm <> 'approval_profile_inactive' then raise; end if;
   end;
 
-  begin
-    perform api.approve_booking('14000000-0000-4000-8000-000000000006');
-    raise exception 'approval without verification was accepted';
-  exception
-    when sqlstate '22023' then
-      if sqlerrm <> 'approval_verification_invalid' then raise; end if;
-  end;
-
-  begin
-    perform api.approve_booking('14000000-0000-4000-8000-000000000007');
-    raise exception 'approval bypassed a newer rejected verification decision';
-  exception
-    when sqlstate '22023' then
-      if sqlerrm <> 'approval_verification_invalid' then raise; end if;
-  end;
-
-  begin
-    perform api.approve_booking('14000000-0000-4000-8000-000000000008');
-    raise exception 'approval bypassed a newer explicit expired verification decision';
-  exception
-    when sqlstate '22023' then
-      if sqlerrm <> 'approval_verification_invalid' then raise; end if;
-  end;
 end;
 $$;
 
 reset role;
-
-do $$
-begin
-  if exists (
-    select 1
-    from public.bookings
-    where id in (
-      '14000000-0000-4000-8000-000000000007',
-      '14000000-0000-4000-8000-000000000008'
-    )
-      and (
-        state <> 'FOR_REVIEW'
-        or approved_at is not null
-        or approval_deadline_at is not null
-        or approved_by is not null
-        or billable_days_snapshot is not null
-        or daily_rate_snapshot is not null
-        or rental_amount is not null
-        or security_deposit_amount is not null
-        or current_contract_version_id is not null
-      )
-  )
-    or exists (
-      select 1
-      from public.contract_versions
-      where booking_id in (
-        '14000000-0000-4000-8000-000000000007',
-        '14000000-0000-4000-8000-000000000008'
-      )
-    )
-    or exists (
-      select 1
-      from public.availability_blocks
-      where booking_id in (
-        '14000000-0000-4000-8000-000000000007',
-        '14000000-0000-4000-8000-000000000008'
-      )
-    )
-  then
-    raise exception 'current-verification guard left a partial approval aggregate';
-  end if;
-end;
-$$;
 
 do $$
 begin

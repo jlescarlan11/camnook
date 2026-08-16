@@ -23,7 +23,7 @@ function completionError(error: PickupCompletionActionState["error"]) {
     case "stale":
       return "Another operation changed this booking. Refresh its persisted state.";
     case "blocked":
-      return "Pickup is blocked because an authoritative identity, contract, payment, serial, or checklist fact no longer matches.";
+      return "Pickup is blocked because an authoritative renter, contract, payment, serial, or checklist fact no longer matches.";
     case "invalid":
       return "Review every required pickup field and try again.";
     default:
@@ -63,7 +63,7 @@ export function PickupControls({
       <section className="mt-8 border-t border-stone-200 pt-7" aria-labelledby="pickup-checklist-heading">
         <h2 className="text-xl font-semibold" id="pickup-checklist-heading">Complete pickup checklist</h2>
         <p className="mt-2 text-sm leading-6 text-stone-600">
-          The database locks this booking and rechecks current identity, signed contract,
+          The database locks this booking and rechecks the active renter, signed contract,
           verified payment, observed serial, every inclusion, and the written report before ACTIVE.
         </p>
         {!pickup.eligibility.eligible ? (
@@ -80,10 +80,10 @@ export function PickupControls({
 
           <fieldset className="space-y-3 rounded-2xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Named renter and original ID</legend>
-            <p className="text-sm text-stone-600">Expected renter: {pickup.renter_legal_name}. Current verified {pickup.verification.id_type} expires {pickup.verification.document_expiration_date}.</p>
+            <p className="text-sm text-stone-600">Expected renter: {pickup.renter_legal_name}. Inspect one original current government ID in person. Do not photograph it or record its number, type, or expiry.</p>
             <Checklist name="namedRenter" value="confirmed-named-renter">The named contract renter is physically present; no representative or substitute is collecting.</Checklist>
             <Checklist name="originalIdChecked" value="confirmed-original-id">I inspected the original physical ID.</Checklist>
-            <Checklist name="originalIdMatched" value="confirmed-id-match">The original ID matches the named renter and current verified identity.</Checklist>
+            <Checklist name="originalIdMatched" value="confirmed-id-match">The original ID photo and name match the physically present named renter.</Checklist>
           </fieldset>
 
           <div>

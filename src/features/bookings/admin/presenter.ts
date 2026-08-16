@@ -37,8 +37,6 @@ const categoryMessages = {
     "No active approved contract template is available. Approval remains blocked.",
   unauthorized:
     "Administrator authorization is required. No decision was applied.",
-  verification_invalid:
-    "The renter’s latest verification is not valid for approval.",
 } as const;
 
 export function decisionControlPresentation(

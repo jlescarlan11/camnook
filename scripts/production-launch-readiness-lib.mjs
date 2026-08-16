@@ -1,6 +1,6 @@
 export const PRODUCTION_PROJECT_REF = "iegcixcevvkryfwfotqz";
 export const PRODUCTION_APPLICATION_URL = "https://camnook.shop";
-export const EVIDENCE_SCHEMA_VERSION = 1;
+export const EVIDENCE_SCHEMA_VERSION = 2;
 
 export const REQUIRED_SIGNOFFS = [
   "contract_legal",
@@ -26,6 +26,11 @@ const SENSITIVE_VALUE_PATTERNS = [
   { label: "provider secret", pattern: /\b(?:sb_secret_|sk_live_|whsec_)[A-Za-z0-9_-]+\b/i },
   { label: "Philippine phone number", pattern: /(?:\+?63|0)9\d{9}\b/ },
 ];
+const SAFE_PASSWORD_EVIDENCE_KEYS = new Set([
+  "leakedPasswordProtectionEnabled",
+  "passwordAuthenticationUsedByApplication",
+  "passwordMinimumLength",
+]);
 
 export class LaunchReadinessError extends Error {
   constructor(message) {
@@ -110,7 +115,7 @@ function scanSensitiveValues(value, path = "evidence") {
 
   if (isPlainObject(value)) {
     for (const [key, child] of Object.entries(value)) {
-      if (key !== "leakedPasswordProtectionEnabled" && SENSITIVE_KEY_PATTERN.test(key)) {
+      if (!SAFE_PASSWORD_EVIDENCE_KEYS.has(key) && SENSITIVE_KEY_PATTERN.test(key)) {
         fail(`${path}.${key} is a forbidden sensitive evidence field.`);
       }
       scanSensitiveValues(child, `${path}.${key}`);
@@ -167,6 +172,8 @@ function validateAuth(auth) {
     "leakedPasswordProtectionEnabled",
     "otpDigits",
     "otpExpirySeconds",
+    "passwordAuthenticationUsedByApplication",
+    "passwordMinimumLength",
     "protectedRouteAuthorization",
     "signupEnabled",
     "signupEnabledLastAtActivation",
@@ -184,6 +191,11 @@ function validateAuth(auth) {
   requireInteger(auth.otpExpirySeconds, "auth.otpExpirySeconds", { minimum: 1 });
   requireBoolean(auth.customSmtpEnabled, "auth.customSmtpEnabled");
   requireBoolean(auth.leakedPasswordProtectionEnabled, "auth.leakedPasswordProtectionEnabled");
+  requireBoolean(
+    auth.passwordAuthenticationUsedByApplication,
+    "auth.passwordAuthenticationUsedByApplication",
+  );
+  requireInteger(auth.passwordMinimumLength, "auth.passwordMinimumLength", { minimum: 1 });
   requireInteger(auth.emailSendLimitPerHour, "auth.emailSendLimitPerHour", { minimum: 1 });
   requireInteger(auth.verificationLimitPerFiveMinutes, "auth.verificationLimitPerFiveMinutes", {
     minimum: 1,
@@ -491,7 +503,8 @@ function validateStructure(evidence, repositoryMigrations) {
 
   const failClosed = requireObject(evidence.failClosed, "failClosed");
   requireExactKeys(failClosed, "failClosed", [
-    "governmentIdPolicyEnabled",
+    "inPersonIdentityCheckRequired",
+    "onlineGovernmentIdCollectionDisabled",
     "paidLifecycleChangeApplied",
     "productionStateChangedByAudit",
   ]);
@@ -500,7 +513,14 @@ function validateStructure(evidence, repositoryMigrations) {
     failClosed.productionStateChangedByAudit,
     "failClosed.productionStateChangedByAudit",
   );
-  requireBoolean(failClosed.governmentIdPolicyEnabled, "failClosed.governmentIdPolicyEnabled");
+  requireBoolean(
+    failClosed.inPersonIdentityCheckRequired,
+    "failClosed.inPersonIdentityCheckRequired",
+  );
+  requireBoolean(
+    failClosed.onlineGovernmentIdCollectionDisabled,
+    "failClosed.onlineGovernmentIdCollectionDisabled",
+  );
 
   requireStringArray(evidence.followUps, "followUps");
   requireStringArray(evidence.sources, "sources");
@@ -544,7 +564,8 @@ function computeBlockers(evidence, repositoryMigrations) {
   );
   add(!evidence.auth.customSmtpEnabled, "CUSTOM_SMTP_DISABLED");
   add(
-    !evidence.auth.leakedPasswordProtectionEnabled,
+    evidence.auth.passwordAuthenticationUsedByApplication &&
+      !evidence.auth.leakedPasswordProtectionEnabled,
     "LEAKED_PASSWORD_PROTECTION_DISABLED",
   );
   add(
@@ -578,6 +599,7 @@ function computeBlockers(evidence, repositoryMigrations) {
       !evidence.auth.emailConfirmationEnabled ||
       evidence.auth.otpDigits !== 6 ||
       evidence.auth.otpExpirySeconds !== 900 ||
+      evidence.auth.passwordMinimumLength < 15 ||
       evidence.auth.existingAdminSignIn !== "PASS" ||
       evidence.auth.existingRenterContinuity !== "PASS" ||
       evidence.auth.protectedRouteAuthorization !== "PASS" ||
@@ -628,18 +650,17 @@ export function evaluateLaunchReadiness(evidence, { repositoryMigrations }) {
   }
   if (
     decision === "NO_GO" &&
-    (evidence.failClosed.paidLifecycleChangeApplied ||
-      evidence.failClosed.productionStateChangedByAudit ||
-      evidence.failClosed.governmentIdPolicyEnabled)
+    evidence.failClosed.productionStateChangedByAudit
   ) {
-    fail("a NO_GO audit must prove that Production remained fail-closed and unchanged.");
+    fail("a NO_GO audit must prove that the audit itself did not mutate Production.");
   }
   if (
     decision === "GO" &&
     (!evidence.failClosed.paidLifecycleChangeApplied ||
-      !evidence.failClosed.governmentIdPolicyEnabled)
+      !evidence.failClosed.onlineGovernmentIdCollectionDisabled ||
+      !evidence.failClosed.inPersonIdentityCheckRequired)
   ) {
-    fail("a GO audit must prove the authorized paid lifecycle and ID policy are active.");
+    fail("a GO audit must prove the paid lifecycle and minimized in-person identity control are active.");
   }
 
   return {
