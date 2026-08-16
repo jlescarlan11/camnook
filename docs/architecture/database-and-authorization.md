@@ -243,8 +243,18 @@ The block covers the approved scheduled interval. A late physical return is reco
 
 `public.booking_cancellation_requests`
 
-- `id` PK, booking ID, requester, reason, requested time, disposition (`pending`, `accepted`, `declined`), decision actor/time, and note.
-- A renter creates only for their booking. Acceptance and `CANCELLED` transition occur atomically; declined requests remain as history.
+- `id` PK, booking ID, requester, reason, requested time, operation UUID,
+  disposition (`pending`, `accepted`, `declined`), decision actor/time, and note.
+- A renter creates only for an owned eligible pre-pickup booking. A request does
+  not transition state. An admin decision updates its projection only after an
+  immutable decision row is inserted.
+
+`public.cancellation_decisions`
+
+- Append-only one-per-request decision with booking/state-at-decision, outcome,
+  explicit fee/refund-liability amounts, reason, actor/time, and operation UUID.
+- Current policy allows accepted zero-amount decisions only from `FOR_REVIEW`,
+  `CONTRACT_PENDING`, and `TO_PAY`; paid/submitted acceptance fails closed.
 
 ### Immutable contracts
 
@@ -291,7 +301,10 @@ The proposed model deliberately omits a redundant `contracts` parent: one bookin
 `public.deposit_settlements`
 
 - Versioned, append-only decision records for a booking's verified deposit allocation.
-- Stores held amount, refund amount, manually decided deduction amount, reason, status (`pending`, `final`, `reversed`), decision actor/time, optional outgoing verified transaction, and `supersedes_id`.
+- Stores held amount, net refund amount, manually decided deduction amount,
+  reason, status (`pending`, `final`, `reversed`), decision actor/time, optional
+  outgoing verified transaction, linked issue decision, operation UUID, and
+  `supersedes_id`.
 - A final record requires `refund_amount + deduction_amount = held_amount`; nonzero refund requires an outgoing GCash transaction and reference.
 - Dashboard rental revenue sums verified `rental_payment` allocations net of reversals only. Security-deposit and refund allocations are excluded.
 
@@ -311,6 +324,20 @@ The proposed model deliberately omits a redundant `contracts` parent: one bookin
 
 - `id` PK, condition report ID, opaque private object path, media/hash metadata, evidence category, created time, lifecycle metadata, and `supersedes_id`.
 - Corrections add new evidence; objects are never overwritten.
+
+`public.return_issue_notes` and `public.return_issue_decisions`
+
+- Notes are private append-only rows tied to the return report and operation.
+- One immutable decision records fact-matching kind, manual deduction amount,
+  private evidence basis, separate renter explanation, actor/time, and operation.
+
+`public.deposit_deductions` and `public.deposit_refund_records`
+
+- Every nonzero deduction references one approved return issue decision and
+  snapshots its private reason; it cannot exceed the verified deposit.
+- The refund ledger records an actual outgoing refund or exact incoming
+  reversal, its verified payment transaction, external movement time,
+  operation, and immutable `reversal_of` relation.
 
 ### Audit
 
@@ -346,11 +373,14 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | Condition-photo intent/finalize/cleanup operations | Bind optional pickup evidence to one exact opaque no-overwrite object; verify Storage metadata and caller-confirmed digest; recover unfinished objects |
 | Condition-photo access operations | Return an exact private target only to its renter or after a purpose-bound audited admin authorization for a 60-second server-signed URL |
 | `get_my_pickup_state`, `get_active_rental_queue` | Return an owned safe handoff/timeline or the sole-admin minimum active-rental contact and schedule urgency; never calculate a late amount |
-| `record_return` | Insert return handoff/report; transition `ACTIVE → RETURN_REVIEW` |
-| `decide_return` | Transition clear return to `COMPLETED` or issue to `ISSUE_REVIEW`; create/update append-only deposit decision |
-| `complete_issue_review` | Finalize manual decision and transition to `COMPLETED` |
-| `cancel_booking` | Resolve cancellation request if any; transition eligible pre-pickup state; release block; append history |
-| `record_refund` | Record outgoing verified GCash transaction, allocation, and settlement version; never call a payment API |
+| `record_return` | Validate observed serial and exact accessory results; insert immutable return handoff/report; transition `ACTIVE → RETURN_REVIEW` idempotently |
+| Return condition-photo intent/finalize/access | Bind exact private no-overwrite evidence, allow append-only supersession, and require owner or audited `return_condition_review` purpose |
+| `decide_return_review` | Derive clear/issue path from recorded facts; require evidence for damage/missing; create deposit-liability snapshot; enter `COMPLETED` or `ISSUE_REVIEW` |
+| `add_return_issue_note`, `resolve_return_issue` | Append private note; record explicit fact-matching decision and bounded linked deduction; transition `ISSUE_REVIEW → COMPLETED` |
+| `request_cancellation`, `decide_cancellation` | Append owner request without state change; recheck admin/state/policy; record immutable decision; on approved unpaid acceptance transition to `CANCELLED` and release block |
+| `record_external_refund` | After actual external movement, append verified outgoing GCash transaction, deposit-refund allocation/ledger row, and settlement version; never call a payment API |
+| `reverse_external_refund` | Append one exact opposite verified movement and reversal ledger row; never edit the original refund |
+| Resolution queue/detail/owner projections | Return four admin queues, safe admin detail without paths/digests/serial authority, and an owned final-outcome/amount projection without internal reason or references |
 | `create_upload_intent` | Authorize owner/admin, allocate opaque path and metadata row before upload |
 | `finalize_upload` | Verify object metadata/hash and freeze evidence row |
 
@@ -402,16 +432,17 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains nineteen forward migrations. On 13 August 2026, the four
+The repository contains twenty forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
 and exercised only in Development. The Sprint 1 evidence migration was then
 applied and tested in Development on 15 August 2026. Development is recorded at
-14/19 and Production at 11/19; the v2 hardening, Sprint 2 review, Sprint 3
-contract lifecycle, Sprint 4 payment reconciliation, and Sprint 5
-pickup/active-rental migrations remain repository-only. Check current remote history at every future
+14/20 and Production at 11/20; the v2 hardening, Sprint 2 review, Sprint 3
+contract lifecycle, Sprint 4 payment reconciliation, Sprint 5
+pickup/active-rental, and Sprint 6 return/cancellation/resolution migrations
+remain repository-only. Check current remote history at every future
 rollout; these recorded counts do not authorize another Production mutation or
 deployment.
 

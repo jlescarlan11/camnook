@@ -16,7 +16,20 @@ describe("Manila rental time", () => {
     });
   });
 
-  it.each(["", "2026-8-14T09:05", "2026-02-30T09:05", "2026-08-14T24:00"])(
+  it("preserves second-level wall time for audited physical movements", () => {
+    expect(parseManilaWallClock("2026-08-14T09:05:37")).toEqual({
+      instant: "2026-08-14T09:05:37+08:00",
+      ok: true,
+    });
+  });
+
+  it.each([
+    "",
+    "2026-8-14T09:05",
+    "2026-02-30T09:05",
+    "2026-08-14T24:00",
+    "2026-08-14T09:05:60",
+  ])(
     "rejects malformed or impossible Manila wall time %j",
     (value) => {
       expect(parseManilaWallClock(value)).toEqual({ ok: false });
@@ -62,6 +75,9 @@ describe("Manila rental time", () => {
   it("formats an instant as an Asia/Manila datetime-local value", () => {
     expect(formatManilaDateTimeInput("2026-08-13T16:05:00.000Z")).toBe(
       "2026-08-14T00:05",
+    );
+    expect(formatManilaDateTimeInput("2026-08-13T16:05:37.000Z", true)).toBe(
+      "2026-08-14T00:05:37",
     );
   });
 

@@ -15,6 +15,8 @@ import {
   loadActiveRentalQueue,
   loadPickupQueue,
 } from "@/features/pickup/data";
+import { loadResolutionQueues } from "@/features/resolution/data";
+import { ResolutionQueuesPanel } from "@/features/resolution/resolution-queues";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,7 @@ export default async function AdminPage() {
     accounting,
     pickupQueue,
     activeRentalQueue,
+    resolutionQueues,
   ] = await Promise.all([
     loadAdminQueue(context),
     loadVerificationReviewQueue(context),
@@ -39,6 +42,7 @@ export default async function AdminPage() {
     loadPaymentAccountingSummary(context),
     loadPickupQueue(context),
     loadActiveRentalQueue(context),
+    loadResolutionQueues(context),
   ]);
 
   return (
@@ -170,6 +174,15 @@ export default async function AdminPage() {
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {resolutionQueues.status === "success" ? (
+          <ResolutionQueuesPanel queues={resolutionQueues.queues} />
+        ) : (
+          <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+            <h2 className="text-xl font-semibold">Resolution queues unavailable</h2>
+            <p className="mt-2 leading-7">Return inspections, cancellation requests, and deposit liabilities could not be safely loaded. Do not make an off-system resolution.</p>
           </section>
         )}
 

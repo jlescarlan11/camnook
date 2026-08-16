@@ -245,21 +245,33 @@ async function saveConditionPhoto(
   context: AdminContext,
   conditionReportId: string,
   photo: File,
+  supersedesPhotoId?: string,
 ) {
   const bytes = Buffer.from(await photo.arrayBuffer());
   if (!supportedPhotoSignature(bytes, photo.type)) return "invalid" as const;
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   let intentId = randomUUID();
-  const createIntent = () =>
-    context.supabase.schema("api").rpc("create_condition_photo_upload_intent", {
+  const createIntent = () => {
+    const common = {
       p_byte_size: bytes.byteLength,
       p_condition_report_id: conditionReportId,
       p_intent_id: intentId,
       p_media_type: photo.type,
       p_operation_id: randomUUID(),
       p_sha256_hex: sha256,
-    });
+    };
+    return supersedesPhotoId
+      ? context.supabase
+          .schema("api")
+          .rpc("create_condition_photo_replacement_intent", {
+            ...common,
+            p_supersedes_photo_id: supersedesPhotoId,
+          })
+      : context.supabase
+          .schema("api")
+          .rpc("create_condition_photo_upload_intent", common);
+  };
 
   let result = await createIntent();
   let intent = conditionPhotoIntentSchema.safeParse(result.data);
@@ -370,8 +382,13 @@ export async function uploadConditionPhoto(
 ): Promise<ConditionPhotoActionState> {
   const bookingId = stringFormValue(formData, "bookingId");
   const conditionReportId = stringFormValue(formData, "conditionReportId");
+  const supersedesPhotoId = stringFormValue(formData, "supersedesPhotoId");
   const photo = validPhoto(formData.get("photo"));
-  if (!idSchema.safeParse(bookingId).success || !idSchema.safeParse(conditionReportId).success) {
+  if (
+    !idSchema.safeParse(bookingId).success ||
+    !idSchema.safeParse(conditionReportId).success ||
+    (supersedesPhotoId !== "" && !idSchema.safeParse(supersedesPhotoId).success)
+  ) {
     return { error: "invalid", status: "error" };
   }
   if (!photo) {
@@ -393,7 +410,12 @@ export async function uploadConditionPhoto(
   }
 
   try {
-    const saved = await saveConditionPhoto(context, conditionReportId, photo);
+    const saved = await saveConditionPhoto(
+      context,
+      conditionReportId,
+      photo,
+      supersedesPhotoId || undefined,
+    );
     revalidatePickupViews(bookingId);
     if (saved === "invalid") {
       return {
@@ -442,7 +464,12 @@ export async function requestAdminConditionPhotoAccess(
 ): Promise<ConditionPhotoActionState> {
   const bookingId = stringFormValue(formData, "bookingId");
   const photoId = stringFormValue(formData, "photoId");
-  if (!idSchema.safeParse(bookingId).success || !idSchema.safeParse(photoId).success) {
+  const purpose = stringFormValue(formData, "purpose") || "pickup_condition_review";
+  if (
+    !idSchema.safeParse(bookingId).success ||
+    !idSchema.safeParse(photoId).success ||
+    !["pickup_condition_review", "return_condition_review"].includes(purpose)
+  ) {
     return { error: "invalid", status: "error" };
   }
 
@@ -453,7 +480,7 @@ export async function requestAdminConditionPhotoAccess(
       .rpc("authorize_condition_photo_access", {
         p_operation_id: randomUUID(),
         p_photo_id: photoId,
-        p_purpose: "pickup_condition_review",
+        p_purpose: purpose,
       });
     const grant = conditionPhotoAccessGrantSchema.safeParse(result.data);
     if (result.error || !grant.success || grant.data.booking_id !== bookingId) {

@@ -18,6 +18,8 @@ import { PaymentPanel } from "@/features/payments/payment-panel";
 import { loadPickupInstructions } from "@/features/pickup/config";
 import { loadMyPickupState } from "@/features/pickup/data";
 import { RenterPickupStatus } from "@/features/pickup/renter-pickup-status";
+import { loadMyResolutionState } from "@/features/resolution/data";
+import { RenterResolutionStatus } from "@/features/resolution/renter-resolution-status";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -39,10 +41,11 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
   const context = await requirePageUser(
     `/account/bookings/${bookingId}${requested}`,
   );
-  const [result, paymentResult, pickupResult] = await Promise.all([
+  const [result, paymentResult, pickupResult, resolutionResult] = await Promise.all([
     loadBookingDetail(context, bookingId),
     loadMyPaymentState(context, bookingId),
     loadMyPickupState(context, bookingId),
+    loadMyResolutionState(context, bookingId),
   ]);
   const pickupInstructions = loadPickupInstructions();
   if (result.status === "missing") notFound();
@@ -152,6 +155,17 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                 <section className="mt-7 border-t border-stone-200 pt-6" role="alert">
                   <h2 className="text-lg font-semibold">Pickup status unavailable</h2>
                   <p className="mt-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">Your owned timeline and safe handoff summary could not be loaded. Refresh before relying on the displayed state.</p>
+                </section>
+              )}
+              {resolutionResult.status === "success" ? (
+                <RenterResolutionStatus
+                  operationId={randomUUID()}
+                  resolution={resolutionResult.resolution}
+                />
+              ) : (
+                <section className="mt-7 border-t border-stone-200 pt-6" role="alert">
+                  <h2 className="text-lg font-semibold">Resolution status unavailable</h2>
+                  <p className="mt-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">Your cancellation, return, and deposit outcome could not be safely loaded. Refresh before relying on any displayed amount.</p>
                 </section>
               )}
             </article>

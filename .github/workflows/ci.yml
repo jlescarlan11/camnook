@@ -61,6 +61,7 @@ jobs:
           supabase/tests/database/008_contract_lifecycle.sql
           supabase/tests/database/009_manual_gcash_reconciliation.sql
           supabase/tests/database/010_pickup_active_rental.sql
+          supabase/tests/database/011_return_cancellation_resolution.sql
 
       - name: Generate database types for validation
         # Local and hosted PostgREST versions can order equivalent definitions

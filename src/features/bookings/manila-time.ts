@@ -1,6 +1,7 @@
 export const MANILA_TIME_ZONE = "Asia/Manila";
 
-const WALL_CLOCK_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+const WALL_CLOCK_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
 export type BookingPeriodFieldErrors = {
   pickup?: string;
@@ -24,19 +25,26 @@ export function parseManilaWallClock(value: string) {
   const day = Number(match[3]);
   const hour = Number(match[4]);
   const minute = Number(match[5]);
-  const check = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const second = Number(match[6] ?? 0);
+  const check = new Date(
+    Date.UTC(year, month - 1, day, hour, minute, second),
+  );
 
   if (
     check.getUTCFullYear() !== year ||
     check.getUTCMonth() !== month - 1 ||
     check.getUTCDate() !== day ||
     check.getUTCHours() !== hour ||
-    check.getUTCMinutes() !== minute
+    check.getUTCMinutes() !== minute ||
+    check.getUTCSeconds() !== second
   ) {
     return { ok: false } as const;
   }
 
-  return { instant: `${value}:00+08:00`, ok: true } as const;
+  return {
+    instant: `${value}${match[6] ? "" : ":00"}+08:00`,
+    ok: true,
+  } as const;
 }
 
 export function parseManilaBookingPeriod(
@@ -95,7 +103,10 @@ export function formatManilaDateTime(instant: string) {
   return manilaDateTimeFormatter.format(new Date(instant));
 }
 
-export function formatManilaDateTimeInput(instant: string) {
+export function formatManilaDateTimeInput(
+  instant: string,
+  includeSeconds = false,
+) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
     hour: "2-digit",
@@ -103,6 +114,7 @@ export function formatManilaDateTimeInput(instant: string) {
     hourCycle: "h23",
     minute: "2-digit",
     month: "2-digit",
+    second: includeSeconds ? "2-digit" : undefined,
     timeZone: MANILA_TIME_ZONE,
     year: "numeric",
   })
@@ -112,7 +124,8 @@ export function formatManilaDateTimeInput(instant: string) {
       return values;
     }, {});
 
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+  const seconds = includeSeconds ? `:${parts.second}` : "";
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}${seconds}`;
 }
 
 export function normalizeQuoteInputKey(input: QuoteInput) {

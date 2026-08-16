@@ -111,7 +111,13 @@ Recommended MVP decision: prohibit such amendments; cancel with recorded refund 
 Owner: product/business with legal review<br>
 Blocks: renter-facing cancellation copy, fee/refund decisions, production contract clause
 
-The architecture already records cancellation requests, admin decisions, blocks, transactions, and refunds. Still define notice periods, whether any rental fee may be retained, and who can accept a renter request in each pre-pickup state. No automatic fee logic is assumed.
+Sprint 6 implements owner-only requests, explicit admin decisions, unpaid-state
+acceptance with zero fee/refund liability, safe declines, and manual external
+refund/reversal recording. Paid/submitted-state acceptance remains disabled.
+Still define notice periods, whether any rental fee may be retained, refund
+liability outside the verified security deposit, and who may accept each paid
+pre-pickup state. No automatic fee logic is assumed; enabling those paths needs
+reviewed contract/renter copy and a forward migration.
 
 ## Configuration inputs still required before public paid launch
 
@@ -134,10 +140,10 @@ verification, leaving both projects at 11/11 at that checkpoint. On 14 August
 2026, the two catalog migrations were applied and exercised only in Development.
 On 15 August 2026, the Sprint 1 evidence migration was applied to Development
 with its policy disabled and verified with hosted fail-closed and cross-owner
-Storage RLS checks. Development is recorded at 14/19 while Production remains
-at 11/19; the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle,
-Sprint 4 payment reconciliation, and Sprint 5 pickup/active-rental migrations
-are repository-only.
+Storage RLS checks. Development is recorded at 14/20 while Production remains
+at 11/20; the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle,
+Sprint 4 payment reconciliation, Sprint 5 pickup/active-rental, and Sprint 6
+return/cancellation/resolution migrations are repository-only.
 Current remote history must still be checked at rollout time.
 Production is not a rollout target without separate explicit authorization.
 
@@ -221,9 +227,10 @@ Approval of this milestone means agreement that:
    unpublished-availability migrations were then applied and exercised only in
    Development on 14 August 2026. The Sprint 1 evidence migration followed in
    Development on 15 August 2026 with its policy disabled, leaving Development
-   recorded at 14/19 and Production at 11/19. The v2 hardening, Sprint 2 review,
+   recorded at 14/20 and Production at 11/20. The v2 hardening, Sprint 2 review,
    Sprint 3 contract lifecycle, Sprint 4 payment reconciliation, and Sprint 5
-   pickup/active-rental migrations remain repository-only. Current remote history remains
+   pickup/active-rental and Sprint 6 return/cancellation/resolution migrations
+   remain repository-only. Current remote history remains
    operational state to verify, not a durable documentation assumption.
 4. The approved OD-01 pricing transaction is implemented by
    [GitHub issue #1](https://github.com/jlescarlan11/camnook/issues/1).
