@@ -79,6 +79,9 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      - name: Verify Production launch evidence
+        run: pnpm launch:verify
+
       - name: Build
         run: pnpm build
 

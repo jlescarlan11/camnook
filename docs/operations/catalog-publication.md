@@ -1,8 +1,10 @@
 # Camera Catalog Publication Runbook
 
-Status: repository workflow applied and rehearsed in Development on 2026-08-14;
-Production migration, inventory, and publication authorization pending
-Targets: Development rehearsal first; Production only with explicit approval
+Status: repository workflow applied/rehearsed in Development on 2026-08-14 and
+separately applied with the approved Production catalog on 2026-08-15. Future
+catalog changes still require explicit approval.
+Targets: Development rehearsal first; completed Production publication at
+`iegcixcevvkryfwfotqz`
 
 ## Release boundary
 
@@ -21,9 +23,9 @@ or the directly granted source columns. Migration
 audited photo state machine described below. Both migrations were applied and
 verified in Development on 14 August 2026, leaving Development recorded at
 13/14 at that checkpoint after the separate Sprint 1 evidence migration was
-added locally. After the later evidence rollout and repository-only v2/Sprint 2
+added locally. After the later evidence rollout and repository-only lifecycle
 migrations, the current recorded counts are Development 14/21 and Production
-11/21 until separately approved rollouts.
+13/21 until separately approved rollouts.
 
 Keep any manifest containing serial numbers, acquisition/replacement values, or
 other private inventory details outside Git and public release evidence. Only
@@ -308,3 +310,9 @@ camera first to remove it from public projections, then use the controlled photo
 archive workflow to verify public-object removal while preserving booking and
 audit history. No renter identity, credential, OTP, private identifier, private
 object path, or secret is retained in this release record.
+
+The read-only Sprint 8 audit on 16 August 2026 reconfirmed the one approved
+Canon listing, accurate rate/deposit/accessories/sanitized availability, and no
+public private-inventory field. It made no catalog or Storage change. The
+independent archive-first recovery remains frozen in
+[`production-launch.md`](production-launch.md).

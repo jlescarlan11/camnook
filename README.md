@@ -100,15 +100,15 @@ the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
 August 2026, the catalog-photo publication and unpublished-availability
-migrations were applied and exercised only in Development. On 15 August 2026,
-the Sprint 1 government-ID evidence migration was applied to Development with
-its policy disabled, then verified with hosted fail-closed and cross-owner RLS
-tests. Development is recorded at 14/21 while Production remains at 11/21;
-the v2 hardening, Sprint 2 review, and Sprint 3 contract-lifecycle migrations
-and the Sprint 4 payment-reconciliation and Sprint 5 pickup/active-rental
-migrations plus the Sprint 6 return/cancellation/resolution and Sprint 7 owner
-operations/portfolio-reporting migrations are repository-only until a
-separately authorized Development rollout.
+migrations were applied and exercised in Development. On 15 August 2026, those
+two catalog migrations were separately applied and exercised in Production,
+bringing it to 13 migrations, while the Sprint 1 government-ID evidence
+migration was applied to Development with its policy disabled and verified with
+hosted fail-closed and cross-owner RLS tests. Development is recorded at 14/21
+and Production at 13/21. The v2 hardening, Sprint 2 review, Sprint 3 contract
+lifecycle, Sprint 4 payment reconciliation, Sprint 5 pickup/active-rental,
+Sprint 6 return/cancellation/resolution, and Sprint 7 owner
+operations/portfolio-reporting migrations remain repository-only.
 Treat those counts as recorded release evidence, not a substitute for checking
 current remote migration history before any future action.
 
@@ -141,13 +141,16 @@ The application supports public email-OTP registration and sign-in: a missing
 email is eligible for an ordinary renter identity, and successful verification
 is required before a usable local session exists.
 Administrative authority remains a separate database record in
-`private.admin_accounts`; signup never grants it. Hosted Development Auth now
-has public email signup and Cloudflare Turnstile CAPTCHA enabled after the
+`private.admin_accounts`; signup never grants it. Hosted Development Auth has
+public email signup and Cloudflare Turnstile CAPTCHA enabled after the
 protected-Preview activation and smoke test. It sends a six-digit email OTP with
 a 15-minute expiry through proven custom SMTP; the Development email-send
-ceiling remains four per hour for protected manual QA. Production remains
-fail-closed with signup and CAPTCHA disabled and has not yet been moved from its
-confirmation-link template to the OTP template. Hosted settings are the
+ceiling remains four per hour for protected manual QA. Production signup,
+Managed Turnstile, email confirmation, and the code-based template were
+separately activated and validated on 15 August 2026. The 2026-08-16 Sprint 8
+read-only audit found custom SMTP disabled, the email-send ceiling at four per
+hour, and leaked-password protection disabled; those are future paid-launch
+blockers, not permission to change hosted Auth. Hosted settings are the
 operational truth; the local `supabase/config.toml` is not a pushable copy of
 them. SMTP and CAPTCHA secrets remain only in hosted provider configuration.
 
@@ -161,10 +164,10 @@ The first real camera catalog is a separate, business-approved data release.
 Use [`docs/operations/catalog-publication.md`](docs/operations/catalog-publication.md)
 for its Development rehearsal, user-scoped operator commands, publication and
 privacy checks, and recovery sequence. The workflow was applied and rehearsed
-in Development on 14 August 2026; it remains unavailable in Production until a
-separately approved migration and catalog release. Do not place real inventory
-manifests or private serial/cost values in Git, and do not bypass private staging
-with a direct public-bucket upload.
+in Development on 14 August 2026, then separately applied to Production with the
+approved Canon inventory on 15 August 2026. Do not place real inventory
+manifests or private serial/cost values in Git, and do not bypass private
+staging with a direct public-bucket upload.
 
 Government-ID evidence policy `government-id-evidence-v2` and draft privacy notice
 `government-id-privacy-v2` harden the Sprint 1 issues #13–#21 implementation. Use
@@ -221,6 +224,12 @@ collection.
 Use [`docs/operations/owner-portfolio-reporting.md`](docs/operations/owner-portfolio-reporting.md)
 for owner dashboard period semantics, financial reconciliation, fail-closed
 behavior, and the forward-only recovery boundary.
+
+Use [`docs/operations/production-launch.md`](docs/operations/production-launch.md)
+and
+[`docs/product/sprint-8-production-launch-readiness.md`](docs/product/sprint-8-production-launch-readiness.md)
+for the machine-checked Sprint 8 evidence bundle, monitoring thresholds,
+independent admission/catalog rollback, first-day audit, and current `NO_GO`.
 
 ## Intentional launch gates
 

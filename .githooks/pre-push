@@ -48,5 +48,5 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "pre-push: running lint, type-check, tests, and production build"
+echo "pre-push: running lint, type-check, tests, launch evidence, and production build"
 pnpm verify:push
