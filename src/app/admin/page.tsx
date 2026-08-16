@@ -11,6 +11,10 @@ import {
 } from "@/features/payments/data";
 import { loadVerificationReviewQueue } from "@/features/verification/admin-data";
 import { ID_TYPE_LABELS } from "@/features/verification/types";
+import {
+  loadActiveRentalQueue,
+  loadPickupQueue,
+} from "@/features/pickup/data";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +25,20 @@ export const metadata: Metadata = {
 
 export default async function AdminPage() {
   const context = await requirePageAdmin("/admin");
-  const [bookingQueue, verificationQueue, paymentQueue, accounting] = await Promise.all([
+  const [
+    bookingQueue,
+    verificationQueue,
+    paymentQueue,
+    accounting,
+    pickupQueue,
+    activeRentalQueue,
+  ] = await Promise.all([
     loadAdminQueue(context),
     loadVerificationReviewQueue(context),
     loadPaymentReviewQueue(context),
     loadPaymentAccountingSummary(context),
+    loadPickupQueue(context),
+    loadActiveRentalQueue(context),
   ]);
 
   return (
@@ -94,6 +107,69 @@ export default async function AdminPage() {
         ) : (
           <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-900" role="alert">
             Payment accounting totals are unavailable. Do not use this page for financial reporting until they reload.
+          </section>
+        )}
+
+        {pickupQueue.status === "error" ? (
+          <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+            <h2 className="text-xl font-semibold">Pickup queue unavailable</h2>
+            <p className="mt-2 leading-7">Current eligibility could not be rechecked. Do not release equipment until this queue reloads.</p>
+          </section>
+        ) : pickupQueue.items.length === 0 ? (
+          <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm" role="status">
+            <h2 className="text-xl font-semibold">No bookings are ready for pickup</h2>
+            <p className="mt-2 text-stone-600">Only CONFIRMED bookings with current identity, contract, and verified-payment evidence appear here.</p>
+          </section>
+        ) : (
+          <section className="mt-8" aria-labelledby="pickup-queue-heading">
+            <h2 className="text-2xl font-semibold" id="pickup-queue-heading">Ready for pickup</h2>
+            <p className="mt-2 text-sm leading-6 text-stone-600">The queue contains eligible CONFIRMED bookings only. It uses verification metadata, never private identity evidence.</p>
+            <ul className="mt-5 space-y-4">
+              {pickupQueue.items.map((item) => (
+                <li className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6" key={item.booking_id}>
+                  <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <QueueValue label="Renter" value={item.renter_legal_name} />
+                    <QueueValue label="Camera" value={item.camera_name} />
+                    <QueueValue label="Pickup" value={formatManilaDateTime(item.pickup_at)} />
+                    <QueueValue label="Identity current through" value={item.verification_expiration_date} />
+                  </dl>
+                  <p className="mt-4 text-sm text-stone-600">Checklist: named renter, original ID, serial, {item.accessory_count} inclusion{item.accessory_count === 1 ? "" : "s"}, and written condition report. Photos are optional.</p>
+                  <Link className="mt-4 inline-flex min-h-11 items-center font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4" href={`/admin/bookings/${item.booking_id}`}>Complete pickup checklist</Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {activeRentalQueue.status === "error" ? (
+          <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+            <h2 className="text-xl font-semibold">Active-rental queue unavailable</h2>
+            <p className="mt-2 leading-7">Expected returns and contact context could not be loaded.</p>
+          </section>
+        ) : activeRentalQueue.items.length === 0 ? (
+          <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm" role="status">
+            <h2 className="text-xl font-semibold">No active rentals</h2>
+            <p className="mt-2 text-stone-600">Rentals appear here only after the pickup transaction commits.</p>
+          </section>
+        ) : (
+          <section className="mt-8" aria-labelledby="active-rentals-heading">
+            <h2 className="text-2xl font-semibold" id="active-rentals-heading">Active rentals and expected returns</h2>
+            <p className="mt-2 text-sm leading-6 text-stone-600">Urgency is schedule-only. CamNook does not calculate a late-return amount automatically.</p>
+            <ul className="mt-5 space-y-4">
+              {activeRentalQueue.items.map((item) => (
+                <li className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6" key={item.booking_id}>
+                  <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <QueueValue label="Renter" value={item.renter_legal_name} />
+                    <QueueValue label="Necessary contact" value={item.renter_phone} />
+                    <QueueValue label="Camera" value={item.camera_name} />
+                    <QueueValue label="Expected return" value={formatManilaDateTime(item.expected_return_at)} />
+                    <QueueValue label="Operational urgency" value={urgencyLabel(item.urgency)} />
+                    <QueueValue label="Actual pickup" value={formatManilaDateTime(item.actual_pickup_at)} />
+                  </dl>
+                  <Link className="mt-4 inline-flex min-h-11 items-center font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4" href={`/admin/bookings/${item.booking_id}`}>View active handoff</Link>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 
@@ -258,6 +334,12 @@ function formatQueueAge(seconds: number) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)} hr`;
   return `${Math.floor(seconds / 86_400)} days`;
+}
+
+function urgencyLabel(urgency: "due_today" | "overdue" | "upcoming") {
+  if (urgency === "overdue") return "Overdue — follow up now";
+  if (urgency === "due_today") return "Due today";
+  return "Upcoming";
 }
 
 const phpFormatter = new Intl.NumberFormat("en-PH", {

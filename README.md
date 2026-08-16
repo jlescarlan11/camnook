@@ -90,11 +90,11 @@ troubleshooting; Docker may contain unrelated local data. The socket-only
 `pnpm db:test:concurrency` harness does not require Docker. It requires Homebrew
 `postgresql@17`, creates a socket-only disposable cluster, applies all
 migrations, runs the domain/authorization invariants and real two-session
-approval, contract, payment-submission, and payment-decision races, and removes
-the cluster on exit. It refuses a caller-supplied
+approval, contract, payment-submission, payment-decision, and pickup races, and
+removes the cluster on exit. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
 
-The repository currently contains eighteen forward migrations. On 13 August 2026,
+The repository currently contains nineteen forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14
@@ -102,10 +102,10 @@ August 2026, the catalog-photo publication and unpublished-availability
 migrations were applied and exercised only in Development. On 15 August 2026,
 the Sprint 1 government-ID evidence migration was applied to Development with
 its policy disabled, then verified with hosted fail-closed and cross-owner RLS
-tests. Development is recorded at 14/18 while Production remains at 11/18;
+tests. Development is recorded at 14/19 while Production remains at 11/19;
 the v2 hardening, Sprint 2 review, and Sprint 3 contract-lifecycle migrations
-and the Sprint 4 payment-reconciliation migration are repository-only until a
-separately authorized Development rollout.
+and the Sprint 4 payment-reconciliation and Sprint 5 pickup/active-rental
+migrations are repository-only until a separately authorized Development rollout.
 Treat those counts as recorded release evidence, not a substitute for checking
 current remote migration history before any future action.
 
@@ -173,6 +173,8 @@ for the audited reviewer/decision acceptance matrix,
 for the versioned contract acceptance matrix,
 [`docs/product/sprint-4-manual-gcash-reconciliation.md`](docs/product/sprint-4-manual-gcash-reconciliation.md)
 for the manual payment acceptance matrix,
+[`docs/product/sprint-5-pickup-and-active-rental.md`](docs/product/sprint-5-pickup-and-active-rental.md)
+for the pickup/active-rental acceptance matrix,
 [`docs/product/government-id-privacy-notice-v2.md`](docs/product/government-id-privacy-notice-v2.md)
 for the versioned notice, and
 [`docs/operations/government-id-evidence.md`](docs/operations/government-id-evidence.md)
@@ -228,6 +230,11 @@ collection.
   repository, and no hosted rollout is authorized. Use
   [`docs/operations/payment-reconciliation.md`](docs/operations/payment-reconciliation.md)
   for synthetic validation, review controls, and roll-forward recovery.
+- Pickup and active-rental monitoring are implemented with an atomic checklist,
+  optional private photos, and server-only operating instructions. No real
+  pickup facts are committed and no hosted rollout is authorized. Use
+  [`docs/operations/pickup-and-active-rentals.md`](docs/operations/pickup-and-active-rentals.md)
+  for configuration, handoff, evidence, monitoring, and recovery controls.
 - Direct admin Storage reads remain denied. Government-ID review uses the narrow,
   server-only, purpose-bound 60-second signed-URL operation; its repository
   implementation does not authorize real-ID collection or a hosted rollout.

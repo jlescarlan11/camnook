@@ -51,7 +51,7 @@ collection on.
 | `verification-documents` | Private | Government ID files | Authenticated owner workflow through an exact upload intent; protected retention worker for deletion only | Owning renter; sole admin only through an audited server-issued 60-second review URL |
 | `contracts` | Private | Rendered immutable contract versions | Server contract operation | Booking renter and audited admin |
 | `payment-proofs` | Private | Optional GCash submission screenshots | Exact booking owner through an owner-bound upload intent | Booking owner after finalization; sole admin only through audited purpose-bound 60-second access |
-| `condition-evidence` | Private | Pickup/return photos and issue evidence | Admin handoff/issue operation | Booking renter where appropriate and audited admin |
+| `condition-evidence` | Private | Pickup/return photos and issue evidence | Exact-path authenticated admin intent; server-only cleanup of unfinished targets | Exact booking renter after finalization; sole admin only through audited purpose-bound 60-second access |
 
 Do not mix public camera media with private evidence. Bucket privacy is an independent safety boundary in addition to object RLS.
 
@@ -95,6 +95,14 @@ the owner's exact submitted transaction. The fixed policy accepts JPEG/PNG up to
 5 MiB. The server validates the file signature, records expected metadata and a
 SHA-256 digest, uploads with no overwrite, downloads the object through the
 server-only client, and supplies observed metadata/digest to finalization.
+
+Pickup condition-photo intents are available only after the written pickup
+handoff has atomically made the booking `ACTIVE`. They accept JPEG/PNG up to
+5 MiB, allocate `{booking_uuid}/{condition_report_uuid}/{photo_uuid}.{ext}` for
+one current report, cap finalized photos at six, and never gate the valid written
+handoff. The authenticated admin performs the exact Storage insert; the
+server-only client verifies stored bytes and signs only after an owner or
+purpose-bound admin database authorization.
 
 ### 2. Upload and finalize
 

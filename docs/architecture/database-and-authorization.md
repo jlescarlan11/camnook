@@ -299,7 +299,7 @@ The proposed model deliberately omits a redundant `contracts` parent: one bookin
 
 `public.handoffs`
 
-- `id` PK, booking ID, type, conducted time/admin, named renter present, original ID checked/matched, camera serial checked, accessory checklist completed, actual handoff/return time, and notes.
+- `id` PK, booking ID, type, conducted time/admin, named renter present, original ID checked/matched, camera serial checked, accessory checklist completed, actual handoff/return time, notes, idempotency operation ID, and the exact verification/contract/payment references used at pickup.
 - Unique `(booking_id, type)`. Pickup completion guards `CONFIRMED → ACTIVE`; return completion guards `ACTIVE → RETURN_REVIEW`.
 
 `public.condition_reports`
@@ -341,7 +341,11 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | `verify_payment` | Confirm actual-account check, amount, timely submission, and normalized unique reference; derive balanced allocations and enter `CONFIRMED` atomically |
 | `reject_payment` | Apply a safe reason and choose `TO_PAY` or `EXPIRED` from the database clock; preserve deadline and release the block only on expiry |
 | `expire_due_bookings` | Idempotently expire only `CONTRACT_PENDING`/`TO_PAY` past deadline; release blocks; append system history |
-| `complete_pickup` | Validate verification and all checklist fields; insert immutable handoff/report; transition `CONFIRMED → ACTIVE` |
+| `get_pickup_queue`, `get_pickup_detail` | Return sole-admin, explicit minimized pickup readiness/detail without paths, digests, serial authority, or financial facts |
+| `complete_pickup` | Under the booking lock, validate current profile/verification/signed contract/verified balanced payment and every typed physical checklist fact; insert one immutable handoff/report; transition `CONFIRMED → ACTIVE` idempotently |
+| Condition-photo intent/finalize/cleanup operations | Bind optional pickup evidence to one exact opaque no-overwrite object; verify Storage metadata and caller-confirmed digest; recover unfinished objects |
+| Condition-photo access operations | Return an exact private target only to its renter or after a purpose-bound audited admin authorization for a 60-second server-signed URL |
+| `get_my_pickup_state`, `get_active_rental_queue` | Return an owned safe handoff/timeline or the sole-admin minimum active-rental contact and schedule urgency; never calculate a late amount |
 | `record_return` | Insert return handoff/report; transition `ACTIVE → RETURN_REVIEW` |
 | `decide_return` | Transition clear return to `COMPLETED` or issue to `ISSUE_REVIEW`; create/update append-only deposit decision |
 | `complete_issue_review` | Finalize manual decision and transition to `COMPLETED` |
@@ -366,7 +370,7 @@ The expiration function is safe to invoke on a schedule and opportunistically be
 | Bookings/history/cancellations | None | Read own; request/cancel through operations | Read all; transition through operations |
 | Contract versions/signatures | None | Read own; sign current version only | Read all; issue/supersede through operations |
 | Payments/proofs/deposit | None | Read narrow own state; submit/finalize only in allowed state | Read narrow queue/detail/accounting/audit projections; access proof and decide/reverse/settle only through audited operations |
-| Handoffs/conditions/evidence metadata | None | Read own booking records | Read all; create through handoff operations |
+| Handoffs/conditions/evidence metadata | None | Read owned safe projections and authorized owned photo bytes | Read minimized pickup/active projections; create through handoff operations; finalized condition-photo paths only through audited authorization |
 | Admin singleton/audit log | None | None | Read via narrow admin views; never mutate directly |
 
 Policy rules:
@@ -398,16 +402,16 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains eighteen forward migrations. On 13 August 2026, the four
+The repository contains nineteen forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
 and exercised only in Development. The Sprint 1 evidence migration was then
 applied and tested in Development on 15 August 2026. Development is recorded at
-14/18 and Production at 11/18; the v2 hardening, Sprint 2 review, Sprint 3
-contract lifecycle, and Sprint 4 payment reconciliation migrations remain
-repository-only. Check current remote history at every future
+14/19 and Production at 11/19; the v2 hardening, Sprint 2 review, Sprint 3
+contract lifecycle, Sprint 4 payment reconciliation, and Sprint 5
+pickup/active-rental migrations remain repository-only. Check current remote history at every future
 rollout; these recorded counts do not authorize another Production mutation or
 deployment.
 

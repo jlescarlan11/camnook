@@ -21,6 +21,18 @@ export type Database = {
     }
     Functions: {
       approve_booking: { Args: { p_booking_id: string }; Returns: undefined }
+      authorize_condition_photo_access: {
+        Args: {
+          p_operation_id: string
+          p_photo_id: string
+          p_purpose: string
+        }
+        Returns: Json
+      }
+      authorize_my_condition_photo_access: {
+        Args: { p_booking_id: string; p_photo_id: string }
+        Returns: Json
+      }
       authorize_payment_proof_access: {
         Args: {
           p_actor_user_id: string
@@ -40,13 +52,29 @@ export type Database = {
       }
       complete_pickup: {
         Args: {
-          p_accessories: Json
+          p_accessory_ids: string[]
           p_actual_at: string
           p_booking_id: string
+          p_camera_serial: string
           p_condition_summary: string
+          p_named_renter_present: boolean
           p_notes: string
+          p_operation_id: string
+          p_original_id_checked: boolean
+          p_original_id_matched: boolean
         }
-        Returns: string
+        Returns: Json
+      }
+      create_condition_photo_upload_intent: {
+        Args: {
+          p_byte_size: number
+          p_condition_report_id: string
+          p_intent_id: string
+          p_media_type: string
+          p_operation_id: string
+          p_sha256_hex: string
+        }
+        Returns: Json
       }
       create_manual_block: {
         Args: {
@@ -173,6 +201,20 @@ export type Database = {
         }
         Returns: Json
       }
+      finalize_condition_photo_upload: {
+        Args: {
+          p_intent_id: string
+          p_operation_id: string
+          p_verified_byte_size: number
+          p_verified_media_type: string
+          p_verified_sha256_hex: string
+        }
+        Returns: Json
+      }
+      finalize_condition_photo_upload_cleanup: {
+        Args: { p_intent_id: string; p_operation_id: string }
+        Returns: Json
+      }
       finalize_payment_proof_upload: {
         Args: {
           p_actor_user_id: string
@@ -251,6 +293,15 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: never; Returns: boolean }
+      get_active_rental_queue: { Args: never; Returns: Json }
+      get_condition_photo_upload_intent: {
+        Args: { p_intent_id: string }
+        Returns: Json
+      }
+      get_my_pickup_state: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
       get_my_payment_state: {
         Args: { p_booking_id: string }
         Returns: Json
@@ -271,6 +322,11 @@ export type Database = {
         Returns: Json
       }
       get_payment_review_queue: { Args: never; Returns: Json }
+      get_pickup_detail: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
+      get_pickup_queue: { Args: never; Returns: Json }
       get_verification_review_detail: {
         Args: { p_record_id: string }
         Returns: Json
@@ -318,6 +374,10 @@ export type Database = {
       }
       prepare_catalog_photo_archive: {
         Args: { p_operation_id: string; p_publication_id: string }
+        Returns: Json
+      }
+      prepare_condition_photo_upload_cleanup: {
+        Args: { p_intent_id: string; p_operation_id: string }
         Returns: Json
       }
       prepare_verification_upload_cleanup: {
@@ -894,11 +954,13 @@ export type Database = {
           deletion_requested_at: string | null
           evidence_category: string
           id: string
+          finalized_at: string | null
           media_type: string
           object_path: string
           retention_until: string | null
           sha256: string
           supersedes_id: string | null
+          upload_intent_id: string | null
           verified_deleted_at: string | null
         }
         Insert: {
@@ -909,11 +971,13 @@ export type Database = {
           deletion_requested_at?: string | null
           evidence_category: string
           id?: string
+          finalized_at?: string | null
           media_type: string
           object_path: string
           retention_until?: string | null
           sha256: string
           supersedes_id?: string | null
+          upload_intent_id?: string | null
           verified_deleted_at?: string | null
         }
         Update: {
@@ -924,11 +988,13 @@ export type Database = {
           deletion_requested_at?: string | null
           evidence_category?: string
           id?: string
+          finalized_at?: string | null
           media_type?: string
           object_path?: string
           retention_until?: string | null
           sha256?: string
           supersedes_id?: string | null
+          upload_intent_id?: string | null
           verified_deleted_at?: string | null
         }
         Relationships: [
@@ -1227,12 +1293,16 @@ export type Database = {
           camera_serial_checked: boolean
           conducted_at: string
           conducted_by: string
+          contract_version_id: string | null
           id: string
           named_renter_present: boolean | null
           notes: string | null
           original_id_checked: boolean | null
           original_id_matched: boolean | null
+          operation_id: string | null
+          payment_transaction_id: string | null
           type: Database["public"]["Enums"]["handoff_type"]
+          verification_record_id: string | null
         }
         Insert: {
           accessory_checklist_completed: boolean
@@ -1241,12 +1311,16 @@ export type Database = {
           camera_serial_checked: boolean
           conducted_at?: string
           conducted_by: string
+          contract_version_id?: string | null
           id?: string
           named_renter_present?: boolean | null
           notes?: string | null
           original_id_checked?: boolean | null
           original_id_matched?: boolean | null
+          operation_id?: string | null
+          payment_transaction_id?: string | null
           type: Database["public"]["Enums"]["handoff_type"]
+          verification_record_id?: string | null
         }
         Update: {
           accessory_checklist_completed?: boolean
@@ -1255,19 +1329,44 @@ export type Database = {
           camera_serial_checked?: boolean
           conducted_at?: string
           conducted_by?: string
+          contract_version_id?: string | null
           id?: string
           named_renter_present?: boolean | null
           notes?: string | null
           original_id_checked?: boolean | null
           original_id_matched?: boolean | null
+          operation_id?: string | null
+          payment_transaction_id?: string | null
           type?: Database["public"]["Enums"]["handoff_type"]
+          verification_record_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "handoffs_contract_version_id_fkey"
+            columns: ["contract_version_id"]
+            isOneToOne: false
+            referencedRelation: "contract_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "handoffs_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handoffs_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handoffs_verification_record_id_fkey"
+            columns: ["verification_record_id"]
+            isOneToOne: false
+            referencedRelation: "verification_records"
             referencedColumns: ["id"]
           },
         ]

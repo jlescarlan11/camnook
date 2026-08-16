@@ -90,6 +90,18 @@ payment_decision_b_log="$test_dir/payment-decision-b.log"
 payment_decision_a_sql="$test_dir/payment-decision-a.sql"
 payment_decision_b_sql="$test_dir/payment-decision-b.sql"
 payment_decision_ready_file="$test_dir/payment-decision-ready"
+pickup_a_log="$test_dir/pickup-a.log"
+pickup_b_log="$test_dir/pickup-b.log"
+pickup_a_sql="$test_dir/pickup-a.sql"
+pickup_b_sql="$test_dir/pickup-b.sql"
+pickup_ready_file="$test_dir/pickup-a-ready"
+pickup_photo_create_log="$test_dir/pickup-photo-create.log"
+pickup_photo_finalize_log="$test_dir/pickup-photo-finalize.log"
+pickup_photo_create_sql="$test_dir/pickup-photo-create.sql"
+pickup_photo_finalize_sql="$test_dir/pickup-photo-finalize.sql"
+pickup_photo_ready_file="$test_dir/pickup-photo-create-ready"
+pickup_photo_release_file="$test_dir/pickup-photo-create-release"
+pickup_photo_finalize_application_name="camnook-pickup-photo-finalize-$$"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
@@ -105,6 +117,9 @@ contract_sign_pid=""
 contract_retry_a_pid=""
 payment_submit_a_pid=""
 payment_decision_a_pid=""
+pickup_a_pid=""
+pickup_photo_create_pid=""
+pickup_photo_finalize_pid=""
 
 cleanup() {
   set +e
@@ -124,7 +139,10 @@ cleanup() {
     "$contract_sign_pid" \
     "$contract_retry_a_pid" \
     "$payment_submit_a_pid" \
-    "$payment_decision_a_pid"; do
+    "$payment_decision_a_pid" \
+    "$pickup_a_pid" \
+    "$pickup_photo_create_pid" \
+    "$pickup_photo_finalize_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -244,6 +262,12 @@ echo "running manual GCash reconciliation invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/009_manual_gcash_reconciliation.sql"
+
+echo "running pickup and active-rental invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/010_pickup_active_rental.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -1880,3 +1904,425 @@ $$;
 SQL
 
 echo "ok - competing payment verify/reject decisions preserve one atomic winner"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+begin;
+set constraints all deferred;
+
+insert into public.cameras (
+  id, slug, serial_number, name, description, status,
+  daily_rate, security_deposit, published_at
+) values (
+  '2a100000-0000-4000-8000-000000000001',
+  'pickup-race-camera',
+  'PRIVATE-PICKUP-RACE-SERIAL',
+  'Pickup Race Camera',
+  'Camera for the separate-session pickup race.',
+  'published',
+  1000,
+  4000,
+  statement_timestamp()
+);
+
+insert into public.camera_accessories (
+  id, camera_id, name, quantity, sort_position
+) values (
+  '2a200000-0000-4000-8000-000000000001',
+  '2a100000-0000-4000-8000-000000000001',
+  'Race battery',
+  1,
+  10
+);
+
+insert into public.bookings (
+  id, renter_id, camera_id, state, pickup_at, return_at,
+  intended_use, expected_location, requested_at, approved_at,
+  approval_deadline_at, approved_by, billable_days_snapshot,
+  daily_rate_snapshot, rental_amount, security_deposit_amount,
+  current_contract_version_id
+) values (
+  '2a000000-0000-4000-8000-000000000001',
+  '20000000-0000-4000-8000-000000000002',
+  '2a100000-0000-4000-8000-000000000001',
+  'CONFIRMED',
+  statement_timestamp() - interval '10 minutes',
+  statement_timestamp() + interval '47 hours 50 minutes',
+  'Concurrent pickup race',
+  'Private pickup counter',
+  statement_timestamp() - interval '3 days',
+  statement_timestamp() - interval '2 days',
+  statement_timestamp() - interval '1 day',
+  '20000000-0000-4000-8000-000000000001',
+  2,
+  1000,
+  2000,
+  4000,
+  '2a300000-0000-4000-8000-000000000001'
+);
+
+insert into public.contract_versions (
+  id, booking_id, version_no, template_id, snapshot,
+  snapshot_schema_version, content_sha256, issued_at, issued_by
+) values (
+  '2a300000-0000-4000-8000-000000000001',
+  '2a000000-0000-4000-8000-000000000001',
+  1,
+  '22000000-0000-4000-8000-000000000001',
+  '{
+    "booking":{"id":"2a000000-0000-4000-8000-000000000001"},
+    "renter":{"legal_name":"Race Renter A"},
+    "camera":{
+      "id":"2a100000-0000-4000-8000-000000000001",
+      "serial_number":"PRIVATE-PICKUP-RACE-SERIAL",
+      "accessories":[{
+        "id":"2a200000-0000-4000-8000-000000000001",
+        "name":"Race battery",
+        "quantity":1
+      }]
+    }
+  }'::jsonb,
+  1,
+  extensions.digest(convert_to('pickup-race-contract', 'UTF8'), 'sha256'),
+  statement_timestamp() - interval '2 days',
+  '20000000-0000-4000-8000-000000000001'
+);
+
+insert into public.contract_signatures (
+  contract_version_id, renter_id, signature_intent,
+  attestation_text, signed_at, acknowledged_content_sha256
+) values (
+  '2a300000-0000-4000-8000-000000000001',
+  '20000000-0000-4000-8000-000000000002',
+  'electronic_signature',
+  'I agree to this exact race contract.',
+  statement_timestamp() - interval '1 day',
+  extensions.digest(convert_to('pickup-race-contract', 'UTF8'), 'sha256')
+);
+
+insert into public.payment_transactions (
+  id, booking_id, direction, status, amount, reference,
+  counterparty_display_name, submitted_at, submitted_by, decided_at,
+  decided_by, submission_attempt_id, contract_version_id,
+  recipient_config_version, recipient_name_snapshot,
+  recipient_account_snapshot
+) values (
+  '2a400000-0000-4000-8000-000000000001',
+  '2a000000-0000-4000-8000-000000000001',
+  'incoming',
+  'verified',
+  6000,
+  'PICKUP-RACE-PAYMENT',
+  'Race Renter A',
+  statement_timestamp() - interval '1 day',
+  '20000000-0000-4000-8000-000000000002',
+  statement_timestamp() - interval '12 hours',
+  '20000000-0000-4000-8000-000000000001',
+  '2a400000-0000-4000-8000-000000000002',
+  '2a300000-0000-4000-8000-000000000001',
+  1,
+  'Approved Recipient',
+  '09171234567'
+);
+
+insert into public.payment_allocations (
+  transaction_id, booking_id, kind, amount
+) values
+  (
+    '2a400000-0000-4000-8000-000000000001',
+    '2a000000-0000-4000-8000-000000000001',
+    'rental_payment',
+    2000
+  ),
+  (
+    '2a400000-0000-4000-8000-000000000001',
+    '2a000000-0000-4000-8000-000000000001',
+    'security_deposit',
+    4000
+  );
+
+insert into public.booking_state_history (
+  booking_id, from_state, to_state, actor_user_id,
+  actor_type, reason_code, occurred_at
+) values
+  (
+    '2a000000-0000-4000-8000-000000000001',
+    null,
+    'FOR_REVIEW',
+    '20000000-0000-4000-8000-000000000002',
+    'renter',
+    'booking_requested',
+    statement_timestamp() - interval '3 days'
+  ),
+  (
+    '2a000000-0000-4000-8000-000000000001',
+    'PAYMENT_REVIEW',
+    'CONFIRMED',
+    '20000000-0000-4000-8000-000000000001',
+    'admin',
+    'payment_verified',
+    statement_timestamp() - interval '12 hours'
+  );
+
+set constraints all immediate;
+commit;
+SQL
+
+cat >"$pickup_a_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.complete_pickup(
+  '2a000000-0000-4000-8000-000000000001',
+  statement_timestamp(), true, true, true,
+  'PRIVATE-PICKUP-RACE-SERIAL',
+  array['2a200000-0000-4000-8000-000000000001']::uuid[],
+  'No visible damage; clean and functional.',
+  '',
+  '2a500000-0000-4000-8000-000000000001'
+);
+\! touch "$pickup_ready_file"
+select pg_sleep(1);
+commit;
+SQL
+
+cat >"$pickup_b_sql" <<'SQL'
+\set ON_ERROR_STOP on
+\set VERBOSITY verbose
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.complete_pickup(
+  '2a000000-0000-4000-8000-000000000001',
+  statement_timestamp(), true, true, true,
+  'PRIVATE-PICKUP-RACE-SERIAL',
+  array['2a200000-0000-4000-8000-000000000001']::uuid[],
+  'No visible damage; clean and functional.',
+  '',
+  '2a500000-0000-4000-8000-000000000002'
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$pickup_a_sql" >"$pickup_a_log" 2>&1 &
+pickup_a_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$pickup_ready_file" ]] && break
+  if ! kill -0 "$pickup_a_pid" 2>/dev/null; then
+    wait "$pickup_a_pid" || true
+    cat "$pickup_a_log" >&2
+    echo "first pickup exited before its lock barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$pickup_ready_file" ]]; then
+  cat "$pickup_a_log" >&2
+  echo "timed out waiting for pickup barrier" >&2
+  exit 1
+fi
+
+set +e
+"$postgres_bin/psql" "$database_url" -f "$pickup_b_sql" >"$pickup_b_log" 2>&1
+pickup_b_status=$?
+set -e
+wait "$pickup_a_pid"
+pickup_a_pid=""
+
+if [[ "$pickup_b_status" -eq 0 ]] || ! grep -Eq '40001|pickup_stale_booking_state' "$pickup_b_log"; then
+  cat "$pickup_a_log" >&2
+  cat "$pickup_b_log" >&2
+  echo "competing pickup did not lose with an explicit stale outcome" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1 from public.bookings
+    where id = '2a000000-0000-4000-8000-000000000001'
+      and state = 'ACTIVE'
+  )
+    or (select count(*) from public.handoffs where booking_id = '2a000000-0000-4000-8000-000000000001' and type = 'pickup') <> 1
+    or (select count(*) from public.condition_reports as report join public.handoffs as handoff on handoff.id = report.handoff_id where handoff.booking_id = '2a000000-0000-4000-8000-000000000001') <> 1
+    or (select count(*) from public.booking_state_history where booking_id = '2a000000-0000-4000-8000-000000000001' and to_state = 'ACTIVE') <> 1
+  then
+    raise exception 'competing pickups created partial or duplicate state';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - competing pickups produce one atomic ACTIVE handoff"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+set role authenticated;
+set "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+
+do $$
+declare
+  created jsonb;
+begin
+  created := api.create_condition_photo_upload_intent(
+    '2a600000-0000-4000-8000-000000000001',
+    (
+      select report.id
+      from public.condition_reports as report
+      join public.handoffs as handoff on handoff.id = report.handoff_id
+      where handoff.booking_id = '2a000000-0000-4000-8000-000000000001'
+        and handoff.type = 'pickup'
+    ),
+    'image/jpeg',
+    4,
+    repeat('ab', 32),
+    '2a600000-0000-4000-8000-000000000002'
+  );
+
+  insert into storage.objects (bucket_id, name, owner, metadata)
+  values (
+    'condition-evidence',
+    created ->> 'object_path',
+    '20000000-0000-4000-8000-000000000001',
+    '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+  );
+end;
+$$;
+
+reset role;
+SQL
+
+cat >"$pickup_photo_create_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+select id
+from public.bookings
+where id = '2a000000-0000-4000-8000-000000000001'
+for update;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+\! touch "$pickup_photo_ready_file"
+\! barrier_count=0; while [ ! -f "$pickup_photo_release_file" ] && [ "\$barrier_count" -lt 400 ]; do sleep 0.025; barrier_count=\$((barrier_count + 1)); done
+select api.create_condition_photo_upload_intent(
+  '2a600000-0000-4000-8000-000000000001',
+  (
+    select report.id
+    from public.condition_reports as report
+    join public.handoffs as handoff on handoff.id = report.handoff_id
+    where handoff.booking_id = '2a000000-0000-4000-8000-000000000001'
+      and handoff.type = 'pickup'
+  ),
+  'image/jpeg',
+  4,
+  repeat('ab', 32),
+  '2a600000-0000-4000-8000-000000000003'
+);
+commit;
+SQL
+
+cat >"$pickup_photo_finalize_sql" <<SQL
+\set ON_ERROR_STOP on
+set application_name = '$pickup_photo_finalize_application_name';
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.finalize_condition_photo_upload(
+  '2a600000-0000-4000-8000-000000000001',
+  'image/jpeg',
+  4,
+  repeat('ab', 32),
+  '2a600000-0000-4000-8000-000000000004'
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$pickup_photo_create_sql" >"$pickup_photo_create_log" 2>&1 &
+pickup_photo_create_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$pickup_photo_ready_file" ]] && break
+  if ! kill -0 "$pickup_photo_create_pid" 2>/dev/null; then
+    wait "$pickup_photo_create_pid" || true
+    cat "$pickup_photo_create_log" >&2
+    echo "condition-photo create retry exited before its booking-row barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$pickup_photo_ready_file" ]]; then
+  cat "$pickup_photo_create_log" >&2
+  echo "timed out waiting for condition-photo create retry barrier" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -f "$pickup_photo_finalize_sql" >"$pickup_photo_finalize_log" 2>&1 &
+pickup_photo_finalize_pid=$!
+
+pickup_photo_finalize_wait_observed="false"
+for _ in {1..200}; do
+  if ! kill -0 "$pickup_photo_finalize_pid" 2>/dev/null; then
+    wait "$pickup_photo_finalize_pid" || true
+    cat "$pickup_photo_finalize_log" >&2
+    echo "condition-photo finalization exited before its booking-row wait" >&2
+    exit 1
+  fi
+
+  if [[ "$("$postgres_bin/psql" "$database_url" -Atq -v ON_ERROR_STOP=1 -c "
+    select exists (
+      select 1 from pg_catalog.pg_stat_activity
+      where application_name = '$pickup_photo_finalize_application_name'
+        and wait_event_type = 'Lock'
+        and wait_event = 'transactionid'
+    );
+  ")" == "t" ]]; then
+    pickup_photo_finalize_wait_observed="true"
+    break
+  fi
+  sleep 0.025
+done
+
+if [[ "$pickup_photo_finalize_wait_observed" != "true" ]]; then
+  cat "$pickup_photo_finalize_log" >&2
+  cat "$pickup_photo_create_log" >&2
+  echo "condition-photo finalization did not wait on the booking row" >&2
+  exit 1
+fi
+
+touch "$pickup_photo_release_file"
+wait "$pickup_photo_create_pid"
+pickup_photo_create_pid=""
+wait "$pickup_photo_finalize_pid"
+pickup_photo_finalize_pid=""
+
+if grep -Fq '40P01' "$pickup_photo_create_log" "$pickup_photo_finalize_log"; then
+  cat "$pickup_photo_create_log" >&2
+  cat "$pickup_photo_finalize_log" >&2
+  echo "condition-photo create/finalize lock order deadlocked" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1
+    from private.condition_photo_upload_intents
+    where id = '2a600000-0000-4000-8000-000000000001'
+      and status = 'finalized'
+  )
+    or (
+      select count(*)
+      from public.condition_photos
+      where upload_intent_id = '2a600000-0000-4000-8000-000000000001'
+    ) <> 1
+  then
+    raise exception 'condition-photo create/finalize race did not commit one photo';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - condition-photo create/finalize share one deadlock-free lock order"
