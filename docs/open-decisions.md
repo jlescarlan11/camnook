@@ -163,13 +163,14 @@ ignored local CLI metadata points to Development, not Production. Production
 received the four booking-milestone migrations on 13 August 2026 through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both projects at 11/11 at that checkpoint. On 14 August
-2026, the two catalog migrations were applied and exercised only in Development.
-On 15 August 2026, the Sprint 1 evidence migration was applied to Development
+2026, the two catalog migrations were applied and exercised in Development. On
+15 August 2026, those catalog migrations were separately applied and exercised
+in Production, while the Sprint 1 evidence migration was applied to Development
 with its policy disabled and verified with hosted fail-closed and cross-owner
-Storage RLS checks. Development is recorded at 14/21 while Production remains
-at 11/21; the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle,
-Sprint 4 payment reconciliation, Sprint 5 pickup/active-rental, and Sprint 6
-return/cancellation/resolution and Sprint 7 owner-reporting migrations are
+Storage RLS checks. Development is recorded at 14/21 and Production at 13/21;
+the v2 hardening, Sprint 2 review, Sprint 3 contract lifecycle, Sprint 4 payment
+reconciliation, Sprint 5 pickup/active-rental, Sprint 6
+return/cancellation/resolution, and Sprint 7 owner-reporting migrations are
 repository-only.
 Current remote history must still be checked at rollout time.
 Production is not a rollout target without separate explicit authorization.
@@ -183,16 +184,19 @@ Sprint 1 evidence rollout additionally requires server-only
 separate values are configured in Vercel for Development/Preview and Production.
 They are not GitHub Actions secrets and never use a `NEXT_PUBLIC_` prefix.
 Missing values fail evidence mutations and cleanup closed.
-Preview Deployment Protection remains enabled. Hosted Development now supports
+Preview Deployment Protection remains enabled. Hosted Development supports
 public email-OTP account creation with Cloudflare Turnstile, a six-digit code,
 a 15-minute expiry, and proven custom SMTP after the completed protected-Preview
 activation. The Development email-send ceiling remains four per hour for manual
-QA. The local `supabase/config.toml` intentionally differs and must not be pushed
-to hosted Auth. Production signup and CAPTCHA remain disabled and its email
-template still uses a confirmation link; changing those settings requires a
-separate explicit release approval. Public registration creates only ordinary
-renter identities; `private.admin_accounts` remains the sole admin authority.
-The public-launch gates below remain fail-closed.
+QA. Production signup, Managed Turnstile, email confirmation, and the code
+template were separately activated and validated on 15 August 2026. A
+2026-08-16 read-only audit found custom SMTP disabled, the Production email-send
+ceiling at four per hour, and leaked-password protection disabled; a future
+paid-launch decision must treat those as blockers. The local
+`supabase/config.toml` intentionally differs and must not be pushed to hosted
+Auth. Public registration creates only ordinary renter identities;
+`private.admin_accounts` remains the sole admin authority. The remaining
+public-paid-launch gates below remain fail-closed.
 
 The durable activation, validation, cleanup, and rollback sequence is recorded
 in [`docs/operations/public-renter-registration.md`](operations/public-renter-registration.md).
@@ -251,10 +255,11 @@ Approval of this milestone means agreement that:
    Production received the four booking-milestone migrations on 13 August 2026
    through a separately authorized database-first rollout. Both projects were
    at 11/11 immediately afterward. The catalog-photo publication and
-   unpublished-availability migrations were then applied and exercised only in
-   Development on 14 August 2026. The Sprint 1 evidence migration followed in
-   Development on 15 August 2026 with its policy disabled, leaving Development
-   recorded at 14/21 and Production at 11/21. The v2 hardening, Sprint 2 review,
+   unpublished-availability migrations were applied and exercised in
+   Development on 14 August 2026 and separately applied to Production with the
+   approved catalog on 15 August 2026. The Sprint 1 evidence migration followed
+   in Development with its policy disabled, leaving Development recorded at
+   14/21 and Production at 13/21. The v2 hardening, Sprint 2 review,
    Sprint 3 contract lifecycle, Sprint 4 payment reconciliation, and Sprint 5
    pickup/active-rental, Sprint 6 return/cancellation/resolution, and Sprint 7
    owner-reporting migrations remain repository-only. Current remote history
@@ -268,3 +273,6 @@ Approval of this milestone means agreement that:
 7. The sole application admin remains a separately confirmed CamNook Auth user;
    Supabase dashboard access remains a separate management identity. No user or
    environment-specific admin UUID belongs in this document.
+8. The Sprint 8 evidence bundle and current `NO_GO` are recorded in
+   [`docs/operations/production-launch.md`](operations/production-launch.md).
+   Closing coordination issues does not authorize a Production mutation.

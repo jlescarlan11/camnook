@@ -28,17 +28,19 @@ request; successful verification is required before the browser receives a
 usable local session. Neither step creates an administrator or an application
 profile. The renter completes the existing idempotent `api.ensure_profile` flow
 after authentication.
-Hosted Development Auth now has public signup and Cloudflare Turnstile CAPTCHA
+Hosted Development Auth has public signup and Cloudflare Turnstile CAPTCHA
 enabled after the reviewed Development/Preview activation. It uses a six-digit
 email OTP with a 15-minute expiry and proven custom SMTP configuration; the
 Development email-send ceiling remains four per hour for protected manual QA.
-Production remains fail-closed with signup and CAPTCHA disabled and still uses
-its confirmation-link template until a separately approved release converts it
-to OTP. The local `supabase/config.toml` intentionally models local defaults and
-differs from hosted Auth; `supabase config push` is prohibited because it could
-overwrite hosted behavior. Credentials, SMTP values, CAPTCHA secrets, provider
-keys, user UUIDs, and deployment-protection bypass material are never
-architecture inputs.
+Production signup, Managed Turnstile, email confirmation, and the code template
+were separately activated and validated on 15 August 2026. The 2026-08-16
+Sprint 8 audit found custom SMTP and leaked-password protection disabled; those
+hosted-state findings block a future paid-lifecycle `GO` but do not authorize a
+configuration change. The local `supabase/config.toml` intentionally models
+local defaults and differs from hosted Auth; `supabase config push` is
+prohibited because it could overwrite hosted behavior. Credentials, SMTP
+values, CAPTCHA secrets, provider keys, user UUIDs, and deployment-protection
+bypass material are never architecture inputs.
 
 When enabled for a target environment, Cloudflare Turnstile is rendered only on
 the OTP request and resend forms. The browser receives the public site key and
@@ -474,9 +476,10 @@ booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
 catalog-photo publication and unpublished-availability migrations were applied
-and exercised only in Development. The Sprint 1 evidence migration was then
-applied and tested in Development on 15 August 2026. Development is recorded at
-14/21 and Production at 11/21; the v2 hardening, Sprint 2 review, Sprint 3
+and exercised in Development. They were separately applied to Production with
+the approved catalog on 15 August 2026. The Sprint 1 evidence migration was
+applied and tested in Development that day. Development is recorded at 14/21
+and Production at 13/21; the v2 hardening, Sprint 2 review, Sprint 3
 contract lifecycle, Sprint 4 payment reconciliation, Sprint 5
 pickup/active-rental, Sprint 6 return/cancellation/resolution, and Sprint 7
 owner-reporting migrations remain repository-only. Check current remote history at every future

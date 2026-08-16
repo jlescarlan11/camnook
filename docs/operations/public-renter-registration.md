@@ -1,8 +1,10 @@
 # Public Renter Registration Runbook
 
-Status: Development and protected Preview validated on 2026-08-14; Production pending separate explicit approval
-Targets: Development Supabase `ekmoiepalelqpmemvrkl`, protected Vercel Preview;
-Production only after separate explicit approval
+Status: Development/protected Preview validated on 2026-08-14 and Production
+separately activated/validated on 2026-08-15. Future hosted changes still need
+separate explicit approval.
+Targets: Development Supabase `ekmoiepalelqpmemvrkl`, protected Vercel Preview,
+and the completed Production activation at `iegcixcevvkryfwfotqz`
 
 ## Purpose and safety boundary
 
@@ -234,3 +236,15 @@ platform deprecation notices. Both smoke sessions were revoked, Production
 reported zero remaining renter/admin smoke sessions, and signed-out protected
 routes redirected to login. No renter identity, OTP, token, private object path,
 provider payload, or secret is retained in this record.
+
+## Sprint 8 follow-up audit
+
+The read-only 16 August 2026 audit confirmed signup, email confirmation,
+Managed Turnstile, the Production application site key, the existing sole-admin
+route, two aggregate Auth identities, and exactly one canonical admin record.
+It also found custom SMTP disabled, the email-send ceiling at four per hour, and
+leaked-password protection disabled. Those findings do not invalidate the
+historical activation evidence, but they block a later paid-lifecycle `GO` until
+fresh compatibility/capacity evidence and approval exist. See
+[`production-launch.md`](production-launch.md). No Auth setting or session was
+changed by the audit.

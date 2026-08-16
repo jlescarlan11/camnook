@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "audit": {
+    "id": "sprint-8-production-first-day-2026-08-16",
+    "observedAt": "2026-08-16T13:51:20Z",
+    "scope": "PUBLIC_PAID_RENTAL_LIFECYCLE",
+    "decision": "NO_GO"
+  },
+  "targets": {
+    "production": {
+      "applicationUrl": "https://camnook.shop",
+      "supabaseProjectRef": "iegcixcevvkryfwfotqz"
+    },
+    "repository": {
+      "auditedCommit": "6d796d046ce50fb1b155f99798fb070b5260e30f",
+      "migrationCount": 21
+    },
+    "deployment": {
+      "id": "dpl_BQia3VTd7JD2x5EZo6QZ5kvZf6mk",
+      "gitCommit": "b0eded97a5adbb95e0ce02707431f5e1a23bf24f",
+      "environment": "production",
+      "status": "READY"
+    }
+  },
+  "database": {
+    "appliedMigrationCount": 13,
+    "appliedMigrations": [
+      "20260812154906_initial_domain_schema.sql",
+      "20260812154908_authorization_and_operations.sql",
+      "20260812154909_storage_buckets_and_policies.sql",
+      "20260812170614_consolidate_catalog_select_policies.sql",
+      "20260812170822_fix_cancellation_disposition_enum.sql",
+      "20260812172620_bootstrap_application_admin.sql",
+      "20260812174219_expose_admin_authorization_check.sql",
+      "20260813045938_approve_booking_pricing.sql",
+      "20260813092616_split_availability_select_policies.sql",
+      "20260813102434_normalize_booking_decision_api_errors.sql",
+      "20260813113751_stabilize_booking_approval_preconditions.sql",
+      "20260813163420_add_catalog_photo_publication_workflow.sql",
+      "20260814001206_hide_unpublished_availability.sql"
+    ],
+    "securityAdvisorErrors": 0,
+    "securityAdvisorWarnings": [
+      "Leaked Password Protection Disabled"
+    ]
+  },
+  "catalog": {
+    "publishedCameraCount": 1,
+    "approvedSlugs": [
+      "canon-eos-r50"
+    ],
+    "approvedPhotoCount": 3,
+    "accessoryRecordCount": 5,
+    "dailyRatePhp": "450.00",
+    "securityDepositPhp": "1000.00",
+    "publishedBusyPeriodCount": 0,
+    "publicProjection": "PASS",
+    "privateProjectionDenied": "PASS"
+  },
+  "auth": {
+    "signupEnabled": true,
+    "signupEnabledLastAtActivation": true,
+    "hostedCaptchaEnabled": true,
+    "captchaProvider": "turnstile",
+    "applicationSiteKeyConfigured": true,
+    "emailConfirmationEnabled": true,
+    "otpDigits": 6,
+    "otpExpirySeconds": 900,
+    "customSmtpEnabled": false,
+    "leakedPasswordProtectionEnabled": false,
+    "emailSendLimitPerHour": 4,
+    "verificationLimitPerFiveMinutes": 30,
+    "signupSignInLimitPerFiveMinutes": 30,
+    "existingAdminSignIn": "PASS",
+    "existingRenterContinuity": "PASS",
+    "totalIdentityCount": 2,
+    "adminRecordCount": 1,
+    "canonicalAdminRecord": true,
+    "protectedRouteAuthorization": "PASS"
+  },
+  "bookingSmoke": {
+    "result": "PASS",
+    "deploymentId": "dpl_DChPZu3dayB9hr9XsiJjix7uWDsE",
+    "gitCommit": "f4d58360ec4a019957434dd87680bbfb2da33c54",
+    "inventorySlug": "canon-eos-r50",
+    "requestCount": 1,
+    "historyCount": 1,
+    "preApprovalHoldCount": 0,
+    "crossAccountReadDenied": "PASS",
+    "testSessionCleanup": "PASS",
+    "source": "https://github.com/jlescarlan11/camnook/issues/10#issuecomment-5296415664"
+  },
+  "monitoring": {
+    "runtimeWindowHours": 24,
+    "databaseLogWindowMinutes": 60,
+    "availability": {
+      "auth": "PASS",
+      "smtp": "UNAVAILABLE",
+      "runtime": "PASS",
+      "database": "PASS",
+      "booking": "PASS"
+    },
+    "thresholds": {
+      "authUnexplainedErrorsMax": 0,
+      "smtpUnexplainedFailuresMax": 0,
+      "runtime5xxMax": 0,
+      "runtimeRelevantErrorsMax": 0,
+      "databaseAdvisorErrorsMax": 0,
+      "databaseApi5xxMax": 0,
+      "bookingSmokeFailuresMax": 0
+    },
+    "signals": {
+      "authUnexplainedErrors": 0,
+      "smtpUnexplainedFailures": 0,
+      "runtime5xx": 0,
+      "runtimeRelevantErrors": 0,
+      "databaseAdvisorErrors": 0,
+      "databaseApi5xx": 0,
+      "bookingSmokeFailures": 0
+    }
+  },
+  "rollback": {
+    "admission": {
+      "firstAction": "DISABLE_SIGNUP",
+      "preservesExistingLogin": true,
+      "disableCaptchaBeforeIncompatibleAppRollback": true
+    },
+    "catalog": {
+      "firstAction": "ARCHIVE_INACCURATE_LISTING",
+      "preservesHistory": true,
+      "deletesHistory": false
+    },
+    "recoveryRequiresSeparateAuthorization": true
+  },
+  "signoffs": [
+    {
+      "category": "contract_legal",
+      "state": "MISSING",
+      "source": "No approved Production contract wording is recorded."
+    },
+    {
+      "category": "legal_privacy",
+      "state": "OPEN",
+      "source": "https://github.com/jlescarlan11/camnook/issues/26"
+    },
+    {
+      "category": "operations",
+      "state": "MISSING",
+      "source": "No paid-lifecycle staffing and incident sign-off is recorded."
+    },
+    {
+      "category": "release_owner",
+      "state": "APPROVED",
+      "source": "Sprint 8 NO_GO decision record."
+    },
+    {
+      "category": "security_recovery",
+      "state": "MISSING",
+      "source": "No backup restore and full lifecycle recovery sign-off is recorded."
+    },
+    {
+      "category": "tax_business",
+      "state": "MISSING",
+      "source": "No tax receipt and business-readiness sign-off is recorded."
+    }
+  ],
+  "authorization": {
+    "productionMutationAuthorized": false,
+    "source": "NOT_AUTHORIZED",
+    "windowStartsAt": null,
+    "windowEndsAt": null
+  },
+  "failClosed": {
+    "paidLifecycleChangeApplied": false,
+    "productionStateChangedByAudit": false,
+    "governmentIdPolicyEnabled": false
+  },
+  "declaredBlockers": [
+    "CUSTOM_SMTP_DISABLED",
+    "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
+    "LEAKED_PASSWORD_PROTECTION_DISABLED",
+    "LEGAL_PRIVACY_APPROVAL_OPEN",
+    "MONITORING_SIGNAL_UNAVAILABLE",
+    "MUTATION_AUTHORIZATION_MISSING",
+    "PRODUCTION_MIGRATIONS_BEHIND_REPOSITORY",
+    "REQUIRED_SIGNOFFS_INCOMPLETE"
+  ],
+  "followUps": [
+    "Keep the repository-only paid lifecycle undeployed until all eight pending migrations pass Development and protected Preview validation.",
+    "Restore and prove reviewed custom SMTP capacity before any later public paid launch window.",
+    "Resolve or explicitly accept the leaked-password-protection warning before a GO decision.",
+    "Close the legal privacy contract tax operations and recovery gates with recorded approvals.",
+    "Create a new exact evidence bundle and obtain separate Production mutation authorization immediately before any future window."
+  ],
+  "sources": [
+    "https://github.com/jlescarlan11/camnook/issues/9",
+    "https://github.com/jlescarlan11/camnook/issues/10",
+    "https://github.com/jlescarlan11/camnook/issues/26",
+    "docs/operations/public-renter-registration.md",
+    "docs/operations/catalog-publication.md"
+  ]
+}
