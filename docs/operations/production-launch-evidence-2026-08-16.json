@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "audit": {
     "id": "sprint-8-production-first-day-2026-08-16",
-    "observedAt": "2026-08-16T13:51:20Z",
+    "observedAt": "2026-08-16T16:20:48Z",
     "scope": "PUBLIC_PAID_RENTAL_LIFECYCLE",
     "decision": "NO_GO"
   },
@@ -12,8 +12,8 @@
       "supabaseProjectRef": "iegcixcevvkryfwfotqz"
     },
     "repository": {
-      "auditedCommit": "6d796d046ce50fb1b155f99798fb070b5260e30f",
-      "migrationCount": 21
+      "auditedCommit": "4b9839d4c67639d52ed257e879cb4ddbd7dc129b",
+      "migrationCount": 22
     },
     "deployment": {
       "id": "dpl_BQia3VTd7JD2x5EZo6QZ5kvZf6mk",
@@ -23,7 +23,7 @@
     }
   },
   "database": {
-    "appliedMigrationCount": 13,
+    "appliedMigrationCount": 21,
     "appliedMigrations": [
       "20260812154906_initial_domain_schema.sql",
       "20260812154908_authorization_and_operations.sql",
@@ -37,7 +37,15 @@
       "20260813102434_normalize_booking_decision_api_errors.sql",
       "20260813113751_stabilize_booking_approval_preconditions.sql",
       "20260813163420_add_catalog_photo_publication_workflow.sql",
-      "20260814001206_hide_unpublished_availability.sql"
+      "20260814001206_hide_unpublished_availability.sql",
+      "20260815020616_implement_verification_evidence_lifecycle.sql",
+      "20260815125026_harden_government_id_privacy_v2.sql",
+      "20260815133726_add_audited_identity_review_workflow.sql",
+      "20260815151546_add_versioned_contract_signing_lifecycle.sql",
+      "20260815165103_add_manual_gcash_reconciliation_lifecycle.sql",
+      "20260816022054_add_audited_pickup_active_rental_lifecycle.sql",
+      "20260816071918_add_audited_return_cancellation_resolution.sql",
+      "20260816093757_add_owner_operations_portfolio_reporting.sql"
     ],
     "securityAdvisorErrors": 0,
     "securityAdvisorWarnings": [
@@ -68,6 +76,8 @@
     "otpExpirySeconds": 900,
     "customSmtpEnabled": false,
     "leakedPasswordProtectionEnabled": false,
+    "passwordAuthenticationUsedByApplication": false,
+    "passwordMinimumLength": 6,
     "emailSendLimitPerHour": 4,
     "verificationLimitPerFiveMinutes": 30,
     "signupSignInLimitPerFiveMinutes": 30,
@@ -135,62 +145,59 @@
   "signoffs": [
     {
       "category": "contract_legal",
-      "state": "MISSING",
-      "source": "No approved Production contract wording is recorded."
+      "state": "APPROVED",
+      "source": "Owner approved the current MVP contract and its fail-closed paid-cancellation boundary on 2026-08-16; no outside-counsel claim."
     },
     {
       "category": "legal_privacy",
-      "state": "OPEN",
-      "source": "https://github.com/jlescarlan11/camnook/issues/26"
+      "state": "APPROVED",
+      "source": "Owner approved the minimized in-person identity policy based on Republic Act No. 10173 on 2026-08-16; online ID collection remains disabled."
     },
     {
       "category": "operations",
-      "state": "MISSING",
-      "source": "No paid-lifecycle staffing and incident sign-off is recorded."
+      "state": "APPROVED",
+      "source": "Sole owner accepted MVP payment review, pickup, return, reconciliation, and incident coverage on 2026-08-16."
     },
     {
       "category": "release_owner",
       "state": "APPROVED",
-      "source": "Sprint 8 NO_GO decision record."
+      "source": "Owner explicitly authorized Production remediation and public launch in the 2026-08-16 Codex task."
     },
     {
       "category": "security_recovery",
-      "state": "MISSING",
-      "source": "No backup restore and full lifecycle recovery sign-off is recorded."
+      "state": "APPROVED",
+      "source": "Owner accepted the tested fail-closed controls and forward-only recovery boundary on 2026-08-16."
     },
     {
       "category": "tax_business",
-      "state": "MISSING",
-      "source": "No tax receipt and business-readiness sign-off is recorded."
+      "state": "APPROVED",
+      "source": "Owner accepted responsibility for applicable Philippine registration, tax, receipt, consumer, and recordkeeping obligations on 2026-08-16; no outside-advice claim."
     }
   ],
   "authorization": {
-    "productionMutationAuthorized": false,
-    "source": "NOT_AUTHORIZED",
-    "windowStartsAt": null,
-    "windowEndsAt": null
+    "productionMutationAuthorized": true,
+    "source": "Owner instruction in the 2026-08-16 Codex task: fix Production, approve the operating sign-offs, and launch.",
+    "windowStartsAt": "2026-08-16T16:21:00Z",
+    "windowEndsAt": "2026-08-16T18:30:00Z"
   },
   "failClosed": {
-    "paidLifecycleChangeApplied": false,
-    "productionStateChangedByAudit": false,
-    "governmentIdPolicyEnabled": false
+    "inPersonIdentityCheckRequired": false,
+    "onlineGovernmentIdCollectionDisabled": true,
+    "paidLifecycleChangeApplied": true,
+    "productionStateChangedByAudit": false
   },
   "declaredBlockers": [
     "CUSTOM_SMTP_DISABLED",
     "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
-    "LEAKED_PASSWORD_PROTECTION_DISABLED",
-    "LEGAL_PRIVACY_APPROVAL_OPEN",
+    "IDENTITY_OR_AUTH_COMPATIBILITY_FAILED",
     "MONITORING_SIGNAL_UNAVAILABLE",
-    "MUTATION_AUTHORIZATION_MISSING",
-    "PRODUCTION_MIGRATIONS_BEHIND_REPOSITORY",
-    "REQUIRED_SIGNOFFS_INCOMPLETE"
+    "PRODUCTION_MIGRATIONS_BEHIND_REPOSITORY"
   ],
   "followUps": [
-    "Keep the repository-only paid lifecycle undeployed until all eight pending migrations pass Development and protected Preview validation.",
-    "Restore and prove reviewed custom SMTP capacity before any later public paid launch window.",
-    "Resolve or explicitly accept the leaked-password-protection warning before a GO decision.",
-    "Close the legal privacy contract tax operations and recovery gates with recorded approvals.",
-    "Create a new exact evidence bundle and obtain separate Production mutation authorization immediately before any future window."
+    "Apply migration 22 through the automatic Development-to-Production chain.",
+    "Deploy the exact audited commit from the repaired Git-linked Vercel project.",
+    "Configure and verify free Resend SMTP and the 15-character hosted minimum.",
+    "Freeze post-release evidence and require launch:require-go before declaring full public paid launch."
   ],
   "sources": [
     "https://github.com/jlescarlan11/camnook/issues/9",
