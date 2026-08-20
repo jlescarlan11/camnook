@@ -237,6 +237,10 @@ and
 for the machine-checked evidence bundle, monitoring thresholds, independent
 admission/catalog rollback, and current Production decision.
 
+Use [`docs/operations/calendar-handoff-meetup-rollout.md`](docs/operations/calendar-handoff-meetup-rollout.md)
+for the disabled-first calendar, lender policy, Geoapify, Preview, activation,
+privacy evidence, and history-preserving rollback contract.
+
 ## Intentional launch gates
 
 - Booking quote and approval pricing use the database-authoritative OD-01

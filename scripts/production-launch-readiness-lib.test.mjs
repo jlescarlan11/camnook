@@ -9,7 +9,7 @@ const repositoryMigrations = Array.from(
 
 function evidence(overrides = {}) {
   const base = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     audit: {
       decision: "NO_GO",
       id: "sprint-8-audit",
@@ -110,6 +110,18 @@ function evidence(overrides = {}) {
         smtpUnexplainedFailuresMax: 0,
       },
     },
+    meetupRelease: {
+      candidateGates: "PASS",
+      developmentProviderCheck: "UNAVAILABLE",
+      ownerApprovedPolicyCount: 0,
+      previewEndToEnd: "UNAVAILABLE",
+      privacyReview: "PASS",
+      productionProviderConfigured: false,
+      productionHandoffEnabled: false,
+      productionMeetupEnabled: false,
+      providerOperationalControlsVerified: false,
+      rollbackRehearsal: "UNAVAILABLE",
+    },
     rollback: {
       admission: {
         disableCaptchaBeforeIncompatibleAppRollback: true,
@@ -147,6 +159,12 @@ function evidence(overrides = {}) {
       "CUSTOM_SMTP_DISABLED",
       "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
       "LEGAL_PRIVACY_APPROVAL_OPEN",
+      "MEETUP_DEVELOPMENT_PROVIDER_CHECK_MISSING",
+      "MEETUP_OWNER_POLICY_MISSING",
+      "MEETUP_PREVIEW_STORY_MISSING",
+      "MEETUP_PRODUCTION_CONFIGURATION_MISSING",
+      "MEETUP_PROVIDER_CONTROLS_MISSING",
+      "MEETUP_ROLLBACK_REHEARSAL_MISSING",
       "MONITORING_SIGNAL_UNAVAILABLE",
       "MUTATION_AUTHORIZATION_MISSING",
       "PRODUCTION_MIGRATIONS_BEHIND_REPOSITORY",
@@ -166,6 +184,12 @@ describe("production launch readiness evidence", () => {
         "CUSTOM_SMTP_DISABLED",
         "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
         "LEGAL_PRIVACY_APPROVAL_OPEN",
+        "MEETUP_DEVELOPMENT_PROVIDER_CHECK_MISSING",
+        "MEETUP_OWNER_POLICY_MISSING",
+        "MEETUP_PREVIEW_STORY_MISSING",
+        "MEETUP_PRODUCTION_CONFIGURATION_MISSING",
+        "MEETUP_PROVIDER_CONTROLS_MISSING",
+        "MEETUP_ROLLBACK_REHEARSAL_MISSING",
         "MONITORING_SIGNAL_UNAVAILABLE",
         "MUTATION_AUTHORIZATION_MISSING",
         "PRODUCTION_MIGRATIONS_BEHIND_REPOSITORY",
@@ -188,6 +212,18 @@ describe("production launch readiness evidence", () => {
     value.database.appliedMigrations = repositoryMigrations;
     value.auth.customSmtpEnabled = true;
     value.monitoring.availability.smtp = "PASS";
+    value.meetupRelease = {
+      candidateGates: "PASS",
+      developmentProviderCheck: "PASS",
+      ownerApprovedPolicyCount: 1,
+      previewEndToEnd: "PASS",
+      privacyReview: "PASS",
+      productionProviderConfigured: true,
+      productionHandoffEnabled: true,
+      productionMeetupEnabled: true,
+      providerOperationalControlsVerified: true,
+      rollbackRehearsal: "PASS",
+    };
     value.signoffs = value.signoffs.map((signoff) => ({ ...signoff, state: "APPROVED" }));
     value.authorization = {
       productionMutationAuthorized: true,
@@ -229,6 +265,10 @@ describe("production launch readiness evidence", () => {
     ["email address", { followUps: ["Contact renter@example.com"] }],
     ["sensitive field", { accessToken: "not-even-a-real-token" }],
     ["provider secret", { followUps: ["sb_secret_examplevalue"] }],
+    ["coordinate pair", { followUps: ["Observed 10.301234, 123.901234"] }],
+    ["provider identifier", { followUps: ["Selected provider:ayala"] }],
+    ["opaque meetup reference", { followUps: ["v1.aabb.ccdd.eeff"] }],
+    ["labeled Geoapify key", { followUps: ["Geoapify API key=example-value"] }],
   ])("rejects %s in release evidence", (_label, override) => {
     const value = evidence(override);
     expect(() => evaluateLaunchReadiness(value, { repositoryMigrations })).toThrow(

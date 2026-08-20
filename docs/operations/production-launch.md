@@ -1,9 +1,10 @@
 # Production Launch Control and First-Day Audit
 
-Status: 16 August 2026 launch remediation in progress. Production is at 21/22
-migrations; migration 22, free Resend SMTP, and the exact Git-linked deployment
-are applied by this release. The machine evidence remains authoritative until
-the post-release decision is frozen.
+Status: calendar/handoff/meetup release is **NO_GO** as of 21 August 2026. The
+candidate contains 25 migrations while the last verified Production evidence
+contains 22. The Development provider check, protected Preview story, current
+hosted monitoring, owner-approved camera policy, Production provider controls,
+and rollback rehearsal are not verified. Production remains unchanged.
 
 A reviewed merge to `main` authorizes that revision's forward schema migrations.
 Successful CI triggers the automatic Development rollout and hosted checks; only
@@ -228,3 +229,17 @@ The owner explicitly authorized remediation and launch after the frozen audit:
 The final decision is written only after the exact merge commit is deployed,
 migration 22 is present in both hosted projects, Production Auth is verified,
 the public surface is healthy, and `launch:require-go` passes.
+
+## 2026-08-21 calendar, handoff, and meetup preflight
+
+The machine evidence schema now includes a `meetupRelease` gate. It cannot
+produce `GO` until the candidate gates, bounded Development provider check,
+protected Preview story, privacy review, Production provider/config controls,
+at least one owner-approved camera policy, and a disable-first rollback
+rehearsal all pass. A provider key value, precise coordinate, venue token,
+private lender anchor, raw response, or user-linked address is never evidence.
+
+Follow [`calendar-handoff-meetup-rollout.md`](calendar-handoff-meetup-rollout.md)
+for the exact environment order. In the current unauthorized window,
+`pnpm launch:verify` must report `NO_GO` and `pnpm launch:require-go` must exit 2.
+Do not reinterpret that expected exit as a test failure or bypass it.

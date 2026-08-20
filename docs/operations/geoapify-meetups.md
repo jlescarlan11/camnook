@@ -17,6 +17,7 @@ including shopping malls, public transport, and community centers.
 Authoritative review sources:
 
 - [MCP Reverse Geocode Coordinates](https://apidocs.geoapify.com/docs/mcp/reverse-geocode/): POST body city-level lookup and response fields.
+- [MCP Geocode Structured Address](https://apidocs.geoapify.com/docs/mcp/geocode-structured/): POST body fallback lookup constrained to Philippine city/municipality input.
 - [MCP Search Places](https://apidocs.geoapify.com/docs/mcp/search-places/): POST body category/radius search and normalized place fields.
 - [Geoapify MCP Server](https://apidocs.geoapify.com/docs/mcp/): header-based API-key authentication and underlying API credit pricing without an MCP surcharge.
 - [Places API categories](https://apidocs.geoapify.com/docs/places/): reviewed category vocabulary and one credit per 20 returned places.
@@ -47,6 +48,8 @@ server-only Vercel Development variables; never use a `NEXT_PUBLIC_` prefix:
 - `MEETUP_PROVIDER_CONFIG_VERSION`: bump when category/ranking policy changes.
 - `MEETUP_PROVIDER_TIMEOUT_MS`: 500–10000; default 4000.
 - `MEETUP_SEARCH_RADIUS_METERS`: 1000–20000; default 8000.
+- `MEETUP_PLANNING_ENABLED`: exact `true` only after schema, provider, policy,
+  Preview, monitoring, and rollback evidence pass. Any other value is disabled.
 
 Use `vercel env add <NAME> development` for secrets and settings. Do not paste
 values into tickets, commits, terminal transcripts, analytics, or chat. The
@@ -89,3 +92,9 @@ Geoapify key, and remove all meetup variables from the affected Vercel environme
 No precise renter location backfill or cleanup should exist because CamNook never
 persists it. Public venue snapshots created by the later booking issue follow that
 booking's retention rules.
+
+The manual fallback sends only the submitted city/municipality to the structured
+geocoder with `country=Philippines` and `country_codes=ph`. Street-like input is
+rejected before the provider call. Provider city/place identifiers are used only
+inside the server recommendation boundary and are not persisted in a booking or
+returned as client-visible claims.

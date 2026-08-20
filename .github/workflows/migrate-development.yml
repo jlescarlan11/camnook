@@ -59,6 +59,9 @@ jobs:
           bash scripts/run-hosted-database-tests.sh
           supabase/tests/database/005_verification_policy_disabled.sql
           supabase/tests/database/006_hosted_verification_rls.sql
+          supabase/tests/database/013_camera_handoff_policies.sql
+          supabase/tests/database/014_handoff_schedule_booking_flow.sql
+          supabase/tests/database/015_booking_meetup_plans.sql
 
       - name: Run hosted security advisors
         run: supabase db advisors --linked --type security --level warn --fail-on error

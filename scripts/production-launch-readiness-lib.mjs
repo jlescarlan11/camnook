@@ -1,6 +1,6 @@
 export const PRODUCTION_PROJECT_REF = "iegcixcevvkryfwfotqz";
 export const PRODUCTION_APPLICATION_URL = "https://camnook.shop";
-export const EVIDENCE_SCHEMA_VERSION = 2;
+export const EVIDENCE_SCHEMA_VERSION = 3;
 
 export const REQUIRED_SIGNOFFS = [
   "contract_legal",
@@ -24,6 +24,10 @@ const SENSITIVE_VALUE_PATTERNS = [
   { label: "email address", pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i },
   { label: "JWT", pattern: /\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\b/ },
   { label: "provider secret", pattern: /\b(?:sb_secret_|sk_live_|whsec_)[A-Za-z0-9_-]+\b/i },
+  { label: "precise coordinate pair", pattern: /-?\d{1,2}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}/ },
+  { label: "provider identifier", pattern: /\bprovider:[A-Za-z0-9_-]+\b/i },
+  { label: "opaque meetup reference", pattern: /\bv1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/ },
+  { label: "Geoapify key", pattern: /\bgeoapify(?:[_ -]?api)?[_ -]?key\s*[:=]\s*\S+/i },
   { label: "Philippine phone number", pattern: /(?:\+?63|0)9\d{9}\b/ },
 ];
 const SAFE_PASSWORD_EVIDENCE_KEYS = new Set([
@@ -343,6 +347,7 @@ function validateStructure(evidence, repositoryMigrations) {
     "failClosed",
     "followUps",
     "monitoring",
+    "meetupRelease",
     "rollback",
     "schemaVersion",
     "signoffs",
@@ -431,6 +436,48 @@ function validateStructure(evidence, repositoryMigrations) {
     fail("leaked-password Auth state must agree with the security-advisor evidence.");
   }
   validateMonitoring(requireObject(evidence.monitoring, "monitoring"));
+  const meetupRelease = requireObject(evidence.meetupRelease, "meetupRelease");
+  requireExactKeys(meetupRelease, "meetupRelease", [
+    "candidateGates",
+    "developmentProviderCheck",
+    "ownerApprovedPolicyCount",
+    "previewEndToEnd",
+    "privacyReview",
+    "productionProviderConfigured",
+    "productionHandoffEnabled",
+    "productionMeetupEnabled",
+    "providerOperationalControlsVerified",
+    "rollbackRehearsal",
+  ]);
+  requireEnum(meetupRelease.candidateGates, "meetupRelease.candidateGates", PASS_FAIL);
+  requireEnum(
+    meetupRelease.developmentProviderCheck,
+    "meetupRelease.developmentProviderCheck",
+    SIGNAL_STATES,
+  );
+  requireInteger(
+    meetupRelease.ownerApprovedPolicyCount,
+    "meetupRelease.ownerApprovedPolicyCount",
+  );
+  requireEnum(meetupRelease.previewEndToEnd, "meetupRelease.previewEndToEnd", SIGNAL_STATES);
+  requireEnum(meetupRelease.privacyReview, "meetupRelease.privacyReview", PASS_FAIL);
+  requireBoolean(
+    meetupRelease.productionProviderConfigured,
+    "meetupRelease.productionProviderConfigured",
+  );
+  requireBoolean(
+    meetupRelease.productionHandoffEnabled,
+    "meetupRelease.productionHandoffEnabled",
+  );
+  requireBoolean(
+    meetupRelease.productionMeetupEnabled,
+    "meetupRelease.productionMeetupEnabled",
+  );
+  requireBoolean(
+    meetupRelease.providerOperationalControlsVerified,
+    "meetupRelease.providerOperationalControlsVerified",
+  );
+  requireEnum(meetupRelease.rollbackRehearsal, "meetupRelease.rollbackRehearsal", SIGNAL_STATES);
   if (
     evidence.monitoring.signals.databaseAdvisorErrors !==
     database.securityAdvisorErrors
@@ -621,6 +668,34 @@ function computeBlockers(evidence, repositoryMigrations) {
   add(
     Object.values(evidence.monitoring.availability).some((state) => state !== "PASS"),
     "MONITORING_SIGNAL_UNAVAILABLE",
+  );
+  add(evidence.meetupRelease.candidateGates !== "PASS", "MEETUP_CANDIDATE_GATES_FAILED");
+  add(
+    evidence.meetupRelease.developmentProviderCheck !== "PASS",
+    "MEETUP_DEVELOPMENT_PROVIDER_CHECK_MISSING",
+  );
+  add(
+    evidence.meetupRelease.previewEndToEnd !== "PASS",
+    "MEETUP_PREVIEW_STORY_MISSING",
+  );
+  add(evidence.meetupRelease.privacyReview !== "PASS", "MEETUP_PRIVACY_REVIEW_FAILED");
+  add(
+    !evidence.meetupRelease.productionProviderConfigured ||
+      !evidence.meetupRelease.productionHandoffEnabled ||
+      !evidence.meetupRelease.productionMeetupEnabled,
+    "MEETUP_PRODUCTION_CONFIGURATION_MISSING",
+  );
+  add(
+    evidence.meetupRelease.ownerApprovedPolicyCount < 1,
+    "MEETUP_OWNER_POLICY_MISSING",
+  );
+  add(
+    !evidence.meetupRelease.providerOperationalControlsVerified,
+    "MEETUP_PROVIDER_CONTROLS_MISSING",
+  );
+  add(
+    evidence.meetupRelease.rollbackRehearsal !== "PASS",
+    "MEETUP_ROLLBACK_REHEARSAL_MISSING",
   );
   add(
     evidence.rollback.admission.firstAction !== "DISABLE_SIGNUP" ||

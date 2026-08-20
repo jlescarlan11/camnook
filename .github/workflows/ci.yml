@@ -63,6 +63,9 @@ jobs:
           supabase/tests/database/010_pickup_active_rental.sql
           supabase/tests/database/011_return_cancellation_resolution.sql
           supabase/tests/database/012_owner_operations_portfolio_reporting.sql
+          supabase/tests/database/013_camera_handoff_policies.sql
+          supabase/tests/database/014_handoff_schedule_booking_flow.sql
+          supabase/tests/database/015_booking_meetup_plans.sql
 
       - name: Generate database types for validation
         # Local and hosted PostgREST versions can order equivalent definitions
@@ -84,6 +87,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          HANDOFF_SCHEDULING_ENABLED: "true"
+          MEETUP_PLANNING_ENABLED: "true"
 
   database-concurrency:
     name: Database concurrency

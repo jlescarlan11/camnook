@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "audit": {
-    "id": "sprint-8-production-first-day-2026-08-16",
-    "observedAt": "2026-08-16T21:57:56Z",
+    "id": "calendar-meetup-release-preflight-2026-08-21",
+    "observedAt": "2026-08-21T18:56:00Z",
     "scope": "PUBLIC_PAID_RENTAL_LIFECYCLE",
-    "decision": "GO"
+    "decision": "NO_GO"
   },
   "targets": {
     "production": {
@@ -12,8 +12,8 @@
       "supabaseProjectRef": "iegcixcevvkryfwfotqz"
     },
     "repository": {
-      "auditedCommit": "adb20b2beee821cf259ffa924fb1b3a94b1640a7",
-      "migrationCount": 22
+      "auditedCommit": "3b44ad569d01060b0b0c2a03d74cab6cdb64e3c4",
+      "migrationCount": 25
     },
     "deployment": {
       "id": "dpl_D9n4mhBQxxT3XnWbmNV1z1H67RaM",
@@ -105,11 +105,11 @@
     "runtimeWindowHours": 24,
     "databaseLogWindowMinutes": 60,
     "availability": {
-      "auth": "PASS",
-      "smtp": "PASS",
-      "runtime": "PASS",
-      "database": "PASS",
-      "booking": "PASS"
+      "auth": "UNAVAILABLE",
+      "smtp": "UNAVAILABLE",
+      "runtime": "UNAVAILABLE",
+      "database": "UNAVAILABLE",
+      "booking": "UNAVAILABLE"
     },
     "thresholds": {
       "authUnexplainedErrorsMax": 0,
@@ -129,6 +129,18 @@
       "databaseApi5xx": 0,
       "bookingSmokeFailures": 0
     }
+  },
+  "meetupRelease": {
+    "candidateGates": "PASS",
+    "developmentProviderCheck": "UNAVAILABLE",
+    "ownerApprovedPolicyCount": 0,
+    "previewEndToEnd": "UNAVAILABLE",
+    "privacyReview": "PASS",
+    "productionProviderConfigured": false,
+    "productionHandoffEnabled": false,
+    "productionMeetupEnabled": false,
+    "providerOperationalControlsVerified": false,
+    "rollbackRehearsal": "UNAVAILABLE"
   },
   "rollback": {
     "admission": {
@@ -176,19 +188,33 @@
     }
   ],
   "authorization": {
-    "productionMutationAuthorized": true,
-    "source": "Owner instruction in the 2026-08-16 Codex task: fix Production, approve the operating sign-offs, and launch.",
-    "windowStartsAt": "2026-08-16T21:58:00Z",
-    "windowEndsAt": "2026-08-17T01:58:00Z"
+    "productionMutationAuthorized": false,
+    "source": "The 2026-08-21 task explicitly forbids merge, deploy, and Production mutation.",
+    "windowStartsAt": null,
+    "windowEndsAt": null
   },
   "failClosed": {
     "inPersonIdentityCheckRequired": true,
     "onlineGovernmentIdCollectionDisabled": true,
     "paidLifecycleChangeApplied": true,
-    "productionStateChangedByAudit": true
+    "productionStateChangedByAudit": false
   },
-  "declaredBlockers": [],
+  "declaredBlockers": [
+    "DEPLOYED_COMMIT_DIFFERS_FROM_AUDITED_REPOSITORY",
+    "MEETUP_DEVELOPMENT_PROVIDER_CHECK_MISSING",
+    "MEETUP_OWNER_POLICY_MISSING",
+    "MEETUP_PREVIEW_STORY_MISSING",
+    "MEETUP_PRODUCTION_CONFIGURATION_MISSING",
+    "MEETUP_PROVIDER_CONTROLS_MISSING",
+    "MEETUP_ROLLBACK_REHEARSAL_MISSING",
+    "MONITORING_SIGNAL_UNAVAILABLE",
+    "MUTATION_AUTHORIZATION_MISSING",
+    "PRODUCTION_MIGRATIONS_BEHIND_REPOSITORY"
+  ],
   "followUps": [
+    "An authorized CamNook representative must provision the dedicated Development Geoapify project and credential, then run the bounded provider check.",
+    "Apply the three disabled-by-default migrations through the reviewed Development workflow and complete the protected Preview story before any Production activation decision.",
+    "Configure and verify the Production provider credential, category policy, quota/cost/rotation controls, owner-approved camera policy, and rollback rehearsal while both feature flags remain disabled.",
     "Configure the owner-approved real GCash recipient before accepting a payment; submission remains fail closed until then.",
     "Configure PICKUP_LOCATION, PICKUP_CONTACT, and PICKUP_PROCESS before confirming any pickup; renter instructions remain fail closed until then.",
     "Keep online government-ID collection disabled and perform the minimized original-ID check only when the named renter is physically present at pickup."
@@ -197,10 +223,12 @@
     "https://github.com/jlescarlan11/camnook/issues/9",
     "https://github.com/jlescarlan11/camnook/issues/10",
     "https://github.com/jlescarlan11/camnook/issues/26",
+    "https://github.com/jlescarlan11/camnook/issues/105",
     "https://github.com/jlescarlan11/camnook/actions/runs/31974839789",
     "https://github.com/jlescarlan11/camnook/actions/runs/31974943138",
     "https://vercel.com/lester-s-projects4/camnook/D9n4mhBQxxT3XnWbmNV1z1H67RaM",
     "docs/operations/public-renter-registration.md",
-    "docs/operations/catalog-publication.md"
+    "docs/operations/catalog-publication.md",
+    "docs/operations/calendar-handoff-meetup-rollout.md"
   ]
 }
