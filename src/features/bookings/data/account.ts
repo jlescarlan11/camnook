@@ -6,9 +6,15 @@ import type { requireUser } from "@/lib/auth/require-user";
 import type { Database } from "@/types/database.generated";
 
 import { loadContractHistory } from "../../contracts/data";
+import {
+  projectMeetupPlan,
+  SAFE_MEETUP_PLAN_COLUMNS,
+  safeMeetupPlanRowSchema,
+  type SafeMeetupPlan,
+} from "../../meetups/plan";
 
 export const SAFE_BOOKING_COLUMNS =
-  "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id";
+  "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required";
 
 type UserContext = Awaited<ReturnType<typeof requireUser>>;
 
@@ -23,6 +29,7 @@ export type SafeBookingRow = {
   expected_location: string;
   id: string;
   intended_use: string;
+  meetup_snapshot_required: boolean;
   pickup_at: string;
   rental_amount: number | null;
   requested_at: string;
@@ -39,6 +46,7 @@ export type BookingDTO = ReturnType<typeof projectBooking>;
 export function projectBooking(
   row: SafeBookingRow,
   camera: PublicCameraIdentity | null,
+  meetup: SafeMeetupPlan | null = null,
 ) {
   const booking = {
     camera: camera ?? {
@@ -48,6 +56,7 @@ export function projectBooking(
     expectedLocation: row.expected_location,
     id: row.id,
     intendedUse: row.intended_use,
+    meetup,
     pickupAt: row.pickup_at,
     requestedAt: row.requested_at,
     returnAt: row.return_at,
@@ -118,10 +127,33 @@ export async function loadAccountData(context: UserContext) {
         : [],
     ),
   );
+  const meetupResult = rows.length
+    ? await context.supabase
+        .from("booking_meetup_plans")
+        .select(SAFE_MEETUP_PLAN_COLUMNS)
+        .in("booking_id", rows.map((booking) => booking.id))
+    : { data: [], error: null };
+  const plans = z.array(safeMeetupPlanRowSchema).safeParse(meetupResult.data);
+  if (meetupResult.error || !plans.success) return { status: "error" } as const;
+  const meetupByBooking = new Map(
+    plans.data.map((plan) => [plan.booking_id, projectMeetupPlan(plan)]),
+  );
+  if (
+    rows.some(
+      (booking) =>
+        booking.meetup_snapshot_required && !meetupByBooking.has(booking.id),
+    )
+  ) {
+    return { status: "error" } as const;
+  }
 
   return {
     bookings: rows.map((booking) =>
-      projectBooking(booking, cameraById.get(booking.camera_id) ?? null),
+      projectBooking(
+        booking,
+        cameraById.get(booking.camera_id) ?? null,
+        meetupByBooking.get(booking.id) ?? null,
+      ),
     ),
     profile: profileResult.data
       ? {
@@ -153,17 +185,37 @@ export async function loadBookingDetail(
   if (!data) return { status: "missing" } as const;
 
   const row = data as SafeBookingRow;
-  const cameraResult = await context.supabase
-    .from("public_cameras")
-    .select("name,slug")
-    .eq("id", row.camera_id)
-    .maybeSingle();
+  const [cameraResult, meetupResult] = await Promise.all([
+    context.supabase
+      .from("public_cameras")
+      .select("name,slug")
+      .eq("id", row.camera_id)
+      .maybeSingle(),
+    context.supabase
+      .from("booking_meetup_plans")
+      .select(SAFE_MEETUP_PLAN_COLUMNS)
+      .eq("booking_id", row.id)
+      .maybeSingle(),
+  ]);
   const camera =
     !cameraResult.error && cameraResult.data?.name && cameraResult.data.slug
       ? { name: cameraResult.data.name, slug: cameraResult.data.slug }
       : null;
 
-  const booking = projectBooking(row, camera);
+  const parsedMeetup = meetupResult.data
+    ? safeMeetupPlanRowSchema.safeParse(meetupResult.data)
+    : null;
+  if (meetupResult.error || (parsedMeetup && !parsedMeetup.success)) {
+    return { status: "error" } as const;
+  }
+  if (row.meetup_snapshot_required && !parsedMeetup?.success) {
+    return { status: "inconsistent" } as const;
+  }
+  const booking = projectBooking(
+    row,
+    camera,
+    parsedMeetup?.success ? projectMeetupPlan(parsedMeetup.data) : null,
+  );
   if ("approval" in booking) {
     if (!row.current_contract_version_id) {
       return { status: "inconsistent" } as const;

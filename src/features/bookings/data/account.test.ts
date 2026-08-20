@@ -21,6 +21,7 @@ const baseRow: SafeBookingRow = {
   expected_location: "Quezon City",
   id: "22222222-2222-4222-8222-222222222222",
   intended_use: "Family event",
+  meetup_snapshot_required: false,
   pickup_at: "2099-08-14T01:00:00Z",
   rental_amount: null,
   requested_at: "2026-08-13T01:00:00Z",
@@ -64,6 +65,11 @@ describe("renter booking projection", () => {
           selections.set(table, columns);
           if (table === "profiles") return { eq: profileEq };
           if (table === "bookings") return { eq: bookingsEq };
+          if (table === "booking_meetup_plans") {
+            return {
+              in: vi.fn().mockResolvedValue({ data: [], error: null }),
+            };
+          }
           return { in: camerasIn };
         }),
       })),
@@ -83,9 +89,15 @@ describe("renter booking projection", () => {
       "legal_name,phone,account_status",
     );
     expect(selections.get("bookings")).toBe(
-      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id",
+      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required",
     );
     expect(selections.get("public_cameras")).toBe("id,name,slug");
+    expect(selections.get("booking_meetup_plans")).toBe(
+      "booking_id,renter_city_label,venue_name,venue_address,venue_city,venue_latitude,venue_longitude,provider,provider_config_version,attribution,created_at",
+    );
+    expect(selections.get("booking_meetup_plans")).not.toMatch(
+      /provider_place_id|renter_city_provider_id/,
+    );
     expect(selections.get("bookings")).not.toContain("renter_id");
     expect(selections.get("bookings")).not.toContain("operator_notes");
     expect(filters).toContainEqual(["bookings", "renter_id", "user-1"]);
@@ -134,11 +146,21 @@ describe("renter booking projection", () => {
       data: { name: "Fujifilm X-T5", slug: "fujifilm-x-t5" },
       error: null,
     });
+    const meetupBuilder = { eq: vi.fn(), maybeSingle: vi.fn() };
+    meetupBuilder.eq.mockImplementation((column: string, value: unknown) => {
+      filters.push(["booking_meetup_plans", column, value]);
+      return meetupBuilder;
+    });
+    meetupBuilder.maybeSingle.mockResolvedValue({ data: null, error: null });
     const client = {
       from: vi.fn((table: string) => ({
         select: vi.fn((columns: string) => {
           selections.set(table, columns);
-          return table === "bookings" ? bookingBuilder : cameraBuilder;
+          return table === "bookings"
+            ? bookingBuilder
+            : table === "booking_meetup_plans"
+              ? meetupBuilder
+              : cameraBuilder;
         }),
       })),
     };
@@ -153,7 +175,7 @@ describe("renter booking projection", () => {
       status: "success",
     });
     expect(selections.get("bookings")).toBe(
-      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id",
+      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required",
     );
     expect(filters).toContainEqual(["bookings", "id", baseRow.id]);
     expect(filters).toContainEqual(["bookings", "renter_id", "user-1"]);

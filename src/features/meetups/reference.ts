@@ -17,7 +17,9 @@ const claimsSchema = z.object({
   latitude: z.number().finite().min(-90).max(90),
   longitude: z.number().finite().min(-180).max(180),
   name: z.string().trim().min(1).max(200),
-  providerPlaceId: z.string().trim().min(1).max(500),
+  renterCity: z.object({
+    label: z.string().trim().min(1).max(120),
+  }),
 });
 
 export type RecommendationReferenceClaims = z.infer<typeof claimsSchema>;

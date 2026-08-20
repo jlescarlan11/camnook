@@ -92,13 +92,14 @@ describe("recommendPublicMeetup", () => {
         latitude: 10.317,
         longitude: 123.905,
         name: "Ayala Center Cebu",
+        renterCity: "Cebu City",
         reference: expect.stringMatching(/^v1\./),
       },
       status: "available",
     });
     const serialized = JSON.stringify(result);
     expect(serialized).not.toMatch(
-      /provider-secret|place-ayala|city-cebu|10\.30123456|123\.90123456/,
+      /provider-secret|place-ayala|renter-city-cebu|10\.30123456|123\.90123456/,
     );
     expect(recordTelemetry).toHaveBeenCalledWith({
       durationBucket: "fast",

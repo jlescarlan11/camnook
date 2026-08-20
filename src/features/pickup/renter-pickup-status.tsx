@@ -9,6 +9,7 @@ import {
   type ConditionPhotoActionState,
 } from "./actions";
 import type { MyPickupState } from "./types";
+import type { SafeMeetupPlan } from "@/features/meetups/plan";
 
 const initialAccessState: ConditionPhotoActionState = { status: "idle" };
 
@@ -18,9 +19,11 @@ type InstructionsResult =
 
 export function RenterPickupStatus({
   instructions,
+  meetup,
   pickup,
 }: {
   instructions: InstructionsResult;
+  meetup: SafeMeetupPlan | null;
   pickup: MyPickupState;
 }) {
   const [accessState, accessAction, accessPending] = useActionState(
@@ -36,7 +39,10 @@ export function RenterPickupStatus({
           {instructions ? (
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
               <Value label="Schedule" value={formatManilaDateTime(pickup.pickup_at)} />
-              <Value label="Location" value={instructions.location} />
+              <Value
+                label="Location"
+                value={meetup ? `${meetup.name} — ${meetup.address}` : instructions.location}
+              />
               <Value label="Contact" value={instructions.contact} />
               <Value label="Process" value={instructions.process} />
               <Value label="Bring" value="Your original current government ID. The named renter must collect in person; substitutes are not allowed." />
@@ -56,6 +62,9 @@ export function RenterPickupStatus({
             <Value label="Equipment handoff" value="Camera and all included accessories checked" />
             <Value label="Starting condition" value="Written condition report recorded" />
             <Value label="Expected return" value={formatManilaDateTime(pickup.return_at)} />
+            {meetup ? (
+              <Value label="Return meetup" value={`${meetup.name} — ${meetup.address}`} />
+            ) : null}
           </dl>
           {pickup.handoff.photos.length > 0 ? (
             <div className="mt-5">

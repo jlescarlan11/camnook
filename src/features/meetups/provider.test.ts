@@ -113,6 +113,43 @@ describe("GeoapifyAdapter", () => {
     expect(JSON.stringify(places)).not.toContain("provider-only-payload");
   });
 
+  it("validates a manual Philippine city through the structured city tool", async () => {
+    const request = vi.fn().mockResolvedValue(
+      response(
+        mcp({
+          results: [
+            {
+              city: "Mandaue City",
+              country_code: "ph",
+              lat: 10.3236,
+              lon: 123.9222,
+              place_id: "city-mandaue",
+              result_type: "city",
+            },
+          ],
+        }),
+      ),
+    );
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: request,
+      timeoutMs: 100,
+    });
+
+    await expect(adapter.geocodeCity("Mandaue City")).resolves.toEqual({
+      countryCode: "PH",
+      label: "Mandaue City",
+      latitude: 10.3236,
+      longitude: 123.9222,
+      providerCityId: "city-mandaue",
+    });
+    expect(request.mock.calls[0]?.[1]?.body).toContain(
+      '"name":"geocode_structured_address"',
+    );
+    expect(request.mock.calls[0]?.[1]?.body).toContain('"city":"Mandaue City"');
+    expect(request.mock.calls[0]?.[1]?.body).not.toContain("street");
+  });
+
   it.each([
     [429, "quota"],
     [500, "network"],

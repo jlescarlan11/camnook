@@ -3,6 +3,11 @@ import "server-only";
 import { z } from "zod";
 
 import type { requireAdmin } from "@/lib/auth/require-admin";
+import {
+  projectMeetupPlan,
+  SAFE_MEETUP_PLAN_COLUMNS,
+  safeMeetupPlanRowSchema,
+} from "@/features/meetups/plan";
 
 import { assessApprovalReadiness } from "./readiness";
 
@@ -11,7 +16,7 @@ type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
 export const ADMIN_QUEUE_BOOKING_COLUMNS =
   "id,renter_id,camera_id,pickup_at,return_at,requested_at";
 export const ADMIN_DETAIL_BOOKING_COLUMNS =
-  "id,renter_id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id";
+  "id,renter_id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required";
 export const ADMIN_PROFILE_COLUMNS =
   "user_id,legal_name,phone,account_status";
 export const ADMIN_CAMERA_COLUMNS =
@@ -42,6 +47,7 @@ type DetailBookingRow = QueueBookingRow & {
   daily_rate_snapshot: number | null;
   expected_location: string;
   intended_use: string;
+  meetup_snapshot_required: boolean;
   rental_amount: number | null;
   security_deposit_amount: number | null;
   state: string;
@@ -257,6 +263,7 @@ export async function loadAdminBookingDetail(
     accessoriesResult,
     availabilityResult,
     templateResult,
+    meetupResult,
   ] = await Promise.all([
     context.supabase
       .from("profiles")
@@ -290,6 +297,11 @@ export async function loadAdminBookingDetail(
       .order("id")
       .limit(1)
       .maybeSingle(),
+    context.supabase
+      .from("booking_meetup_plans")
+      .select(SAFE_MEETUP_PLAN_COLUMNS)
+      .eq("booking_id", booking.id)
+      .maybeSingle(),
   ]);
 
   if (
@@ -297,7 +309,8 @@ export async function loadAdminBookingDetail(
     cameraResult.error ||
     accessoriesResult.error ||
     availabilityResult.error ||
-    templateResult.error
+    templateResult.error ||
+    meetupResult.error
   ) {
     return { status: "error" } as const;
   }
@@ -309,6 +322,13 @@ export async function loadAdminBookingDetail(
     (availabilityResult.data ?? []) as AvailabilityRow[],
   );
   const template = (templateResult.data as TemplateRow | null) ?? null;
+  const meetup = meetupResult.data
+    ? safeMeetupPlanRowSchema.safeParse(meetupResult.data)
+    : null;
+  if (meetup && !meetup.success) return { status: "error" } as const;
+  if (booking.meetup_snapshot_required && !meetup?.success) {
+    return { status: "inconsistent" } as const;
+  }
 
   let quote = null;
   if (booking.state === "FOR_REVIEW") {
@@ -407,6 +427,7 @@ export async function loadAdminBookingDetail(
       expectedLocation: booking.expected_location,
       id: booking.id,
       intendedUse: booking.intended_use,
+      meetup: meetup?.success ? projectMeetupPlan(meetup.data) : null,
       pickupAt: booking.pickup_at,
       profile: profile
         ? {

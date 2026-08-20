@@ -6,6 +6,11 @@ import { z } from "zod";
 
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { loginPath } from "@/lib/auth/routes";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { buildMeetupBinding } from "@/features/meetups/binding";
+import { getMeetupProviderConfig } from "@/features/meetups/config";
+import { readRecommendationReference } from "@/features/meetups/reference";
+import { isMeetupPlanningEnabled } from "@/features/meetups/rollout";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
 import { isHandoffSchedulingEnabled } from "../handoff-rollout";
@@ -15,6 +20,8 @@ import { stringFormValue, type ActionStatus } from "./state";
 export type RequestBookingActionState = {
   error?:
     | "invalid_input"
+    | "meetup_expired"
+    | "meetup_required"
     | "profile_required"
     | "request_failed"
     | "schedule_changed"
@@ -30,6 +37,7 @@ export type RequestBookingActionState = {
     policyVersion?: string;
     return?: string;
     returnDate?: string;
+    meetupReference?: string;
   };
   status: ActionStatus;
   values?: { expectedLocation: string; intendedUse: string };
@@ -55,6 +63,8 @@ export async function requestBooking(
     policyVersion: stringFormValue(formData, "policyVersion"),
     return: stringFormValue(formData, "return"),
     returnDate: stringFormValue(formData, "returnDate"),
+    meetupConfirmed: stringFormValue(formData, "meetupConfirmed"),
+    meetupReference: stringFormValue(formData, "meetupReference"),
   };
   const usesSchedule = [
     values.pickupDate,
@@ -73,6 +83,9 @@ export async function requestBooking(
     intendedUse: values.intendedUse,
   };
   const schedulingEnabled = isHandoffSchedulingEnabled();
+  const meetupPlanningEnabled = isMeetupPlanningEnabled();
+  const usesMeetupInput =
+    values.meetupConfirmed !== "" || values.meetupReference !== "";
 
   if (!usesSchedule && schedulingEnabled) {
     return {
@@ -80,6 +93,9 @@ export async function requestBooking(
       status: "error",
       values: preservedValues,
     };
+  }
+  if (usesMeetupInput && !meetupPlanningEnabled) {
+    return { error: "schedule_changed", status: "error", values: preservedValues };
   }
 
   if (!fields.success) {
@@ -136,6 +152,17 @@ export async function requestBooking(
       values: preservedValues,
     };
   }
+  if (
+    meetupPlanningEnabled &&
+    (values.meetupConfirmed !== "true" || !values.meetupReference)
+  ) {
+    return {
+      error: "meetup_required",
+      fieldErrors: { meetupReference: "Confirm the current public meetup recommendation." },
+      status: "error",
+      values: preservedValues,
+    };
+  }
   const legacyPeriod = period?.ok ? period : null;
 
   const context = await getAuthenticatedUser();
@@ -182,9 +209,55 @@ export async function requestBooking(
     return { error: "suspended", status: "error", values: preservedValues };
   }
 
-  const api = context.supabase.schema("api");
-  const { data, error } = usesSchedule
-    ? await api.rpc("request_booking_schedule", {
+  let result;
+  if (usesSchedule && meetupPlanningEnabled) {
+    const config = getMeetupProviderConfig();
+    if (!config) {
+      return { error: "request_failed", status: "error", values: preservedValues };
+    }
+    const binding = buildMeetupBinding({
+      cameraId: fields.data.camera,
+      configVersion: config.configVersion,
+      handoffTime: values.handoffTime,
+      pickupDate: values.pickupDate,
+      policyVersion: policyVersion!,
+      renterId: context.user.id,
+      returnDate: values.returnDate,
+    });
+    const claims = readRecommendationReference(
+      values.meetupReference,
+      config.referenceSecret,
+      { binding },
+    );
+    if (!claims || claims.configVersion !== config.configVersion) {
+      return { error: "meetup_expired", status: "error", values: preservedValues };
+    }
+    let admin;
+    try {
+      admin = createSupabaseAdminClient();
+    } catch {
+      return { error: "request_failed", status: "error", values: preservedValues };
+    }
+    result = await admin.schema("api").rpc("request_booking_schedule_with_meetup", {
+      p_camera_id: fields.data.camera,
+      p_expected_location: fields.data.expectedLocation,
+      p_handoff_time: values.handoffTime,
+      p_intended_use: fields.data.intendedUse,
+      p_pickup_date: values.pickupDate,
+      p_policy_version: policyVersion!,
+      p_provider_config_version: claims.configVersion,
+      p_renter_city_label: claims.renterCity.label,
+      p_renter_id: context.user.id,
+      p_return_date: values.returnDate,
+      p_venue_address: claims.address,
+      p_venue_city: claims.city,
+      p_venue_latitude: claims.latitude,
+      p_venue_longitude: claims.longitude,
+      p_venue_name: claims.name,
+    });
+  } else if (usesSchedule) {
+    const api = context.supabase.schema("api");
+    result = await api.rpc("request_booking_schedule", {
         p_camera_id: fields.data.camera,
         p_expected_location: fields.data.expectedLocation,
         p_handoff_time: values.handoffTime,
@@ -192,14 +265,18 @@ export async function requestBooking(
         p_pickup_date: values.pickupDate,
         p_policy_version: policyVersion!,
         p_return_date: values.returnDate,
-      })
-    : await api.rpc("request_booking", {
+      });
+  } else {
+    const api = context.supabase.schema("api");
+    result = await api.rpc("request_booking", {
         p_camera_id: fields.data.camera,
         p_expected_location: fields.data.expectedLocation,
         p_intended_use: fields.data.intendedUse,
         p_pickup_at: legacyPeriod!.pickupAt,
         p_return_at: legacyPeriod!.returnAt,
-      });
+    });
+  }
+  const { data, error } = result;
 
   if (error || typeof data !== "string" || !z.uuid().safeParse(data).success) {
     return {
@@ -208,6 +285,8 @@ export async function requestBooking(
           ? "schedule_changed"
           : error?.code === "23P01"
             ? "unavailable"
+            : error?.code === "23514"
+              ? "meetup_required"
             : "request_failed",
       status: "error",
       values: preservedValues,

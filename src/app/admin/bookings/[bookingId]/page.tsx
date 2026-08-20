@@ -181,6 +181,19 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               />
             </dl>
 
+            {result.booking.meetup ? (
+              <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="admin-meetup-heading">
+                <h2 className="text-xl font-semibold" id="admin-meetup-heading">Planned pickup and return meetup</h2>
+                <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <DetailValue label="Renter city" value={result.booking.meetup.renterCity} />
+                  <DetailValue label="Public venue" value={result.booking.meetup.name} />
+                  <DetailValue label="Venue address" value={result.booking.meetup.address} />
+                  <DetailValue label="Venue city" value={result.booking.meetup.city} />
+                </dl>
+                <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p>
+              </section>
+            ) : null}
+
             <section className="mt-7 border-t border-stone-200 pt-6">
               <h2 className="text-xl font-semibold">Intended use</h2>
               <PersistedIntendedUse value={result.booking.intendedUse} />

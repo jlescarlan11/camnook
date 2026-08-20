@@ -85,6 +85,7 @@ describe("pickup UI privacy and checklist controls", () => {
           location: "Private pickup counter",
           process: "Present the original ID before equipment checks.",
         }}
+        meetup={null}
         pickup={confirmedOwner}
       />,
     );
@@ -128,7 +129,7 @@ describe("pickup UI privacy and checklist controls", () => {
       ],
     };
     const markup = renderToStaticMarkup(
-      <RenterPickupStatus instructions={null} pickup={active} />,
+      <RenterPickupStatus instructions={null} meetup={null} pickup={active} />,
     );
 
     expect(markup).toContain("The rental is ACTIVE");
@@ -136,5 +137,54 @@ describe("pickup UI privacy and checklist controls", () => {
     expect(markup).toContain("Written condition report recorded");
     expect(markup).not.toContain("Pickup instructions");
     expect(markup).not.toMatch(/condition summary|serial number|object_path|sha256/i);
+  });
+
+  it("uses one persisted meetup for confirmed pickup and active return contexts", () => {
+    const meetup = {
+      address: "Cardinal Rosales Avenue, Cebu City",
+      attribution: "© OpenStreetMap contributors · Powered by Geoapify" as const,
+      city: "Cebu City",
+      configVersion: "geoapify-v1",
+      createdAt: "2026-08-15T00:00:00Z",
+      latitude: 10.317,
+      longitude: 123.905,
+      name: "Ayala Center Cebu",
+      provider: "geoapify" as const,
+      renterCity: "Mandaue City",
+    };
+    const confirmedMarkup = renderToStaticMarkup(
+      <RenterPickupStatus
+        instructions={{
+          contact: "+63 917 123 4567",
+          location: "LEGACY PRIVATE LOCATION",
+          process: "Meet the lender at the public venue.",
+        }}
+        meetup={meetup}
+        pickup={confirmedOwner}
+      />,
+    );
+    expect(confirmedMarkup).toContain("Ayala Center Cebu");
+    expect(confirmedMarkup).not.toContain("LEGACY PRIVATE LOCATION");
+
+    const active = {
+      ...confirmedOwner,
+      booking_state: "ACTIVE",
+      handoff: {
+        accessory_checklist_completed: true as const,
+        actual_at: "2026-08-16T02:00:00Z",
+        camera_serial_checked: true as const,
+        condition_photo_count: 0,
+        condition_report_complete: true as const,
+        named_renter_present: true as const,
+        original_id_checked: true as const,
+        original_id_matched: true as const,
+        photos: [],
+      },
+    };
+    const activeMarkup = renderToStaticMarkup(
+      <RenterPickupStatus instructions={null} meetup={meetup} pickup={active} />,
+    );
+    expect(activeMarkup).toContain("Return meetup");
+    expect(activeMarkup).toContain("Ayala Center Cebu");
   });
 });

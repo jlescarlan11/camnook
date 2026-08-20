@@ -374,6 +374,12 @@ echo "running handoff schedule booking invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/014_handoff_schedule_booking_flow.sql"
 
+echo "running booking meetup plan invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/015_booking_meetup_plans.sql"
+
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
 

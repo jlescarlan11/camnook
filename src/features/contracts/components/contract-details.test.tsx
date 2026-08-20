@@ -86,4 +86,31 @@ describe("contract details", () => {
       expect(markup).toContain(expected);
     }
   });
+
+  it("renders the persisted meetup from the contract snapshot without recomputation", () => {
+    const withMeetup = structuredClone(agreement);
+    withMeetup.current.snapshot.meetup = {
+      attribution: "© OpenStreetMap contributors · Powered by Geoapify",
+      provider: "geoapify",
+      provider_config_version: "geoapify-v1",
+      renter_city: "Mandaue City",
+      venue_address: "Cardinal Rosales Avenue, Cebu City",
+      venue_city: "Cebu City",
+      venue_latitude: 10.317,
+      venue_longitude: 123.905,
+      venue_name: "Ayala Center Cebu",
+    };
+    withMeetup.versions = [withMeetup.current];
+
+    const markup = renderToStaticMarkup(
+      <ContractDetails
+        agreement={withMeetup}
+        approvalDeadlineAt="2026-08-16T00:00:00Z"
+      />,
+    );
+    expect(markup).toContain("Planned pickup and return meetup");
+    expect(markup).toContain("Ayala Center Cebu");
+    expect(markup).toContain("Mandaue City");
+    expect(markup).toContain("Cardinal Rosales Avenue");
+  });
 });

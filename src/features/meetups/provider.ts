@@ -49,6 +49,21 @@ const placesResponseSchema = z.object({
   ),
 });
 
+const citySearchResponseSchema = z.object({
+  results: z.array(
+    z.object({
+      city: z.string().trim().min(1).optional(),
+      municipality: z.string().trim().min(1).optional(),
+      county: z.string().trim().min(1).optional(),
+      country_code: z.string().trim().length(2),
+      lat: z.number().finite().min(-90).max(90),
+      lon: z.number().finite().min(-180).max(180),
+      place_id: z.string().trim().min(1).optional(),
+      result_type: z.string().optional(),
+    }),
+  ),
+});
+
 const mcpResponseSchema = z.object({
   error: z.object({ code: z.number(), message: z.string() }).optional(),
   jsonrpc: z.literal("2.0"),
@@ -141,6 +156,39 @@ export class GeoapifyAdapter {
     if (!label || result.country_code.toUpperCase() !== "PH") {
       throw new ProviderBoundaryError("unsupported_city");
     }
+    return {
+      countryCode: "PH",
+      label,
+      latitude: result.lat,
+      longitude: result.lon,
+      providerCityId:
+        result.place_id ??
+        `geoapify-city:${createHash("sha256")
+          .update(
+            `${result.country_code.toLowerCase()}|${label.toLowerCase()}|${result.lat}|${result.lon}`,
+          )
+          .digest("hex")}`,
+    };
+  }
+
+  async geocodeCity(city: string): Promise<NormalizedCity> {
+    const payload = await this.requestTool("geocode_structured_address", {
+      city,
+      country: "Philippines",
+      country_codes: ["ph"],
+      lang: "en",
+      limit: 5,
+    });
+    const parsed = citySearchResponseSchema.safeParse(payload);
+    if (!parsed.success) throw new ProviderBoundaryError("malformed");
+    const result = parsed.data.results.find(
+      (candidate) =>
+        candidate.country_code.toUpperCase() === "PH" &&
+        ["city", "locality"].includes(candidate.result_type ?? "") &&
+        Boolean(candidate.city ?? candidate.municipality ?? candidate.county),
+    );
+    if (!result) throw new ProviderBoundaryError("unsupported_city");
+    const label = result.city ?? result.municipality ?? result.county!;
     return {
       countryCode: "PH",
       label,

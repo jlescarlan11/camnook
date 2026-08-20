@@ -17,14 +17,15 @@ const claims = {
   latitude: 10.317,
   longitude: 123.905,
   name: "Ayala Center Cebu",
-  providerPlaceId: "provider-place-secret",
+  renterCity: {
+    label: "Cebu City",
+  },
 };
 
 describe("recommendation references", () => {
-  it("encrypts provider identity and validates binding before expiry", () => {
+  it("encrypts the snapshot and validates binding before expiry", () => {
     const reference = mintRecommendationReference(claims, secret);
 
-    expect(reference).not.toContain("provider-place-secret");
     expect(reference).not.toContain("Ayala");
     expect(
       readRecommendationReference(reference, secret, {

@@ -130,6 +130,7 @@ function fullBooking(overrides: Record<string, unknown> = {}) {
     expected_location: "Quezon City",
     id: BOOKING_ID,
     intended_use: "Family event",
+    meetup_snapshot_required: false,
     pickup_at: "2026-08-20T01:00:00.000Z",
     rental_amount: null,
     renter_id: RENTER_ID,
@@ -198,6 +199,7 @@ function detailResults(
       error: null,
     },
     contract_versions: { data: null, error: null },
+    booking_meetup_plans: { data: null, error: null },
     profiles: {
       data: {
         account_status: "active",
@@ -396,7 +398,7 @@ describe("admin booking detail data", () => {
       (item) => item.table === "bookings",
     )!;
     expect(operation(bookingQuery, "select")[0].args).toEqual([
-      "id,renter_id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id",
+      "id,renter_id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required",
     ]);
     expect(operation(bookingQuery, "eq")).toEqual([
       { args: ["id", BOOKING_ID], name: "eq" },
@@ -408,6 +410,15 @@ describe("admin booking detail data", () => {
     expect(operation(profileQuery, "eq")).toEqual([
       { args: ["user_id", RENTER_ID], name: "eq" },
     ]);
+    const meetupQuery = harness.builders.find(
+      (item) => item.table === "booking_meetup_plans",
+    )!;
+    expect(operation(meetupQuery, "select")[0].args).toEqual([
+      "booking_id,renter_city_label,venue_name,venue_address,venue_city,venue_latitude,venue_longitude,provider,provider_config_version,attribution,created_at",
+    ]);
+    expect(JSON.stringify(operation(meetupQuery, "select"))).not.toMatch(
+      /provider_place_id|renter_city_provider_id/,
+    );
     const cameraQuery = harness.builders.find((item) => item.table === "cameras")!;
     expect(operation(cameraQuery, "select")[0].args).toEqual([
       "id,slug,name,status,published_at,daily_rate,security_deposit",
@@ -470,6 +481,7 @@ describe("admin booking detail data", () => {
       "camera_accessories",
       "public_availability",
       "contract_templates",
+      "booking_meetup_plans",
     ]);
     expect(harness.rpc).toHaveBeenCalledWith("quote_booking", {
       p_camera_id: CAMERA_ID,
@@ -576,6 +588,7 @@ describe("admin booking detail data", () => {
       "camera_accessories",
       "public_availability",
       "contract_templates",
+      "booking_meetup_plans",
       "contract_versions",
     ]);
     expect(harness.rpc).not.toHaveBeenCalled();
@@ -683,6 +696,7 @@ describe("admin booking detail data", () => {
       "camera_accessories",
       "public_availability",
       "contract_templates",
+      "booking_meetup_plans",
       "booking_state_history",
     ]);
   });

@@ -21,6 +21,7 @@ export type SafeMeetupRecommendation = {
   latitude: number;
   longitude: number;
   name: string;
+  renterCity: string;
   reference: string;
 };
 

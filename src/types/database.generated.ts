@@ -343,6 +343,16 @@ export type Database = {
         Returns: Json
       }
       get_my_verification_upload_state: { Args: never; Returns: Json }
+      get_meetup_recommendation_context: {
+        Args: {
+          p_camera_id: string
+          p_handoff_time: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_return_date: string
+        }
+        Returns: Json
+      }
       get_owner_operations_dashboard: { Args: never; Returns: Json }
       get_owner_portfolio_report: {
         Args: { p_period_end: string; p_period_start: string }
@@ -587,6 +597,26 @@ export type Database = {
           p_pickup_date: string
           p_policy_version: number
           p_return_date: string
+        }
+        Returns: string
+      }
+      request_booking_schedule_with_meetup: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_handoff_time: string
+          p_intended_use: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_provider_config_version: string
+          p_renter_city_label: string
+          p_renter_id: string
+          p_return_date: string
+          p_venue_address: string
+          p_venue_city: string
+          p_venue_latitude: number
+          p_venue_longitude: number
+          p_venue_name: string
         }
         Returns: string
       }
@@ -917,6 +947,7 @@ export type Database = {
           expected_location: string
           id: string
           intended_use: string
+          meetup_snapshot_required: boolean
           operator_notes: string | null
           pickup_at: string
           rental_amount: number | null
@@ -940,6 +971,7 @@ export type Database = {
           expected_location: string
           id?: string
           intended_use: string
+          meetup_snapshot_required?: boolean
           operator_notes?: string | null
           pickup_at: string
           rental_amount?: number | null
@@ -963,6 +995,7 @@ export type Database = {
           expected_location?: string
           id?: string
           intended_use?: string
+          meetup_snapshot_required?: boolean
           operator_notes?: string | null
           pickup_at?: string
           rental_amount?: number | null
@@ -1002,6 +1035,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      booking_meetup_plans: {
+        Row: {
+          attribution: string
+          booking_id: string
+          created_at: string
+          provider: string
+          provider_config_version: string
+          renter_city_label: string
+          venue_address: string
+          venue_city: string
+          venue_latitude: number
+          venue_longitude: number
+          venue_name: string
+        }
+        Insert: {
+          attribution: string
+          booking_id: string
+          created_at?: string
+          provider: string
+          provider_config_version: string
+          renter_city_label: string
+          venue_address: string
+          venue_city: string
+          venue_latitude: number
+          venue_longitude: number
+          venue_name: string
+        }
+        Update: {
+          attribution?: string
+          booking_id?: string
+          created_at?: string
+          provider?: string
+          provider_config_version?: string
+          renter_city_label?: string
+          venue_address?: string
+          venue_city?: string
+          venue_latitude?: number
+          venue_longitude?: number
+          venue_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_meetup_plans_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
         ]
       }

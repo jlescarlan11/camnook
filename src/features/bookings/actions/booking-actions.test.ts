@@ -14,12 +14,18 @@ vi.mock("@/lib/auth/require-user", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(),
 }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: vi.fn(),
+}));
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getAuthenticatedUser, requireUser } from "@/lib/auth/require-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { buildMeetupBinding } from "@/features/meetups/binding";
+import { mintRecommendationReference } from "@/features/meetups/reference";
 
 import { saveProfile } from "./profile";
 import { quoteBooking } from "./quote-booking";
@@ -50,6 +56,7 @@ describe("quoteBooking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.HANDOFF_SCHEDULING_ENABLED;
+    delete process.env.MEETUP_PLANNING_ENABLED;
   });
 
   it("passes only normalized instants and camera ID to the authoritative quote RPC", async () => {
@@ -380,6 +387,10 @@ describe("requestBooking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.HANDOFF_SCHEDULING_ENABLED;
+    delete process.env.MEETUP_PLANNING_ENABLED;
+    delete process.env.MEETUP_RECOMMENDATION_SECRET;
+    delete process.env.GEOAPIFY_API_KEY;
+    delete process.env.MEETUP_ALLOWED_CATEGORIES;
   });
 
   it("sends exactly five renter-entered parameters then revalidates and redirects", async () => {
@@ -481,6 +492,116 @@ describe("requestBooking", () => {
       p_policy_version: 3,
       p_return_date: "2099-08-26",
     });
+  });
+
+  it("requires a confirmed bound meetup and submits only decrypted server claims through the service RPC", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    process.env.MEETUP_PLANNING_ENABLED = "true";
+    process.env.GEOAPIFY_API_KEY = "provider-development-key";
+    process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
+    process.env.MEETUP_RECOMMENDATION_SECRET =
+      "server-only-meetup-reference-secret-value";
+    const active = profileQuery({ data: { account_status: "active" }, error: null });
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({
+      supabase: active.client,
+      user: { id: "user-1" },
+    } as never);
+    const adminRpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      rpcClient(adminRpc) as never,
+    );
+    const binding = buildMeetupBinding({
+      cameraId: CAMERA_ID,
+      configVersion: "geoapify-v1",
+      handoffTime: "09:00",
+      pickupDate: "2099-08-24",
+      policyVersion: 3,
+      renterId: "user-1",
+      returnDate: "2099-08-26",
+    });
+    const reference = mintRecommendationReference(
+      {
+        address: "Cardinal Rosales Avenue, Cebu City",
+        binding,
+        city: "Cebu City",
+        configVersion: "geoapify-v1",
+        expiresAt: "2099-08-24T00:00:00.000Z",
+        latitude: 10.317,
+        longitude: 123.905,
+        name: "Ayala Center Cebu",
+        renterCity: {
+          label: "Mandaue City",
+        },
+      },
+      process.env.MEETUP_RECOMMENDATION_SECRET,
+    );
+
+    await expect(
+      requestBooking(
+        { status: "idle" },
+        fields({
+          camera: CAMERA_ID,
+          expectedLocation: "Cebu City",
+          handoffTime: "09:00",
+          intendedUse: "Family event",
+          meetupConfirmed: "true",
+          meetupReference: reference,
+          pickupDate: "2099-08-24",
+          policyVersion: "3",
+          returnDate: "2099-08-26",
+          venueName: "attacker override",
+        }),
+      ),
+    ).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
+    expect(adminRpc).toHaveBeenCalledWith(
+      "request_booking_schedule_with_meetup",
+      expect.objectContaining({
+        p_camera_id: CAMERA_ID,
+        p_renter_city_label: "Mandaue City",
+        p_renter_id: "user-1",
+        p_venue_name: "Ayala Center Cebu",
+      }),
+    );
+    expect(JSON.stringify(adminRpc.mock.calls)).not.toContain("attacker override");
+  });
+
+  it("cannot bypass meetup confirmation and rejects expired or tampered references before service mutation", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    process.env.MEETUP_PLANNING_ENABLED = "true";
+    process.env.GEOAPIFY_API_KEY = "provider-development-key";
+    process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
+    process.env.MEETUP_RECOMMENDATION_SECRET =
+      "server-only-meetup-reference-secret-value";
+    const common = {
+      camera: CAMERA_ID,
+      expectedLocation: "Cebu City",
+      handoffTime: "09:00",
+      intendedUse: "Family event",
+      pickupDate: "2099-08-24",
+      policyVersion: "3",
+      returnDate: "2099-08-26",
+    };
+    await expect(
+      requestBooking({ status: "idle" }, fields(common)),
+    ).resolves.toMatchObject({ error: "meetup_required", status: "error" });
+    expect(getAuthenticatedUser).not.toHaveBeenCalled();
+
+    const active = profileQuery({ data: { account_status: "active" }, error: null });
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({
+      supabase: active.client,
+      user: { id: "user-1" },
+    } as never);
+    await expect(
+      requestBooking(
+        { status: "idle" },
+        fields({
+          ...common,
+          meetupConfirmed: "true",
+          meetupReference: "v1.tampered.reference.value",
+        }),
+      ),
+    ).resolves.toMatchObject({ error: "meetup_expired", status: "error" });
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled();
   });
 
   it("does not accept the legacy request contract after calendar activation", async () => {

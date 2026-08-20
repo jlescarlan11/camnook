@@ -28,8 +28,9 @@ export type MeetupProviderTelemetry = {
 
 type RecommendInput = {
   binding: string;
-  currentPosition: Coordinate;
+  currentPosition?: Coordinate;
   lenderCity: NormalizedCity;
+  renterCity?: NormalizedCity;
 };
 
 type RecommendOptions = {
@@ -61,8 +62,10 @@ export async function recommendPublicMeetup(
     });
     return { reason: "configuration", status: "unavailable" };
   }
-  const position = coordinateSchema.safeParse(input.currentPosition);
-  if (!position.success || !input.binding.trim()) {
+  const position = input.currentPosition
+    ? coordinateSchema.safeParse(input.currentPosition)
+    : null;
+  if ((!position?.success && !input.renterCity) || !input.binding.trim()) {
     options.recordTelemetry?.({
       durationBucket: "fast",
       resultCount: 0,
@@ -82,7 +85,9 @@ export async function recommendPublicMeetup(
   try {
     // The exact browser coordinate is intentionally not copied into any durable
     // state or output. Only the city-level provider result survives this call.
-    const renterCity = await adapter.reverseGeocodeCity(position.data);
+    const renterCity = input.renterCity
+      ? input.renterCity
+      : await adapter.reverseGeocodeCity(position!.success ? position!.data : input.lenderCity);
     const searchCenter = calculateSearchCenter(renterCity, input.lenderCity);
     const candidates = await adapter.searchPublicPlaces({
       allowedCategories: options.config.allowedCategories,
@@ -111,7 +116,9 @@ export async function recommendPublicMeetup(
         latitude: safeLatitude,
         longitude: safeLongitude,
         name: winner.name,
-        providerPlaceId: winner.providerPlaceId,
+        renterCity: {
+          label: renterCity.label,
+        },
       },
       options.config.referenceSecret,
     );
@@ -130,6 +137,7 @@ export async function recommendPublicMeetup(
         latitude: safeLatitude,
         longitude: safeLongitude,
         name: winner.name,
+        renterCity: renterCity.label,
         reference,
       },
       status: "available",
