@@ -21,6 +21,10 @@ export type Database = {
     }
     Functions: {
       approve_booking: { Args: { p_booking_id: string }; Returns: undefined }
+      get_camera_handoff_policy_admin: {
+        Args: { p_camera_id: string }
+        Returns: Json
+      }
       authorize_condition_photo_access: {
         Args: {
           p_operation_id: string
@@ -452,6 +456,21 @@ export type Database = {
           security_deposit: number
           total_due: number
         }[]
+      }
+      replace_camera_handoff_policy: {
+        Args: {
+          p_allowed_weekdays: number[]
+          p_approved_times: string[]
+          p_camera_id: string
+          p_city_label: string
+          p_country_code: string
+          p_enabled: boolean
+          p_expected_version: number
+          p_latitude: number
+          p_longitude: number
+          p_provider_city_id: string
+        }
+        Returns: number
       }
       record_refund: {
         Args: {
@@ -999,6 +1018,71 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_cameras"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      camera_handoff_policies: {
+        Row: {
+          allowed_weekdays: number[]
+          camera_id: string
+          city_label: string
+          enabled: boolean
+          timezone: string
+          version: number
+        }
+        Insert: {
+          allowed_weekdays?: number[]
+          camera_id: string
+          city_label: string
+          enabled?: boolean
+          timezone?: string
+          version?: number
+        }
+        Update: {
+          allowed_weekdays?: number[]
+          camera_id?: string
+          city_label?: string
+          enabled?: boolean
+          timezone?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_handoff_policies_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: true
+            referencedRelation: "cameras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camera_handoff_policies_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: true
+            referencedRelation: "public_cameras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camera_handoff_slots: {
+        Row: {
+          camera_id: string
+          local_time: string
+        }
+        Insert: {
+          camera_id: string
+          local_time: string
+        }
+        Update: {
+          camera_id?: string
+          local_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_handoff_slots_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: false
+            referencedRelation: "camera_handoff_policies"
+            referencedColumns: ["camera_id"]
           },
         ]
       }
@@ -2186,6 +2270,33 @@ export type Database = {
             foreignKeyName: "camera_photos_camera_id_fkey"
             columns: ["camera_id"]
             isOneToOne: false
+            referencedRelation: "public_cameras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_camera_handoff_policies: {
+        Row: {
+          allowed_weekdays: number[] | null
+          approved_times: string[] | null
+          camera_id: string | null
+          city_label: string | null
+          enabled: boolean | null
+          timezone: string | null
+          version: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_handoff_policies_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: true
+            referencedRelation: "cameras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camera_handoff_policies_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: true
             referencedRelation: "public_cameras"
             referencedColumns: ["id"]
           },

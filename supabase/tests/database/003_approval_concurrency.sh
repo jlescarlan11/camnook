@@ -107,6 +107,11 @@ return_b_log="$test_dir/return-b.log"
 return_a_sql="$test_dir/return-a.sql"
 return_b_sql="$test_dir/return-b.sql"
 return_ready_file="$test_dir/return-a-ready"
+handoff_policy_a_log="$test_dir/handoff-policy-a.log"
+handoff_policy_b_log="$test_dir/handoff-policy-b.log"
+handoff_policy_a_sql="$test_dir/handoff-policy-a.sql"
+handoff_policy_b_sql="$test_dir/handoff-policy-b.sql"
+handoff_policy_ready_file="$test_dir/handoff-policy-a-ready"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
@@ -126,6 +131,7 @@ pickup_a_pid=""
 pickup_photo_create_pid=""
 pickup_photo_finalize_pid=""
 return_a_pid=""
+handoff_policy_a_pid=""
 
 cleanup() {
   set +e
@@ -149,7 +155,8 @@ cleanup() {
     "$pickup_a_pid" \
     "$pickup_photo_create_pid" \
     "$pickup_photo_finalize_pid" \
-    "$return_a_pid"; do
+    "$return_a_pid" \
+    "$handoff_policy_a_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -354,6 +361,12 @@ echo "running owner operations and portfolio reporting invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/012_owner_operations_portfolio_reporting.sql"
+
+echo "running camera handoff policy invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/013_camera_handoff_policies.sql"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -2341,3 +2354,124 @@ $$;
 SQL
 
 echo "ok - competing returns produce one atomic RETURN_REVIEW handoff"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+insert into public.cameras (
+  id, slug, serial_number, name, description, status,
+  daily_rate, security_deposit, published_at
+) values (
+  'b1100000-0000-4000-8000-000000000001',
+  'handoff-policy-race',
+  'PRIVATE-HANDOFF-RACE-SERIAL',
+  'Handoff Policy Race',
+  'Separate-session handoff policy fixture.',
+  'published',
+  1000,
+  4000,
+  statement_timestamp()
+);
+
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.replace_camera_handoff_policy(
+  'b1100000-0000-4000-8000-000000000001', 0,
+  'Cebu City', 'provider:cebu-city', 'PH', 10.31570, 123.88540,
+  array[1, 3]::smallint[], array['09:00']::time[], true
+);
+commit;
+SQL
+
+cat >"$handoff_policy_a_sql" <<SQL
+\set ON_ERROR_STOP on
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.replace_camera_handoff_policy(
+  'b1100000-0000-4000-8000-000000000001', 1,
+  'Mandaue City', 'provider:mandaue-city', 'PH', 10.32360, 123.92230,
+  array[2, 4]::smallint[], array['10:00']::time[], true
+);
+\! touch "$handoff_policy_ready_file"
+select pg_sleep(1);
+commit;
+SQL
+
+cat >"$handoff_policy_b_sql" <<'SQL'
+\set ON_ERROR_STOP on
+\set VERBOSITY verbose
+begin;
+set local role authenticated;
+set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000001';
+select api.replace_camera_handoff_policy(
+  'b1100000-0000-4000-8000-000000000001', 1,
+  'Lapu-Lapu City', 'provider:lapu-lapu-city', 'PH', 10.31030, 123.94940,
+  array[1, 5]::smallint[], array['11:00']::time[], true
+);
+commit;
+SQL
+
+"$postgres_bin/psql" "$database_url" -f "$handoff_policy_a_sql" >"$handoff_policy_a_log" 2>&1 &
+handoff_policy_a_pid=$!
+
+for _ in {1..200}; do
+  [[ -f "$handoff_policy_ready_file" ]] && break
+  if ! kill -0 "$handoff_policy_a_pid" 2>/dev/null; then
+    wait "$handoff_policy_a_pid" || true
+    cat "$handoff_policy_a_log" >&2
+    echo "first handoff policy edit exited before its lock barrier" >&2
+    exit 1
+  fi
+  sleep 0.025
+done
+
+if [[ ! -f "$handoff_policy_ready_file" ]]; then
+  cat "$handoff_policy_a_log" >&2
+  echo "timed out waiting for handoff policy edit barrier" >&2
+  exit 1
+fi
+
+set +e
+"$postgres_bin/psql" "$database_url" -f "$handoff_policy_b_sql" >"$handoff_policy_b_log" 2>&1
+handoff_policy_b_status=$?
+set -e
+wait "$handoff_policy_a_pid"
+handoff_policy_a_pid=""
+
+if [[ "$handoff_policy_b_status" -eq 0 ]] || ! grep -Eq '40001|handoff_policy_stale' "$handoff_policy_b_log"; then
+  cat "$handoff_policy_a_log" >&2
+  cat "$handoff_policy_b_log" >&2
+  echo "competing handoff policy edit did not lose with an explicit stale outcome" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if not exists (
+    select 1
+    from public.camera_handoff_policies
+    where camera_id = 'b1100000-0000-4000-8000-000000000001'
+      and city_label = 'Mandaue City'
+      and version = 2
+      and allowed_weekdays = array[2, 4]::smallint[]
+  )
+    or (
+      select array_agg(to_char(local_time, 'HH24:MI') order by local_time)
+      from public.camera_handoff_slots
+      where camera_id = 'b1100000-0000-4000-8000-000000000001'
+    ) <> array['10:00']::text[]
+    or exists (
+      select 1
+      from private.camera_lender_city_anchors
+      where camera_id = 'b1100000-0000-4000-8000-000000000001'
+        and provider_city_id <> 'provider:mandaue-city'
+    )
+  then
+    raise exception 'competing handoff edits produced mixed or duplicate state';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - competing handoff policy edits produce one coherent version winner"

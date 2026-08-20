@@ -2,6 +2,7 @@ import "server-only";
 
 import { getSupabasePublicConfig } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { PublicHandoffPolicy } from "@/features/listings/handoff-types";
 
 export type PublicCamera = {
   accessories: { name: string; quantity: number }[];
@@ -9,6 +10,7 @@ export type PublicCamera = {
   dailyRate: number;
   description: string;
   id: string;
+  handoffPolicy: PublicHandoffPolicy | null;
   name: string;
   photos: { alt: string; url: string }[];
   securityDeposit: number;
@@ -47,6 +49,16 @@ type AvailabilityRow = {
   starts_at: string | null;
 };
 
+type HandoffPolicyRow = {
+  allowed_weekdays: number[] | null;
+  approved_times: string[] | null;
+  camera_id: string | null;
+  city_label: string | null;
+  enabled: boolean | null;
+  timezone: string | null;
+  version: number | null;
+};
+
 export function buildPublicCameraPhotoUrl(
   configuredUrl: string,
   objectPath: string,
@@ -80,7 +92,13 @@ export function buildPublicCameraPhotoUrl(
 export async function loadCatalog(): Promise<CatalogResult> {
   const supabase = await createSupabaseServerClient();
   const { url } = getSupabasePublicConfig();
-  const [camerasResult, photosResult, accessoriesResult, availabilityResult] =
+  const [
+    camerasResult,
+    photosResult,
+    accessoriesResult,
+    availabilityResult,
+    handoffPoliciesResult,
+  ] =
     await Promise.all([
       supabase
         .from("public_cameras")
@@ -101,13 +119,20 @@ export async function loadCatalog(): Promise<CatalogResult> {
         .from("public_availability")
         .select("camera_id,starts_at,ends_at,reason")
         .order("starts_at"),
+      supabase
+        .from("public_camera_handoff_policies")
+        .select(
+          "camera_id,city_label,allowed_weekdays,approved_times,timezone,enabled,version",
+        )
+        .order("camera_id"),
     ]);
 
   if (
     camerasResult.error ||
     photosResult.error ||
     accessoriesResult.error ||
-    availabilityResult.error
+    availabilityResult.error ||
+    handoffPoliciesResult.error
   ) {
     return { status: "error" };
   }
@@ -115,6 +140,7 @@ export async function loadCatalog(): Promise<CatalogResult> {
   const photos = (photosResult.data ?? []) as PhotoRow[];
   const accessories = (accessoriesResult.data ?? []) as AccessoryRow[];
   const availability = (availabilityResult.data ?? []) as AvailabilityRow[];
+  const handoffPolicies = (handoffPoliciesResult.data ?? []) as HandoffPolicyRow[];
   const cameras = ((camerasResult.data ?? []) as PublicCameraRow[]).flatMap(
     (camera): PublicCamera[] => {
       if (
@@ -128,6 +154,9 @@ export async function loadCatalog(): Promise<CatalogResult> {
         return [];
       }
       const cameraName = camera.name;
+      const handoffPolicy = handoffPolicies.find(
+        (policy) => policy.camera_id === camera.id,
+      );
 
       return [
         {
@@ -151,6 +180,20 @@ export async function loadCatalog(): Promise<CatalogResult> {
           dailyRate: camera.daily_rate,
           description: camera.description,
           id: camera.id,
+          handoffPolicy:
+            handoffPolicy?.city_label &&
+            handoffPolicy.timezone === "Asia/Manila" &&
+            handoffPolicy.version !== null &&
+            handoffPolicy.enabled !== null
+              ? {
+                  allowedWeekdays: handoffPolicy.allowed_weekdays ?? [],
+                  approvedTimes: handoffPolicy.approved_times ?? [],
+                  cityLabel: handoffPolicy.city_label,
+                  enabled: handoffPolicy.enabled,
+                  timezone: "Asia/Manila",
+                  version: handoffPolicy.version,
+                }
+              : null,
           name: cameraName,
           photos: photos.flatMap((photo) => {
             if (

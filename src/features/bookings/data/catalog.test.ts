@@ -98,6 +98,22 @@ describe("public catalog data", () => {
         ],
         error: null,
       },
+      public_camera_handoff_policies: {
+        data: [
+          {
+            allowed_weekdays: [1, 3, 5],
+            approved_times: ["09:00", "17:00"],
+            camera_id: "camera-1",
+            city_label: "Cebu City",
+            enabled: true,
+            latitude: 10.3157,
+            provider_city_id: "private-provider-id",
+            timezone: "Asia/Manila",
+            version: 2,
+          },
+        ],
+        error: null,
+      },
       public_cameras: {
         data: [
           {
@@ -132,6 +148,14 @@ describe("public catalog data", () => {
           ],
           dailyRate: 1500,
           description: "Compact mirrorless camera",
+          handoffPolicy: {
+            allowedWeekdays: [1, 3, 5],
+            approvedTimes: ["09:00", "17:00"],
+            cityLabel: "Cebu City",
+            enabled: true,
+            timezone: "Asia/Manila",
+            version: 2,
+          },
           id: "camera-1",
           name: "Fujifilm X-T5",
           photos: [
@@ -162,7 +186,13 @@ describe("public catalog data", () => {
     expect(fixture.selections.get("public_availability")).toBe(
       "camera_id,starts_at,ends_at,reason",
     );
+    expect(fixture.selections.get("public_camera_handoff_policies")).toBe(
+      "camera_id,city_label,allowed_weekdays,approved_times,timezone,enabled,version",
+    );
     expect(JSON.stringify((await loadCatalog()) as unknown)).not.toContain("secret");
+    expect(JSON.stringify((await loadCatalog()) as unknown)).not.toContain(
+      "private-provider-id",
+    );
   });
 
   it.each([null, "", "   "])(
@@ -183,6 +213,7 @@ describe("public catalog data", () => {
           ],
           error: null,
         },
+        public_camera_handoff_policies: { data: [], error: null },
         public_cameras: {
           data: [
             {
@@ -223,6 +254,7 @@ describe("public catalog data", () => {
       camera_accessories: { data: [], error: null },
       public_availability: { data: [], error: null },
       public_camera_photos: { data: [], error: null },
+      public_camera_handoff_policies: { data: [], error: null },
       public_cameras: { data: [], error: null },
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(empty.client);
@@ -236,6 +268,7 @@ describe("public catalog data", () => {
       camera_accessories: { data: [], error: null },
       public_availability: { data: [], error: null },
       public_camera_photos: { data: [], error: null },
+      public_camera_handoff_policies: { data: [], error: null },
       public_cameras: {
         data: null,
         error: { message: "database hostname and private relation" },
@@ -256,11 +289,13 @@ describe("public catalog data", () => {
     "public_camera_photos",
     "camera_accessories",
     "public_availability",
+    "public_camera_handoff_policies",
   ])("constrains a %s query failure", async (failedTable) => {
     const tables = {
       camera_accessories: { data: [], error: null as unknown },
       public_availability: { data: [], error: null as unknown },
       public_camera_photos: { data: [], error: null as unknown },
+      public_camera_handoff_policies: { data: [], error: null as unknown },
       public_cameras: { data: [], error: null as unknown },
     };
     tables[failedTable as keyof typeof tables] = {

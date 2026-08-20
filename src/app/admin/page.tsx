@@ -13,6 +13,7 @@ import {
 } from "@/features/portfolio/owner-dashboard";
 import { resolvePortfolioPeriod } from "@/features/portfolio/period";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
+import { loadAdminCameraHandoffSummaries } from "@/features/listings/handoff-data";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +29,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const context = await requirePageAdmin("/admin");
   const periodSelection = resolvePortfolioPeriod(await searchParams);
 
-  const [operations, portfolio] = await Promise.all([
+  const [operations, portfolio, handoffPolicies] = await Promise.all([
     loadOwnerOperationsDashboard(context),
     periodSelection.status === "valid"
       ? loadOwnerPortfolioReport(context, periodSelection.period)
       : Promise.resolve({ status: "invalid" } as const),
+    loadAdminCameraHandoffSummaries(context),
   ]);
 
   return (
@@ -82,6 +84,49 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             pickup without retaining an ID image or number. This surface reports
             committed records and keeps money and handoff mutations audited.
           </p>
+        </section>
+
+        <section
+          aria-labelledby="handoff-policies-heading"
+          className="mt-8 rounded-2xl border border-stone-200 bg-white p-6"
+        >
+          <h2 className="text-xl font-semibold" id="handoff-policies-heading">
+            Camera handoff policies
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            Configure each camera’s public city label and fixed Asia/Manila handoff slots. Private city anchors remain visible only to the administrator.
+          </p>
+          {handoffPolicies.status === "error" ? (
+            <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
+              Camera policy state could not be verified. Editing links are closed until a reload succeeds.
+            </p>
+          ) : handoffPolicies.cameras.length === 0 ? (
+            <p className="mt-4 text-sm text-stone-600">No configurable cameras are available.</p>
+          ) : (
+            <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+              {handoffPolicies.cameras.map((camera) => (
+                <li className="rounded-xl border border-stone-200 p-4" key={camera.cameraId}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{camera.cameraName}</p>
+                      <p className="mt-1 text-sm text-stone-600">
+                        {camera.cityLabel ?? "Not configured"} · {camera.enabled ? "Enabled" : "Disabled"} · v{camera.version}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-medium uppercase">
+                      {camera.cameraStatus}
+                    </span>
+                  </div>
+                  <Link
+                    className="mt-4 inline-flex min-h-11 items-center font-semibold text-amber-800 underline"
+                    href={`/admin/cameras/${camera.cameraId}/handoff`}
+                  >
+                    Configure handoffs
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {operations.status === "success" ? (
