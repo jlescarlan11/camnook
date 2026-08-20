@@ -615,6 +615,11 @@ begin
   )
     or not has_function_privilege(
       'anon',
+      'api.quote_booking_schedule(uuid,date,date,time without time zone,bigint)',
+      'EXECUTE'
+    )
+    or not has_function_privilege(
+      'anon',
       'private.calculate_booking_price(timestamptz,timestamptz,numeric,numeric)',
       'EXECUTE'
     )
@@ -627,6 +632,7 @@ begin
         and has_function_privilege('anon', procedure.oid, 'EXECUTE')
         and procedure.oid not in (
           'api.quote_booking(uuid,timestamptz,timestamptz)'::regprocedure::oid,
+          'api.quote_booking_schedule(uuid,date,date,time without time zone,bigint)'::regprocedure::oid,
           'private.calculate_booking_price(timestamptz,timestamptz,numeric,numeric)'::regprocedure::oid
         )
     )

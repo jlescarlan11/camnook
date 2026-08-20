@@ -14,6 +14,14 @@ export type QuoteInput = {
   return: string;
 };
 
+export type ScheduleQuoteInput = {
+  camera: string;
+  handoffTime: string;
+  pickupDate: string;
+  policyVersion: string;
+  returnDate: string;
+};
+
 export function parseManilaWallClock(value: string) {
   const match = WALL_CLOCK_PATTERN.exec(value);
   if (!match) {
@@ -130,4 +138,14 @@ export function formatManilaDateTimeInput(
 
 export function normalizeQuoteInputKey(input: QuoteInput) {
   return JSON.stringify([input.camera.trim(), input.pickup, input.return]);
+}
+
+export function normalizeScheduleQuoteInputKey(input: ScheduleQuoteInput) {
+  return JSON.stringify([
+    input.camera.trim(),
+    input.pickupDate,
+    input.returnDate,
+    input.handoffTime,
+    input.policyVersion,
+  ]);
 }

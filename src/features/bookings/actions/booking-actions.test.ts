@@ -47,7 +47,10 @@ function profileQuery(result: unknown) {
 }
 
 describe("quoteBooking", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.HANDOFF_SCHEDULING_ENABLED;
+  });
 
   it("passes only normalized instants and camera ID to the authoritative quote RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({
@@ -125,6 +128,140 @@ describe("quoteBooking", () => {
       status: "error",
     });
     expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("passes only validated calendar fields to the schedule quote RPC", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          billable_days: 2,
+          camera_id: CAMERA_ID,
+          currency: "PHP",
+          daily_rate: 750,
+          pickup_at: "2099-08-24T01:00:00+00:00",
+          rental_amount: 1500,
+          return_at: "2099-08-26T01:00:00+00:00",
+          security_deposit: 3000,
+          total_due: 4500,
+        },
+      ],
+      error: null,
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(
+      rpcClient(rpc) as never,
+    );
+
+    const result = await quoteBooking(
+      { status: "idle" },
+      fields({
+        camera: CAMERA_ID,
+        generation: "4",
+        handoffTime: "09:00",
+        pickupDate: "2099-08-24",
+        policyVersion: "3",
+        returnDate: "2099-08-26",
+        totalDue: "1",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      inputKey:
+        '["11111111-1111-4111-8111-111111111111","2099-08-24","2099-08-26","09:00","3"]',
+      status: "success",
+      submissionGeneration: 4,
+    });
+    expect(rpc).toHaveBeenCalledWith("quote_booking_schedule", {
+      p_camera_id: CAMERA_ID,
+      p_handoff_time: "09:00",
+      p_pickup_date: "2099-08-24",
+      p_policy_version: 3,
+      p_return_date: "2099-08-26",
+    });
+    expect(JSON.stringify(rpc.mock.calls)).not.toContain("totalDue");
+  });
+
+  it("fails closed for partial schedule input or a disabled rollout", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    await expect(
+      quoteBooking(
+        { status: "idle" },
+        fields({
+          camera: CAMERA_ID,
+          handoffTime: "9am",
+          pickupDate: "2099-02-30",
+          policyVersion: "0",
+          returnDate: "",
+        }),
+      ),
+    ).resolves.toMatchObject({
+      error: "invalid_input",
+      fieldErrors: {
+        handoffTime: expect.any(String),
+        pickupDate: expect.any(String),
+        policyVersion: expect.any(String),
+        returnDate: expect.any(String),
+      },
+    });
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+
+    process.env.HANDOFF_SCHEDULING_ENABLED = "false";
+    await expect(
+      quoteBooking(
+        { status: "idle" },
+        fields({
+          camera: CAMERA_ID,
+          handoffTime: "09:00",
+          pickupDate: "2099-08-24",
+          policyVersion: "3",
+          returnDate: "2099-08-26",
+        }),
+      ),
+    ).resolves.toMatchObject({ error: "not_quotable", status: "error" });
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("does not accept the legacy datetime contract after calendar activation", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    await expect(
+      quoteBooking(
+        { status: "idle" },
+        fields({
+          camera: CAMERA_ID,
+          pickup: "2099-08-14T09:00",
+          return: "2099-08-15T09:00",
+        }),
+      ),
+    ).resolves.toMatchObject({ error: "not_quotable", status: "error" });
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["40001", "schedule_changed"],
+    ["23P01", "unavailable"],
+  ] as const)("maps schedule quote failure %s to %s", async (code, category) => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code, message: "private schedule and block details" },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(
+      rpcClient(rpc) as never,
+    );
+
+    const result = await quoteBooking(
+      { status: "idle" },
+      fields({
+        camera: CAMERA_ID,
+        handoffTime: "09:00",
+        pickupDate: "2099-08-24",
+        policyVersion: "3",
+        returnDate: "2099-08-26",
+      }),
+    );
+
+    expect(result).toMatchObject({ error: category, status: "error" });
+    expect(JSON.stringify(result)).not.toContain("private schedule");
   });
 
   it.each([
@@ -240,7 +377,10 @@ describe("saveProfile", () => {
 });
 
 describe("requestBooking", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.HANDOFF_SCHEDULING_ENABLED;
+  });
 
   it("sends exactly five renter-entered parameters then revalidates and redirects", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
@@ -306,6 +446,115 @@ describe("requestBooking", () => {
       values: { expectedLocation: "x", intendedUse: "" },
     });
     expect(getAuthenticatedUser).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the untrusted schedule in the authenticated request RPC", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    const rpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
+    const active = profileQuery({ data: { account_status: "active" }, error: null });
+    const supabase = { ...active.client, ...rpcClient(rpc) } as never;
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({
+      supabase,
+      user: { id: "user-1" },
+    } as never);
+
+    await expect(
+      requestBooking(
+        { status: "idle" },
+        fields({
+          camera: CAMERA_ID,
+          expectedLocation: "Cebu City",
+          handoffTime: "09:00",
+          intendedUse: "Family event",
+          pickupDate: "2099-08-24",
+          policyVersion: "3",
+          returnDate: "2099-08-26",
+        }),
+      ),
+    ).rejects.toThrow("redirect:/account/bookings/22222222-2222-4222-8222-222222222222?requested=1");
+    expect(rpc).toHaveBeenCalledWith("request_booking_schedule", {
+      p_camera_id: CAMERA_ID,
+      p_expected_location: "Cebu City",
+      p_handoff_time: "09:00",
+      p_intended_use: "Family event",
+      p_pickup_date: "2099-08-24",
+      p_policy_version: 3,
+      p_return_date: "2099-08-26",
+    });
+  });
+
+  it("does not accept the legacy request contract after calendar activation", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    await expect(
+      requestBooking(
+        { status: "idle" },
+        fields({
+          camera: CAMERA_ID,
+          expectedLocation: "Cebu City",
+          intendedUse: "Family event",
+          pickup: "2099-08-14T09:00",
+          return: "2099-08-15T09:00",
+        }),
+      ),
+    ).resolves.toMatchObject({ error: "schedule_changed", status: "error" });
+    expect(getAuthenticatedUser).not.toHaveBeenCalled();
+  });
+
+  it("preserves the complete schedule through unauthenticated OTP routing", async () => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
+
+    await expect(
+      requestBooking(
+        { status: "idle" },
+        fields({
+          camera: CAMERA_ID,
+          expectedLocation: "Cebu City",
+          handoffTime: "09:00",
+          intendedUse: "Family event",
+          pickupDate: "2099-08-24",
+          policyVersion: "3",
+          returnDate: "2099-08-26",
+        }),
+      ),
+    ).rejects.toThrow("redirect:/login?next=");
+    const location = vi.mocked(redirect).mock.calls[0]?.[0];
+    expect(decodeURIComponent(String(location))).toContain(
+      "handoffTime=09%3A00&pickupDate=2099-08-24&policyVersion=3&returnDate=2099-08-26",
+    );
+  });
+
+  it.each([
+    ["40001", "schedule_changed"],
+    ["23P01", "unavailable"],
+  ] as const)("maps schedule failure %s to %s without raw detail", async (code, category) => {
+    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code, message: "private block and renter identity" },
+    });
+    const active = profileQuery({ data: { account_status: "active" }, error: null });
+    const supabase = { ...active.client, ...rpcClient(rpc) } as never;
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({
+      supabase,
+      user: { id: "user-1" },
+    } as never);
+
+    const result = await requestBooking(
+      { status: "idle" },
+      fields({
+        camera: CAMERA_ID,
+        expectedLocation: "Cebu City",
+        handoffTime: "09:00",
+        intendedUse: "Family event",
+        pickupDate: "2099-08-24",
+        policyVersion: "3",
+        returnDate: "2099-08-26",
+      }),
+    );
+
+    expect(result).toMatchObject({ error: category, status: "error" });
+    expect(JSON.stringify(result)).not.toContain("private block");
   });
 
   it("routes an unauthenticated direct action call through public registration", async () => {

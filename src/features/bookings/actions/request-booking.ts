@@ -7,6 +7,8 @@ import { z } from "zod";
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { loginPath } from "@/lib/auth/routes";
 
+import { isCalendarDate, isHandoffTime } from "../calendar";
+import { isHandoffSchedulingEnabled } from "../handoff-rollout";
 import { parseManilaBookingPeriod } from "../manila-time";
 import { stringFormValue, type ActionStatus } from "./state";
 
@@ -15,13 +17,19 @@ export type RequestBookingActionState = {
     | "invalid_input"
     | "profile_required"
     | "request_failed"
+    | "schedule_changed"
+    | "unavailable"
     | "suspended";
   fieldErrors?: {
     camera?: string;
     expectedLocation?: string;
     intendedUse?: string;
+    handoffTime?: string;
     pickup?: string;
+    pickupDate?: string;
+    policyVersion?: string;
     return?: string;
+    returnDate?: string;
   };
   status: ActionStatus;
   values?: { expectedLocation: string; intendedUse: string };
@@ -42,17 +50,37 @@ export async function requestBooking(
     expectedLocation: stringFormValue(formData, "expectedLocation"),
     intendedUse: stringFormValue(formData, "intendedUse"),
     pickup: stringFormValue(formData, "pickup"),
+    pickupDate: stringFormValue(formData, "pickupDate"),
+    handoffTime: stringFormValue(formData, "handoffTime"),
+    policyVersion: stringFormValue(formData, "policyVersion"),
     return: stringFormValue(formData, "return"),
+    returnDate: stringFormValue(formData, "returnDate"),
   };
+  const usesSchedule = [
+    values.pickupDate,
+    values.returnDate,
+    values.handoffTime,
+    values.policyVersion,
+  ].some((value) => value !== "");
   const fields = bookingFieldsSchema.safeParse(values);
-  const period = parseManilaBookingPeriod(values.pickup, values.return);
-  const fieldErrors: RequestBookingActionState["fieldErrors"] = period.ok
-    ? {}
-    : { ...period.fieldErrors };
+  const period = usesSchedule
+    ? null
+    : parseManilaBookingPeriod(values.pickup, values.return);
+  const fieldErrors: RequestBookingActionState["fieldErrors"] =
+    period && !period.ok ? { ...period.fieldErrors } : {};
   const preservedValues = {
     expectedLocation: values.expectedLocation,
     intendedUse: values.intendedUse,
   };
+  const schedulingEnabled = isHandoffSchedulingEnabled();
+
+  if (!usesSchedule && schedulingEnabled) {
+    return {
+      error: "schedule_changed",
+      status: "error",
+      values: preservedValues,
+    };
+  }
 
   if (!fields.success) {
     const flattened = z.flattenError(fields.error).fieldErrors;
@@ -67,7 +95,40 @@ export async function requestBooking(
     }
   }
 
-  if (!fields.success || !period.ok) {
+  let policyVersion: number | null = null;
+  if (usesSchedule) {
+    if (!schedulingEnabled) {
+      return {
+        error: "schedule_changed",
+        status: "error",
+        values: preservedValues,
+      };
+    }
+    if (!isCalendarDate(values.pickupDate)) {
+      fieldErrors.pickupDate = "Choose a valid pickup date.";
+    }
+    if (!isCalendarDate(values.returnDate)) {
+      fieldErrors.returnDate = "Choose a valid return date.";
+    }
+    if (!isHandoffTime(values.handoffTime)) {
+      fieldErrors.handoffTime = "Choose an approved handoff time.";
+    }
+    const parsedVersion = Number(values.policyVersion);
+    if (
+      !/^\d+$/.test(values.policyVersion) ||
+      !Number.isSafeInteger(parsedVersion) ||
+      parsedVersion < 1
+    ) {
+      fieldErrors.policyVersion = "The handoff schedule must be refreshed.";
+    } else {
+      policyVersion = parsedVersion;
+    }
+  }
+
+  if (
+    !fields.success ||
+    (usesSchedule ? Object.keys(fieldErrors).length > 0 : !period?.ok)
+  ) {
     return {
       error: "invalid_input",
       fieldErrors,
@@ -75,14 +136,25 @@ export async function requestBooking(
       values: preservedValues,
     };
   }
+  const legacyPeriod = period?.ok ? period : null;
 
   const context = await getAuthenticatedUser();
   if (!context) {
-    const query = new URLSearchParams({
-      camera: fields.data.camera,
-      pickup: values.pickup,
-      return: values.return,
-    });
+    const query = new URLSearchParams(
+      usesSchedule
+        ? {
+            camera: fields.data.camera,
+            handoffTime: values.handoffTime,
+            pickupDate: values.pickupDate,
+            policyVersion: values.policyVersion,
+            returnDate: values.returnDate,
+          }
+        : {
+            camera: fields.data.camera,
+            pickup: values.pickup,
+            return: values.return,
+          },
+    );
     redirect(loginPath(`/account/bookings/new?${query.toString()}`));
   }
 
@@ -110,19 +182,33 @@ export async function requestBooking(
     return { error: "suspended", status: "error", values: preservedValues };
   }
 
-  const { data, error } = await context.supabase
-    .schema("api")
-    .rpc("request_booking", {
-      p_camera_id: fields.data.camera,
-      p_expected_location: fields.data.expectedLocation,
-      p_intended_use: fields.data.intendedUse,
-      p_pickup_at: period.pickupAt,
-      p_return_at: period.returnAt,
-    });
+  const api = context.supabase.schema("api");
+  const { data, error } = usesSchedule
+    ? await api.rpc("request_booking_schedule", {
+        p_camera_id: fields.data.camera,
+        p_expected_location: fields.data.expectedLocation,
+        p_handoff_time: values.handoffTime,
+        p_intended_use: fields.data.intendedUse,
+        p_pickup_date: values.pickupDate,
+        p_policy_version: policyVersion!,
+        p_return_date: values.returnDate,
+      })
+    : await api.rpc("request_booking", {
+        p_camera_id: fields.data.camera,
+        p_expected_location: fields.data.expectedLocation,
+        p_intended_use: fields.data.intendedUse,
+        p_pickup_at: legacyPeriod!.pickupAt,
+        p_return_at: legacyPeriod!.returnAt,
+      });
 
   if (error || typeof data !== "string" || !z.uuid().safeParse(data).success) {
     return {
-      error: "request_failed",
+      error:
+        error?.code === "40001"
+          ? "schedule_changed"
+          : error?.code === "23P01"
+            ? "unavailable"
+            : "request_failed",
       status: "error",
       values: preservedValues,
     };

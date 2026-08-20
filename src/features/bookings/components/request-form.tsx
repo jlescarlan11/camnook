@@ -10,10 +10,19 @@ export function RequestForm({
   camera,
   pickup,
   returnValue,
+  returnHref,
+  schedule,
 }: {
   camera: string;
   pickup: string;
   returnValue: string;
+  returnHref?: string;
+  schedule?: {
+    handoffTime: string;
+    pickupDate: string;
+    policyVersion: string;
+    returnDate: string;
+  };
 }) {
   const [intendedUse, setIntendedUse] = useState("");
   const [expectedLocation, setExpectedLocation] = useState("");
@@ -27,6 +36,14 @@ export function RequestForm({
       <input name="camera" type="hidden" value={camera} />
       <input name="pickup" type="hidden" value={pickup} />
       <input name="return" type="hidden" value={returnValue} />
+      {schedule ? (
+        <>
+          <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
+          <input name="pickupDate" type="hidden" value={schedule.pickupDate} />
+          <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
+          <input name="returnDate" type="hidden" value={schedule.returnDate} />
+        </>
+      ) : null}
       <div>
         <label className="block text-sm font-medium" htmlFor="intendedUse">
           Intended use
@@ -78,11 +95,22 @@ export function RequestForm({
                 ? "This account is suspended and cannot submit requests. Contact CamNook for help."
                 : state.error === "request_failed"
                   ? "We couldn’t confirm the request response. Check your account for a persisted request before retrying."
+                  : state.error === "schedule_changed"
+                    ? "The lender’s handoff schedule changed. Return to the listing and choose again."
+                    : state.error === "unavailable"
+                      ? "Those dates are no longer available. Return to the listing and choose another range."
                   : "Correct the highlighted fields and try again."}
           </p>
           {state.error === "request_failed" ? (
             <Link className="mt-2 inline-block font-semibold underline" href="/account">
               Check your account
+            </Link>
+          ) : state.error === "schedule_changed" || state.error === "unavailable" ? (
+            <Link
+              className="mt-2 inline-block font-semibold underline"
+              href={returnHref ?? "/"}
+            >
+              Choose a new schedule
             </Link>
           ) : null}
         </div>

@@ -368,6 +368,12 @@ echo "running camera handoff policy invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/013_camera_handoff_policies.sql"
 
+echo "running handoff schedule booking invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/014_handoff_schedule_booking_flow.sql"
+
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
 

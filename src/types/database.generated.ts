@@ -457,6 +457,26 @@ export type Database = {
           total_due: number
         }[]
       }
+      quote_booking_schedule: {
+        Args: {
+          p_camera_id: string
+          p_handoff_time: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_return_date: string
+        }
+        Returns: {
+          billable_days: number
+          camera_id: string
+          currency: string
+          daily_rate: number
+          pickup_at: string
+          rental_amount: number
+          return_at: string
+          security_deposit: number
+          total_due: number
+        }[]
+      }
       replace_camera_handoff_policy: {
         Args: {
           p_allowed_weekdays: number[]
@@ -555,6 +575,18 @@ export type Database = {
           p_intended_use: string
           p_pickup_at: string
           p_return_at: string
+        }
+        Returns: string
+      }
+      request_booking_schedule: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_handoff_time: string
+          p_intended_use: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_return_date: string
         }
         Returns: string
       }

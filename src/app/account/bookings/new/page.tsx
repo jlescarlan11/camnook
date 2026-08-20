@@ -17,8 +17,12 @@ export const metadata: Metadata = { title: "Request a booking | CamNook" };
 type NewBookingPageProps = {
   searchParams: Promise<{
     camera?: string | string[];
+    handoffTime?: string | string[];
     pickup?: string | string[];
+    pickupDate?: string | string[];
+    policyVersion?: string | string[];
     return?: string | string[];
+    returnDate?: string | string[];
   }>;
 };
 
@@ -35,8 +39,12 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
   const params = await searchParams;
   const values = {
     camera: first(params.camera),
+    handoffTime: first(params.handoffTime),
     pickup: first(params.pickup),
+    pickupDate: first(params.pickupDate),
+    policyVersion: first(params.policyVersion),
     return: first(params.return),
+    returnDate: first(params.returnDate),
   };
   const query = new URLSearchParams(values).toString();
   const context = await requirePageUser(`/account/bookings/new?${query}`);
@@ -105,7 +113,25 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
               <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="request-heading">
                 <h2 className="text-2xl font-semibold" id="request-heading">Booking request</h2>
                 <p className="mt-2 text-sm leading-6 text-stone-600">Submitting creates a <strong>FOR_REVIEW</strong> request. It does not place an availability hold.</p>
-                <RequestForm camera={values.camera} pickup={values.pickup} returnValue={values.return} />
+                <RequestForm
+                  camera={values.camera}
+                  pickup={values.pickup}
+                  returnHref={`/cameras/${camera.slug}`}
+                  returnValue={values.return}
+                  schedule={
+                    values.pickupDate ||
+                    values.returnDate ||
+                    values.handoffTime ||
+                    values.policyVersion
+                      ? {
+                          handoffTime: values.handoffTime,
+                          pickupDate: values.pickupDate,
+                          policyVersion: values.policyVersion,
+                          returnDate: values.returnDate,
+                        }
+                      : undefined
+                  }
+                />
               </section>
             )}
           </>
