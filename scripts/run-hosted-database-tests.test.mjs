@@ -152,10 +152,29 @@ exit "$FAKE_CURL_EXIT"
       },
       stdio: "ignore",
     });
+    const closed = new Promise((resolvePromise) => {
+      child.once("close", (code, signal) => resolvePromise({ code, signal }));
+    });
 
-    await waitForPath(invocationMarker);
-    process.kill(-child.pid, "SIGTERM");
-    await new Promise((resolvePromise) => child.once("close", resolvePromise));
+    try {
+      await Promise.race([
+        waitForPath(invocationMarker),
+        closed.then(({ code, signal }) => {
+          throw new Error(`runner exited before curl started (code=${code}, signal=${signal})`);
+        }),
+      ]);
+      process.kill(-child.pid, "SIGTERM");
+      await closed;
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch (error) {
+          if (error.code !== "ESRCH") throw error;
+        }
+        await closed;
+      }
+    }
 
     expect(readdirSync(responseTmp)).toHaveLength(0);
   });

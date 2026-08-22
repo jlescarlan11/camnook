@@ -41,6 +41,10 @@ describe("immutable release workflow policy", () => {
   });
 
   it("stages an immutable unaliased candidate with disabled feature flags", () => {
+    expect(workflow).toContain(
+      "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86",
+    );
+    expect(workflow).toContain('test "$(pnpm --version)" = "10.33.1"');
     expect(workflow).toContain("vercel@59.3.0");
     expect(workflow).toContain("vercel build --prod");
     expect(workflow).toContain("vercel deploy --prebuilt --prod --skip-domain");
@@ -82,6 +86,7 @@ describe("immutable release workflow policy", () => {
     expect(workflow).toContain("Production migration outcome requires reconciliation before retry");
     expect(workflow).toContain("Reconcile Development history after failure");
     expect(workflow).toContain("Reconcile Production history after failure");
+    expect(workflow).toContain("steps.production-link.outputs.linked == 'true'");
     expect(workflow.match(/supabase migration list --linked/g)?.length).toBeGreaterThanOrEqual(6);
     expect(workflow).not.toContain("supabase db reset");
     expect(workflow).not.toContain("supabase config push");
