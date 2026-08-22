@@ -30,9 +30,11 @@ legacy bookings may use the validated `PICKUP_LOCATION` compatibility path.
    only `supabase/tests/hosted/manifest.json`; CI validates that every entry is
    rollback-only, exercises the exact Development selection twice against a
    production-shaped singleton-admin/legacy-record baseline, and proves no row
-   residue. A successful automatic `main` CI stages a Production-shaped Vercel
-   candidate with both runtime flags false; only that exact unaliased artifact
-   and SHA may continue through Development, Production, and promotion.
+   residue. A successful automatic `main` CI first migrates and verifies
+   Development. Its success unlocks Production approval, which stages a
+   Production-shaped Vercel candidate with both runtime flags false; only that
+   exact unaliased artifact and SHA may continue through Production and
+   promotion.
 4. Record only SHA, migration names/counts, deployment IDs/states, config
    version, safe status categories, actor/time, and aggregate results. Evidence
    with credentials, coordinates, provider IDs, opaque references, private

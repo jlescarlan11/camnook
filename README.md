@@ -241,16 +241,18 @@ pnpm db:types:linked
 ```
 
 After a merged `main` revision passes automatic CI, `.github/workflows/release.yml`
-stages one unaliased Vercel Production candidate and carries the same immutable
-SHA through Development migration/verification, Production migration/read-only
-verification, exact-candidate promotion, and public smoke. Vercel Git deployment
-from `main` is disabled in `vercel.json`, so application promotion cannot outrun
-the schema gate. A failed smoke restores the prior application alias; database
-recovery remains forward-only. Manual dispatch is an audited reconciliation path
-for the exact current `main` SHA and still requires prior successful CI and every
-environment gate. Manual local Production linking remains forbidden. Hosted Auth,
-catalog, and other data mutations remain separate controls, and the retired
-online-ID policy must never be activated by the release workflow.
+runs Development migration/verification automatically. Only after Development
+passes does the protected Production approval authorize staging one unaliased
+Vercel Production candidate. The same immutable SHA then passes Production
+migration/read-only verification before exact-candidate promotion and public
+smoke. Vercel Git deployment from `main` is disabled in `vercel.json`, so
+application promotion cannot outrun the schema gate. A failed smoke restores the
+prior application alias; database recovery remains forward-only. Manual dispatch
+is an audited reconciliation path for the exact current `main` SHA and still
+requires prior successful CI and every environment gate. Manual local Production
+linking remains forbidden. Hosted Auth, catalog, and other data mutations remain
+separate controls, and the retired online-ID policy must never be activated by
+the release workflow.
 
 Use [`docs/operations/owner-portfolio-reporting.md`](docs/operations/owner-portfolio-reporting.md)
 for owner dashboard period semantics, financial reconciliation, fail-closed
