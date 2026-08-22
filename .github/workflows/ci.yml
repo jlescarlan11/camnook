@@ -44,6 +44,9 @@ jobs:
         with:
           version: 2.114.0
 
+      - name: Validate hosted database test policy
+        run: node scripts/hosted-database-test-policy.mjs validate-manifest
+
       - name: Start and reset local Supabase
         run: |
           supabase start

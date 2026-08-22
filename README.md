@@ -115,6 +115,18 @@ passes CI and the automatic Development-to-Production migration chain.
 Treat those counts as recorded release evidence, not a substitute for checking
 current remote migration history before any future action.
 
+Hosted database verification is intentionally separate from the exhaustive
+empty-database suites. `supabase/tests/hosted/manifest.json` is the only allowed
+hosted SQL manifest. Every entry is transaction-bound, rollback-only, and
+validated before network access; Development-safe entries reuse the canonical
+administrator rather than inserting another singleton row. The disposable
+PostgreSQL 17 harness seeds a production-shaped admin, legacy camera, and legacy
+booking, runs the exact Development manifest twice, and proves that durable row
+data is identical before and after both passes. Do not add a database invariant
+to the hosted manifest merely because it passes after `db reset`; keep exhaustive
+fixtures under `supabase/tests/database/` and add only narrowly scoped hosted
+smoke coverage.
+
 For a hosted Development migration, keep the change migration-first and
 forward-only. Immediately before **each** command that can inspect or mutate
 the linked hosted database, verify the ignored local link:

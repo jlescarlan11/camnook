@@ -25,9 +25,13 @@ legacy bookings may use the validated `PICKUP_LOCATION` compatibility path.
    Development `ekmoiepalelqpmemvrkl`; Production
    `iegcixcevvkryfwfotqz`. Abort on any mismatch. Never link Production for
    routine local work, reset a linked database, or push hosted config.
-3. Require CI to test migrations 13–15 and a feature-enabled build. A successful
-   `main` CI may trigger the existing Development migration workflow; only that
-   exact successful SHA may flow to the disabled Production schema workflow.
+3. Require CI to test migrations 13–15 and a feature-enabled build. The
+   exhaustive clean-database suites remain local-only. Hosted verification uses
+   only `supabase/tests/hosted/manifest.json`; CI validates that every entry is
+   rollback-only, exercises the exact Development selection twice against a
+   production-shaped singleton-admin/legacy-record baseline, and proves no row
+   residue. A successful `main` CI may trigger the Development migration gate;
+   only that exact successful SHA may continue toward Production.
 4. Record only SHA, migration names/counts, deployment IDs/states, config
    version, safe status categories, actor/time, and aggregate results. Evidence
    with credentials, coordinates, provider IDs, opaque references, private
