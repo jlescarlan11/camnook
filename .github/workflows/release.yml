@@ -85,21 +85,22 @@ jobs:
             printf '%s\n' "- Emergency reason: $RELEASE_EMERGENCY_REASON" >>"$GITHUB_STEP_SUMMARY"
           fi
 
-  candidate:
-    name: Stage immutable Production candidate
-    needs: admit
+  production-release:
+    name: Approve, stage, migrate, and promote Production
+    needs: [admit, development]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 70
     environment: production
-    outputs:
-      candidate_id: ${{ steps.deploy.outputs.candidate_id }}
-      prior_deployment_id: ${{ steps.deploy.outputs.prior_deployment_id }}
     env:
+      EXPECTED_PROJECT_ID: iegcixcevvkryfwfotqz
       EXPECTED_VERCEL_ORG_ID: team_3Iehh9kIbX87EbfdCncg6m8m
       EXPECTED_VERCEL_PROJECT_ID: prj_BjIN6En8T4H3ikS8ixPR9mpIDQ0p
+      GH_TOKEN: ${{ github.token }}
       HANDOFF_SCHEDULING_ENABLED: "false"
       MEETUP_PLANNING_ENABLED: "false"
       RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -116,6 +117,11 @@ jobs:
 
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@59.3.0
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.114.0
 
       - name: Refuse revision or Vercel identity drift
         run: |
@@ -157,109 +163,12 @@ jobs:
             "$RELEASE_SHA" "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" unaliased
 
           {
-            printf 'candidate_id=%s\n' "$candidate_id"
-            printf 'prior_deployment_id=%s\n' "$prior_id"
-          } >>"$GITHUB_OUTPUT"
+            printf 'CANDIDATE_ID=%s\n' "$candidate_id"
+            printf 'PRIOR_DEPLOYMENT_ID=%s\n' "$prior_id"
+          } >>"$GITHUB_ENV"
           # shellcheck disable=SC2016
           printf '### Staged candidate\n- SHA: `%s`\n- Deployment: `%s`\n- Prior live deployment: `%s`\n- State: `READY, unaliased`\n' \
             "$RELEASE_SHA" "$candidate_id" "$prior_id" >>"$GITHUB_STEP_SUMMARY"
-
-  development:
-    name: Migrate and verify Development
-    needs: [admit, candidate]
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    environment: development
-    env:
-      EXPECTED_PROJECT_ID: ekmoiepalelqpmemvrkl
-      GH_TOKEN: ${{ github.token }}
-      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
-    steps:
-      - name: Check out admitted revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.admit.outputs.release_sha }}
-
-      - name: Set up Supabase CLI
-        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
-        with:
-          version: 2.114.0
-
-      - name: Link exact Development project
-        run: |
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
-          supabase link --project-ref "$SUPABASE_PROJECT_ID" --yes
-
-      - name: Preview pending Development migrations
-        run: |
-          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
-          supabase db push --linked --dry-run
-
-      - name: Apply Development migrations after supersession check
-        run: |
-          set -euo pipefail
-          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
-          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
-          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
-          if ! supabase db push --linked; then
-            echo "::error::Development migration outcome requires reconciliation before retry"
-            test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
-            supabase migration list --linked
-            exit 1
-          fi
-
-      - name: Verify Development migration history
-        run: |
-          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
-          supabase migration list --linked
-
-      - name: Run Development hosted manifest
-        run: bash scripts/run-hosted-database-tests.sh --target development
-
-      - name: Run Development security advisors
-        run: |
-          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
-          supabase db advisors --linked --type security --level warn --fail-on error
-
-      - name: Reconcile Development history after failure
-        if: ${{ failure() }}
-        continue-on-error: true
-        run: |
-          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
-          supabase migration list --linked
-
-      - name: Record Development evidence
-        run: |
-          migration_count="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
-          # shellcheck disable=SC2016
-          printf '### Development verified\n- SHA: `%s`\n- Repository migrations: `%s`\n- Hosted manifest: `development`\n- Security advisors: `passed`\n' \
-            "$RELEASE_SHA" "$migration_count" >>"$GITHUB_STEP_SUMMARY"
-
-  production-database:
-    name: Migrate and verify Production
-    needs: [admit, candidate, development]
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    environment: production
-    env:
-      EXPECTED_PROJECT_ID: iegcixcevvkryfwfotqz
-      GH_TOKEN: ${{ github.token }}
-      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
-    steps:
-      - name: Check out Development-verified revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.admit.outputs.release_sha }}
-
-      - name: Set up Supabase CLI
-        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
-        with:
-          version: 2.114.0
 
       - name: Link exact Production project
         run: |
@@ -311,36 +220,6 @@ jobs:
           # shellcheck disable=SC2016
           printf '### Production database verified\n- SHA: `%s`\n- Repository migrations: `%s`\n- Hosted manifest: `production`\n- Security advisors: `passed`\n' \
             "$RELEASE_SHA" "$migration_count" >>"$GITHUB_STEP_SUMMARY"
-
-  promote:
-    name: Promote exact candidate and smoke
-    needs: [admit, candidate, production-database]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: production
-    env:
-      CANDIDATE_ID: ${{ needs.candidate.outputs.candidate_id }}
-      EXPECTED_VERCEL_ORG_ID: team_3Iehh9kIbX87EbfdCncg6m8m
-      EXPECTED_VERCEL_PROJECT_ID: prj_BjIN6En8T4H3ikS8ixPR9mpIDQ0p
-      GH_TOKEN: ${{ github.token }}
-      PRIOR_DEPLOYMENT_ID: ${{ needs.candidate.outputs.prior_deployment_id }}
-      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
-      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-    steps:
-      - name: Check out admitted revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.admit.outputs.release_sha }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-
-      - name: Install pinned Vercel CLI
-        run: npm install --global vercel@59.3.0
 
       - name: Verify candidate, live baseline, and current main
         run: |
@@ -421,3 +300,77 @@ jobs:
           # shellcheck disable=SC2016
           printf '### Production application verified\n- SHA: `%s`\n- Deployment: `%s`\n- Public smoke: `passed`\n- Feature flags: `disabled`\n' \
             "$RELEASE_SHA" "$CANDIDATE_ID" >>"$GITHUB_STEP_SUMMARY"
+
+  development:
+    name: Migrate and verify Development
+    needs: admit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: development
+    env:
+      EXPECTED_PROJECT_ID: ekmoiepalelqpmemvrkl
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Check out admitted revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.admit.outputs.release_sha }}
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.114.0
+
+      - name: Link exact Development project
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase link --project-ref "$SUPABASE_PROJECT_ID" --yes
+
+      - name: Preview pending Development migrations
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase db push --linked --dry-run
+
+      - name: Apply Development migrations after supersession check
+        run: |
+          set -euo pipefail
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
+          if ! supabase db push --linked; then
+            echo "::error::Development migration outcome requires reconciliation before retry"
+            test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+            supabase migration list --linked
+            exit 1
+          fi
+
+      - name: Verify Development migration history
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase migration list --linked
+
+      - name: Run Development hosted manifest
+        run: bash scripts/run-hosted-database-tests.sh --target development
+
+      - name: Run Development security advisors
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase db advisors --linked --type security --level warn --fail-on error
+
+      - name: Reconcile Development history after failure
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase migration list --linked
+
+      - name: Record Development evidence
+        run: |
+          migration_count="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
+          # shellcheck disable=SC2016
+          printf '### Development verified\n- SHA: `%s`\n- Repository migrations: `%s`\n- Hosted manifest: `development`\n- Security advisors: `passed`\n' \
+            "$RELEASE_SHA" "$migration_count" >>"$GITHUB_STEP_SUMMARY"

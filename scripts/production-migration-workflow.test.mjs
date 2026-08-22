@@ -35,9 +35,7 @@ describe("immutable release workflow policy", () => {
   it("uses one non-cancelling release lock and exact SHA dependencies", () => {
     expect(workflow).toContain("group: camnook-release");
     expect(workflow).toContain("cancel-in-progress: false");
-    expect(workflow).toContain("needs: [admit, candidate]");
-    expect(workflow).toContain("needs: [admit, candidate, development]");
-    expect(workflow).toContain("needs: [admit, candidate, production-database]");
+    expect(workflow).toContain("needs: [admit, development]");
     expect(workflow.match(/release-gate-policy\.mjs current-main/g)?.length).toBeGreaterThanOrEqual(3);
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "$RELEASE_SHA"');
   });
@@ -53,15 +51,25 @@ describe("immutable release workflow policy", () => {
     expect(vercelConfig.git.deploymentEnabled.main).toBe(false);
   });
 
-  it("orders Development and Production schema gates before promotion", () => {
-    const candidate = position("name: Stage immutable Production candidate");
-    const development = position("name: Migrate and verify Development");
-    const production = position("name: Migrate and verify Production");
-    const promote = position("name: Promote exact candidate and smoke");
+  it("runs Development before one sequential Production approval gate", () => {
+    const production = workflow.slice(
+      position("  production-release:"),
+      position("  development:"),
+    );
+    const development = workflow.slice(position("  development:"));
 
-    expect(development).toBeGreaterThan(candidate);
-    expect(production).toBeGreaterThan(development);
-    expect(promote).toBeGreaterThan(production);
+    expect(development).toContain("needs: admit");
+    expect(development).toContain("environment: development");
+    expect(development).not.toContain("environment: production");
+    expect(production).toContain("needs: [admit, development]");
+    expect(production).toContain("environment: production");
+    expect(workflow.match(/environment: production/g)).toHaveLength(1);
+    expect(position("name: Stage unaliased Production candidate")).toBeLessThan(
+      position("name: Apply Production migrations after supersession check"),
+    );
+    expect(position("name: Apply Production migrations after supersession check")).toBeLessThan(
+      position("name: Promote candidate with reconciliation"),
+    );
     expect(workflow).toContain("EXPECTED_PROJECT_ID: ekmoiepalelqpmemvrkl");
     expect(workflow).toContain("EXPECTED_PROJECT_ID: iegcixcevvkryfwfotqz");
     expect(workflow).toContain("run-hosted-database-tests.sh --target development");

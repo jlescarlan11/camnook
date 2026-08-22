@@ -7,12 +7,13 @@ hosted monitoring, owner-approved camera policy, Production provider controls,
 and rollback rehearsal are not verified. Production remains unchanged.
 
 A reviewed merge to protected `main` authorizes that revision's forward schema
-migrations and gated application promotion. Successful automatic CI stages one
-unaliased Production candidate, then the same immutable SHA must pass Development
-and Production database gates before that exact deployment is promoted. Online
-government-ID collection is retired and must remain disabled; calendar, handoff,
-and meetup flags are forced false in the staged artifact and remain a separate
-activation decision.
+migrations and gated application promotion. Successful automatic CI first runs
+the Development database gates. After they pass, one protected Production
+approval authorizes staging an unaliased Production candidate; the same immutable
+SHA must then pass the Production database gates before that exact deployment is
+promoted. Online government-ID collection is retired and must remain disabled;
+calendar, handoff, and meetup flags are forced false in the staged artifact and
+remain a separate activation decision.
 
 ## Automated immutable-SHA release
 
@@ -21,8 +22,9 @@ uses one non-cancelling concurrency lock and the protected `development` and
 `production` GitHub environments. Vercel Git deployment from `main` is disabled
 by `vercel.json`; a merge cannot independently move the Production aliases.
 
-The enforced order is CI → staged READY/unaliased Production candidate →
-Development dry-run/apply/history/hosted manifest/advisors → Production
+The enforced order is CI → automatic Development
+dry-run/apply/history/hosted manifest/advisors → protected Production approval →
+staged READY/unaliased Production candidate → Production
 dry-run/apply/history/read-only hosted manifest/advisors → promote the exact
 candidate → public smoke. Every mutation boundary rechecks the exact current
 `main` SHA and environment/project identity. A newer `main` SHA supersedes an
@@ -39,9 +41,10 @@ evidence.
 `workflow_dispatch` is emergency reconciliation, not a bypass. Dispatch the
 workflow from `main`, supply the full current `main` SHA, type
 `RELEASE_EXACT_MAIN`, and provide a bounded audit reason. Admission also proves
-that exact SHA already has a successful automatic main-push CI run; all
-Development, Production, candidate, promotion, and environment-approval gates
-still run. Never edit an applied migration, repair history to hide a failure,
+that exact SHA already has a successful automatic main-push CI run; automatic
+Development verification, Production approval, candidate staging, Production
+verification, and promotion gates still run. Never edit an applied migration,
+repair history to hide a failure,
 reset a hosted database, or use a manual Vercel deployment as recovery.
 
 ## Scope and authority boundary

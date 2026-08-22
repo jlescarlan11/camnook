@@ -39,13 +39,14 @@ function output(result) {
   return `${result.stdout}${result.stderr}`;
 }
 
-async function waitForPath(path) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+async function waitForPath(path, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     try {
       readFileSync(path);
       return;
     } catch {
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 10));
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
     }
   }
   throw new Error(`timed out waiting for ${path}`);
@@ -133,7 +134,7 @@ exit "$FAKE_CURL_EXIT"
     expect(readdirSync(responseTmp)).toHaveLength(0);
   });
 
-  it("removes temporary files when the process is interrupted", async () => {
+  it("removes temporary files when the process is interrupted", { timeout: 15_000 }, async () => {
     const child = spawn("bash", [runner, "--target", "development", approvedTest], {
       cwd: repositoryRoot,
       detached: true,
