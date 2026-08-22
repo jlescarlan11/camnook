@@ -20,16 +20,30 @@ export class ProviderBoundaryError extends Error {
   }
 }
 
+const providerCityPartSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .regex(/^[\p{L} .'-]+$/u)
+  .refine((value) => !/[\p{Cc}\p{Cf}]/u.test(value));
+const providerCityIdSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(240)
+  .refine((value) => !/[\p{Cc}\p{Cf}]/u.test(value));
+
 const reverseResponseSchema = z.object({
   results: z.array(
     z.object({
-      city: z.string().trim().min(1).optional(),
-      municipality: z.string().trim().min(1).optional(),
-      county: z.string().trim().min(1).optional(),
+      city: providerCityPartSchema.optional(),
+      municipality: providerCityPartSchema.optional(),
+      county: providerCityPartSchema.optional(),
       country_code: z.string().trim().length(2),
       lat: z.number().finite().min(-90).max(90),
       lon: z.number().finite().min(-180).max(180),
-      place_id: z.string().trim().min(1).optional(),
+      place_id: providerCityIdSchema.optional(),
       result_type: z.string().optional(),
     }),
   ),
@@ -52,13 +66,13 @@ const placesResponseSchema = z.object({
 const citySearchResponseSchema = z.object({
   results: z.array(
     z.object({
-      city: z.string().trim().min(1).optional(),
-      municipality: z.string().trim().min(1).optional(),
-      county: z.string().trim().min(1).optional(),
+      city: providerCityPartSchema.optional(),
+      municipality: providerCityPartSchema.optional(),
+      county: providerCityPartSchema.optional(),
       country_code: z.string().trim().length(2),
       lat: z.number().finite().min(-90).max(90),
       lon: z.number().finite().min(-180).max(180),
-      place_id: z.string().trim().min(1).optional(),
+      place_id: providerCityIdSchema.optional(),
       result_type: z.string().optional(),
     }),
   ),
@@ -156,16 +170,17 @@ export class GeoapifyAdapter {
     if (!label || result.country_code.toUpperCase() !== "PH") {
       throw new ProviderBoundaryError("unsupported_city");
     }
+    const normalizedLabel = label.replace(/\s+/g, " ");
     return {
       countryCode: "PH",
-      label,
+      label: normalizedLabel,
       latitude: result.lat,
       longitude: result.lon,
       providerCityId:
         result.place_id ??
         `geoapify-city:${createHash("sha256")
           .update(
-            `${result.country_code.toLowerCase()}|${label.toLowerCase()}|${result.lat}|${result.lon}`,
+            `${result.country_code.toLowerCase()}|${normalizedLabel.toLowerCase()}|${result.lat}|${result.lon}`,
           )
           .digest("hex")}`,
     };
@@ -188,7 +203,10 @@ export class GeoapifyAdapter {
         Boolean(candidate.city ?? candidate.municipality ?? candidate.county),
     );
     if (!result) throw new ProviderBoundaryError("unsupported_city");
-    const label = result.city ?? result.municipality ?? result.county!;
+    const label = (result.city ?? result.municipality ?? result.county!).replace(
+      /\s+/g,
+      " ",
+    );
     return {
       countryCode: "PH",
       label,
