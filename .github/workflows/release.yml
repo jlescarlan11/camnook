@@ -110,6 +110,9 @@ jobs:
         with:
           ref: ${{ needs.admit.outputs.release_sha }}
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -122,6 +125,12 @@ jobs:
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.114.0
+
+      - name: Verify release toolchain
+        run: |
+          test "$(pnpm --version)" = "10.33.1"
+          vercel --version
+          supabase --version
 
       - name: Refuse revision or Vercel identity drift
         run: |
@@ -171,10 +180,12 @@ jobs:
             "$RELEASE_SHA" "$candidate_id" "$prior_id" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Link exact Production project
+        id: production-link
         run: |
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
           supabase link --project-ref "$SUPABASE_PROJECT_ID" --yes
+          printf 'linked=true\n' >>"$GITHUB_OUTPUT"
 
       - name: Preview pending Production migrations
         run: |
@@ -208,7 +219,7 @@ jobs:
           supabase db advisors --linked --type security --level warn --fail-on error
 
       - name: Reconcile Production history after failure
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.production-link.outputs.linked == 'true' }}
         continue-on-error: true
         run: |
           test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
