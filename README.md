@@ -22,7 +22,7 @@ are isolated. Repository tests do not seed or reset either hosted database.
 | Local | Local application and, when intentionally started, local Supabase services | `.env.local`, `supabase/.temp`, and `.vercel` are ignored machine-local state, not committed configuration. |
 | Development | Supabase `CamNook Development` (`ekmoiepalelqpmemvrkl`), Tokyo / `ap-northeast-1` | The ignored local project ref points here for hosted migration work. Production must not be linked for routine development. |
 | Preview | Vercel Preview backed only by the Development Supabase project | Preview has Deployment Protection. Use an authenticated Vercel session for smoke tests; do not weaken protection. |
-| Production | Supabase `CamNook` (`iegcixcevvkryfwfotqz`) and [camnook.shop](https://camnook.shop) | Live and isolated. A reviewed merge to `main` authorizes its forward schema migrations after CI and the automatic Development rollout succeed. Hosted configuration, data activation, and deployment remain separate controls. |
+| Production | Supabase `CamNook` (`iegcixcevvkryfwfotqz`) and [camnook.shop](https://camnook.shop) | Live and isolated. A reviewed merge to protected `main` authorizes the exact-SHA schema gates and application promotion after CI and Development verification succeed. Hosted configuration and runtime/data activation remain separate controls. |
 
 Vercel Preview has exactly two app-owned, Preview-scoped Supabase records:
 `NEXT_PUBLIC_SUPABASE_URL` and
@@ -240,13 +240,17 @@ cat supabase/.temp/project-ref
 pnpm db:types:linked
 ```
 
-After a merged `main` revision passes CI and its automatic Development migration
-and hosted checks, `.github/workflows/migrate-production.yml` applies the same
-revision's pending forward migrations to the exact Production project. The merge
-is the schema-migration authorization; manual local Production linking remains
-forbidden. Hosted Auth or environment changes, catalog or other data mutations,
-deployment, and promotion remain separate controls. The retired online-ID
-policy must never be activated by a launch workflow.
+After a merged `main` revision passes automatic CI, `.github/workflows/release.yml`
+stages one unaliased Vercel Production candidate and carries the same immutable
+SHA through Development migration/verification, Production migration/read-only
+verification, exact-candidate promotion, and public smoke. Vercel Git deployment
+from `main` is disabled in `vercel.json`, so application promotion cannot outrun
+the schema gate. A failed smoke restores the prior application alias; database
+recovery remains forward-only. Manual dispatch is an audited reconciliation path
+for the exact current `main` SHA and still requires prior successful CI and every
+environment gate. Manual local Production linking remains forbidden. Hosted Auth,
+catalog, and other data mutations remain separate controls, and the retired
+online-ID policy must never be activated by the release workflow.
 
 Use [`docs/operations/owner-portfolio-reporting.md`](docs/operations/owner-portfolio-reporting.md)
 for owner dashboard period semantics, financial reconciliation, fail-closed

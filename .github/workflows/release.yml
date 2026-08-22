@@ -1,0 +1,423 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full current main SHA to reconcile and release
+        required: true
+        type: string
+      confirmation:
+        description: Type RELEASE_EXACT_MAIN
+        required: true
+        type: string
+      reason:
+        description: Bounded audit reason for the emergency retry
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: camnook-release
+  cancel-in-progress: false
+
+jobs:
+  admit:
+    name: Admit exact main SHA
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release_sha: ${{ steps.admission.outputs.release_sha }}
+    steps:
+      - name: Check out release policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Admit current main after successful automatic CI
+        id: admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CI_VERIFIED: "false"
+          RELEASE_EMERGENCY_CONFIRMATION: ${{ inputs.confirmation }}
+          RELEASE_EMERGENCY_REASON: ${{ inputs.reason }}
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_MANUAL_SHA: ${{ inputs.release_sha }}
+          RELEASE_WORKFLOW_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RELEASE_WORKFLOW_EVENT: ${{ github.event.workflow_run.event }}
+          RELEASE_WORKFLOW_REF: ${{ github.ref }}
+          RELEASE_WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          export RELEASE_CURRENT_MAIN_SHA="$current_main_sha"
+          if [[ "$RELEASE_EVENT_NAME" == "workflow_dispatch" ]]; then
+            successful_ci="$(gh api --method GET \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+              -f head_sha="$RELEASE_MANUAL_SHA" \
+              -f event=push \
+              -f status=success \
+              --jq .total_count)"
+            if (( successful_ci > 0 )); then
+              export RELEASE_CI_VERIFIED=true
+            fi
+          fi
+          release_sha="$(node scripts/release-gate-policy.mjs admit)"
+          printf 'release_sha=%s\n' "$release_sha" >>"$GITHUB_OUTPUT"
+          admitted_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          # shellcheck disable=SC2016
+          printf '### Release admission\n- SHA: `%s`\n- Event: `%s`\n- Actor: `%s`\n- Time: `%s`\n' \
+            "$release_sha" "$RELEASE_EVENT_NAME" "$GITHUB_ACTOR" "$admitted_at" >>"$GITHUB_STEP_SUMMARY"
+          if [[ "$RELEASE_EVENT_NAME" == "workflow_dispatch" ]]; then
+            printf '%s\n' "- Emergency reason: $RELEASE_EMERGENCY_REASON" >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+  candidate:
+    name: Stage immutable Production candidate
+    needs: admit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    outputs:
+      candidate_id: ${{ steps.deploy.outputs.candidate_id }}
+      prior_deployment_id: ${{ steps.deploy.outputs.prior_deployment_id }}
+    env:
+      EXPECTED_VERCEL_ORG_ID: team_3Iehh9kIbX87EbfdCncg6m8m
+      EXPECTED_VERCEL_PROJECT_ID: prj_BjIN6En8T4H3ikS8ixPR9mpIDQ0p
+      HANDOFF_SCHEDULING_ENABLED: "false"
+      MEETUP_PLANNING_ENABLED: "false"
+      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Check out admitted revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.admit.outputs.release_sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.3.0
+
+      - name: Refuse revision or Vercel identity drift
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$VERCEL_ORG_ID" = "$EXPECTED_VERCEL_ORG_ID"
+          test "$VERCEL_PROJECT_ID" = "$EXPECTED_VERCEL_PROJECT_ID"
+
+      - name: Stage unaliased Production candidate
+        id: deploy
+        run: |
+          set -euo pipefail
+          prior_inspect="$(mktemp)"
+          prior_api="$(mktemp)"
+          candidate_result="$(mktemp)"
+          candidate_api="$(mktemp)"
+          cleanup() { rm -f "$prior_inspect" "$prior_api" "$candidate_result" "$candidate_api"; }
+          trap cleanup EXIT
+
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN" >/dev/null
+          vercel inspect camnook.shop --json --token "$VERCEL_TOKEN" >"$prior_inspect"
+          prior_id="$(jq -er '.id | select(test("^dpl_[A-Za-z0-9]+$"))' "$prior_inspect")"
+          vercel api "/v13/deployments/$prior_id" --raw --token "$VERCEL_TOKEN" >"$prior_api"
+          node scripts/release-gate-policy.mjs deployment "$prior_api" "$prior_id" \
+            "$(jq -er .meta.githubCommitSha "$prior_api")" "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" live
+
+          vercel build --prod --token "$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --skip-domain --yes --json \
+            --token "$VERCEL_TOKEN" \
+            --env HANDOFF_SCHEDULING_ENABLED=false \
+            --env MEETUP_PLANNING_ENABLED=false \
+            --meta githubCommitSha="$RELEASE_SHA" \
+            --meta githubCommitRef=main \
+            --meta githubOrg="$GITHUB_REPOSITORY_OWNER" \
+            --meta githubRepo="${GITHUB_REPOSITORY#*/}" >"$candidate_result"
+          candidate_id="$(jq -er '.id | select(test("^dpl_[A-Za-z0-9]+$"))' "$candidate_result")"
+          vercel api "/v13/deployments/$candidate_id" --raw --token "$VERCEL_TOKEN" >"$candidate_api"
+          node scripts/release-gate-policy.mjs deployment "$candidate_api" "$candidate_id" \
+            "$RELEASE_SHA" "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" unaliased
+
+          {
+            printf 'candidate_id=%s\n' "$candidate_id"
+            printf 'prior_deployment_id=%s\n' "$prior_id"
+          } >>"$GITHUB_OUTPUT"
+          # shellcheck disable=SC2016
+          printf '### Staged candidate\n- SHA: `%s`\n- Deployment: `%s`\n- Prior live deployment: `%s`\n- State: `READY, unaliased`\n' \
+            "$RELEASE_SHA" "$candidate_id" "$prior_id" >>"$GITHUB_STEP_SUMMARY"
+
+  development:
+    name: Migrate and verify Development
+    needs: [admit, candidate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: development
+    env:
+      EXPECTED_PROJECT_ID: ekmoiepalelqpmemvrkl
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Check out admitted revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.admit.outputs.release_sha }}
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.114.0
+
+      - name: Link exact Development project
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase link --project-ref "$SUPABASE_PROJECT_ID" --yes
+
+      - name: Preview pending Development migrations
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase db push --linked --dry-run
+
+      - name: Apply Development migrations after supersession check
+        run: |
+          set -euo pipefail
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
+          if ! supabase db push --linked; then
+            echo "::error::Development migration outcome requires reconciliation before retry"
+            test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+            supabase migration list --linked
+            exit 1
+          fi
+
+      - name: Verify Development migration history
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase migration list --linked
+
+      - name: Run Development hosted manifest
+        run: bash scripts/run-hosted-database-tests.sh --target development
+
+      - name: Run Development security advisors
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase db advisors --linked --type security --level warn --fail-on error
+
+      - name: Reconcile Development history after failure
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase migration list --linked
+
+      - name: Record Development evidence
+        run: |
+          migration_count="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
+          # shellcheck disable=SC2016
+          printf '### Development verified\n- SHA: `%s`\n- Repository migrations: `%s`\n- Hosted manifest: `development`\n- Security advisors: `passed`\n' \
+            "$RELEASE_SHA" "$migration_count" >>"$GITHUB_STEP_SUMMARY"
+
+  production-database:
+    name: Migrate and verify Production
+    needs: [admit, candidate, development]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      EXPECTED_PROJECT_ID: iegcixcevvkryfwfotqz
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Check out Development-verified revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.admit.outputs.release_sha }}
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.114.0
+
+      - name: Link exact Production project
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase link --project-ref "$SUPABASE_PROJECT_ID" --yes
+
+      - name: Preview pending Production migrations
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase db push --linked --dry-run
+
+      - name: Apply Production migrations after supersession check
+        run: |
+          set -euo pipefail
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
+          if ! supabase db push --linked; then
+            echo "::error::Production migration outcome requires reconciliation before retry"
+            test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+            supabase migration list --linked
+            exit 1
+          fi
+
+      - name: Verify Production migration history
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase migration list --linked
+
+      - name: Run Production read-only hosted manifest
+        run: bash scripts/run-hosted-database-tests.sh --target production
+
+      - name: Run Production security advisors
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase db advisors --linked --type security --level warn --fail-on error
+
+      - name: Reconcile Production history after failure
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: |
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          supabase migration list --linked
+
+      - name: Record Production database evidence
+        run: |
+          migration_count="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
+          # shellcheck disable=SC2016
+          printf '### Production database verified\n- SHA: `%s`\n- Repository migrations: `%s`\n- Hosted manifest: `production`\n- Security advisors: `passed`\n' \
+            "$RELEASE_SHA" "$migration_count" >>"$GITHUB_STEP_SUMMARY"
+
+  promote:
+    name: Promote exact candidate and smoke
+    needs: [admit, candidate, production-database]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      CANDIDATE_ID: ${{ needs.candidate.outputs.candidate_id }}
+      EXPECTED_VERCEL_ORG_ID: team_3Iehh9kIbX87EbfdCncg6m8m
+      EXPECTED_VERCEL_PROJECT_ID: prj_BjIN6En8T4H3ikS8ixPR9mpIDQ0p
+      GH_TOKEN: ${{ github.token }}
+      PRIOR_DEPLOYMENT_ID: ${{ needs.candidate.outputs.prior_deployment_id }}
+      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Check out admitted revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.admit.outputs.release_sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.3.0
+
+      - name: Verify candidate, live baseline, and current main
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$VERCEL_ORG_ID" = "$EXPECTED_VERCEL_ORG_ID"
+          test "$VERCEL_PROJECT_ID" = "$EXPECTED_VERCEL_PROJECT_ID"
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
+
+          candidate_api="$(mktemp)"
+          live_inspect="$(mktemp)"
+          cleanup() { rm -f "$candidate_api" "$live_inspect"; }
+          trap cleanup EXIT
+          vercel api "/v13/deployments/$CANDIDATE_ID" --raw --token "$VERCEL_TOKEN" >"$candidate_api"
+          node scripts/release-gate-policy.mjs deployment "$candidate_api" "$CANDIDATE_ID" \
+            "$RELEASE_SHA" "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" live
+          vercel inspect camnook.shop --json --token "$VERCEL_TOKEN" >"$live_inspect"
+          live_id="$(jq -er .id "$live_inspect")"
+          if [[ "$live_id" != "$PRIOR_DEPLOYMENT_ID" && "$live_id" != "$CANDIDATE_ID" ]]; then
+            echo "::error::Live Production alias drifted from both the recorded baseline and candidate"
+            exit 1
+          fi
+
+      - name: Promote candidate with reconciliation
+        run: |
+          set -euo pipefail
+          promote_log="$(mktemp)"
+          live_inspect="$(mktemp)"
+          cleanup() { rm -f "$promote_log" "$live_inspect"; }
+          trap cleanup EXIT
+          vercel inspect camnook.shop --json --token "$VERCEL_TOKEN" >"$live_inspect"
+          live_id="$(jq -er .id "$live_inspect")"
+          if [[ "$live_id" == "$CANDIDATE_ID" ]]; then
+            echo "Promotion already reconciled to the exact candidate"
+            exit 0
+          fi
+          test "$live_id" = "$PRIOR_DEPLOYMENT_ID"
+          set +e
+          vercel promote "$CANDIDATE_ID" --yes --timeout=3m --token "$VERCEL_TOKEN" >"$promote_log" 2>&1
+          promote_status=$?
+          set -e
+          vercel inspect camnook.shop --json --token "$VERCEL_TOKEN" >"$live_inspect"
+          live_id="$(jq -er .id "$live_inspect")"
+          if (( promote_status != 0 )) && [[ "$live_id" != "$CANDIDATE_ID" ]]; then
+            echo "::error::Promotion outcome is indeterminate; live alias was reconciled and does not identify the candidate"
+            exit 1
+          fi
+          test "$live_id" = "$CANDIDATE_ID"
+
+      - name: Smoke promoted application or restore prior alias
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          rollback_log="$(mktemp)"
+          live_inspect="$(mktemp)"
+          cleanup() { rm -f "$smoke_log" "$rollback_log" "$live_inspect"; }
+          trap cleanup EXIT
+          if ! curl --silent --show-error --fail --location --max-time 30 --retry 0 \
+            --output /dev/null https://camnook.shop/ 2>"$smoke_log"; then
+            set +e
+            vercel rollback "$PRIOR_DEPLOYMENT_ID" --yes --timeout=3m \
+              --token "$VERCEL_TOKEN" >"$rollback_log" 2>&1
+            rollback_status=$?
+            set -e
+            vercel inspect camnook.shop --json --token "$VERCEL_TOKEN" >"$live_inspect"
+            live_id="$(jq -er .id "$live_inspect")"
+            if (( rollback_status != 0 )) && [[ "$live_id" != "$PRIOR_DEPLOYMENT_ID" ]]; then
+              echo "::error::Smoke failed and rollback outcome is indeterminate; operator reconciliation required"
+              exit 1
+            fi
+            test "$live_id" = "$PRIOR_DEPLOYMENT_ID"
+            echo "::error::Production smoke failed; the prior application alias was restored and schema remains forward-only"
+            exit 1
+          fi
+          vercel inspect camnook.shop --json --token "$VERCEL_TOKEN" >"$live_inspect"
+          test "$(jq -er .id "$live_inspect")" = "$CANDIDATE_ID"
+          # shellcheck disable=SC2016
+          printf '### Production application verified\n- SHA: `%s`\n- Deployment: `%s`\n- Public smoke: `passed`\n- Feature flags: `disabled`\n' \
+            "$RELEASE_SHA" "$CANDIDATE_ID" >>"$GITHUB_STEP_SUMMARY"

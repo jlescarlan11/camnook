@@ -171,10 +171,10 @@ then applied and verified the same 21 migrations. The repository now contains
 22 migrations; the in-person identity replacement is the pending release
 candidate migration. Current
 remote history must still be checked by the rollout workflow. A reviewed merge
-to `main` authorizes the same revision's forward schema migrations after CI and
-Development hosted verification succeed; runtime policy activation, hosted
-configuration, data mutation, and application deployment remain separate
-controls.
+to protected `main` authorizes the same revision's forward schema migrations and
+exact staged-application promotion after CI and Development/Production hosted
+verification succeed; runtime policy activation, hosted configuration, and data
+mutation remain separate controls.
 
 Vercel Preview has two app-owned, Preview-scoped Supabase records for the
 Development project: browser-visible `NEXT_PUBLIC_SUPABASE_URL` and

@@ -30,8 +30,9 @@ legacy bookings may use the validated `PICKUP_LOCATION` compatibility path.
    only `supabase/tests/hosted/manifest.json`; CI validates that every entry is
    rollback-only, exercises the exact Development selection twice against a
    production-shaped singleton-admin/legacy-record baseline, and proves no row
-   residue. A successful `main` CI may trigger the Development migration gate;
-   only that exact successful SHA may continue toward Production.
+   residue. A successful automatic `main` CI stages a Production-shaped Vercel
+   candidate with both runtime flags false; only that exact unaliased artifact
+   and SHA may continue through Development, Production, and promotion.
 4. Record only SHA, migration names/counts, deployment IDs/states, config
    version, safe status categories, actor/time, and aggregate results. Evidence
    with credentials, coordinates, provider IDs, opaque references, private
@@ -93,6 +94,14 @@ Reconcile an indeterminate request by its durable owned booking before retrying;
 never fabricate client success or delete history. Provider outage requires no
 cleanup of renter coordinates because they are never persisted. Recovery is a
 forward fix followed by a new protected Preview and evidence window.
+
+The repository release workflow also keeps both feature flags false, disables
+Vercel's independent `main` promotion, and promotes only after the exact SHA's
+Production migration history, read-only hosted manifest, and advisors pass. An
+application smoke failure restores the prior Vercel alias without reversing
+schema. An indeterminate migration or promotion is reconciled first; emergency
+dispatch cannot skip successful CI, current-main identity, or protected
+environment approval.
 
 ## Current evidence and blockers
 
