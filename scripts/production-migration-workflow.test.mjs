@@ -9,6 +9,10 @@ const workflow = readFileSync(
 const vercelConfig = JSON.parse(
   readFileSync(new URL("../vercel.json", import.meta.url), "utf8"),
 );
+const prePushHook = readFileSync(
+  new URL("../.githooks/pre-push", import.meta.url),
+  "utf8",
+);
 
 function position(text) {
   const index = workflow.indexOf(text);
@@ -92,5 +96,10 @@ describe("immutable release workflow policy", () => {
     expect(
       existsSync(new URL("../.github/workflows/migrate-production.yml", import.meta.url)),
     ).toBe(false);
+  });
+
+  it("uses the repository-pinned package manager for local release checks", () => {
+    expect(prePushHook).toContain("corepack pnpm verify:push");
+    expect(prePushHook).not.toMatch(/^pnpm verify:push$/m);
   });
 });
