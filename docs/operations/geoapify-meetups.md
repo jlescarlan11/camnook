@@ -98,3 +98,25 @@ geocoder with `country=Philippines` and `country_codes=ph`. Street-like input is
 rejected before the provider call. Provider city/place identifiers are used only
 inside the server recommendation boundary and are not persisted in a booking or
 returned as client-visible claims.
+
+## Owner handoff-city suggestions
+
+The administrator handoff-policy page uses the same server-only provider boundary
+without exposing provider identifiers or city-anchor coordinates as editable form
+fields. Browser geolocation runs only after the administrator selects **Use my
+current city**. The exact position is submitted directly to the protected Server
+Action, used for one city-level reverse lookup, and is not returned, persisted,
+placed in a URL, logged, or copied into audit metadata.
+
+The server returns only a city label, expiry, and an encrypted short-lived
+confirmation. That confirmation is bound to the administrator, camera, current
+policy version, and provider configuration version. Policy save rejects expired,
+tampered, replayed, cross-camera, cross-user, stale-version, and configuration-
+mismatched confirmations before the atomic policy RPC. A manual Philippine
+city/municipality lookup produces the same confirmation contract.
+
+For a previously configured policy, schedule-only changes re-read the private
+city anchor from the authorized database RPC rather than round-tripping private
+anchor fields through the browser. A legacy camera without an anchor must confirm
+a city before its policy can be saved. Provider or configuration failure never
+erases or replaces an existing handoff policy.

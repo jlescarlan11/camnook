@@ -5,32 +5,203 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 
+import { getMeetupProviderConfig } from "../meetups/config";
+import { cityInputSchema } from "../meetups/city-input";
+import { GeoapifyAdapter, ProviderBoundaryError } from "../meetups/provider";
+import {
+  mintHandoffCityReference,
+  readHandoffCityReference,
+} from "./handoff-city-reference";
+
 export type SaveHandoffPolicyState = {
   error?: "invalid_input" | "save_failed" | "stale" | "unauthorized";
   fieldErrors?: Partial<
     Record<
       | "approvedTimes"
       | "camera"
-      | "cityLabel"
-      | "coordinates"
-      | "providerCityId"
+      | "city"
       | "weekdays",
       string
     >
   >;
   status: "error" | "idle" | "success";
+  cityLabel?: string;
   version?: number;
+};
+
+export type SuggestHandoffCityState = {
+  error?:
+    | "configuration"
+    | "invalid_city"
+    | "invalid_context"
+    | "invalid_location"
+    | "provider_unavailable"
+    | "stale"
+    | "unauthorized";
+  status: "error" | "idle" | "success";
+  suggestion?: {
+    cityLabel: string;
+    expectedVersion: number;
+    expiresAt: string;
+    reference: string;
+  };
 };
 
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const baseSchema = z.object({
   cameraId: z.uuid(),
-  cityLabel: z.string().trim().min(2).max(120),
-  expectedVersion: z.coerce.number().int().nonnegative(),
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
-  providerCityId: z.string().trim().min(2).max(240),
+  expectedVersion: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(z.number().int().nonnegative().safe()),
 });
+
+const adminPolicyAnchorSchema = z.object({
+  city_label: z.string().trim().min(2).max(120).nullable(),
+  country_code: z.literal("PH").nullable(),
+  latitude: z.coerce.number().finite().min(-90).max(90).nullable(),
+  longitude: z.coerce.number().finite().min(-180).max(180).nullable(),
+  provider_city_id: z.string().trim().min(2).max(240).nullable(),
+  version: z.coerce.number().int().nonnegative(),
+});
+
+const numericInput = (minimum: number, maximum: number) =>
+  z.preprocess(
+    (input) =>
+      typeof input === "string" && input.trim() ? Number(input) : Number.NaN,
+    z.number().finite().min(minimum).max(maximum),
+  );
+
+function value(formData: FormData, key: string) {
+  const item = formData.get(key);
+  return typeof item === "string" ? item.trim() : "";
+}
+
+async function loadCurrentAnchor(
+  context: Awaited<ReturnType<typeof requireAdmin>>,
+  cameraId: string,
+) {
+  try {
+    const result = await context.supabase
+      .schema("api")
+      .rpc("get_camera_handoff_policy_admin", { p_camera_id: cameraId });
+    const parsed = adminPolicyAnchorSchema.safeParse(result.data);
+    return result.error || !parsed.success ? null : parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+export async function suggestHandoffCity(
+  _previous: SuggestHandoffCityState,
+  formData: FormData,
+): Promise<SuggestHandoffCityState> {
+  const contextInput = z
+    .object({
+      cameraId: z.uuid(),
+      expectedVersion: z
+        .string()
+        .regex(/^\d+$/)
+        .transform(Number)
+        .pipe(z.number().int().nonnegative().safe()),
+      locationMode: z.enum(["current", "manual"]),
+    })
+    .safeParse({
+      cameraId: value(formData, "cameraId"),
+      expectedVersion: value(formData, "expectedVersion"),
+      locationMode: value(formData, "locationMode"),
+    });
+  if (!contextInput.success) {
+    return { error: "invalid_context", status: "error" };
+  }
+
+  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    context = await requireAdmin();
+  } catch {
+    return { error: "unauthorized", status: "error" };
+  }
+
+  const current = await loadCurrentAnchor(context, contextInput.data.cameraId);
+  if (!current) return { error: "invalid_context", status: "error" };
+  if (current.version !== contextInput.data.expectedVersion) {
+    return { error: "stale", status: "error" };
+  }
+
+  const config = getMeetupProviderConfig();
+  if (!config) return { error: "configuration", status: "error" };
+  const adapter = new GeoapifyAdapter({
+    apiKey: config.apiKey,
+    timeoutMs: config.timeoutMs,
+  });
+
+  let city;
+  try {
+    if (contextInput.data.locationMode === "manual") {
+      const manualCity = cityInputSchema.safeParse(value(formData, "manualCity"));
+      if (!manualCity.success) {
+        return { error: "invalid_city", status: "error" };
+      }
+      city = await adapter.geocodeCity(manualCity.data);
+    } else {
+      const location = z
+        .object({
+          accuracy: numericInput(0, 50_000),
+          latitude: numericInput(-90, 90),
+          longitude: numericInput(-180, 180),
+        })
+        .safeParse({
+          accuracy: value(formData, "accuracy"),
+          latitude: value(formData, "latitude"),
+          longitude: value(formData, "longitude"),
+        });
+      if (!location.success) {
+        return { error: "invalid_location", status: "error" };
+      }
+      city = await adapter.reverseGeocodeCity({
+        latitude: location.data.latitude,
+        longitude: location.data.longitude,
+      });
+    }
+  } catch (error) {
+    if (
+      error instanceof ProviderBoundaryError &&
+      error.code === "unsupported_city"
+    ) {
+      return {
+        error:
+          contextInput.data.locationMode === "manual"
+            ? "invalid_city"
+            : "invalid_location",
+        status: "error",
+      };
+    }
+    return { error: "provider_unavailable", status: "error" };
+  }
+
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1_000).toISOString();
+  const reference = mintHandoffCityReference(
+    {
+      actorId: context.user.id,
+      cameraId: contextInput.data.cameraId,
+      city,
+      configVersion: config.configVersion,
+      expectedVersion: contextInput.data.expectedVersion,
+      expiresAt,
+    },
+    config.referenceSecret,
+  );
+  return {
+    status: "success",
+    suggestion: {
+      cityLabel: city.label,
+      expectedVersion: contextInput.data.expectedVersion,
+      expiresAt,
+      reference,
+    },
+  };
+}
 
 function uniqueValues<T>(values: T[]) {
   return new Set(values).size === values.length;
@@ -42,11 +213,7 @@ export async function saveCameraHandoffPolicy(
 ): Promise<SaveHandoffPolicyState> {
   const base = baseSchema.safeParse({
     cameraId: formData.get("cameraId"),
-    cityLabel: formData.get("cityLabel"),
     expectedVersion: formData.get("expectedVersion"),
-    latitude: formData.get("latitude"),
-    longitude: formData.get("longitude"),
-    providerCityId: formData.get("providerCityId"),
   });
   const enabled = formData.get("enabled") === "on";
   const weekdays = formData
@@ -63,15 +230,6 @@ export async function saveCameraHandoffPolicy(
     const flattened = z.flattenError(base.error).fieldErrors;
     if (flattened.cameraId || flattened.expectedVersion) {
       fieldErrors.camera = "Reload this camera before saving.";
-    }
-    if (flattened.cityLabel) {
-      fieldErrors.cityLabel = "Enter a city or municipality (2–120 characters).";
-    }
-    if (flattened.providerCityId) {
-      fieldErrors.providerCityId = "Enter the provider’s city identifier.";
-    }
-    if (flattened.latitude || flattened.longitude) {
-      fieldErrors.coordinates = "Enter valid coarse latitude and longitude values.";
     }
   }
 
@@ -103,6 +261,67 @@ export async function saveCameraHandoffPolicy(
     return { error: "unauthorized", status: "error" };
   }
 
+  const reference = value(formData, "cityReference");
+  let cityAnchor:
+    | {
+        countryCode: "PH";
+        label: string;
+        latitude: number;
+        longitude: number;
+        providerCityId: string;
+      }
+    | undefined;
+  if (reference) {
+    const config = getMeetupProviderConfig();
+    if (!config) {
+      return {
+        error: "invalid_input",
+        fieldErrors: { city: "Confirm the handoff city again before saving." },
+        status: "error",
+      };
+    }
+    const claims = readHandoffCityReference(reference, config.referenceSecret, {
+      actorId: context.user.id,
+      cameraId: base.data.cameraId,
+      configVersion: config.configVersion,
+      expectedVersion: base.data.expectedVersion,
+    });
+    if (!claims) {
+      return {
+        error: "invalid_input",
+        fieldErrors: { city: "Confirm the handoff city again before saving." },
+        status: "error",
+      };
+    }
+    cityAnchor = claims.city;
+  } else {
+    const current = await loadCurrentAnchor(context, base.data.cameraId);
+    if (!current) return { error: "save_failed", status: "error" };
+    if (current.version !== base.data.expectedVersion) {
+      return { error: "stale", status: "error" };
+    }
+    if (
+      !current.city_label ||
+      !current.country_code ||
+      current.latitude === null ||
+      current.longitude === null ||
+      !current.provider_city_id
+    ) {
+      return {
+        error: "invalid_input",
+        fieldErrors: { city: "Confirm a handoff city before saving." },
+        status: "error",
+      };
+    }
+    cityAnchor = {
+      countryCode: current.country_code,
+      label: current.city_label,
+      latitude: current.latitude,
+      longitude: current.longitude,
+      providerCityId: current.provider_city_id,
+    };
+  }
+
   let outcome: Awaited<
     ReturnType<
       ReturnType<typeof context.supabase.schema>["rpc"]
@@ -115,13 +334,13 @@ export async function saveCameraHandoffPolicy(
         p_allowed_weekdays: weekdays,
         p_approved_times: approvedTimes,
         p_camera_id: base.data.cameraId,
-        p_city_label: base.data.cityLabel,
-        p_country_code: "PH",
+        p_city_label: cityAnchor.label,
+        p_country_code: cityAnchor.countryCode,
         p_enabled: enabled,
         p_expected_version: base.data.expectedVersion,
-        p_latitude: base.data.latitude,
-        p_longitude: base.data.longitude,
-        p_provider_city_id: base.data.providerCityId,
+        p_latitude: cityAnchor.latitude,
+        p_longitude: cityAnchor.longitude,
+        p_provider_city_id: cityAnchor.providerCityId,
       });
   } catch {
     return { error: "save_failed", status: "error" };
@@ -148,5 +367,5 @@ export async function saveCameraHandoffPolicy(
   revalidatePath(`/admin/cameras/${base.data.cameraId}/handoff`);
   revalidatePath("/");
 
-  return { status: "success", version };
+  return { cityLabel: cityAnchor.label, status: "success", version };
 }

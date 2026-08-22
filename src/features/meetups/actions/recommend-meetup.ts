@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { isCalendarDate, isHandoffTime } from "../../bookings/calendar";
 import { buildMeetupBinding } from "../binding";
+import { cityInputSchema } from "../city-input";
 import { getMeetupProviderConfig } from "../config";
 import { GeoapifyAdapter, ProviderBoundaryError } from "../provider";
 import { isMeetupPlanningEnabled } from "../rollout";
@@ -36,13 +37,6 @@ const contextSchema = z.object({
   policy_version: z.coerce.number().int().positive(),
   provider_city_id: z.string().min(2).max(240),
 });
-
-const cityInputSchema = z
-  .string()
-  .trim()
-  .min(2)
-  .max(80)
-  .regex(/^[\p{L} .'-]+$/u);
 
 function value(formData: FormData, key: string) {
   const item = formData.get(key);

@@ -80,17 +80,16 @@ describe("camera handoff admin data", () => {
         cameraName: "Canon R50",
         cameraStatus: "published",
         cityLabel: "Cebu City",
-        countryCode: "PH",
         enabled: true,
-        latitude: 10.3157,
-        longitude: 123.8854,
-        providerCityId: "geoapify:cebu-city",
         timezone: "Asia/Manila",
         version: 2,
       },
       status: "success",
     });
     expect(JSON.stringify(result)).not.toContain("raw_provider_payload");
+    expect(JSON.stringify(result)).not.toMatch(
+      /providerCityId|latitude|longitude|geoapify:cebu-city/,
+    );
   });
 
   it("fails closed on malformed or missing camera data", async () => {
