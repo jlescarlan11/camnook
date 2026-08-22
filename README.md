@@ -127,6 +127,15 @@ to the hosted manifest merely because it passes after `db reset`; keep exhaustiv
 fixtures under `supabase/tests/database/` and add only narrowly scoped hosted
 smoke coverage.
 
+The hosted runner never prints submitted SQL, raw API responses, curl stderr,
+credentials, project refs, or user-linked values. A deterministic failure emits
+only allowlisted fields such as HTTP status, SQLSTATE, normalized category, and
+a safe constraint name. Transport, timeout, rate-limit, and 5xx failures are
+reported as indeterminate with `reconcile_before_retry=true`: inspect linked
+migration history and hosted state before rerunning, because an interrupted
+request may already have executed. Response material is quarantined in temporary
+files and removed on every exit path.
+
 For a hosted Development migration, keep the change migration-first and
 forward-only. Immediately before **each** command that can inspect or mutate
 the linked hosted database, verify the ignored local link:

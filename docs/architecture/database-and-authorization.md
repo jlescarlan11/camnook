@@ -484,6 +484,12 @@ Migration 22 retires online KYC and introduces the minimized physical pickup
 control. The automatic workflow checks current remote history at every rollout;
 these historical counts are not a substitute for that check.
 
+Hosted SQL diagnostics are deliberately allowlist-only. The runner extracts
+bounded operational fields from raw responses and removes the temporary response
+and curl-error files without logging them. A transport, timeout, rate-limit, or
+5xx outcome is indeterminate and requires migration-history and hosted-state
+reconciliation before any retry; the runner never automatically resubmits SQL.
+
 Before **each** linked hosted database command, run the target check immediately
 before the command and require the exact Development ref:
 
