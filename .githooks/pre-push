@@ -43,10 +43,10 @@ while read -r local_ref local_oid _remote_ref remote_oid; do
   fi
 done
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  echo "pre-push: pnpm is required to run repository checks" >&2
+if ! command -v corepack >/dev/null 2>&1; then
+  echo "pre-push: corepack is required to run the repository-pinned pnpm" >&2
   exit 1
 fi
 
 echo "pre-push: running lint, type-check, tests, launch evidence, and production build"
-pnpm verify:push
+corepack pnpm verify:push
