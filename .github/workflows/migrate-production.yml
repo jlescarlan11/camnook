@@ -58,9 +58,7 @@ jobs:
         run: supabase migration list --linked
 
       - name: Verify the policy remains disabled
-        run: >-
-          bash scripts/run-hosted-database-tests.sh
-          supabase/tests/database/005_verification_policy_disabled.sql
+        run: bash scripts/run-hosted-database-tests.sh --target production
 
       - name: Run hosted security advisors
         run: supabase db advisors --linked --type security --level warn --fail-on error

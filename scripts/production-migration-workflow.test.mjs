@@ -32,7 +32,9 @@ describe("Production migration workflow policy", () => {
     const dryRun = workflow.indexOf("supabase db push --linked --dry-run");
     const apply = workflow.indexOf("supabase db push --linked", dryRun + 1);
     const verify = workflow.indexOf("supabase migration list --linked");
-    const policyCheck = workflow.indexOf("005_verification_policy_disabled.sql");
+    const policyCheck = workflow.indexOf(
+      "bash scripts/run-hosted-database-tests.sh --target production",
+    );
     const advisors = workflow.indexOf("supabase db advisors --linked");
 
     expect(dryRun).toBeGreaterThan(-1);
@@ -40,5 +42,6 @@ describe("Production migration workflow policy", () => {
     expect(verify).toBeGreaterThan(apply);
     expect(policyCheck).toBeGreaterThan(verify);
     expect(advisors).toBeGreaterThan(policyCheck);
+    expect(workflow).not.toContain("supabase/tests/database/005_verification_policy_disabled.sql");
   });
 });

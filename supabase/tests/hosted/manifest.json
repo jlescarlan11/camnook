@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "tests": [
+    {
+      "path": "supabase/tests/hosted/005_verification_policy_disabled.sql",
+      "targets": ["development", "production"]
+    },
+    {
+      "path": "supabase/tests/hosted/006_verification_rls.sql",
+      "targets": ["development"]
+    },
+    {
+      "path": "supabase/tests/hosted/010_calendar_handoff_meetup.sql",
+      "targets": ["development"]
+    }
+  ]
+}

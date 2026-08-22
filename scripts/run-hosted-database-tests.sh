@@ -4,20 +4,56 @@ set -euo pipefail
 : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN is required}"
 : "${SUPABASE_PROJECT_ID:?SUPABASE_PROJECT_ID is required}"
 
+target="development"
+if [[ "${1:-}" == "--target" ]]; then
+  if (( $# < 2 )); then
+    echo "--target requires development or production" >&2
+    exit 2
+  fi
+  target="$2"
+  shift 2
+fi
+
 if [[ ! "$SUPABASE_PROJECT_ID" =~ ^[a-z]{20}$ ]]; then
   echo "refusing invalid Supabase project ref" >&2
   exit 2
 fi
-if (( $# == 0 )); then
-  echo "provide at least one hosted SQL test file" >&2
+
+case "$target" in
+  development)
+    expected_project_id="ekmoiepalelqpmemvrkl"
+    ;;
+  production)
+    expected_project_id="iegcixcevvkryfwfotqz"
+    ;;
+  *)
+    echo "refusing invalid hosted test target: $target" >&2
+    exit 2
+    ;;
+esac
+if [[ "$SUPABASE_PROJECT_ID" != "$expected_project_id" ]]; then
+  echo "refusing hosted test target/project mismatch" >&2
   exit 2
 fi
 
-for test_file in "$@"; do
-  if [[ ! -f "$test_file" || "$test_file" != supabase/tests/database/*.sql ]]; then
-    echo "refusing unexpected hosted test path: $test_file" >&2
-    exit 2
-  fi
+policy_script="scripts/hosted-database-test-policy.mjs"
+if (( $# == 0 )); then
+  test_files=()
+  manifest_selection="$(node "$policy_script" list "$target")"
+  while IFS= read -r test_file; do
+    [[ -n "$test_file" ]] && test_files+=("$test_file")
+  done <<<"$manifest_selection"
+else
+  node "$policy_script" assert-allowed "$target" "$@"
+  test_files=("$@")
+fi
+
+if (( ${#test_files[@]} == 0 )); then
+  echo "hosted test manifest selected no files for target: $target" >&2
+  exit 2
+fi
+
+for test_file in "${test_files[@]}"; do
 
   response_file="$(mktemp "${TMPDIR:-/tmp}/camnook-hosted-test.XXXXXX")"
   cleanup_response() {

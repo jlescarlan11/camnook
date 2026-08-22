@@ -12,7 +12,7 @@ if ! postgresql_prefix="$(brew --prefix postgresql@17 2>/dev/null)"; then
 fi
 
 postgres_bin="$postgresql_prefix/bin"
-for executable in initdb pg_ctl psql; do
+for executable in initdb pg_ctl pg_dump psql; do
   if [[ ! -x "$postgres_bin/$executable" ]]; then
     echo "missing PostgreSQL 17 executable: $postgres_bin/$executable" >&2
     exit 2
@@ -190,6 +190,25 @@ database_url="postgresql://postgres@localhost/postgres?host=$socket_dir"
 template_database_url="postgresql://postgres@localhost/template1?host=$socket_dir"
 legacy_guard_database_url="postgresql://postgres@localhost/camnook_legacy_guard?host=$socket_dir"
 legacy_guard_log="$test_dir/legacy-guard-migration.log"
+hosted_compat_database_url="postgresql://postgres@localhost/camnook_hosted_compat?host=$socket_dir"
+hosted_compat_before_dump="$test_dir/hosted-compat-before.sql"
+hosted_compat_after_dump="$test_dir/hosted-compat-after.sql"
+
+dump_hosted_compat_rows() {
+  local output_file="$1"
+
+  "$postgres_bin/pg_dump" \
+    "$hosted_compat_database_url" \
+    --data-only \
+    --column-inserts \
+    --no-owner \
+    --no-privileges \
+    | sed \
+      -e '/^SELECT pg_catalog\.setval(/d' \
+      -e '/^\\restrict /d' \
+      -e '/^\\unrestrict /d' \
+    >"$output_file"
+}
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
 create role anon nologin;
@@ -379,6 +398,153 @@ echo "running booking meetup plan invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/015_booking_meetup_plans.sql"
+
+"$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
+  -c 'create database camnook_hosted_compat template postgres' >/dev/null
+
+"$postgres_bin/psql" "$hosted_compat_database_url" -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
+begin;
+
+insert into auth.users (id) values
+  ('16000000-0000-4000-8000-000000000001'),
+  ('16000000-0000-4000-8000-000000000002');
+
+insert into public.profiles (user_id, legal_name, phone, account_status) values
+  (
+    '16000000-0000-4000-8000-000000000001',
+    'Hosted Compatibility Admin',
+    '+639160000001',
+    'active'
+  ),
+  (
+    '16000000-0000-4000-8000-000000000002',
+    'Hosted Compatibility Legacy Renter',
+    '+639160000002',
+    'active'
+  );
+
+insert into private.admin_accounts (user_id)
+values ('16000000-0000-4000-8000-000000000001');
+
+insert into public.cameras (
+  id,
+  slug,
+  serial_number,
+  name,
+  description,
+  status,
+  daily_rate,
+  security_deposit,
+  published_at
+) values (
+  '16100000-0000-4000-8000-000000000001',
+  'hosted-compatibility-legacy-camera',
+  'HOSTED-COMPATIBILITY-LEGACY-SERIAL',
+  'Hosted Compatibility Legacy Camera',
+  'Existing record with no handoff policy or meetup snapshot.',
+  'published',
+  500,
+  2000,
+  statement_timestamp()
+);
+
+set constraints all deferred;
+
+insert into public.bookings (
+  id,
+  renter_id,
+  camera_id,
+  pickup_at,
+  return_at,
+  intended_use,
+  expected_location
+) values (
+  '16200000-0000-4000-8000-000000000001',
+  '16000000-0000-4000-8000-000000000002',
+  '16100000-0000-4000-8000-000000000001',
+  '2099-11-01 01:00:00+00',
+  '2099-11-03 01:00:00+00',
+  'Legacy hosted compatibility fixture',
+  'Cebu City'
+);
+
+insert into public.booking_state_history (
+  booking_id,
+  from_state,
+  to_state,
+  actor_user_id,
+  actor_type,
+  reason_code
+) values (
+  '16200000-0000-4000-8000-000000000001',
+  null,
+  'FOR_REVIEW',
+  '16000000-0000-4000-8000-000000000002',
+  'renter',
+  'booking_requested'
+);
+
+set constraints all immediate;
+commit;
+SQL
+
+dump_hosted_compat_rows "$hosted_compat_before_dump"
+
+hosted_manifest_selection="$({
+  node "$repo_root/scripts/hosted-database-test-policy.mjs" list development
+})"
+
+set +e
+"$postgres_bin/psql" \
+  "$hosted_compat_database_url" \
+  -v ON_ERROR_STOP=1 \
+  >/dev/null 2>&1 <<'SQL'
+begin;
+insert into auth.users (id)
+values ('16f00000-0000-4000-8000-000000000001');
+do $$
+begin
+  raise exception 'intentional hosted assertion failure';
+end;
+$$;
+rollback;
+SQL
+hosted_failure_status=$?
+set -e
+
+if [[ "$hosted_failure_status" -eq 0 ]] || [[ "$(
+  "$postgres_bin/psql" \
+    "$hosted_compat_database_url" \
+    -Atq \
+    -v ON_ERROR_STOP=1 \
+    -c "select count(*) from auth.users where id = '16f00000-0000-4000-8000-000000000001';"
+)" != "0" ]]; then
+  echo "failed hosted assertion left transaction-owned fixture data" >&2
+  exit 1
+fi
+echo "ok - failed hosted assertion rolls back transaction-owned fixtures"
+
+for hosted_compat_pass in 1 2; do
+  echo "running production-shaped hosted manifest pass $hosted_compat_pass"
+  while IFS= read -r hosted_test_file; do
+    [[ -n "$hosted_test_file" ]] || continue
+    "$postgres_bin/psql" \
+      "$hosted_compat_database_url" \
+      -v ON_ERROR_STOP=1 \
+      -f "$repo_root/$hosted_test_file"
+  done <<<"$hosted_manifest_selection"
+
+  dump_hosted_compat_rows "$hosted_compat_after_dump"
+
+  if ! cmp -s "$hosted_compat_before_dump" "$hosted_compat_after_dump"; then
+    echo "hosted manifest changed the production-shaped baseline on pass $hosted_compat_pass" >&2
+    exit 1
+  fi
+done
+
+"$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
+  -c 'drop database camnook_hosted_compat' >/dev/null
+echo "ok - hosted manifest is repeatable and leaves production-shaped data unchanged"
 
 "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
