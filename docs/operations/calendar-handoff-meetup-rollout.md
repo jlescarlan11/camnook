@@ -1,17 +1,20 @@
 # Calendar, handoff, and meetup rollout
 
-Status: **NO_GO**, reviewed 2026-08-21. Issue #105 coordinates the release of
-#101–#104; it does not authorize a merge, deployment, hosted mutation, or
-Production activation. The last verified Production database evidence contains
-22 migrations and this candidate contains 25. The current task made no hosted
-change.
+Status: **HANDOFF READY FOR OWNER POLICY; MEETUP NO_GO**, reviewed 2026-08-22.
+Issue #105 coordinates the release of #101–#104. Release run `32558869428`
+successfully verified and applied all 25 repository migrations to Development
+and Production for SHA `5976173337e33a247b330e253d25435fee870c16`, then
+promoted that application revision. The Production meetup provider and privacy
+readiness work remains incomplete.
 
 ## Immutable release boundary
 
 `HANDOFF_SCHEDULING_ENABLED` and `MEETUP_PLANNING_ENABLED` are server-only and
-enabled only by the exact string `true`. Deploy schema and code with both false.
-The first stops new schedule-bound requests; the second stops location lookup,
-recommendation, and meetup-bound requests. Disabling either never deletes or
+enabled only by the exact string `true`. Production releases from `main` enable
+handoff scheduling and keep meetup planning disabled until its provider and
+privacy readiness requirements pass. The first flag stops new schedule-bound
+requests when disabled; the second stops location lookup, recommendation, and
+meetup-bound requests. Disabling either never deletes or
 rewrites camera policies, bookings, meetup plans, contracts, handoffs, history,
 or audits. Existing snapshot-backed bookings remain readable; only genuine
 legacy bookings may use the validated `PICKUP_LOCATION` compatibility path.
@@ -32,7 +35,8 @@ legacy bookings may use the validated `PICKUP_LOCATION` compatibility path.
    production-shaped singleton-admin/legacy-record baseline, and proves no row
    residue. A successful automatic `main` CI first migrates and verifies
    Development. Its success unlocks Production approval, which stages a
-   Production-shaped Vercel candidate with both runtime flags false; only that
+   Production-shaped Vercel candidate with handoff scheduling enabled and meetup
+   planning disabled; only that
    exact unaliased artifact and SHA may continue through Production and
    promotion.
 4. Record only SHA, migration names/counts, deployment IDs/states, config
@@ -70,13 +74,14 @@ After disabled migrations and code are on the exact protected Preview SHA:
 
 ## Production readiness and activation
 
-Production remains disabled until all prior evidence passes and a new explicit
-mutation window is authorized. While disabled, configure a dedicated Production
-provider key, independent recommendation secret, reviewed category/config
-version, quota/cost alerting, rotation owner, outage response, and at least one
-owner-approved real camera policy. Verify the exact migration/deployment SHA,
-provider health, security advisors, runtime/database monitoring, and rollback
-control without recording sensitive values.
+Handoff scheduling is enabled by releases from `main`, but each listing remains
+fail-closed until the owner saves an enabled policy with a public city label,
+private coarse city anchor, allowed weekdays, and approved Asia/Manila handoff
+times. Meetup planning remains disabled until a dedicated Production provider
+key, independent recommendation secret, reviewed category/config version,
+quota/cost alerting, rotation owner, and outage response are configured. Verify
+provider health, runtime/database monitoring, and rollback control without
+recording sensitive values.
 
 Activation order is coherent and reversible: enable handoff scheduling first,
 verify the approved listing calendar/slot, then enable meetup planning and run
@@ -97,8 +102,9 @@ never fabricate client success or delete history. Provider outage requires no
 cleanup of renter coordinates because they are never persisted. Recovery is a
 forward fix followed by a new protected Preview and evidence window.
 
-The repository release workflow also keeps both feature flags false, disables
-Vercel's independent `main` promotion, and promotes only after the exact SHA's
+The repository release workflow enables handoff scheduling while keeping meetup
+planning disabled, disables Vercel's independent `main` promotion, and promotes
+only after the exact SHA's
 Production migration history, read-only hosted manifest, and advisors pass. An
 application smoke failure restores the prior Vercel alias without reversing
 schema. An indeterminate migration or promotion is reconciled first; emergency
@@ -107,15 +113,14 @@ environment approval.
 
 ## Current evidence and blockers
 
-Local lint, typecheck, 495 tests (one intentional skip), all database/concurrency
-checks, a feature-enabled Next.js build, and source/privacy reviews passed for
-commit `3b44ad569d01060b0b0c2a03d74cab6cdb64e3c4`. Browser responsive/error-state
-inspection also passed locally, but the linked hosted schema/provider were not
-available for the full story. The machine record therefore remains `NO_GO` for:
+Release run `32558869428` passed the Development and Production migration,
+hosted-manifest, security-advisor, candidate, promotion, and public-smoke gates
+for SHA `5976173337e33a247b330e253d25435fee870c16`. Production currently reports the
+Canon EOS R50 policy as not configured and disabled. The machine record remains
+`NO_GO` for meetup planning because of:
 
 - missing authorized Development Geoapify credential and bounded check;
-- missing disabled Development migrations and protected Preview story;
 - missing owner-approved hosted camera policy and rollback rehearsal;
 - missing verified Production provider/config/monitoring controls;
-- Production migration/deployment drift from the 25-migration candidate; and
-- no Production mutation authorization.
+- missing protected Preview meetup story; and
+- missing Production meetup activation evidence.

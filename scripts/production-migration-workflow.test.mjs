@@ -40,17 +40,19 @@ describe("immutable release workflow policy", () => {
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "$RELEASE_SHA"');
   });
 
-  it("stages an immutable unaliased candidate with disabled feature flags", () => {
+  it("stages an immutable unaliased candidate with handoff scheduling enabled", () => {
     expect(workflow).toContain(
       "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86",
     );
     expect(workflow).toContain('test "$(pnpm --version)" = "10.33.1"');
-    expect(workflow).toContain("vercel@59.3.0");
+    expect(workflow).toContain("vercel@59.4.0");
     expect(workflow).toContain("vercel build --prod");
     expect(workflow).toContain("vercel deploy --prebuilt --prod --skip-domain");
     expect(workflow).toContain('--meta githubCommitSha="$RELEASE_SHA"');
-    expect(workflow).toContain("HANDOFF_SCHEDULING_ENABLED: \"false\"");
+    expect(workflow).toContain("HANDOFF_SCHEDULING_ENABLED: \"true\"");
     expect(workflow).toContain("MEETUP_PLANNING_ENABLED: \"false\"");
+    expect(workflow).toContain("--env HANDOFF_SCHEDULING_ENABLED=true");
+    expect(workflow).toContain("--env MEETUP_PLANNING_ENABLED=false");
     expect(workflow).toContain("unaliased");
     expect(vercelConfig.git.deploymentEnabled.main).toBe(false);
   });
