@@ -43,13 +43,14 @@ government ID in Local, Development, Preview, fixtures, screenshots, or logs.
 ## Automated deployment and hosted validation
 
 Pull requests and pushes to `main` run application, local database, generated
-type, and real-session concurrency checks. After `main` CI succeeds, the
-Development workflow links only project `ekmoiepalelqpmemvrkl`, previews and
-applies pending migrations, runs the hosted fail-closed and cross-owner Storage
-RLS transactions, and runs the Supabase security advisor. The Production
-workflow is manual, accepts only project `iegcixcevvkryfwfotqz`, requires the
-protected GitHub `production` environment, and verifies that the ID policy is
-still disabled after any schema deployment.
+type, and real-session concurrency checks. After automatic `main` CI succeeds,
+the unified release workflow stages an unaliased application candidate, links
+only Development project `ekmoiepalelqpmemvrkl`, and runs its migration and
+hosted gates. Only that exact SHA can continue to protected Production project
+`iegcixcevvkryfwfotqz`; the read-only Production manifest verifies that the ID
+policy remains disabled before the exact staged application can be promoted.
+Emergency dispatch reconciles the exact current `main` SHA after successful CI
+and cannot bypass either protected environment.
 
 The shared Supabase access token is stored only in those GitHub environments.
 It was rotated on 15 August 2026, is valid through 14 August 2027 (the current

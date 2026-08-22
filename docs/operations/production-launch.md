@@ -6,12 +6,43 @@ contains 22. The Development provider check, protected Preview story, current
 hosted monitoring, owner-approved camera policy, Production provider controls,
 and rollback rehearsal are not verified. Production remains unchanged.
 
-A reviewed merge to `main` authorizes that revision's forward schema migrations.
-Successful CI triggers the automatic Development rollout and hosted checks; only
-that successful automatic run can trigger Production migration of the exact
-same Git SHA. The owner separately authorized the hosted Auth change, deployment,
-and public launch in this task. Online government-ID collection is retired and
-must remain disabled.
+A reviewed merge to protected `main` authorizes that revision's forward schema
+migrations and gated application promotion. Successful automatic CI stages one
+unaliased Production candidate, then the same immutable SHA must pass Development
+and Production database gates before that exact deployment is promoted. Online
+government-ID collection is retired and must remain disabled; calendar, handoff,
+and meetup flags are forced false in the staged artifact and remain a separate
+activation decision.
+
+## Automated immutable-SHA release
+
+`.github/workflows/release.yml` is the only automated hosted release path. It
+uses one non-cancelling concurrency lock and the protected `development` and
+`production` GitHub environments. Vercel Git deployment from `main` is disabled
+by `vercel.json`; a merge cannot independently move the Production aliases.
+
+The enforced order is CI → staged READY/unaliased Production candidate →
+Development dry-run/apply/history/hosted manifest/advisors → Production
+dry-run/apply/history/read-only hosted manifest/advisors → promote the exact
+candidate → public smoke. Every mutation boundary rechecks the exact current
+`main` SHA and environment/project identity. A newer `main` SHA supersedes an
+older queued release before it can mutate the next environment or promote.
+
+A failed or indeterminate database command is followed by read-only migration
+history reconciliation and is never blindly retried. A failed or indeterminate
+promotion is reconciled against the live alias. If post-promotion smoke fails,
+the workflow restores the previously recorded application deployment while
+leaving compatible forward schema and migration history intact. Raw provider
+responses, deployment logs, SQL, secrets, and user-linked data are not release
+evidence.
+
+`workflow_dispatch` is emergency reconciliation, not a bypass. Dispatch the
+workflow from `main`, supply the full current `main` SHA, type
+`RELEASE_EXACT_MAIN`, and provide a bounded audit reason. Admission also proves
+that exact SHA already has a successful automatic main-push CI run; all
+Development, Production, candidate, promotion, and environment-approval gates
+still run. Never edit an applied migration, repair history to hide a failure,
+reset a hosted database, or use a manual Vercel deployment as recovery.
 
 ## Scope and authority boundary
 

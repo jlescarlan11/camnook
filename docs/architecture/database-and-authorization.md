@@ -532,5 +532,6 @@ against Development. Protected Vercel Preview is the application/browser smoke
 validation target after the Development database is verified; Preview is not a
 database-test environment. A reviewed merge to `main` authorizes the same
 revision's forward Production migrations after CI and the automatic Development
-rollout pass. Production environment-variable changes, runtime activation, data
-mutation, deployment, and promotion remain separate release actions.
+rollout pass, then promotes only the same prebuilt application candidate after
+Production verification. Production environment-variable changes, runtime
+activation, and data mutation remain separate release actions.

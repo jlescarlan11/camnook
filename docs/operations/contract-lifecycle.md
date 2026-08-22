@@ -41,8 +41,9 @@ review. The automatic Development rollout for a successful `main` revision:
    system history/audit, and aggregate-only response/logs.
 6. Run hosted generated-type drift, RLS, advisor, protected Preview, and manual
    renter/admin accessibility smoke checks. A successful automatic Development
-   run authorizes the same revision's forward Production migration; runtime
-   activation and application deployment remain separate controls.
+   run authorizes the same revision's forward Production migration; the exact
+   staged application is promoted only after Production verification, while
+   runtime activation remains a separate control.
 
 ## Recovery and rollback
 
