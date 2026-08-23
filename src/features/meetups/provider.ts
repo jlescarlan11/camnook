@@ -3,7 +3,12 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
-import type { Coordinate, NormalizedCity, ProviderPlace } from "./domain";
+import type {
+  Coordinate,
+  NormalizedCity,
+  ProviderAddressSuggestion,
+  ProviderPlace,
+} from "./domain";
 
 export type ProviderFailureCode =
   | "empty"
@@ -74,6 +79,31 @@ const citySearchResponseSchema = z.object({
       lon: z.number().finite().min(-180).max(180),
       place_id: providerCityIdSchema.optional(),
       result_type: z.string().optional(),
+    }),
+  ),
+});
+
+const providerAddressPartSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(240)
+  .refine((value) => !/[\p{Cc}\p{Cf}]/u.test(value));
+
+const addressSearchResponseSchema = z.object({
+  results: z.array(
+    z.object({
+      address_line1: providerAddressPartSchema.optional(),
+      address_line2: providerAddressPartSchema.optional(),
+      city: providerCityPartSchema.optional(),
+      country_code: z.string().trim().length(2),
+      county: providerCityPartSchema.optional(),
+      formatted: providerAddressPartSchema.optional(),
+      lat: z.number().finite().min(-90).max(90),
+      lon: z.number().finite().min(-180).max(180),
+      municipality: providerCityPartSchema.optional(),
+      place_id: providerCityIdSchema.optional(),
+      result_type: z.string().trim().min(1).max(64).optional(),
     }),
   ),
 });
@@ -220,6 +250,61 @@ export class GeoapifyAdapter {
           )
           .digest("hex")}`,
     };
+  }
+
+  async searchAddressSuggestions(
+    query: string,
+  ): Promise<ProviderAddressSuggestion[]> {
+    const payload = await this.requestTool("geocode_address", {
+      country_codes: ["ph"],
+      lang: "en",
+      limit: 5,
+      query,
+    });
+    const parsed = addressSearchResponseSchema.safeParse(payload);
+    if (!parsed.success) throw new ProviderBoundaryError("malformed");
+
+    const normalized = parsed.data.results.flatMap((result) => {
+      const city = result.city ?? result.municipality ?? result.county;
+      const address =
+        result.formatted ??
+        [result.address_line1, result.address_line2].filter(Boolean).join(", ");
+      const resultType = result.result_type?.toLowerCase();
+      if (
+        result.country_code.toUpperCase() !== "PH" ||
+        !city ||
+        !address ||
+        ["building", "house", "residential", "street"].includes(resultType ?? "")
+      ) {
+        return [];
+      }
+
+      const normalizedAddress = address.replace(/\s+/g, " ");
+      const normalizedCity = city.replace(/\s+/g, " ");
+      return [
+        {
+          address: normalizedAddress,
+          city: normalizedCity,
+          latitude: result.lat,
+          longitude: result.lon,
+          providerAddressId:
+            result.place_id ??
+            `geoapify-address:${createHash("sha256")
+              .update(
+                `${result.country_code.toLowerCase()}|${normalizedAddress.toLowerCase()}|${result.lat}|${result.lon}`,
+              )
+              .digest("hex")}`,
+        },
+      ];
+    });
+
+    const unique = new Map<string, ProviderAddressSuggestion>();
+    for (const suggestion of normalized) {
+      if (!unique.has(suggestion.providerAddressId)) {
+        unique.set(suggestion.providerAddressId, suggestion);
+      }
+    }
+    return [...unique.values()];
   }
 
   async searchPublicPlaces(input: {

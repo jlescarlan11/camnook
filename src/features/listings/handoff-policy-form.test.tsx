@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./handoff-actions", () => ({
   saveCameraHandoffPolicy: vi.fn(),
+  suggestHandoffAddress: vi.fn(),
   suggestHandoffCity: vi.fn(),
 }));
 
@@ -28,6 +29,9 @@ describe("HandoffPolicyForm", () => {
 
     expect(markup).toContain("Customer-facing city");
     expect(markup).toContain("Saved handoff city");
+    expect(markup).toContain("Auto-suggest a public address");
+    expect(markup).toContain("Public place or address");
+    expect(markup).toContain('role="combobox"');
     expect(markup).toContain("Use my current city");
     expect(markup).toContain("Enter a city instead");
     expect(markup).toContain("Philippine-time handoffs");

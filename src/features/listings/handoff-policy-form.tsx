@@ -1,16 +1,25 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import {
+  startTransition,
+  useActionState,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import {
   saveCameraHandoffPolicy,
+  suggestHandoffAddress,
   suggestHandoffCity,
   type SaveHandoffPolicyState,
+  type SuggestHandoffAddressState,
   type SuggestHandoffCityState,
 } from "./handoff-actions";
 import type { AdminHandoffPolicy } from "./handoff-types";
 
 const initialSaveState: SaveHandoffPolicyState = { status: "idle" };
+const initialAddressState: SuggestHandoffAddressState = { status: "idle" };
 const initialSuggestionState: SuggestHandoffCityState = { status: "idle" };
 const weekdayLabels = [
   "Sunday",
@@ -29,6 +38,10 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
     saveCameraHandoffPolicy,
     initialSaveState,
   );
+  const [addressState, addressAction, addressPending] = useActionState(
+    suggestHandoffAddress,
+    initialAddressState,
+  );
   const [suggestionState, suggestionAction, suggestionPending] = useActionState(
     suggestHandoffCity,
     initialSuggestionState,
@@ -39,6 +52,12 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
   const [locationStatus, setLocationStatus] =
     useState<LocationStatus>("idle");
   const [manualCity, setManualCity] = useState("");
+  const [addressQuery, setAddressQuery] = useState("");
+  const [selectedAddress, setSelectedAddress] = useState<{
+    addressLabel: string;
+    cityLabel: string;
+    reference: string;
+  } | null>(null);
   const version =
     saveState.status === "success" && saveState.version !== undefined
       ? saveState.version
@@ -54,10 +73,33 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
       : undefined;
   const suggestionConfirmed =
     Boolean(suggestion) && confirmedReference === suggestion?.reference;
-  const canSave = Boolean(savedCity || suggestionConfirmed);
+  const addressSuggestions =
+    addressState.status === "success" &&
+    addressState.query === addressQuery.trim()
+      ? addressState.suggestions ?? []
+      : [];
+  const selectedReference =
+    selectedAddress?.reference ??
+    (suggestionConfirmed ? suggestion?.reference ?? "" : "");
+  const canSave = Boolean(savedCity || selectedReference);
+
+  const requestAddressSuggestions = useCallback(() => {
+    const formData = new FormData();
+    formData.set("addressQuery", addressQuery.trim());
+    formData.set("cameraId", policy.cameraId);
+    formData.set("expectedVersion", String(version));
+    startTransition(() => addressAction(formData));
+  }, [addressAction, addressQuery, policy.cameraId, version]);
+
+  useEffect(() => {
+    if (addressQuery.trim().length < 3) return;
+    const timer = window.setTimeout(requestAddressSuggestions, 350);
+    return () => window.clearTimeout(timer);
+  }, [addressQuery, requestAddressSuggestions]);
 
   function useCurrentCity() {
     setConfirmedReference(null);
+    setSelectedAddress(null);
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
       return;
@@ -100,6 +142,136 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
           street or home address.
         </p>
 
+        <div className="mt-5 rounded-xl border border-stone-200 p-4">
+          <h3 className="font-semibold">Auto-suggest a public address</h3>
+          <p className="mt-1 text-sm leading-6 text-stone-600">
+            Type a public venue, mall, station, or other meeting place. Suggestions
+            are limited to the Philippines. Only the selected city anchor is saved;
+            do not select a private home address.
+          </p>
+          <form
+            className="mt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              requestAddressSuggestions();
+            }}
+          >
+            <label className="block text-sm font-medium" htmlFor="addressQuery">
+              Public place or address
+            </label>
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+              <input
+                aria-autocomplete="list"
+                aria-controls="handoff-address-suggestions"
+                aria-expanded={addressSuggestions.length > 0}
+                autoComplete="off"
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 px-4 py-2"
+                id="addressQuery"
+                maxLength={120}
+                onChange={(event) => {
+                  setAddressQuery(event.target.value);
+                  setSelectedAddress(null);
+                  setConfirmedReference(null);
+                }}
+                placeholder="e.g. Ayala Center Cebu"
+                role="combobox"
+                value={addressQuery}
+              />
+              <button
+                className="min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={addressPending || addressQuery.trim().length < 3}
+                type="submit"
+              >
+                {addressPending ? "Finding addresses…" : "Find suggestions"}
+              </button>
+            </div>
+          </form>
+
+          {addressQuery.trim().length > 0 && addressQuery.trim().length < 3 ? (
+            <p className="mt-2 text-xs text-stone-500" role="status">
+              Type at least 3 characters for address suggestions.
+            </p>
+          ) : null}
+
+          {addressSuggestions.length > 0 ? (
+            <ul
+              className="mt-3 space-y-2"
+              id="handoff-address-suggestions"
+              role="listbox"
+            >
+              {addressSuggestions.map((addressSuggestion) => (
+                <li key={addressSuggestion.reference}>
+                  <button
+                    aria-selected={
+                      selectedAddress?.reference === addressSuggestion.reference
+                    }
+                    className="w-full rounded-xl border border-stone-200 p-3 text-left hover:border-stone-900"
+                    onClick={() => {
+                      setSelectedAddress({
+                        addressLabel: addressSuggestion.addressLabel,
+                        cityLabel: addressSuggestion.cityLabel,
+                        reference: addressSuggestion.reference,
+                      });
+                      setConfirmedReference(null);
+                    }}
+                    role="option"
+                    type="button"
+                  >
+                    <span className="block font-medium">
+                      {addressSuggestion.addressLabel}
+                    </span>
+                    <span className="mt-1 block text-sm text-stone-600">
+                      {addressSuggestion.cityLabel}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : addressState.status === "success" &&
+            addressState.query === addressQuery.trim() &&
+            addressQuery.trim().length >= 3 ? (
+            <p
+              className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+              role="status"
+            >
+              No public Philippine address suggestions were found. Try a venue or
+              city name instead.
+            </p>
+          ) : null}
+
+          {selectedAddress ? (
+            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                Selected public location
+              </p>
+              <p className="mt-1 font-medium">{selectedAddress.addressLabel}</p>
+              <p className="mt-1 text-sm text-stone-600">
+                City anchor: {selectedAddress.cityLabel}. The exact address is not
+                saved as lender data.
+              </p>
+            </div>
+          ) : null}
+
+          {addressState.status === "error" ? (
+            <p
+              className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+              role="alert"
+            >
+              {addressState.error === "invalid_address"
+                ? "Enter at least 3 characters for a public Philippine address."
+                : addressState.error === "stale"
+                  ? "This policy changed in another session. Reload before searching again."
+                  : addressState.error === "unauthorized"
+                    ? "Your administrator authorization could not be verified."
+                    : addressState.error === "configuration"
+                      ? "Address suggestions are not configured for this environment."
+                      : addressState.error === "invalid_context"
+                        ? "This camera or policy version could not be verified. Reload and try again."
+                        : "Address suggestions are unavailable right now. Retry or keep the currently saved city."}
+            </p>
+          ) : null}
+        </div>
+
         {savedCity ? (
           <div className="mt-4 rounded-xl bg-stone-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -136,7 +308,10 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
         <form
           action={suggestionAction}
           className="mt-5 border-t border-stone-200 pt-5"
-          onSubmit={() => setConfirmedReference(null)}
+          onSubmit={() => {
+            setConfirmedReference(null);
+            setSelectedAddress(null);
+          }}
         >
           <input name="cameraId" type="hidden" value={policy.cameraId} />
           <input name="expectedVersion" type="hidden" value={version} />
@@ -154,6 +329,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
               onChange={(event) => {
                 setManualCity(event.target.value);
                 setConfirmedReference(null);
+                setSelectedAddress(null);
               }}
               placeholder="e.g. Cebu City"
               required
@@ -203,11 +379,12 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
               <input
                 checked={suggestionConfirmed}
                 className="mt-1 h-5 w-5"
-                onChange={(event) =>
+                onChange={(event) => {
+                  setSelectedAddress(null);
                   setConfirmedReference(
                     event.target.checked ? suggestion.reference : null,
-                  )
-                }
+                  );
+                }}
                 type="checkbox"
               />
               <span className="text-sm leading-6">
@@ -226,7 +403,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
         <input
           name="cityReference"
           type="hidden"
-          value={suggestionConfirmed ? suggestion?.reference : ""}
+          value={selectedReference}
         />
 
         <fieldset className="rounded-2xl border border-stone-200 p-5">

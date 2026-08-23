@@ -13,6 +13,12 @@ export type NormalizedCity = Coordinate & {
   providerCityId: string;
 };
 
+export type ProviderAddressSuggestion = Coordinate & {
+  address: string;
+  city: string;
+  providerAddressId: string;
+};
+
 export type ProviderPlace = Coordinate & {
   address: string;
   categories: string[];

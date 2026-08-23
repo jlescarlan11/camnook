@@ -150,6 +150,63 @@ describe("GeoapifyAdapter", () => {
     expect(request.mock.calls[0]?.[1]?.body).not.toContain("street");
   });
 
+  it("returns public Philippine address suggestions without home-address results", async () => {
+    const request = vi.fn().mockResolvedValue(
+      response(
+        mcp({
+          results: [
+            {
+              city: "Cebu City",
+              country_code: "ph",
+              formatted: "Cardinal Rosales Avenue, Cebu City",
+              lat: 10.3172,
+              lon: 123.9054,
+              place_id: "place-ayala",
+              result_type: "amenity",
+            },
+            {
+              city: "Cebu City",
+              country_code: "ph",
+              formatted: "123 Private Street, Cebu City",
+              lat: 10.3173,
+              lon: 123.9055,
+              place_id: "house-private",
+              result_type: "house",
+            },
+            {
+              city: "Singapore",
+              country_code: "sg",
+              formatted: "Public place, Singapore",
+              lat: 1.29,
+              lon: 103.85,
+              place_id: "place-singapore",
+              result_type: "amenity",
+            },
+          ],
+        }),
+      ),
+    );
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: request,
+      timeoutMs: 100,
+    });
+
+    await expect(adapter.searchAddressSuggestions("Ayala Cebu")).resolves.toEqual([
+      {
+        address: "Cardinal Rosales Avenue, Cebu City",
+        city: "Cebu City",
+        latitude: 10.3172,
+        longitude: 123.9054,
+        providerAddressId: "place-ayala",
+      },
+    ]);
+    const calledInit = request.mock.calls[0]?.[1] as RequestInit;
+    expect(calledInit.body).toContain('"name":"geocode_address"');
+    expect(calledInit.body).toContain('"query":"Ayala Cebu"');
+    expect(String(request.mock.calls[0]?.[0])).not.toContain("secret-key");
+  });
+
   it.each([
     [429, "quota"],
     [500, "network"],

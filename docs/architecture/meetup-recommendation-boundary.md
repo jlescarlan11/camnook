@@ -7,8 +7,9 @@ Status: implemented behind server-only configuration; not customer-active.
 `src/features/meetups/` is the only layer allowed to consume Geoapify response
 shapes. It converts one short-lived renter browser position and one private,
 coarse lender city anchor into either one safe public-place recommendation or a
-constrained unavailable reason. Calendar UI and booking persistence are separate
-consumers and do not call Geoapify directly.
+constrained unavailable reason. It also powers the admin-only public-address
+search used to resolve a selected place to a city anchor. Calendar UI and
+booking persistence are separate consumers and do not call Geoapify directly.
 
 The boundary is deliberately split into:
 
@@ -16,7 +17,7 @@ The boundary is deliberately split into:
   owner-reviewed provider categories.
 - `provider.ts`: performs bounded no-store HTTPS JSON-RPC POST calls to
   Geoapify's EU MCP endpoint with header authentication, validates external JSON,
-  and returns normalized city/place values.
+  and returns normalized city/place/address-suggestion values.
 - `domain.ts`: calculates a spherical city midpoint, rejects unsafe or incomplete
   candidates, and ranks eligible venues deterministically.
 - `reference.ts`: encrypts the provider place identity, safe snapshot, expiry,
@@ -36,10 +37,13 @@ city centroid; subsequent midpoint and POI searches do not reuse the browser
 position.
 
 The lender anchor remains private database data. Public listing DTOs expose its
-city label and schedule but not its provider ID or coordinates. The meetup
-service returns only the selected venue's name, public address/city, coordinates
-rounded to three decimals, attribution, config version, expiry, and encrypted
-reference. Provider IDs remain encrypted at the server boundary.
+city label and schedule but not its provider ID or coordinates. The admin address
+search may display a provider-formatted public place address, but the selected
+value is resolved to a city centroid before it is encrypted into the save
+reference. The exact address is not persisted as lender data. The meetup service
+returns only the selected venue's name, public address/city, coordinates rounded
+to three decimals, attribution, config version, expiry, and encrypted reference.
+Provider IDs remain encrypted at the server boundary.
 
 Telemetry is a closed shape: status category, coarse fast/slow bucket, and result
 count. It cannot carry coordinates, addresses, names, user IDs, provider payloads,

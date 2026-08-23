@@ -10,6 +10,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 
 import {
   saveCameraHandoffPolicy,
+  suggestHandoffAddress,
   suggestHandoffCity,
 } from "./handoff-actions";
 
@@ -43,6 +44,14 @@ function suggestionFields(extra: Record<string, string> = {}) {
     locationMode: "current",
     longitude: "123.90123456",
     ...extra,
+  });
+}
+
+function addressSuggestionFields(query = "Ayala Cebu") {
+  return fields({
+    addressQuery: query,
+    cameraId: CAMERA_ID,
+    expectedVersion: "2",
   });
 }
 
@@ -182,6 +191,78 @@ describe("camera handoff city and policy actions", () => {
       "replace_camera_handoff_policy",
       expect.anything(),
     );
+  });
+
+  it("returns public address suggestions while binding the saved value to a city anchor", async () => {
+    authorize();
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        mcp({
+          results: [
+            {
+              city: "Cebu City",
+              country_code: "ph",
+              formatted: "Cardinal Rosales Avenue, Cebu City",
+              lat: 10.3172,
+              lon: 123.9054,
+              place_id: "place-ayala",
+              result_type: "amenity",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mcp({
+          results: [
+            {
+              city: "Cebu City",
+              country_code: "ph",
+              lat: 10.3157,
+              lon: 123.8854,
+              place_id: "city-cebu",
+              result_type: "city",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", request);
+
+    const result = await suggestHandoffAddress(
+      { status: "idle" },
+      addressSuggestionFields(),
+    );
+
+    expect(result).toMatchObject({
+      query: "Ayala Cebu",
+      status: "success",
+      suggestions: [
+        {
+          addressLabel: "Cardinal Rosales Avenue, Cebu City",
+          cityLabel: "Cebu City",
+          expectedVersion: 2,
+          reference: expect.stringMatching(/^handoff-city-v1\./),
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /place-ayala|city-cebu|10\.3172|123\.9054|10\.3157|123\.8854/,
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects short address searches before authorization or provider use", async () => {
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+
+    await expect(
+      suggestHandoffAddress(
+        { status: "idle" },
+        addressSuggestionFields("ab"),
+      ),
+    ).resolves.toEqual({ error: "invalid_address", status: "error" });
+    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("supports manual city fallback and rejects street-like or unsupported input", async () => {

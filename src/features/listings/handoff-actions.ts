@@ -47,6 +47,25 @@ export type SuggestHandoffCityState = {
   };
 };
 
+export type SuggestHandoffAddressState = {
+  error?:
+    | "configuration"
+    | "invalid_address"
+    | "invalid_context"
+    | "provider_unavailable"
+    | "stale"
+    | "unauthorized";
+  query?: string;
+  status: "error" | "idle" | "success";
+  suggestions?: Array<{
+    addressLabel: string;
+    cityLabel: string;
+    expectedVersion: number;
+    expiresAt: string;
+    reference: string;
+  }>;
+};
+
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const baseSchema = z.object({
   cameraId: z.uuid(),
@@ -200,6 +219,104 @@ export async function suggestHandoffCity(
       expiresAt,
       reference,
     },
+  };
+}
+
+export async function suggestHandoffAddress(
+  _previous: SuggestHandoffAddressState,
+  formData: FormData,
+): Promise<SuggestHandoffAddressState> {
+  const input = z
+    .object({
+      cameraId: z.uuid(),
+      expectedVersion: z
+        .string()
+        .regex(/^\d+$/)
+        .transform(Number)
+        .pipe(z.number().int().nonnegative().safe()),
+      query: z
+        .string()
+        .trim()
+        .min(3)
+        .max(120)
+        .refine((value) => !/[\p{Cc}\p{Cf}]/u.test(value)),
+    })
+    .safeParse({
+      cameraId: value(formData, "cameraId"),
+      expectedVersion: value(formData, "expectedVersion"),
+      query: value(formData, "addressQuery"),
+    });
+  if (!input.success) return { error: "invalid_address", status: "error" };
+
+  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    context = await requireAdmin();
+  } catch {
+    return { error: "unauthorized", status: "error" };
+  }
+
+  const current = await loadCurrentAnchor(context, input.data.cameraId);
+  if (!current) return { error: "invalid_context", status: "error" };
+  if (current.version !== input.data.expectedVersion) {
+    return { error: "stale", status: "error" };
+  }
+
+  const config = getMeetupProviderConfig();
+  if (!config) return { error: "configuration", status: "error" };
+
+  const adapter = new GeoapifyAdapter({
+    apiKey: config.apiKey,
+    timeoutMs: config.timeoutMs,
+  });
+
+  let addressSuggestions;
+  try {
+    addressSuggestions = await adapter.searchAddressSuggestions(input.data.query);
+  } catch {
+    return {
+      error: "provider_unavailable",
+      query: input.data.query,
+      status: "error",
+    };
+  }
+
+  const cityAnchors = new Map<string, Awaited<ReturnType<typeof adapter.geocodeCity>>>();
+  const resolved = [];
+  for (const addressSuggestion of addressSuggestions) {
+    const cityKey = addressSuggestion.city.toLocaleLowerCase("en");
+    let city = cityAnchors.get(cityKey);
+    if (!city) {
+      try {
+        city = await adapter.geocodeCity(addressSuggestion.city);
+      } catch {
+        continue;
+      }
+      cityAnchors.set(cityKey, city);
+    }
+    resolved.push({ addressSuggestion, city });
+  }
+
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1_000).toISOString();
+  return {
+    query: input.data.query,
+    status: "success",
+    suggestions: resolved.map(({ addressSuggestion, city }) => ({
+      addressLabel: addressSuggestion.address,
+      cityLabel: city.label,
+      expectedVersion: input.data.expectedVersion,
+      expiresAt,
+      reference: mintHandoffCityReference(
+        {
+          actorId: context.user.id,
+          cameraId: input.data.cameraId,
+          city,
+          configVersion: config.configVersion,
+          expectedVersion: input.data.expectedVersion,
+          expiresAt,
+        },
+        config.referenceSecret,
+      ),
+    })),
   };
 }
 
