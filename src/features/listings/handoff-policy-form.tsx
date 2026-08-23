@@ -1,14 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useState } from "react";
 
 import {
   saveCameraHandoffPolicy,
+  suggestHandoffCity,
   type SaveHandoffPolicyState,
+  type SuggestHandoffCityState,
 } from "./handoff-actions";
 import type { AdminHandoffPolicy } from "./handoff-types";
 
-const initialState: SaveHandoffPolicyState = { status: "idle" };
+const initialSaveState: SaveHandoffPolicyState = { status: "idle" };
+const initialSuggestionState: SuggestHandoffCityState = { status: "idle" };
 const weekdayLabels = [
   "Sunday",
   "Monday",
@@ -19,161 +22,313 @@ const weekdayLabels = [
   "Saturday",
 ];
 
+type LocationStatus = "denied" | "idle" | "locating" | "unavailable";
+
 export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
-  const [state, formAction, pending] = useActionState(
+  const [saveState, saveAction, savePending] = useActionState(
     saveCameraHandoffPolicy,
-    initialState,
+    initialSaveState,
   );
-  const version = state.status === "success" ? state.version : policy.version;
+  const [suggestionState, suggestionAction, suggestionPending] = useActionState(
+    suggestHandoffCity,
+    initialSuggestionState,
+  );
+  const [confirmedReference, setConfirmedReference] = useState<string | null>(
+    null,
+  );
+  const [locationStatus, setLocationStatus] =
+    useState<LocationStatus>("idle");
+  const [manualCity, setManualCity] = useState("");
+  const version =
+    saveState.status === "success" && saveState.version !== undefined
+      ? saveState.version
+      : policy.version;
+  const savedCity =
+    saveState.status === "success" && saveState.cityLabel
+      ? saveState.cityLabel
+      : policy.cityLabel;
+  const suggestion =
+    suggestionState.status === "success" &&
+    suggestionState.suggestion?.expectedVersion === version
+      ? suggestionState.suggestion
+      : undefined;
+  const suggestionConfirmed =
+    Boolean(suggestion) && confirmedReference === suggestion?.reference;
+  const canSave = Boolean(savedCity || suggestionConfirmed);
+
+  function useCurrentCity() {
+    setConfirmedReference(null);
+    if (!navigator.geolocation) {
+      setLocationStatus("unavailable");
+      return;
+    }
+    setLocationStatus("locating");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const formData = new FormData();
+        formData.set("accuracy", String(position.coords.accuracy));
+        formData.set("cameraId", policy.cameraId);
+        formData.set("expectedVersion", String(version));
+        formData.set("latitude", String(position.coords.latitude));
+        formData.set("locationMode", "current");
+        formData.set("longitude", String(position.coords.longitude));
+        setLocationStatus("idle");
+        startTransition(() => suggestionAction(formData));
+      },
+      (error) => {
+        setLocationStatus(
+          error.code === error.PERMISSION_DENIED ? "denied" : "unavailable",
+        );
+      },
+      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
+    );
+  }
 
   return (
-    <form action={formAction} className="mt-8 space-y-7">
-      <input name="cameraId" type="hidden" value={policy.cameraId} />
-      <input name="expectedVersion" type="hidden" value={version} />
-
-      <fieldset className="rounded-2xl border border-stone-200 p-5">
-        <legend className="px-2 text-lg font-semibold">Customer-facing city</legend>
-        <label className="mt-2 block text-sm font-medium" htmlFor="cityLabel">
-          City or municipality label
-        </label>
-        <input
-          aria-describedby={state.fieldErrors?.cityLabel ? "city-label-error" : "city-label-help"}
-          aria-invalid={Boolean(state.fieldErrors?.cityLabel)}
-          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3"
-          defaultValue={policy.cityLabel}
-          id="cityLabel"
-          maxLength={120}
-          name="cityLabel"
-          required
-        />
-        <p className="mt-2 text-xs text-stone-500" id="city-label-help">
-          This label is public. Do not enter a street or home address.
-        </p>
-        <FieldError id="city-label-error" message={state.fieldErrors?.cityLabel} />
-
-        <label className="mt-5 block text-sm font-medium" htmlFor="providerCityId">
-          Provider-neutral city identifier
-        </label>
-        <input
-          aria-describedby={state.fieldErrors?.providerCityId ? "provider-id-error" : "provider-id-help"}
-          aria-invalid={Boolean(state.fieldErrors?.providerCityId)}
-          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3"
-          defaultValue={policy.providerCityId}
-          id="providerCityId"
-          maxLength={240}
-          name="providerCityId"
-          required
-        />
-        <p className="mt-2 text-xs text-stone-500" id="provider-id-help">
-          Private operator data used by the server; never shown in the public catalog.
-        </p>
-        <FieldError id="provider-id-error" message={state.fieldErrors?.providerCityId} />
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium" htmlFor="latitude">
-            Coarse latitude
-            <input
-              aria-describedby={state.fieldErrors?.coordinates ? "coordinates-error" : undefined}
-              aria-invalid={Boolean(state.fieldErrors?.coordinates)}
-              className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3"
-              defaultValue={policy.latitude ?? ""}
-              id="latitude"
-              name="latitude"
-              required
-              step="0.00001"
-              type="number"
-            />
-          </label>
-          <label className="text-sm font-medium" htmlFor="longitude">
-            Coarse longitude
-            <input
-              aria-describedby={state.fieldErrors?.coordinates ? "coordinates-error" : undefined}
-              aria-invalid={Boolean(state.fieldErrors?.coordinates)}
-              className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3"
-              defaultValue={policy.longitude ?? ""}
-              id="longitude"
-              name="longitude"
-              required
-              step="0.00001"
-              type="number"
-            />
-          </label>
-        </div>
-        <FieldError id="coordinates-error" message={state.fieldErrors?.coordinates} />
-      </fieldset>
-
-      <fieldset className="rounded-2xl border border-stone-200 p-5">
-        <legend className="px-2 text-lg font-semibold">Philippine-time handoffs</legend>
-        <p className="text-sm text-stone-600">Timezone: Asia/Manila (UTC+08:00)</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {weekdayLabels.map((label, value) => (
-            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-stone-200 px-3 py-2" key={label}>
-              <input
-                defaultChecked={policy.allowedWeekdays.includes(value)}
-                name="weekdays"
-                type="checkbox"
-                value={value}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-        <FieldError id="weekdays-error" message={state.fieldErrors?.weekdays} />
-
-        <label className="mt-5 block text-sm font-medium" htmlFor="approvedTimes">
-          Approved handoff times
-        </label>
-        <textarea
-          aria-describedby={state.fieldErrors?.approvedTimes ? "approved-times-error" : "approved-times-help"}
-          aria-invalid={Boolean(state.fieldErrors?.approvedTimes)}
-          className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3 font-mono"
-          defaultValue={policy.approvedTimes.join("\n")}
-          id="approvedTimes"
-          name="approvedTimes"
-          placeholder={"09:00\n17:00"}
-        />
-        <p className="mt-2 text-xs text-stone-500" id="approved-times-help">
-          Enter unique 24-hour values as HH:MM, separated by lines, spaces, or commas.
-        </p>
-        <FieldError id="approved-times-error" message={state.fieldErrors?.approvedTimes} />
-
-        <label className="mt-5 flex items-start gap-3 rounded-xl bg-stone-50 p-4">
-          <input defaultChecked={policy.enabled} className="mt-1" name="enabled" type="checkbox" />
-          <span>
-            <span className="block font-medium">Enable this handoff policy</span>
-            <span className="mt-1 block text-sm text-stone-600">
-              Enabled schedules can be published to renters after the dependent calendar feature is activated.
-            </span>
-          </span>
-        </label>
-      </fieldset>
-
-      {state.status !== "idle" ? (
-        <div
-          aria-live="polite"
-          className={`rounded-xl border p-4 text-sm ${state.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-900"}`}
-          role={state.status === "success" ? "status" : "alert"}
-        >
-          {state.status === "success"
-            ? `Handoff policy version ${state.version} saved. Reloaded views will use this authoritative version.`
-            : state.error === "stale"
-              ? "Another save changed this policy. Reload before applying your changes."
-              : state.error === "unauthorized"
-                ? "Your administrator authorization could not be verified."
-                : state.error === "invalid_input"
-                  ? "Correct the highlighted fields and try again."
-                  : "The policy could not be saved. No partial settings were applied."}
-        </div>
-      ) : null}
-
-      <button
-        className="min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={pending}
-        type="submit"
+    <div className="mt-8 space-y-7">
+      <section
+        aria-describedby={saveState.fieldErrors?.city ? "city-error" : undefined}
+        aria-labelledby="handoff-city-heading"
+        className="rounded-2xl border border-stone-200 p-5"
       >
-        {pending ? "Saving policy…" : "Save handoff policy"}
-      </button>
-    </form>
+        <h2 className="text-lg font-semibold" id="handoff-city-heading">
+          Customer-facing city
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-stone-600">
+          Use your current city or enter a Philippine city or municipality. CamNook
+          keeps the provider identifier and city anchor server-side; never enter a
+          street or home address.
+        </p>
+
+        {savedCity ? (
+          <div className="mt-4 rounded-xl bg-stone-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Saved handoff city
+            </p>
+            <p className="mt-1 font-semibold">{savedCity}</p>
+          </div>
+        ) : (
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            No handoff city is saved. Confirm a suggestion before enabling this
+            policy.
+          </p>
+        )}
+
+        <button
+          className="mt-4 min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={locationStatus === "locating" || suggestionPending}
+          onClick={useCurrentCity}
+          type="button"
+        >
+          {locationStatus === "locating" || suggestionPending
+            ? "Finding your city…"
+            : "Use my current city"}
+        </button>
+
+        {locationStatus === "denied" || locationStatus === "unavailable" ? (
+          <p className="mt-3 text-sm text-amber-900" role="status">
+            {locationStatus === "denied"
+              ? "Location permission was denied. Enter your city or municipality below."
+              : "Your current city could not be detected. Retry or enter it below."}
+          </p>
+        ) : null}
+
+        <form
+          action={suggestionAction}
+          className="mt-5 border-t border-stone-200 pt-5"
+          onSubmit={() => setConfirmedReference(null)}
+        >
+          <input name="cameraId" type="hidden" value={policy.cameraId} />
+          <input name="expectedVersion" type="hidden" value={version} />
+          <input name="locationMode" type="hidden" value="manual" />
+          <label className="block text-sm font-medium" htmlFor="manualCity">
+            Enter a city instead
+          </label>
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+            <input
+              autoComplete="address-level2"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 px-4 py-2"
+              id="manualCity"
+              maxLength={80}
+              name="manualCity"
+              onChange={(event) => {
+                setManualCity(event.target.value);
+                setConfirmedReference(null);
+              }}
+              placeholder="e.g. Cebu City"
+              required
+              value={manualCity}
+            />
+            <button
+              className="min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={suggestionPending}
+              type="submit"
+            >
+              Suggest this city
+            </button>
+          </div>
+        </form>
+
+        {suggestionState.status === "error" ? (
+          <p
+            className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            role="alert"
+          >
+            {suggestionState.error === "invalid_city"
+              ? "Enter a valid Philippine city or municipality, not a street or residential address."
+              : suggestionState.error === "invalid_location"
+                ? "The detected position could not identify a supported Philippine city. Retry or enter the city manually."
+                : suggestionState.error === "stale"
+                  ? "This policy changed in another session. Reload before resolving its city."
+                  : suggestionState.error === "unauthorized"
+                    ? "Your administrator authorization could not be verified."
+                    : suggestionState.error === "configuration"
+                      ? "City suggestions are not configured for this environment. The saved policy was not changed."
+                      : suggestionState.error === "invalid_context"
+                        ? "This camera or policy version could not be verified. Reload and try again."
+                        : "The city provider is unavailable right now. Retry or keep the currently saved city."}
+          </p>
+        ) : null}
+
+        {suggestion ? (
+          <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+              Suggested handoff city
+            </p>
+            <p className="mt-1 text-lg font-semibold">{suggestion.cityLabel}</p>
+            <p className="mt-1 text-xs text-stone-600">
+              This private confirmation expires at {suggestion.expiresAt}.
+            </p>
+            <label className="mt-3 flex min-h-11 items-start gap-3 rounded-xl border border-emerald-300 bg-white p-3">
+              <input
+                checked={suggestionConfirmed}
+                className="mt-1 h-5 w-5"
+                onChange={(event) =>
+                  setConfirmedReference(
+                    event.target.checked ? suggestion.reference : null,
+                  )
+                }
+                type="checkbox"
+              />
+              <span className="text-sm leading-6">
+                Use {suggestion.cityLabel} as this camera’s handoff city.
+              </span>
+            </label>
+          </div>
+        ) : null}
+
+        <FieldError id="city-error" message={saveState.fieldErrors?.city} />
+      </section>
+
+      <form action={saveAction} className="space-y-7">
+        <input name="cameraId" type="hidden" value={policy.cameraId} />
+        <input name="expectedVersion" type="hidden" value={version} />
+        <input
+          name="cityReference"
+          type="hidden"
+          value={suggestionConfirmed ? suggestion?.reference : ""}
+        />
+
+        <fieldset className="rounded-2xl border border-stone-200 p-5">
+          <legend className="px-2 text-lg font-semibold">
+            Philippine-time handoffs
+          </legend>
+          <p className="text-sm text-stone-600">
+            Timezone: Asia/Manila (UTC+08:00)
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {weekdayLabels.map((label, value) => (
+              <label
+                className="flex min-h-11 items-center gap-3 rounded-xl border border-stone-200 px-3 py-2"
+                key={label}
+              >
+                <input
+                  defaultChecked={policy.allowedWeekdays.includes(value)}
+                  name="weekdays"
+                  type="checkbox"
+                  value={value}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <FieldError
+            id="weekdays-error"
+            message={saveState.fieldErrors?.weekdays}
+          />
+
+          <label
+            className="mt-5 block text-sm font-medium"
+            htmlFor="approvedTimes"
+          >
+            Approved handoff times
+          </label>
+          <textarea
+            aria-describedby={
+              saveState.fieldErrors?.approvedTimes
+                ? "approved-times-error"
+                : "approved-times-help"
+            }
+            aria-invalid={Boolean(saveState.fieldErrors?.approvedTimes)}
+            className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3 font-mono"
+            defaultValue={policy.approvedTimes.join("\n")}
+            id="approvedTimes"
+            name="approvedTimes"
+            placeholder={"09:00\n17:00"}
+          />
+          <p className="mt-2 text-xs text-stone-500" id="approved-times-help">
+            Enter unique 24-hour values as HH:MM, separated by lines, spaces, or
+            commas.
+          </p>
+          <FieldError
+            id="approved-times-error"
+            message={saveState.fieldErrors?.approvedTimes}
+          />
+
+          <label className="mt-5 flex items-start gap-3 rounded-xl bg-stone-50 p-4">
+            <input
+              defaultChecked={policy.enabled}
+              className="mt-1"
+              name="enabled"
+              type="checkbox"
+            />
+            <span>
+              <span className="block font-medium">Enable this handoff policy</span>
+              <span className="mt-1 block text-sm text-stone-600">
+                Enabled schedules can be published to renters after the dependent
+                calendar feature is activated.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
+        {saveState.status !== "idle" ? (
+          <div
+            aria-live="polite"
+            className={`rounded-xl border p-4 text-sm ${saveState.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-900"}`}
+            role={saveState.status === "success" ? "status" : "alert"}
+          >
+            {saveState.status === "success"
+              ? `Handoff policy version ${saveState.version} saved for ${saveState.cityLabel}. Reloaded views will use this authoritative version.`
+              : saveState.error === "stale"
+                ? "Another save changed this policy. Reload before applying your changes."
+                : saveState.error === "unauthorized"
+                  ? "Your administrator authorization could not be verified."
+                  : saveState.error === "invalid_input"
+                    ? "Correct the highlighted fields and try again."
+                    : "The policy could not be saved. No partial settings were applied."}
+          </div>
+        ) : null}
+
+        <button
+          className="min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={savePending || !canSave}
+          type="submit"
+        >
+          {savePending ? "Saving policy…" : "Save handoff policy"}
+        </button>
+      </form>
+    </div>
   );
 }
 

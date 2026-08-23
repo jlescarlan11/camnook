@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: vi.fn() }));
 
@@ -7,40 +8,97 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 
-import { saveCameraHandoffPolicy } from "./handoff-actions";
+import {
+  saveCameraHandoffPolicy,
+  suggestHandoffCity,
+} from "./handoff-actions";
 
+const ACTOR_ID = "22222222-2222-4222-8222-222222222222";
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
 
-function validFields() {
+function fields(values: Record<string, string>) {
   const data = new FormData();
-  data.set("cameraId", CAMERA_ID);
-  data.set("expectedVersion", "2");
-  data.set("cityLabel", "Cebu City");
-  data.set("providerCityId", "geoapify:cebu-city");
-  data.set("latitude", "10.31570");
-  data.set("longitude", "123.88540");
-  data.append("weekdays", "1");
-  data.append("weekdays", "3");
-  data.set("approvedTimes", "09:00\n17:00");
-  data.set("enabled", "on");
+  Object.entries(values).forEach(([key, value]) => data.set(key, value));
   return data;
 }
 
-function authorize(result: unknown) {
-  const rpc = vi.fn().mockResolvedValue(result);
+function validSaveFields() {
+  const data = fields({
+    cameraId: CAMERA_ID,
+    expectedVersion: "2",
+    approvedTimes: "09:00\n17:00",
+    enabled: "on",
+  });
+  data.append("weekdays", "1");
+  data.append("weekdays", "3");
+  return data;
+}
+
+function suggestionFields(extra: Record<string, string> = {}) {
+  return fields({
+    accuracy: "20",
+    cameraId: CAMERA_ID,
+    expectedVersion: "2",
+    latitude: "10.30123456",
+    locationMode: "current",
+    longitude: "123.90123456",
+    ...extra,
+  });
+}
+
+function mcp(structuredContent: unknown) {
+  return new Response(
+    JSON.stringify({
+      id: 1,
+      jsonrpc: "2.0",
+      result: { isError: false, structuredContent },
+    }),
+    { headers: { "content-type": "application/json" }, status: 200 },
+  );
+}
+
+function authorize(options?: {
+  anchor?: Record<string, unknown>;
+  anchorError?: unknown;
+  replace?: { data: unknown; error: unknown };
+}) {
+  const anchor = {
+    city_label: "Cebu City",
+    country_code: "PH",
+    latitude: 10.3157,
+    longitude: 123.8854,
+    provider_city_id: "provider:cebu",
+    version: 2,
+    ...options?.anchor,
+  };
+  const rpc = vi.fn((name: string) =>
+    Promise.resolve(
+      name === "get_camera_handoff_policy_admin"
+        ? { data: anchor, error: options?.anchorError ?? null }
+        : (options?.replace ?? { data: 3, error: null }),
+    ),
+  );
   const schema = vi.fn(() => ({ rpc }));
   vi.mocked(requireAdmin).mockResolvedValue({
     supabase: { schema },
-    user: { id: "admin-user" },
+    user: { id: ACTOR_ID },
   } as never);
   return { rpc, schema };
 }
 
-describe("saveCameraHandoffPolicy", () => {
-  beforeEach(() => vi.clearAllMocks());
+describe("camera handoff city and policy actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    process.env.GEOAPIFY_API_KEY = "provider-development-key";
+    process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
+    process.env.MEETUP_PROVIDER_CONFIG_VERSION = "geoapify-v1";
+    process.env.MEETUP_RECOMMENDATION_SECRET =
+      "server-only-handoff-city-secret-value";
+  });
 
   it("validates enabled schedules and duplicates before authorization", async () => {
-    const data = validFields();
+    const data = validSaveFields();
     data.delete("weekdays");
     data.set("approvedTimes", "09:00,09:00");
 
@@ -57,42 +115,287 @@ describe("saveCameraHandoffPolicy", () => {
     expect(requireAdmin).not.toHaveBeenCalled();
   });
 
-  it("denies a direct unauthorized action without invoking the RPC", async () => {
+  it("denies an unauthorized suggestion before provider or database use", async () => {
+    vi.mocked(requireAdmin).mockRejectedValue(new Error("private auth detail"));
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+
+    await expect(
+      suggestHandoffCity({ status: "idle" }, suggestionFields()),
+    ).resolves.toEqual({ error: "unauthorized", status: "error" });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("denies an unauthorized save without reading or replacing a policy", async () => {
     vi.mocked(requireAdmin).mockRejectedValue(new Error("private auth detail"));
 
     await expect(
-      saveCameraHandoffPolicy({ status: "idle" }, validFields()),
+      saveCameraHandoffPolicy({ status: "idle" }, validSaveFields()),
     ).resolves.toEqual({ error: "unauthorized", status: "error" });
   });
 
-  it("sends only validated fields and revalidates persisted read paths", async () => {
-    const api = authorize({ data: 3, error: null });
-    const data = validFields();
-    data.set("actorId", "attacker-controlled");
-    data.set("timezone", "Pacific/Honolulu");
+  it("derives a safe current-city suggestion without returning or logging the position", async () => {
+    const api = authorize();
+    const request = vi.fn().mockResolvedValue(
+      mcp({
+        results: [
+          {
+            city: "Mandaue City",
+            country_code: "ph",
+            lat: 10.3236,
+            lon: 123.9222,
+            place_id: "provider:mandaue",
+            result_type: "city",
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", request);
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    const result = await suggestHandoffCity(
+      { status: "idle" },
+      suggestionFields(),
+    );
+
+    expect(result).toMatchObject({
+      status: "success",
+      suggestion: {
+        cityLabel: "Mandaue City",
+        expectedVersion: 2,
+        reference: expect.stringMatching(/^handoff-city-v1\./),
+      },
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /10\.30123456|123\.90123456|provider:mandaue/,
+    );
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(
+      /10\.|123\.|Mandaue|reference/,
+    );
+    expect(String(request.mock.calls[0]?.[0])).not.toMatch(
+      /10\.30123456|123\.90123456/,
+    );
+    expect(api.rpc).toHaveBeenCalledWith("get_camera_handoff_policy_admin", {
+      p_camera_id: CAMERA_ID,
+    });
+    expect(api.rpc).not.toHaveBeenCalledWith(
+      "replace_camera_handoff_policy",
+      expect.anything(),
+    );
+  });
+
+  it("supports manual city fallback and rejects street-like or unsupported input", async () => {
+    authorize();
+    const request = vi.fn().mockResolvedValue(
+      mcp({
+        results: [
+          {
+            city: "Cebu City",
+            country_code: "ph",
+            lat: 10.3157,
+            lon: 123.8854,
+            place_id: "provider:cebu",
+            result_type: "city",
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", request);
+    await expect(
+      suggestHandoffCity(
+        { status: "idle" },
+        suggestionFields({
+          locationMode: "manual",
+          manualCity: "123 Main Street",
+        }),
+      ),
+    ).resolves.toEqual({ error: "invalid_city", status: "error" });
+    await expect(
+      suggestHandoffCity(
+        { status: "idle" },
+        suggestionFields({
+          locationMode: "manual",
+          manualCity: "Main Street",
+        }),
+      ),
+    ).resolves.toEqual({ error: "invalid_city", status: "error" });
+    expect(request).not.toHaveBeenCalled();
+    await expect(
+      suggestHandoffCity(
+        { status: "idle" },
+        suggestionFields({ locationMode: "manual", manualCity: "Cebu City" }),
+      ),
+    ).resolves.toMatchObject({
+      status: "success",
+      suggestion: { cityLabel: "Cebu City" },
+    });
+  });
+
+  it("rejects inaccurate positions and stale policies before provider use", async () => {
+    authorize();
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    await expect(
+      suggestHandoffCity(
+        { status: "idle" },
+        suggestionFields({ accuracy: "50001" }),
+      ),
+    ).resolves.toEqual({ error: "invalid_location", status: "error" });
+    expect(request).not.toHaveBeenCalled();
+
+    authorize({ anchor: { version: 3 } });
+    await expect(
+      suggestHandoffCity({ status: "idle" }, suggestionFields()),
+    ).resolves.toEqual({ error: "stale", status: "error" });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("constrains provider and policy-read failures without mutation", async () => {
+    const provider = authorize();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ private: "provider detail" }), {
+          status: 500,
+        }),
+      ),
+    );
+    await expect(
+      suggestHandoffCity({ status: "idle" }, suggestionFields()),
+    ).resolves.toEqual({ error: "provider_unavailable", status: "error" });
+    expect(provider.rpc).not.toHaveBeenCalledWith(
+      "replace_camera_handoff_policy",
+      expect.anything(),
+    );
+
+    vi.mocked(requireAdmin).mockResolvedValue({
+      supabase: {
+        schema: vi.fn(() => ({
+          rpc: vi.fn().mockRejectedValue(new Error("private database detail")),
+        })),
+      },
+      user: { id: ACTOR_ID },
+    } as never);
+    await expect(
+      suggestHandoffCity({ status: "idle" }, suggestionFields()),
+    ).resolves.toEqual({ error: "invalid_context", status: "error" });
+  });
+
+  it("saves only a confirmed server-derived anchor and ignores forged technical fields", async () => {
+    const api = authorize();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        mcp({
+          results: [
+            {
+              city: "Mandaue City",
+              country_code: "ph",
+              lat: 10.3236,
+              lon: 123.9222,
+              place_id: "provider:mandaue",
+              result_type: "city",
+            },
+          ],
+        }),
+      ),
+    );
+    const suggestion = await suggestHandoffCity(
+      { status: "idle" },
+      suggestionFields(),
+    );
+    expect(suggestion.status).toBe("success");
+
+    const data = validSaveFields();
+    data.set("cityReference", suggestion.suggestion!.reference);
+    data.set("cityLabel", "Forged City");
+    data.set("providerCityId", "attacker:provider");
+    data.set("latitude", "1");
+    data.set("longitude", "2");
 
     await expect(
       saveCameraHandoffPolicy({ status: "idle" }, data),
-    ).resolves.toEqual({ status: "success", version: 3 });
-    expect(api.schema).toHaveBeenCalledWith("api");
+    ).resolves.toEqual({
+      cityLabel: "Mandaue City",
+      status: "success",
+      version: 3,
+    });
     expect(api.rpc).toHaveBeenCalledWith("replace_camera_handoff_policy", {
       p_allowed_weekdays: [1, 3],
       p_approved_times: ["09:00", "17:00"],
       p_camera_id: CAMERA_ID,
-      p_city_label: "Cebu City",
+      p_city_label: "Mandaue City",
       p_country_code: "PH",
       p_enabled: true,
       p_expected_version: 2,
-      p_latitude: 10.3157,
-      p_longitude: 123.8854,
-      p_provider_city_id: "geoapify:cebu-city",
+      p_latitude: 10.3236,
+      p_longitude: 123.9222,
+      p_provider_city_id: "provider:mandaue",
     });
     expect(JSON.stringify(api.rpc.mock.calls)).not.toMatch(
-      /attacker-controlled|Pacific\/Honolulu/,
+      /Forged City|attacker:provider/,
     );
-    expect(revalidatePath).toHaveBeenCalledWith("/admin");
-    expect(revalidatePath).toHaveBeenCalledWith(
-      `/admin/cameras/${CAMERA_ID}/handoff`,
+  });
+
+  it("preserves the authoritative existing anchor for schedule-only saves", async () => {
+    const api = authorize();
+
+    await expect(
+      saveCameraHandoffPolicy({ status: "idle" }, validSaveFields()),
+    ).resolves.toEqual({
+      cityLabel: "Cebu City",
+      status: "success",
+      version: 3,
+    });
+    expect(api.rpc).toHaveBeenCalledWith(
+      "replace_camera_handoff_policy",
+      expect.objectContaining({
+        p_city_label: "Cebu City",
+        p_latitude: 10.3157,
+        p_longitude: 123.8854,
+        p_provider_city_id: "provider:cebu",
+      }),
+    );
+  });
+
+  it("rejects missing legacy anchors and tampered references without mutation", async () => {
+    const missing = authorize({
+      anchor: {
+        city_label: null,
+        country_code: null,
+        latitude: null,
+        longitude: null,
+        provider_city_id: null,
+        version: 0,
+      },
+    });
+    const legacy = validSaveFields();
+    legacy.set("expectedVersion", "0");
+    await expect(
+      saveCameraHandoffPolicy({ status: "idle" }, legacy),
+    ).resolves.toMatchObject({
+      error: "invalid_input",
+      fieldErrors: { city: expect.any(String) },
+      status: "error",
+    });
+    expect(missing.rpc).not.toHaveBeenCalledWith(
+      "replace_camera_handoff_policy",
+      expect.anything(),
+    );
+
+    const tampered = authorize();
+    const data = validSaveFields();
+    data.set("cityReference", "handoff-city-v1.invalid.invalid.invalid");
+    await expect(
+      saveCameraHandoffPolicy({ status: "idle" }, data),
+    ).resolves.toMatchObject({
+      error: "invalid_input",
+      fieldErrors: { city: expect.any(String) },
+      status: "error",
+    });
+    expect(tampered.rpc).not.toHaveBeenCalledWith(
+      "replace_camera_handoff_policy",
+      expect.anything(),
     );
   });
 
@@ -102,16 +405,27 @@ describe("saveCameraHandoffPolicy", () => {
     ["22023", "save_failed"],
   ])("maps %s without returning private database detail", async (code, error) => {
     authorize({
-      data: null,
-      error: { code, message: "private provider city and coordinates" },
+      replace: {
+        data: null,
+        error: { code, message: "private provider city and coordinates" },
+      },
     });
 
     const result = await saveCameraHandoffPolicy(
       { status: "idle" },
-      validFields(),
+      validSaveFields(),
     );
 
     expect(result).toEqual({ error, status: "error" });
     expect(JSON.stringify(result)).not.toContain("private provider");
+  });
+
+  it("revalidates persisted read paths after a successful save", async () => {
+    authorize();
+    await saveCameraHandoffPolicy({ status: "idle" }, validSaveFields());
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith(
+      `/admin/cameras/${CAMERA_ID}/handoff`,
+    );
   });
 });

@@ -234,6 +234,39 @@ describe("GeoapifyAdapter", () => {
     });
   });
 
+  it.each([
+    ["control-character city", `Cebu\u0000City`, "city-cebu"],
+    ["oversized city", "C".repeat(121), "city-cebu"],
+    ["undersized provider city ID", "Cebu City", "p"],
+    ["control-character provider city ID", "Cebu City", `city\u0000cebu`],
+    ["oversized provider city ID", "Cebu City", "p".repeat(241)],
+  ])("rejects %s before normalized city output", async (_case, city, placeId) => {
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: vi.fn().mockResolvedValue(
+        response(
+          mcp({
+            results: [
+              {
+                city,
+                country_code: "ph",
+                lat: 10.3157,
+                lon: 123.8854,
+                place_id: placeId,
+                result_type: "city",
+              },
+            ],
+          }),
+        ),
+      ),
+      timeoutMs: 100,
+    });
+
+    await expect(
+      adapter.reverseGeocodeCity({ latitude: 10, longitude: 123 }),
+    ).rejects.toEqual(new ProviderBoundaryError("malformed"));
+  });
+
   it("aborts a provider request at the configured timeout", async () => {
     const adapter = new GeoapifyAdapter({
       apiKey: "secret-key",

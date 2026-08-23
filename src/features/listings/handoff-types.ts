@@ -13,10 +13,6 @@ export type AdminHandoffPolicy = PublicHandoffPolicy & {
   cameraId: string;
   cameraName: string;
   cameraStatus: "archived" | "draft" | "published";
-  countryCode: "PH";
-  latitude: number | null;
-  longitude: number | null;
-  providerCityId: string;
 };
 
 export type AdminCameraHandoffSummary = {
