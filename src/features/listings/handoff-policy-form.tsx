@@ -21,6 +21,7 @@ import type { AdminHandoffPolicy } from "./handoff-types";
 const initialSaveState: SaveHandoffPolicyState = { status: "idle" };
 const initialAddressState: SuggestHandoffAddressState = { status: "idle" };
 const initialSuggestionState: SuggestHandoffCityState = { status: "idle" };
+const addressLookupDebounceMs = 600;
 const weekdayLabels = [
   "Sunday",
   "Monday",
@@ -84,8 +85,10 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
   const canSave = Boolean(savedCity || selectedReference);
 
   const requestAddressSuggestions = useCallback(() => {
+    const query = addressQuery.trim();
+    if (query.length < 3) return;
     const formData = new FormData();
-    formData.set("addressQuery", addressQuery.trim());
+    formData.set("addressQuery", query);
     formData.set("cameraId", policy.cameraId);
     formData.set("expectedVersion", String(version));
     startTransition(() => addressAction(formData));
@@ -93,7 +96,10 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
 
   useEffect(() => {
     if (addressQuery.trim().length < 3) return;
-    const timer = window.setTimeout(requestAddressSuggestions, 350);
+    const timer = window.setTimeout(
+      requestAddressSuggestions,
+      addressLookupDebounceMs,
+    );
     return () => window.clearTimeout(timer);
   }, [addressQuery, requestAddressSuggestions]);
 

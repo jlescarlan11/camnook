@@ -13,6 +13,7 @@ import {
   suggestHandoffAddress,
   suggestHandoffCity,
 } from "./handoff-actions";
+import { readHandoffCityReference } from "./handoff-city-reference";
 
 const ACTOR_ID = "22222222-2222-4222-8222-222222222222";
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
@@ -195,37 +196,21 @@ describe("camera handoff city and policy actions", () => {
 
   it("returns public address suggestions while binding the saved value to a city anchor", async () => {
     authorize();
-    const request = vi
-      .fn()
-      .mockResolvedValueOnce(
-        mcp({
-          results: [
-            {
-              city: "Cebu City",
-              country_code: "ph",
-              formatted: "Cardinal Rosales Avenue, Cebu City",
-              lat: 10.3172,
-              lon: 123.9054,
-              place_id: "place-ayala",
-              result_type: "amenity",
-            },
-          ],
-        }),
-      )
-      .mockResolvedValueOnce(
-        mcp({
-          results: [
-            {
-              city: "Cebu City",
-              country_code: "ph",
-              lat: 10.3157,
-              lon: 123.8854,
-              place_id: "city-cebu",
-              result_type: "city",
-            },
-          ],
-        }),
-      );
+    const request = vi.fn().mockResolvedValue(
+      mcp({
+        results: [
+          {
+            city: "Cebu City",
+            country_code: "ph",
+            formatted: "Cardinal Rosales Avenue, Cebu City",
+            lat: 10.3172,
+            lon: 123.9054,
+            place_id: "place-ayala",
+            result_type: "amenity",
+          },
+        ],
+      }),
+    );
     vi.stubGlobal("fetch", request);
 
     const result = await suggestHandoffAddress(
@@ -246,9 +231,22 @@ describe("camera handoff city and policy actions", () => {
       ],
     });
     expect(JSON.stringify(result)).not.toMatch(
-      /place-ayala|city-cebu|10\.3172|123\.9054|10\.3157|123\.8854/,
+      /place-ayala|10\.3172|123\.9054/,
     );
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(
+      readHandoffCityReference(
+        result.suggestions![0]!.reference,
+        "server-only-handoff-city-secret-value",
+        {
+          actorId: ACTOR_ID,
+          cameraId: CAMERA_ID,
+          configVersion: "geoapify-v1",
+          expectedVersion: 2,
+          now: new Date(),
+        },
+      )?.city,
+    ).toMatchObject({ latitude: 10.317, longitude: 123.905 });
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("rejects short address searches before authorization or provider use", async () => {

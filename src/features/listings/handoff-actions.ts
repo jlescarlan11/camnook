@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 
 import { getMeetupProviderConfig } from "../meetups/config";
 import { cityInputSchema } from "../meetups/city-input";
+import { coarseCoordinate } from "../meetups/domain";
 import { GeoapifyAdapter, ProviderBoundaryError } from "../meetups/provider";
 import {
   mintHandoffCityReference,
@@ -280,36 +281,26 @@ export async function suggestHandoffAddress(
     };
   }
 
-  const cityAnchors = new Map<string, Awaited<ReturnType<typeof adapter.geocodeCity>>>();
-  const resolved = [];
-  for (const addressSuggestion of addressSuggestions) {
-    const cityKey = addressSuggestion.city.toLocaleLowerCase("en");
-    let city = cityAnchors.get(cityKey);
-    if (!city) {
-      try {
-        city = await adapter.geocodeCity(addressSuggestion.city);
-      } catch {
-        continue;
-      }
-      cityAnchors.set(cityKey, city);
-    }
-    resolved.push({ addressSuggestion, city });
-  }
-
   const expiresAt = new Date(Date.now() + 15 * 60 * 1_000).toISOString();
   return {
     query: input.data.query,
     status: "success",
-    suggestions: resolved.map(({ addressSuggestion, city }) => ({
+    suggestions: addressSuggestions.map((addressSuggestion) => ({
       addressLabel: addressSuggestion.address,
-      cityLabel: city.label,
+      cityLabel: addressSuggestion.city,
       expectedVersion: input.data.expectedVersion,
       expiresAt,
       reference: mintHandoffCityReference(
         {
           actorId: context.user.id,
           cameraId: input.data.cameraId,
-          city,
+          city: {
+            countryCode: "PH",
+            label: addressSuggestion.city,
+            latitude: coarseCoordinate(addressSuggestion.latitude),
+            longitude: coarseCoordinate(addressSuggestion.longitude),
+            providerCityId: addressSuggestion.providerAddressId,
+          },
           configVersion: config.configVersion,
           expectedVersion: input.data.expectedVersion,
           expiresAt,

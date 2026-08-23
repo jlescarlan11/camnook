@@ -39,11 +39,14 @@ position.
 The lender anchor remains private database data. Public listing DTOs expose its
 city label and schedule but not its provider ID or coordinates. The admin address
 search may display a provider-formatted public place address, but the selected
-value is resolved to a city centroid before it is encrypted into the save
-reference. The exact address is not persisted as lender data. The meetup service
-returns only the selected venue's name, public address/city, coordinates rounded
-to three decimals, attribution, config version, expiry, and encrypted reference.
-Provider IDs remain encrypted at the server boundary.
+value uses that single response's city label and coordinates rounded to three
+decimals before it is encrypted into the save reference. The exact address is not
+persisted as lender data. This keeps an address search to one provider credit;
+using a true city centroid would require a second lookup or a maintained local
+city-centroid dataset. The meetup service returns only the selected venue's name,
+public address/city, coordinates rounded to three decimals, attribution, config
+version, expiry, and encrypted reference. Provider IDs remain encrypted at the
+server boundary.
 
 Telemetry is a closed shape: status category, coarse fast/slow bucket, and result
 count. It cannot carry coordinates, addresses, names, user IDs, provider payloads,
