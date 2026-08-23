@@ -5,6 +5,7 @@ import {
   useActionState,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -54,6 +55,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
     useState<LocationStatus>("idle");
   const [manualCity, setManualCity] = useState("");
   const [addressQuery, setAddressQuery] = useState("");
+  const lastRequestedAddressQuery = useRef("");
   const [selectedAddress, setSelectedAddress] = useState<{
     addressLabel: string;
     cityLabel: string;
@@ -86,7 +88,8 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
 
   const requestAddressSuggestions = useCallback(() => {
     const query = addressQuery.trim();
-    if (query.length < 3) return;
+    if (query.length < 3 || lastRequestedAddressQuery.current === query) return;
+    lastRequestedAddressQuery.current = query;
     const formData = new FormData();
     formData.set("addressQuery", query);
     formData.set("cameraId", policy.cameraId);
@@ -101,7 +104,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
       addressLookupDebounceMs,
     );
     return () => window.clearTimeout(timer);
-  }, [addressQuery, requestAddressSuggestions]);
+  }, [addressPending, addressQuery, requestAddressSuggestions]);
 
   function useCurrentCity() {
     setConfirmedReference(null);
@@ -159,6 +162,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
             className="mt-4"
             onSubmit={(event) => {
               event.preventDefault();
+              lastRequestedAddressQuery.current = "";
               requestAddressSuggestions();
             }}
           >
