@@ -62,6 +62,13 @@ function authorizeAdmin(rpc: ReturnType<typeof vi.fn>, storage?: unknown) {
   } as never);
 }
 
+function authenticatePickup(rpc: ReturnType<typeof vi.fn>) {
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { schema: vi.fn(() => ({ rpc })) },
+    user: { id: "admin" },
+  } as never);
+}
+
 describe("pickup Server Actions", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -73,7 +80,7 @@ describe("pickup Server Actions", () => {
 
     expect(result).toMatchObject({ error: "invalid", status: "error" });
     expect(result.fieldErrors?.originalId).toContain("matches");
-    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
   it("keeps an invalid private note attached to its own pickup field", async () => {
@@ -85,7 +92,7 @@ describe("pickup Server Actions", () => {
     expect(result).toMatchObject({ error: "invalid", status: "error" });
     expect(result.fieldErrors?.notes).toContain("Notes");
     expect(result.fieldErrors?.conditionSummary).toBeUndefined();
-    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
   it("submits only observed facts to the atomic pickup RPC", async () => {
@@ -99,7 +106,7 @@ describe("pickup Server Actions", () => {
       },
       error: null,
     });
-    authorizeAdmin(rpc);
+    authenticatePickup(rpc);
 
     await expect(
       completePickup({ status: "idle" }, completionForm()),
@@ -118,6 +125,25 @@ describe("pickup Server Actions", () => {
     });
     expect(JSON.stringify(rpc.mock.calls)).not.toMatch(/payment|verification_record|contract_version/);
     expect(revalidatePath).toHaveBeenCalledWith(`/account/bookings/${BOOKING_ID}`);
+  });
+
+  it("denies unauthenticated pickup and maps the mutation admin guard", async () => {
+    vi.mocked(requireUser).mockRejectedValueOnce(
+      Object.assign(new Error(), { name: "AuthenticationRequiredError" }),
+    );
+    await expect(
+      completePickup({ status: "idle" }, completionForm()),
+    ).resolves.toEqual({ error: "unauthorized", status: "error" });
+
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "42501", message: "admin authorization required" },
+    });
+    authenticatePickup(rpc);
+    await expect(
+      completePickup({ status: "idle" }, completionForm()),
+    ).resolves.toEqual({ error: "unauthorized", status: "error" });
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it("uploads an exact no-overwrite photo, verifies bytes, then finalizes", async () => {

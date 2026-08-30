@@ -269,6 +269,9 @@ while stale, availability-conflict, and indeterminate outcomes remain distinct.
 GCash recipient configuration and payment verify/reject decisions use the same
 one-RPC mutation boundary. Proof access retains an explicit preauthorization
 because it proceeds to private Storage after receiving a purpose-bound grant.
+The physical pickup completion transition is also database-only and delegates
+its admin check to `complete_pickup`; condition-photo upload and access retain
+preauthorization because they touch private Storage.
 
 Profile saves and booking submissions enforce profile state inside their
 authoritative mutation RPCs, without a separate client-side profile lookup.

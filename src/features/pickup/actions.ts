@@ -141,12 +141,12 @@ export async function completePickup(
     return { error: "invalid", fieldErrors, status: "error" };
   }
 
-  let context: AdminContext;
+  let context: Awaited<ReturnType<typeof requireUser>>;
   try {
-    context = await requireAdmin();
+    context = await requireUser();
   } catch (error) {
     return {
-      error: isAdminAuthorizationDenial(error) ? "unauthorized" : "indeterminate",
+      error: isAuthenticationError(error) ? "unauthorized" : "indeterminate",
       status: "error",
     };
   }
