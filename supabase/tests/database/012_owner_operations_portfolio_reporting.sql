@@ -688,6 +688,19 @@ begin
   then
     raise exception 'admin payment context privileges were broader or narrower than intended';
   end if;
+
+  if has_function_privilege(
+      'anon', 'api.get_admin_booking_page_context(uuid)', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_admin_booking_page_context(uuid)', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated', 'private.get_admin_booking_page_context(uuid)', 'EXECUTE'
+    )
+  then
+    raise exception 'admin booking page context privileges were broader or narrower than intended';
+  end if;
 end;
 $$;
 
@@ -748,6 +761,14 @@ begin
       'a0700000-0000-4000-8000-000000000003'
     );
     raise exception 'anon executed the admin payment context';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_admin_booking_page_context(
+      'a0300000-0000-4000-8000-000000000003'
+    );
+    raise exception 'anon executed the admin booking page context';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -814,6 +835,14 @@ begin
       'a0700000-0000-4000-8000-000000000003'
     );
     raise exception 'a renter executed the admin payment context';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_admin_booking_page_context(
+      'a0300000-0000-4000-8000-000000000003'
+    );
+    raise exception 'a renter executed the admin booking page context';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -886,6 +915,15 @@ declare
     'a0700000-0000-4000-8000-000000000003'
   );
   payment_audit jsonb := api.get_payment_audit_history(
+    'a0300000-0000-4000-8000-000000000003'
+  );
+  booking_page jsonb := api.get_admin_booking_page_context(
+    'a0300000-0000-4000-8000-000000000003'
+  );
+  payment_booking_detail jsonb := api.get_admin_booking_detail_snapshot(
+    'a0300000-0000-4000-8000-000000000003'
+  );
+  payment_resolution jsonb := api.get_resolution_detail(
     'a0300000-0000-4000-8000-000000000003'
   );
   camera_revenue numeric;
@@ -968,6 +1006,14 @@ begin
     or payment_context::text ~* 'object_path|sha256|signed_url|request_metadata_digest'
   then
     raise exception 'admin payment context was incomplete or overexposed';
+  end if;
+
+  if booking_page -> 'detail' <> payment_booking_detail
+    or booking_page -> 'resolution' <> payment_resolution
+    or booking_page -> 'contract' <> contract_context
+    or booking_page -> 'pickup' <> 'null'::jsonb
+  then
+    raise exception 'admin booking page context did not match component snapshots';
   end if;
 
   begin

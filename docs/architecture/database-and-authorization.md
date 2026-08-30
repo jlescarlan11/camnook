@@ -320,6 +320,12 @@ booking-scoped audit history through one sole-admin snapshot RPC. This removes t
 detail-then-audit request waterfall (two Data API requests to one) while retaining
 the existing proof-path, digest, and signed-URL exclusions.
 
+The admin booking page composes the safe booking detail and resolution projection
+with state-dependent contract and pickup snapshots in one sole-admin request.
+This reduces the page from two requests to one during review, three to one for
+approved non-pickup states, and four to one for confirmed or active rentals while
+retaining the established component schemas and fail-closed UI states.
+
 ### Manual GCash records
 
 `public.payment_transactions`
@@ -517,7 +523,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-eight forward migrations. On 13 August 2026, the four
+The repository contains forty-nine forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

@@ -383,6 +383,10 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: Json
       }
+      get_admin_booking_page_context: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
       get_admin_contract_context: {
         Args: { p_booking_id: string }
         Returns: Json

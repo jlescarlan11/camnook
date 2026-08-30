@@ -7,6 +7,9 @@ import {
   projectMeetupPlan,
   safeMeetupPlanRowSchema,
 } from "@/features/meetups/plan";
+import { projectAdminContractContext } from "@/features/contracts/data";
+import { pickupDetailSchema } from "@/features/pickup/types";
+import { resolutionDetailSchema } from "@/features/resolution/types";
 
 import { assessApprovalReadiness } from "./readiness";
 
@@ -84,6 +87,12 @@ const adminDetailSnapshotSchema = z.object({
     version: z.string(),
   }).nullable(),
 });
+const adminBookingPageContextSchema = z.object({
+  contract: z.unknown().nullable(),
+  detail: z.unknown(),
+  pickup: z.unknown().nullable(),
+  resolution: z.unknown(),
+}).strict();
 
 type QueueBookingRow = {
   camera_id: string;
@@ -274,10 +283,16 @@ export async function loadAdminBookingDetail(
   if (snapshotResult.error?.code === "P0002") {
     return { status: "missing" } as const;
   }
-  const snapshot = adminDetailSnapshotSchema.safeParse(snapshotResult.data);
-  if (snapshotResult.error || !snapshot.success) {
-    return { status: "error" } as const;
-  }
+  if (snapshotResult.error) return { status: "error" } as const;
+  return projectAdminBookingDetailSnapshot(snapshotResult.data, now);
+}
+
+export function projectAdminBookingDetailSnapshot(
+  value: unknown,
+  now = new Date(),
+) {
+  const snapshot = adminDetailSnapshotSchema.safeParse(value);
+  if (!snapshot.success) return { status: "error" } as const;
 
   const {
     accessories,
@@ -383,4 +398,72 @@ export async function loadAdminBookingDetail(
     },
     status: "success",
   } as const;
+}
+
+export async function loadAdminBookingPageContext(
+  context: AdminContext,
+  bookingId: string,
+  now = new Date(),
+) {
+  if (!z.uuid().safeParse(bookingId).success) {
+    return {
+      contractData: null,
+      pickupData: null,
+      resolutionData: null,
+      result: { status: "missing" as const },
+    };
+  }
+
+  const response = await context.supabase
+    .schema("api")
+    .rpc("get_admin_booking_page_context", { p_booking_id: bookingId });
+  if (response.error?.code === "P0002") {
+    return {
+      contractData: null,
+      pickupData: null,
+      resolutionData: null,
+      result: { status: "missing" as const },
+    };
+  }
+  const page = adminBookingPageContextSchema.safeParse(response.data);
+  if (response.error || !page.success) {
+    return {
+      contractData: null,
+      pickupData: null,
+      resolutionData: null,
+      result: { status: "error" as const },
+    };
+  }
+
+  const result = projectAdminBookingDetailSnapshot(page.data.detail, now);
+  if (result.status !== "success") {
+    return {
+      contractData: null,
+      pickupData: null,
+      resolutionData: null,
+      result,
+    };
+  }
+
+  const resolution = resolutionDetailSchema.safeParse(page.data.resolution);
+  const pickup = page.data.pickup === null
+    ? null
+    : pickupDetailSchema.safeParse(page.data.pickup);
+  return {
+    contractData: result.booking.approval && page.data.contract !== null
+      ? projectAdminContractContext(
+          page.data.contract,
+          result.booking.approval.currentContractVersionId,
+        )
+      : null,
+    pickupData: pickup === null
+      ? null
+      : pickup.success
+        ? { pickup: pickup.data, status: "success" as const }
+        : { status: "error" as const },
+    resolutionData: resolution.success
+      ? { resolution: resolution.data, status: "success" as const }
+      : { status: "error" as const },
+    result,
+  };
 }

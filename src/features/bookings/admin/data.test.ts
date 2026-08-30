@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { loadAdminBookingDetail, loadAdminQueue } from "./data";
+import {
+  loadAdminBookingDetail,
+  loadAdminBookingPageContext,
+  loadAdminQueue,
+} from "./data";
 
 const BOOKING_ID = "22222222-2222-4222-8222-222222222222";
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
@@ -461,6 +465,73 @@ describe("admin booking detail data", () => {
       "get_admin_booking_detail_snapshot",
       { p_booking_id: BOOKING_ID },
     );
+  });
+
+  it("loads the complete booking page through one admin snapshot RPC", async () => {
+    const source = detailResults();
+    const read = (table: string) => source[table].data;
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        contract: null,
+        detail: {
+          accessories: read("camera_accessories"),
+          availability: read("public_availability"),
+          booking: read("bookings"),
+          camera: read("cameras"),
+          contract: null,
+          meetup: null,
+          profile: read("profiles"),
+          quote: quoteResult.data[0],
+          rejection: null,
+          template: read("contract_templates"),
+        },
+        pickup: null,
+        resolution: {
+          booking_id: BOOKING_ID,
+          booking_state: "FOR_REVIEW",
+          camera: { id: CAMERA_ID, name: "Sony A7" },
+          cancellation: null,
+          deposit: {
+            deduction_amount: 0,
+            held_amount: 0,
+            refunded_amount: 0,
+            remaining_refund_liability: 0,
+            status: "none",
+          },
+          expected_accessories: [],
+          issue_decision: null,
+          issue_notes: [],
+          pickup_at: "2026-08-20T01:00:00.000Z",
+          refunds: [],
+          renter: {
+            legal_name: "Maria Santos",
+            phone: "+63 917 123 4567",
+          },
+          return_at: "2026-08-21T01:00:00.000Z",
+          return_inspection: null,
+        },
+      },
+      error: null,
+    });
+    const context = {
+      supabase: { schema: vi.fn(() => ({ rpc })) },
+      user: { id: "admin-user" },
+    } as never;
+
+    await expect(loadAdminBookingPageContext(
+      context,
+      BOOKING_ID,
+      new Date("2026-08-13T16:30:00.000Z"),
+    )).resolves.toMatchObject({
+      contractData: null,
+      pickupData: null,
+      resolutionData: { status: "success" },
+      result: { booking: { id: BOOKING_ID }, status: "success" },
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("get_admin_booking_page_context", {
+      p_booking_id: BOOKING_ID,
+    });
   });
 
   it("keeps a quote failure as a fail-closed readiness reason without raw details", async () => {

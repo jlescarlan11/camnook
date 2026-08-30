@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DecisionControls } from "@/features/bookings/admin/decision-controls";
-import { loadAdminBookingDetail } from "@/features/bookings/admin/data";
+import { loadAdminBookingPageContext } from "@/features/bookings/admin/data";
 import type { ApprovalReadinessReason } from "@/features/bookings/admin/readiness";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { PersistedIntendedUse } from "@/features/bookings/components/persisted-intended-use";
@@ -15,13 +15,8 @@ import {
 } from "@/features/bookings/manila-time";
 import { ContractDetails } from "@/features/contracts/components/contract-details";
 import { SupersedeContractControl } from "@/features/contracts/components/supersede-contract-control";
-import {
-  loadAdminContractContext,
-} from "@/features/contracts/data";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
-import { loadPickupDetail } from "@/features/pickup/data";
 import { PickupControls } from "@/features/pickup/pickup-controls";
-import { loadResolutionDetail } from "@/features/resolution/data";
 import {
   ResolutionControls,
   type ResolutionOperationIds,
@@ -54,26 +49,14 @@ type AdminBookingPageProps = {
 export default async function AdminBookingPage({ params }: AdminBookingPageProps) {
   const { bookingId } = await params;
   const context = await requirePageAdmin(`/admin/bookings/${bookingId}`);
-  const result = await loadAdminBookingDetail(context, bookingId);
+  const {
+    contractData,
+    pickupData,
+    resolutionData,
+    result,
+  } = await loadAdminBookingPageContext(context, bookingId);
 
   if (result.status === "missing") notFound();
-
-  const [pickupData, resolutionData, contractData] = await Promise.all([
-    result.status === "success" &&
-    (result.booking.state === "CONFIRMED" || result.booking.state === "ACTIVE")
-      ? loadPickupDetail(context, bookingId)
-      : Promise.resolve(null),
-    result.status === "success"
-      ? loadResolutionDetail(context, bookingId)
-      : Promise.resolve(null),
-    result.status === "success" && result.booking.approval
-      ? loadAdminContractContext(
-          context,
-          result.booking.id,
-          result.booking.approval.currentContractVersionId,
-        )
-      : Promise.resolve(null),
-  ]);
   const resolutionOperationIds: ResolutionOperationIds | null =
     resolutionData?.status === "success"
       ? {

@@ -274,11 +274,16 @@ export async function loadAdminContractContext(
   const result = await context.supabase
     .schema("api")
     .rpc("get_admin_contract_context", { p_booking_id: bookingId });
-  const contextData = adminContractContextSchema.safeParse(result.data);
+  if (result.error) return { status: "error" } as const;
+  return projectAdminContractContext(result.data, currentContractVersionId);
+}
 
-  if (result.error || !contextData.success) {
-    return { status: "error" } as const;
-  }
+export function projectAdminContractContext(
+  value: unknown,
+  currentContractVersionId: string,
+) {
+  const contextData = adminContractContextSchema.safeParse(value);
+  if (!contextData.success) return { status: "error" } as const;
 
   const agreement = projectContractHistorySnapshot(
     contextData.data.versions,
