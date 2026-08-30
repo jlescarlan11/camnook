@@ -89,7 +89,7 @@ export async function cleanupAbandonedPrivateUploads(): Promise<AbandonedUploadC
           finalizeIndex,
           finalizeIndex + FINALIZE_CONCURRENCY,
         );
-        const results = await Promise.all(
+        const results = await Promise.allSettled(
           finalizeBatch.map((item) =>
             admin.schema("api").rpc(
               "finalize_abandoned_private_upload_cleanup",
@@ -103,7 +103,7 @@ export async function cleanupAbandonedPrivateUploads(): Promise<AbandonedUploadC
         );
 
         for (const result of results) {
-          if (result.error) failed += 1;
+          if (result.status === "rejected" || result.value.error) failed += 1;
           else cleaned += 1;
         }
       }
@@ -165,7 +165,7 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
         finalizeIndex,
         finalizeIndex + FINALIZE_CONCURRENCY,
       );
-      const results = await Promise.all(
+      const results = await Promise.allSettled(
         finalizeBatch.map((item) => {
           if (item.kind === "upload_intent") {
             return admin.schema("api").rpc(
@@ -190,7 +190,7 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
       );
 
       for (const result of results) {
-        if (result.error) failed += 1;
+        if (result.status === "rejected" || result.value.error) failed += 1;
         else cleaned += 1;
       }
     }
