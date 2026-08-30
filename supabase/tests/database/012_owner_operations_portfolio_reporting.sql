@@ -764,21 +764,25 @@ reset role;
 
 do $$
 declare
-  function_definition text := pg_get_functiondef(
+  dashboard_definition text := pg_get_functiondef(
     'private.get_owner_operations_dashboard()'::regprocedure
   );
-  helper_call constant text := 'private.get_resolution_queues()';
+  snapshot_definition text := pg_get_functiondef(
+    'private.get_owner_resolution_dashboard_snapshot()'::regprocedure
+  );
+  snapshot_call constant text :=
+    'private.get_owner_resolution_dashboard_snapshot()';
 begin
   if (
-    char_length(function_definition)
-      - char_length(replace(function_definition, helper_call, ''))
-  ) / char_length(helper_call) <> 1
-    or position(
-      'resolution_queues := private.get_resolution_queues();'
-      in function_definition
-    ) = 0
+    char_length(dashboard_definition)
+      - char_length(replace(dashboard_definition, snapshot_call, ''))
+  ) / char_length(snapshot_call) <> 1
+    or position('private.get_resolution_queues()' in dashboard_definition) <> 0
+    or position('private.deposit_outcome_json(' in snapshot_definition) <> 0
+    or position('''return_queue''' in snapshot_definition) <> 0
+    or position('''deposit_queue''' in snapshot_definition) <> 0
   then
-    raise exception 'owner dashboard did not reuse one resolution-queue snapshot';
+    raise exception 'owner dashboard did not use one minimized resolution snapshot';
   end if;
 end;
 $$;
