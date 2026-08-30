@@ -649,6 +649,19 @@ begin
   then
     raise exception 'renter booking context privileges were broader or narrower than intended';
   end if;
+
+  if has_function_privilege(
+      'anon', 'api.get_my_account_overview()', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_my_account_overview()', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated', 'private.get_my_account_overview()', 'EXECUTE'
+    )
+  then
+    raise exception 'renter account overview privileges were broader or narrower than intended';
+  end if;
 end;
 $$;
 
@@ -689,6 +702,12 @@ begin
       'a0300000-0000-4000-8000-000000000001'
     );
     raise exception 'anon executed the renter booking context';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_my_account_overview();
+    raise exception 'anon executed the renter account overview';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -734,6 +753,14 @@ begin
     raise exception 'a different renter read the booking context';
   exception when no_data_found then null;
   end;
+
+
+  if jsonb_array_length(api.get_my_account_overview() -> 'bookings') <> 0
+    or api.get_my_account_overview() #>> '{profile,legal_name}'
+      <> 'Other Portfolio Renter'
+  then
+    raise exception 'renter account overview crossed ownership boundaries';
+  end if;
 end;
 $$;
 
@@ -747,6 +774,7 @@ declare
   approved jsonb := api.get_my_booking_detail_context(
     'a0300000-0000-4000-8000-000000000003'
   );
+  overview jsonb := api.get_my_account_overview();
 begin
   if unapproved #>> '{booking,id}'
       <> 'a0300000-0000-4000-8000-000000000001'
@@ -766,6 +794,20 @@ begin
     or approved::text ~* 'operator_notes|object_path|provider_place_id|renter_city_provider_id|signature_intent|attestation_text|request_ip_digest|user_agent_digest'
   then
     raise exception 'renter booking context was incomplete, cross-owned, or overexposed';
+  end if;
+
+  if overview #>> '{profile,legal_name}' <> 'Portfolio Renter'
+    or jsonb_array_length(overview -> 'bookings') < 10
+    or not exists (
+      select 1
+      from jsonb_array_elements(overview -> 'bookings') as source(item)
+      where item #>> '{booking,id}'
+        = 'a0300000-0000-4000-8000-000000000001'
+        and item #>> '{camera,name}' = 'Portfolio Published'
+    )
+    or overview::text ~* 'renter_id|operator_notes|serial_number|acquisition_cost|object_path|provider_place_id|renter_city_provider_id'
+  then
+    raise exception 'renter account overview was incomplete or overexposed';
   end if;
 end;
 $$;

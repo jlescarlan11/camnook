@@ -50,36 +50,52 @@ export type SafeBookingRow = {
 
 type PublicCameraIdentity = { name: string; slug: string };
 
+const safeBookingRowSchema = z.object({
+  approval_deadline_at: z.string().nullable(),
+  approved_at: z.string().nullable(),
+  billable_days_snapshot: z.number().int().positive().nullable(),
+  camera_id: z.uuid(),
+  currency: z.string().min(1),
+  current_contract_version_id: z.uuid().nullable(),
+  daily_rate_snapshot: z.number().nonnegative().nullable(),
+  expected_location: z.string().min(1),
+  id: z.uuid(),
+  intended_use: z.string().min(1),
+  meetup_snapshot_required: z.boolean(),
+  pickup_at: z.string().min(1),
+  rental_amount: z.number().nonnegative().nullable(),
+  requested_at: z.string().min(1),
+  return_at: z.string().min(1),
+  security_deposit_amount: z.number().nonnegative().nullable(),
+  state: resolutionBookingStateSchema,
+  total_due: z.number().nonnegative().nullable(),
+}).strict();
+const publicCameraIdentitySchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1),
+}).strict();
+const safeProfileSchema = z.object({
+  account_status: z.enum(["active", "suspended"]),
+  legal_name: z.string().min(1),
+  phone: z.string().min(1),
+}).strict();
+
 const bookingDetailContextSchema = z.object({
-  booking: z.object({
-    approval_deadline_at: z.string().nullable(),
-    approved_at: z.string().nullable(),
-    billable_days_snapshot: z.number().int().positive().nullable(),
-    camera_id: z.uuid(),
-    currency: z.string().min(1),
-    current_contract_version_id: z.uuid().nullable(),
-    daily_rate_snapshot: z.number().nonnegative().nullable(),
-    expected_location: z.string().min(1),
-    id: z.uuid(),
-    intended_use: z.string().min(1),
-    meetup_snapshot_required: z.boolean(),
-    pickup_at: z.string().min(1),
-    rental_amount: z.number().nonnegative().nullable(),
-    requested_at: z.string().min(1),
-    return_at: z.string().min(1),
-    security_deposit_amount: z.number().nonnegative().nullable(),
-    state: resolutionBookingStateSchema,
-    total_due: z.number().nonnegative().nullable(),
-  }).strict(),
-  camera: z.object({
-    name: z.string().min(1),
-    slug: z.string().min(1),
-  }).strict().nullable(),
+  booking: safeBookingRowSchema,
+  camera: publicCameraIdentitySchema.nullable(),
   meetup: safeMeetupPlanRowSchema.nullable(),
   payment: paymentStateSchema,
   pickup: myPickupStateSchema,
   resolution: myResolutionStateSchema,
   versions: z.unknown(),
+}).strict();
+const accountOverviewSchema = z.object({
+  bookings: z.array(z.object({
+    booking: safeBookingRowSchema,
+    camera: publicCameraIdentitySchema.nullable(),
+    meetup: safeMeetupPlanRowSchema.nullable(),
+  }).strict()),
+  profile: safeProfileSchema.nullable(),
 }).strict();
 
 export type BookingDTO = ReturnType<typeof projectBooking>;
@@ -201,6 +217,58 @@ export async function loadAccountData(context: UserContext) {
           accountStatus: profileResult.data.account_status,
           legalName: profileResult.data.legal_name,
           phone: profileResult.data.phone,
+        }
+      : null,
+    status: "success" as const,
+  };
+}
+
+export async function loadAccountOverview(context: UserContext) {
+  const result = await context.supabase
+    .schema("api")
+    .rpc("get_my_account_overview");
+  const parsed = accountOverviewSchema.safeParse(result.data);
+  if (result.error || !parsed.success) return { status: "error" } as const;
+
+  if (parsed.data.bookings.some(
+    ({ booking, meetup }) => booking.meetup_snapshot_required && !meetup,
+  )) {
+    return { status: "error" } as const;
+  }
+
+  return {
+    bookings: parsed.data.bookings.map(({ booking, camera, meetup }) =>
+      projectBooking(
+        booking as SafeBookingRow,
+        camera,
+        meetup ? projectMeetupPlan(meetup) : null,
+      ),
+    ),
+    profile: parsed.data.profile
+      ? {
+          accountStatus: parsed.data.profile.account_status,
+          legalName: parsed.data.profile.legal_name,
+          phone: parsed.data.profile.phone,
+        }
+      : null,
+    status: "success" as const,
+  };
+}
+
+export async function loadAccountProfile(context: UserContext) {
+  const result = await context.supabase
+    .from("profiles")
+    .select("legal_name,phone,account_status")
+    .eq("user_id", context.user.id)
+    .maybeSingle();
+  const profile = safeProfileSchema.nullable().safeParse(result.data);
+  if (result.error || !profile.success) return { status: "error" } as const;
+  return {
+    profile: profile.data
+      ? {
+          accountStatus: profile.data.account_status,
+          legalName: profile.data.legal_name,
+          phone: profile.data.phone,
         }
       : null,
     status: "success" as const,

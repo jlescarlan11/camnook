@@ -365,6 +365,7 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: Json
       }
+      get_my_account_overview: { Args: never; Returns: Json }
       get_my_verification_upload_state: { Args: never; Returns: Json }
       get_meetup_recommendation_context: {
         Args: {

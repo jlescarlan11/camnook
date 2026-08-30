@@ -4,7 +4,7 @@ import Link from "next/link";
 import { logout } from "@/features/auth/actions";
 import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
-import { loadAccountData } from "@/features/bookings/data/account";
+import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { getAdminStatus } from "@/lib/auth/require-admin";
 import { requirePageUser } from "@/lib/auth/require-user";
@@ -19,7 +19,7 @@ export default async function AccountPage() {
   const context = await requirePageUser("/account");
   const [isAdmin, account] = await Promise.all([
     getAdminStatus(context),
-    loadAccountData(context),
+    loadAccountOverview(context),
   ]);
 
   return (

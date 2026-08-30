@@ -303,6 +303,12 @@ Data API requests for unapproved bookings and eight for approved bookings,
 including both sequential waterfalls, without exposing operator notes, identity
 evidence, payment-proof paths, or signature intent and request metadata.
 
+The account overview uses one owner-scoped profile-and-bookings snapshot instead
+of four Data API requests, so camera publication and safe meetup projections
+cannot come from different commits than the booking list. The new-booking page,
+which needs only the profile prerequisite, performs one exact safe-column profile
+read and no longer fetches the renter's booking, camera, or meetup history.
+
 ### Manual GCash records
 
 `public.payment_transactions`
@@ -500,7 +506,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-five forward migrations. On 13 August 2026, the four
+The repository contains forty-six forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

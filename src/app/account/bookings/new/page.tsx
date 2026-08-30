@@ -5,7 +5,7 @@ import { quoteBooking } from "@/features/bookings/actions/quote-booking";
 import { ProfileForm } from "@/features/bookings/components/profile-form";
 import { RequestForm } from "@/features/bookings/components/request-form";
 import { SiteHeader } from "@/features/bookings/components/site-header";
-import { loadAccountData } from "@/features/bookings/data/account";
+import { loadAccountProfile } from "@/features/bookings/data/account";
 import { loadCatalog } from "@/features/bookings/data/catalog";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { requirePageUser } from "@/lib/auth/require-user";
@@ -52,7 +52,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
   Object.entries(values).forEach(([name, value]) => quoteData.set(name, value));
   const [quoteState, account, catalog] = await Promise.all([
     quoteBooking({ status: "idle" }, quoteData),
-    loadAccountData(context),
+    loadAccountProfile(context),
     loadCatalog(),
   ]);
   const camera =

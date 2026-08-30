@@ -5,6 +5,8 @@ vi.mock("server-only", () => ({}));
 import {
   bookingPresentation,
   loadAccountData,
+  loadAccountOverview,
+  loadAccountProfile,
   loadBookingDetail,
   loadBookingDetailContext,
   projectBooking,
@@ -102,6 +104,61 @@ describe("renter booking projection", () => {
     expect(selections.get("bookings")).not.toContain("renter_id");
     expect(selections.get("bookings")).not.toContain("operator_notes");
     expect(filters).toContainEqual(["bookings", "renter_id", "user-1"]);
+  });
+
+  it("loads the account overview through one owner-scoped snapshot RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        bookings: [{
+          booking: baseRow,
+          camera: { name: "Fujifilm X-T5", slug: "fujifilm-x-t5" },
+          meetup: null,
+        }],
+        profile: {
+          account_status: "active",
+          legal_name: "Maria Santos",
+          phone: "+63 917 123 4567",
+        },
+      },
+      error: null,
+    });
+    const context = {
+      supabase: { schema: vi.fn(() => ({ rpc })) },
+      user: { id: "user-1" },
+    } as never;
+
+    await expect(loadAccountOverview(context)).resolves.toMatchObject({
+      bookings: [{ camera: { name: "Fujifilm X-T5" }, id: baseRow.id }],
+      profile: { accountStatus: "active", legalName: "Maria Santos" },
+      status: "success",
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("get_my_account_overview");
+  });
+
+  it("loads only the safe profile prerequisite on the booking request page", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        account_status: "active",
+        legal_name: "Maria Santos",
+        phone: "+63 917 123 4567",
+      },
+      error: null,
+    });
+    const eq = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    const from = vi.fn(() => ({ select }));
+
+    await expect(loadAccountProfile({
+      supabase: { from } as never,
+      user: { id: "user-1" },
+    } as never)).resolves.toMatchObject({
+      profile: { accountStatus: "active", legalName: "Maria Santos" },
+      status: "success",
+    });
+    expect(from).toHaveBeenCalledWith("profiles");
+    expect(select).toHaveBeenCalledWith("legal_name,phone,account_status");
+    expect(eq).toHaveBeenCalledWith("user_id", "user-1");
   });
 
   it("returns the same missing result for an absent or owner-RLS-hidden booking", async () => {
