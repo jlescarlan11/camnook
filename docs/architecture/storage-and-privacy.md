@@ -77,11 +77,11 @@ The relevant operation:
 - creates an application metadata row with a random object path, expected MIME/size limits, expiry time, and `pending` status; and
 - returns only what is needed for an authenticated upload.
 
-For verification documents, no intent is issued until the privacy/retention
-launch gate and exact notice-specific consent are current. Authenticated clients
-have no execute grant on mutation/path RPCs. The Server Action authenticates the
-owner, validates the bytes and affirmative consent, and calls a narrow server-only
-service-role RPC with matching owner/actor IDs.
+In the retired verification design, no intent could be issued until the
+privacy/retention launch gate and exact notice-specific consent were current.
+Authenticated clients had no execute grant on mutation/path RPCs; the former
+Server Action authenticated the owner and used a narrow service-role boundary.
+No application action now exposes that path.
 
 Payment proof intents use the same server-owned trust boundary but are tied to
 the owner's exact submitted transaction. The fixed policy accepts JPEG/PNG up to
@@ -101,7 +101,7 @@ database authorization.
 
 ### 2. Upload and finalize
 
-The Storage `INSERT` policy requires an unexpired pending metadata row whose owner matches `(select auth.uid())`, bucket, exact object path, MIME, and byte size, and rechecks that the profile is active and the current policy/notice still match. `UPDATE`/upsert is denied. For government IDs, the Server Action also checks the file signature, downloads the stored object, and verifies byte size and SHA-256 before database finalization. Finalization rechecks Storage metadata, active-account status, and the current policy/notice, freezes the evidence row, and appends minimal audit data.
+The Storage `INSERT` policy requires an unexpired pending metadata row whose owner matches `(select auth.uid())`, bucket, exact object path, MIME, and byte size, and rechecks that the profile is active and the current policy/notice still match. `UPDATE`/upsert is denied. The retired government-ID flow additionally checked file signature, downloaded the stored object, and verified byte size and SHA-256 before database finalization. That application flow no longer exists; retained finalization rules document historical integrity only.
 
 Abandoned upload intents expire and may be cleaned without affecting domain
 history. A retry that finds an existing immutable payment-proof object first
@@ -139,12 +139,12 @@ Preferred access is an authenticated Storage download where RLS is evaluated. Wh
 
 Supabase signed URLs remain valid until their expiry even if Auth signing keys rotate and currently cannot be individually revoked. That is why expiry is deliberately short. URLs are never logged, persisted, emailed, or embedded in durable HTML.
 
-Sprint 2 adds one narrow government-ID exception to the Sprint 1 direct-read
+Sprint 2 historically added one narrow government-ID exception to the Sprint 1 direct-read
 denial. The database re-authorizes the current sole application admin, requires
 the exact `identity_review` purpose, checks that the submission and retained
 document are still current, and writes a path-free audit event before returning
-the object path to the Server Action. The Server Action uses the server-only
-Storage client to issue a 60-second signed URL. The URL, token, path, digest, and
+the object path. No current Server Action consumes that grant or issues a signed
+URL. The URL, token, path, digest, and
 content are never written to database audit metadata or application logs. Direct
 admin Storage `SELECT`, bulk export, and access to terminal/superseded evidence
 remain denied. Strong reviewer authentication and the operating escalation and
@@ -156,12 +156,12 @@ Policies on `storage.objects` are bucket- and operation-specific.
 
 | Operation | Public listing | Private owner evidence | Private admin evidence |
 | --- | --- | --- | --- |
-| `SELECT` | Public delivery by bucket setting | Exact path must join finalized owner metadata or an active owner upload/cleanup intent | Direct read denied; current sole admin receives only a database-authorized, server-issued 60-second signed URL for `identity_review` |
+| `SELECT` | Public delivery by bucket setting | Exact path must join finalized owner metadata or an active owner upload/cleanup intent | Direct read denied; the historical database grant required sole-admin `identity_review`, but no application action now issues a URL |
 | `INSERT` | Exact-path authenticated admin copy only; draft upload goes to private staging | Exact unexpired upload-intent path owned by `auth.uid()` with matching MIME/size | Denied for government IDs in Sprint 1 |
 | `UPDATE` | Denied | Denied | Denied |
 | `DELETE` | Exact-path admin abort/archive cleanup only | Exact owner path only while intent cleanup is pending or deletion has been durably claimed after an owner request and is not held | Retention worker deletes only database-claimed due paths; application admin is denied |
 
-Storage policies do not depend on `user_metadata`. `TO authenticated` is combined with ownership or `private.is_admin()`. Catalog photo publication uses the admin's short-lived user token so Storage RLS remains authoritative; it does not need a service key. The government-ID Server Action uses the renter token for owner Storage RLS and a server-only service key only for narrow mutation RPCs. The protected retention worker uses that service key to delete only paths atomically claimed by the database; its finalizer independently verifies absence and preserves system audit history.
+Storage policies do not depend on `user_metadata`. `TO authenticated` is combined with ownership or `private.is_admin()`. Catalog photo publication uses the admin's short-lived user token so Storage RLS remains authoritative; it does not need a service key. The retired government-ID action formerly used the renter token plus narrow service-role RPCs; it is absent from application source. The protected retention worker still uses the service key to delete only paths atomically claimed by the database; its finalizer independently verifies absence and preserves system audit history.
 
 ## File metadata and lifecycle
 
