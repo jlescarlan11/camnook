@@ -664,6 +664,19 @@ begin
   end if;
 
   if has_function_privilege(
+      'anon', 'api.get_booking_request_page_context(uuid,date,date,time without time zone,bigint)', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'service_role', 'api.get_booking_request_page_context(uuid,date,date,time without time zone,bigint)', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_booking_request_page_context(uuid,date,date,time without time zone,bigint)', 'EXECUTE'
+    )
+  then
+    raise exception 'booking request page context privileges were broader or narrower than intended';
+  end if;
+
+  if has_function_privilege(
       'anon', 'api.get_admin_dashboard_context(date,date)', 'EXECUTE'
     )
     or not has_function_privilege(

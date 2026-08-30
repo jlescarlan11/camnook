@@ -387,6 +387,16 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: Json
       }
+      get_booking_request_page_context: {
+        Args: {
+          p_camera_id: string
+          p_handoff_time: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_return_date: string
+        }
+        Returns: Json
+      }
       get_admin_contract_context: {
         Args: { p_booking_id: string }
         Returns: Json

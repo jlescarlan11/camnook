@@ -176,6 +176,35 @@ end;
 $$;
 
 reset role;
+set local role authenticated;
+set local "request.jwt.claim.sub" = 'c0000000-0000-4000-8000-000000000002';
+
+do $$
+declare
+  monday date :=
+    (statement_timestamp() at time zone 'Asia/Manila')::date
+    + (((8 - extract(dow from statement_timestamp() at time zone 'Asia/Manila')::integer) % 7) + 7);
+  context jsonb := api.get_booking_request_page_context(
+    'c0100000-0000-4000-8000-000000000001',
+    monday,
+    monday + 2,
+    '09:00',
+    1
+  );
+begin
+  if context #>> '{profile,legal_name}' <> 'Schedule Renter'
+    or context #>> '{camera,id}' <> 'c0100000-0000-4000-8000-000000000001'
+    or context #>> '{camera,name}' <> 'Schedule Camera'
+    or context #>> '{quote,camera_id}' <> 'c0100000-0000-4000-8000-000000000001'
+    or (context #>> '{quote,billable_days}')::integer <> 2
+    or context::text ~* 'serial_number|private-schedule-serial|availability|reason'
+  then
+    raise exception 'booking request page context was incomplete or overexposed';
+  end if;
+end;
+$$;
+
+reset role;
 set local role service_role;
 set local "request.jwt.claim.sub" = 'c0000000-0000-4000-8000-000000000002';
 set local "request.jwt.claim.role" = 'service_role';

@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { quoteBooking } from "@/features/bookings/actions/quote-booking";
 import { ProfileForm } from "@/features/bookings/components/profile-form";
 import { RequestForm } from "@/features/bookings/components/request-form";
 import { SiteHeader } from "@/features/bookings/components/site-header";
-import { loadAccountProfile } from "@/features/bookings/data/account";
-import { loadCatalog } from "@/features/bookings/data/catalog";
+import { loadBookingRequestPageContext } from "@/features/bookings/data/booking-request-page";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { requirePageUser } from "@/lib/auth/require-user";
 
@@ -48,19 +46,11 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
   };
   const query = new URLSearchParams(values).toString();
   const context = await requirePageUser(`/account/bookings/new?${query}`);
-  const quoteData = new FormData();
-  Object.entries(values).forEach(([name, value]) => quoteData.set(name, value));
-  const [quoteState, account, catalog] = await Promise.all([
-    quoteBooking({ status: "idle" }, quoteData),
-    loadAccountProfile(context),
-    loadCatalog(),
-  ]);
-  const camera =
-    catalog.status === "success"
-      ? catalog.cameras.find((item) => item.id === values.camera)
-      : undefined;
-  const quote = quoteState.status === "success" ? quoteState.quote : undefined;
-  const ready = account.status === "success" && camera && quote;
+  const requestContext = await loadBookingRequestPageContext(context, values);
+  const camera = requestContext.status === "success" ? requestContext.camera : undefined;
+  const quote = requestContext.status === "success" ? requestContext.quote : undefined;
+  const profile = requestContext.status === "success" ? requestContext.profile : undefined;
+  const ready = camera && quote;
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">
@@ -98,13 +88,13 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
               </dl>
             </section>
 
-            {!account.profile ? (
+            {!profile ? (
               <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="profile-prerequisite-heading">
                 <h2 className="text-2xl font-semibold" id="profile-prerequisite-heading">Complete your profile first</h2>
                 <p className="mt-2 text-sm leading-6 text-stone-600">Your legal name and phone are required before a booking request can be submitted.</p>
                 <ProfileForm />
               </section>
-            ) : account.profile.accountStatus === "suspended" ? (
+            ) : profile.accountStatus === "suspended" ? (
               <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
                 <h2 className="text-xl font-semibold">Requests are unavailable</h2>
                 <p className="mt-2 leading-7">This account is suspended and cannot submit requests. Contact CamNook for help.</p>

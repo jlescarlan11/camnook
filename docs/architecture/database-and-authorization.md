@@ -218,6 +218,12 @@ same owner-scoped account snapshot as its profile and bookings. This replaces a
 second authorization RPC with one boolean computed by the database's existing
 admin predicate, reducing valid account-page database requests from two to one.
 
+The authenticated booking-request page reads its safe renter profile, selected
+published camera identity, and authoritative schedule quote through one
+purpose-built context RPC. This replaces three independent requests with one
+(66.7% fewer), avoids downloading the full catalog for a single camera, and
+reuses the same database quote authority used by interactive schedule quotes.
+
 ### Requests, reservations, and exclusion constraint
 
 `public.bookings`
@@ -536,7 +542,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains fifty-one forward migrations. On 13 August 2026, the four
+The repository contains fifty-two forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
