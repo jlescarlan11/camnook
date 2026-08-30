@@ -224,6 +224,45 @@ select api.configure_gcash_recipient(
 
 do $$
 declare
+  first_configuration jsonb;
+  retry_configuration jsonb;
+begin
+  first_configuration := api.get_gcash_recipient_configuration_admin();
+  retry_configuration := api.configure_gcash_recipient(
+    'CamNook Approved Recipient',
+    '09171234567',
+    true,
+    '60500000-0000-4000-8000-000000000010'
+  );
+
+  if retry_configuration ->> 'enabled' <> first_configuration ->> 'enabled'
+    or retry_configuration ->> 'version' <> first_configuration ->> 'version'
+  then
+    raise exception 'unchanged GCash recipient save created a duplicate configuration decision';
+  end if;
+end;
+$$;
+
+set local role postgres;
+
+do $$
+begin
+  if (
+    select count(*)
+    from private.audit_logs
+    where action = 'configure_gcash_recipient'
+      and entity_type = 'payment_configuration'
+      and outcome = 'success'
+  ) <> 1 then
+    raise exception 'unchanged GCash recipient save created a duplicate audit event';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
   configuration jsonb := api.get_gcash_recipient_configuration_admin();
 begin
   if not (configuration ->> 'enabled')::boolean
