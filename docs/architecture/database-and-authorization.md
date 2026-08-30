@@ -266,6 +266,9 @@ ahead of authorization.
 Contract supersession also delegates its sole administrator check to the
 transactional replacement RPC, so a valid replacement uses one database call
 while stale, availability-conflict, and indeterminate outcomes remain distinct.
+GCash recipient configuration and payment verify/reject decisions use the same
+one-RPC mutation boundary. Proof access retains an explicit preauthorization
+because it proceeds to private Storage after receiving a purpose-bound grant.
 
 Profile saves and booking submissions enforce profile state inside their
 authoritative mutation RPCs, without a separate client-side profile lookup.

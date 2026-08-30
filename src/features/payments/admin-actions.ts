@@ -11,6 +11,7 @@ import {
   isAuthenticationError,
   requireAdmin,
 } from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import {
@@ -86,9 +87,9 @@ export async function configureGcashRecipient(
     return { error: "invalid", fieldErrors, status: "error" };
   }
 
-  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  let context: Awaited<ReturnType<typeof requireUser>>;
   try {
-    context = await requireAdmin();
+    context = await requireUser();
   } catch (error) {
     return {
       error: isAuthorizationDenial(error) ? "unauthorized" : "indeterminate",
@@ -292,9 +293,9 @@ export async function decidePayment(
     return { action, fieldErrors, status: "error" };
   }
 
-  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  let context: Awaited<ReturnType<typeof requireUser>>;
   try {
-    context = await requireAdmin();
+    context = await requireUser();
   } catch (error) {
     return {
       action,

@@ -12,13 +12,12 @@ vi.mock("@/lib/auth/require-admin", () => {
   };
 });
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: vi.fn() }));
+vi.mock("@/lib/auth/require-user", () => ({ requireUser: vi.fn() }));
 
 import { revalidatePath } from "next/cache";
 
-import {
-  AdminAuthorizationRequiredError,
-  requireAdmin,
-} from "@/lib/auth/require-admin";
+import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import {
@@ -42,9 +41,9 @@ function verifyForm() {
   return data;
 }
 
-function authorize(result: unknown) {
+function authenticate(result: unknown) {
   const rpc = vi.fn().mockResolvedValue(result);
-  vi.mocked(requireAdmin).mockResolvedValue({
+  vi.mocked(requireUser).mockResolvedValue({
     supabase: { schema: vi.fn(() => ({ rpc })) },
     user: { id: ADMIN_ID },
   } as never);
@@ -55,7 +54,7 @@ describe("payment admin actions", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("activates a validated GCash recipient without accepting an enable toggle", async () => {
-    const rpc = authorize({ data: { enabled: true, version: 4 }, error: null });
+    const rpc = authenticate({ data: { enabled: true, version: 4 }, error: null });
     const data = new FormData();
     data.set("recipientAccount", "09171234567");
     data.set("recipientName", "CamNook Recipient");
@@ -80,13 +79,14 @@ describe("payment admin actions", () => {
 
     expect(result).toMatchObject({ action: "verify", status: "error" });
     expect(result.fieldErrors?.actualAccount).toContain("not from the screenshot");
-    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it("rechecks sole-admin authorization inside every decision", async () => {
-    vi.mocked(requireAdmin).mockRejectedValue(
-      new AdminAuthorizationRequiredError(),
-    );
+  it("maps the mutation's sole-admin authorization denial", async () => {
+    authenticate({
+      data: null,
+      error: { code: "42501", message: "admin authorization required" },
+    });
 
     await expect(
       decidePayment({ status: "idle" }, verifyForm()),
@@ -98,7 +98,7 @@ describe("payment admin actions", () => {
   });
 
   it("sends observed account facts and never client-supplied allocations", async () => {
-    const rpc = authorize({
+    const rpc = authenticate({
       data: {
         booking_state: "CONFIRMED",
         created: true,
