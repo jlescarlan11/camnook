@@ -96,6 +96,11 @@ describe("verification evidence cleanup cron route", () => {
     vi.mocked(cleanupDueVerificationEvidence).mockRejectedValue(
       new Error("private object path and owner detail"),
     );
+    vi.mocked(cleanupAbandonedPrivateUploads).mockResolvedValue({
+      claimed: 2,
+      cleaned: 2,
+      failed: 0,
+    });
 
     const response = await GET(
       new Request("https://camnook.test/api/internal/verification-evidence-cleanup", {
@@ -104,9 +109,17 @@ describe("verification evidence cleanup cron route", () => {
     );
 
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({ error: "cleanup_failed" });
+    await expect(response.json()).resolves.toEqual({
+      abandonedUploads: { claimed: 2, cleaned: 2, failed: 0 },
+      verification: { claimed: 0, cleaned: 0, expired: 0, failed: 1 },
+    });
+    expect(cleanupAbandonedPrivateUploads).toHaveBeenCalledOnce();
     expect(consoleError).toHaveBeenCalledWith(
       "Private evidence cleanup failed",
+      {
+        abandonedUploads: { claimed: 2, cleaned: 2, failed: 0 },
+        verification: { claimed: 0, cleaned: 0, expired: 0, failed: 1 },
+      },
     );
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
       "private object path",
