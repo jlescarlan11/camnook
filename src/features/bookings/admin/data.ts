@@ -2,7 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { requireAdmin } from "@/lib/auth/require-admin";
+import {
+  isAdminAuthorizationError,
+  type requireAdmin,
+} from "@/lib/auth/require-admin";
 import {
   projectMeetupPlan,
   safeMeetupPlanRowSchema,
@@ -417,6 +420,14 @@ export async function loadAdminBookingPageContext(
   const response = await context.supabase
     .schema("api")
     .rpc("get_admin_booking_page_context", { p_booking_id: bookingId });
+  if (isAdminAuthorizationError(response.error)) {
+    return {
+      contractData: null,
+      pickupData: null,
+      resolutionData: null,
+      result: { status: "forbidden" as const },
+    };
+  }
   if (response.error?.code === "P0002") {
     return {
       contractData: null,

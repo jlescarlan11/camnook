@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 
 import { DecisionControls } from "@/features/bookings/admin/decision-controls";
 import { loadAdminBookingPageContext } from "@/features/bookings/admin/data";
@@ -15,7 +16,8 @@ import {
 } from "@/features/bookings/manila-time";
 import { ContractDetails } from "@/features/contracts/components/contract-details";
 import { SupersedeContractControl } from "@/features/contracts/components/supersede-contract-control";
-import { requirePageAdmin } from "@/lib/auth/require-admin";
+import { getAdminStatus } from "@/lib/auth/require-admin";
+import { requirePageUser } from "@/lib/auth/require-user";
 import { PickupControls } from "@/features/pickup/pickup-controls";
 import {
   ResolutionControls,
@@ -48,7 +50,11 @@ type AdminBookingPageProps = {
 
 export default async function AdminBookingPage({ params }: AdminBookingPageProps) {
   const { bookingId } = await params;
-  const context = await requirePageAdmin(`/admin/bookings/${bookingId}`);
+  const context = await requirePageUser(`/admin/bookings/${bookingId}`);
+  if (!z.uuid().safeParse(bookingId).success) {
+    if (!(await getAdminStatus(context))) redirect("/forbidden");
+    notFound();
+  }
   const {
     contractData,
     pickupData,
@@ -56,6 +62,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
     result,
   } = await loadAdminBookingPageContext(context, bookingId);
 
+  if (result.status === "forbidden") redirect("/forbidden");
   if (result.status === "missing") notFound();
   const resolutionOperationIds: ResolutionOperationIds | null =
     resolutionData?.status === "success"

@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAdminCameraHandoffPolicy } from "@/features/listings/handoff-data";
 import { HandoffPolicyForm } from "@/features/listings/handoff-policy-form";
-import { requirePageAdmin } from "@/lib/auth/require-admin";
+import { getAdminStatus } from "@/lib/auth/require-admin";
+import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +21,14 @@ export default async function CameraHandoffPage({
   params: Promise<{ cameraId: string }>;
 }) {
   const { cameraId } = await params;
-  const context = await requirePageAdmin(`/admin/cameras/${cameraId}/handoff`);
+  const context = await requirePageUser(`/admin/cameras/${cameraId}/handoff`);
+  if (!z.uuid().safeParse(cameraId).success) {
+    if (!(await getAdminStatus(context))) redirect("/forbidden");
+    notFound();
+  }
   const result = await loadAdminCameraHandoffPolicy(context, cameraId);
 
+  if (result.status === "forbidden") redirect("/forbidden");
   if (result.status === "missing") notFound();
 
   return (

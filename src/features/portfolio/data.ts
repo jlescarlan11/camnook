@@ -6,7 +6,10 @@ import {
   adminCameraHandoffSummarySchema,
   projectAdminCameraHandoffSummary,
 } from "@/features/listings/handoff-data";
-import type { requireAdmin } from "@/lib/auth/require-admin";
+import {
+  isAdminAuthorizationError,
+  type requireAdmin,
+} from "@/lib/auth/require-admin";
 import { gcashRecipientConfigurationSchema } from "@/features/payments/types";
 
 import {
@@ -74,6 +77,9 @@ export async function loadAdminDashboardContext(
     },
   );
   const parsed = adminDashboardContextSchema.safeParse(result.data);
+  if (isAdminAuthorizationError(result.error)) {
+    return { forbidden: true as const };
+  }
   const portfolioValid = !period || (
     parsed.success &&
     parsed.data.portfolio !== null &&

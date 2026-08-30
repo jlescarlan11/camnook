@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { loadPaymentReviewDetail } from "@/features/payments/data";
 import { PaymentReviewControls } from "@/features/payments/payment-review-controls";
-import { requirePageAdmin } from "@/lib/auth/require-admin";
+import { getAdminStatus } from "@/lib/auth/require-admin";
+import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -28,9 +30,14 @@ function formatBytes(bytes: number) {
 
 export default async function AdminPaymentPage({ params }: PageProps) {
   const { paymentId } = await params;
-  const context = await requirePageAdmin(`/admin/payments/${paymentId}`);
+  const context = await requirePageUser(`/admin/payments/${paymentId}`);
+  if (!z.uuid().safeParse(paymentId).success) {
+    if (!(await getAdminStatus(context))) redirect("/forbidden");
+    notFound();
+  }
   const result = await loadPaymentReviewDetail(context, paymentId);
 
+  if (result.status === "forbidden") redirect("/forbidden");
   if (result.status === "missing") notFound();
 
   return (

@@ -2,7 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { requireAdmin } from "@/lib/auth/require-admin";
+import {
+  isAdminAuthorizationError,
+  type requireAdmin,
+} from "@/lib/auth/require-admin";
 import type { requireUser } from "@/lib/auth/require-user";
 
 import {
@@ -84,6 +87,9 @@ export async function loadPaymentReviewDetail(
     .rpc("get_admin_payment_review_context", { p_payment_id: paymentId });
   const parsed = paymentReviewContextSchema.safeParse(contextResult.data);
 
+  if (isAdminAuthorizationError(contextResult.error)) {
+    return { status: "forbidden" } as const;
+  }
   if (contextResult.error?.code === "P0002") {
     return { status: "missing" } as const;
   }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { logout } from "@/features/auth/actions";
 import { SiteHeader } from "@/features/bookings/components/site-header";
@@ -9,7 +10,7 @@ import {
   OwnerPortfolioPanel,
 } from "@/features/portfolio/owner-dashboard";
 import { resolvePortfolioPeriod } from "@/features/portfolio/period";
-import { requirePageAdmin } from "@/lib/auth/require-admin";
+import { requirePageUser } from "@/lib/auth/require-user";
 import { GcashConfigurationForm } from "@/features/payments/gcash-configuration-form";
 
 export const dynamic = "force-dynamic";
@@ -23,18 +24,21 @@ type AdminPageProps = {
 };
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
-  const context = await requirePageAdmin("/admin");
+  const context = await requirePageUser("/admin");
   const periodSelection = resolvePortfolioPeriod(await searchParams);
+
+  const dashboard = await loadAdminDashboardContext(
+    context,
+    periodSelection.status === "valid" ? periodSelection.period : null,
+  );
+  if ("forbidden" in dashboard) redirect("/forbidden");
 
   const {
     gcashConfiguration,
     handoffPolicies,
     operations,
     portfolio,
-  } = await loadAdminDashboardContext(
-    context,
-    periodSelection.status === "valid" ? periodSelection.period : null,
-  );
+  } = dashboard;
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">

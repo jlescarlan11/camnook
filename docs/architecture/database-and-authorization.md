@@ -250,6 +250,12 @@ computed from one database statement rather than a mixture of commits. Known
 quote ineligibility remains a fail-closed `quote_unavailable` readiness reason;
 unexpected database failures fail the whole detail read.
 
+Admin pages use their purpose-built data RPC as the database authorization
+check instead of calling `api.is_admin` first and then rechecking inside the
+data function. Only the exact `42501` admin-authorization signal redirects to
+`/forbidden`; transport and schema failures remain fail-closed error states.
+This reduces valid admin-page database RPCs from two to one.
+
 `public.availability_blocks`
 
 - `id` PK; `camera_id`; optional unique `booking_id`; `kind`; `starts_at`; `ends_at`; generated stored `period = tstzrange(starts_at, ends_at, '[)')`; creator; reason; and `released_at`/`released_by`.

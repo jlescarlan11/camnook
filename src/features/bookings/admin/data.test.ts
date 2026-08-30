@@ -534,6 +534,21 @@ describe("admin booking detail data", () => {
     });
   });
 
+  it("preserves the database admin denial for the page redirect", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "42501", message: "admin authorization required" },
+    });
+    const context = {
+      supabase: { schema: vi.fn(() => ({ rpc })) },
+      user: { id: "authenticated-renter" },
+    } as never;
+
+    await expect(
+      loadAdminBookingPageContext(context, BOOKING_ID),
+    ).resolves.toMatchObject({ result: { status: "forbidden" } });
+  });
+
   it("keeps a quote failure as a fail-closed readiness reason without raw details", async () => {
     const harness = adminContext(detailResults(), {
       data: null,

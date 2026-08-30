@@ -159,6 +159,17 @@ describe("payment data projections", () => {
     expect(JSON.stringify(loaded)).not.toMatch(/object_path|sha256|signed_url/);
   });
 
+  it("preserves the database admin denial for the page redirect", async () => {
+    const api = contextWith(async () => ({
+      data: null,
+      error: { code: "42501", message: "admin authorization required" },
+    }));
+
+    await expect(
+      loadPaymentReviewDetail(api.context, PAYMENT_ID),
+    ).resolves.toEqual({ status: "forbidden" });
+  });
+
   it("fails closed when split accounting is malformed", async () => {
     const api = contextWith(async () => ({
       data: { currency: "PHP", verified_revenue: 6000 },

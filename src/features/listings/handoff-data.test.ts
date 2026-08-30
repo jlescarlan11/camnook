@@ -83,6 +83,15 @@ describe("camera handoff admin data", () => {
     ).resolves.toEqual({ status: "missing" });
   });
 
+  it("preserves the database admin denial for the page redirect", async () => {
+    await expect(loadAdminCameraHandoffPolicy(context({
+      policyError: {
+        code: "42501",
+        message: "admin authorization required",
+      },
+    }).context, CAMERA_ID)).resolves.toEqual({ status: "forbidden" });
+  });
+
   it("summarizes configured and legacy cameras without private anchors", async () => {
     const fixture = context();
     const result = await loadAdminCameraHandoffSummaries(fixture.context);

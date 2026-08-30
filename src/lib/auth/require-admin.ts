@@ -27,6 +27,17 @@ export class AdminAuthorizationCheckError extends Error {
   }
 }
 
+export function isAdminAuthorizationError(error: unknown) {
+  return Boolean(
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "42501" &&
+    "message" in error &&
+    error.message === "admin authorization required",
+  );
+}
+
 export async function getAdminStatus({ supabase }: AuthenticatedContext) {
   const { data, error } = await supabase.schema("api").rpc("is_admin");
 

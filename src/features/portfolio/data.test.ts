@@ -92,6 +92,17 @@ describe("owner portfolio data loaders", () => {
     });
   });
 
+  it("preserves the database admin denial for the page redirect", async () => {
+    const api = contextWith(async () => ({
+      data: null,
+      error: { code: "42501", message: "admin authorization required" },
+    }));
+
+    await expect(
+      loadAdminDashboardContext(api.context, null),
+    ).resolves.toEqual({ forbidden: true });
+  });
+
   it("fails closed on count drift or an unexpected sensitive field", async () => {
     const api = contextWith(async () => ({
       data: {

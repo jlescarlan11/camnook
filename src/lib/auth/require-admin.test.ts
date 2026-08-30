@@ -16,6 +16,7 @@ import {
   AdminAuthorizationRequiredError,
   AdminAuthorizationCheckError,
   getAdminStatus,
+  isAdminAuthorizationError,
   requireAdmin,
   requirePageAdmin,
 } from "./require-admin";
@@ -35,6 +36,21 @@ function contextWithRpcResult(result: unknown) {
 
 describe("administrator authorization", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("recognizes only the exact database admin denial", () => {
+    expect(isAdminAuthorizationError({
+      code: "42501",
+      message: "admin authorization required",
+    })).toBe(true);
+    expect(isAdminAuthorizationError({
+      code: "42501",
+      message: "transport proxy denied the request",
+    })).toBe(false);
+    expect(isAdminAuthorizationError({
+      code: "50000",
+      message: "admin authorization required",
+    })).toBe(false);
+  });
 
   it.each([true, false])(
     "returns the database-backed admin decision: %s",

@@ -2,7 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { requirePageAdmin } from "@/lib/auth/require-admin";
+import {
+  isAdminAuthorizationError,
+  type requirePageAdmin,
+} from "@/lib/auth/require-admin";
 
 import {
   MANILA_TIMEZONE,
@@ -56,6 +59,7 @@ export async function loadAdminCameraHandoffPolicy(
 ): Promise<
   | { policy: AdminHandoffPolicy; status: "success" }
   | { status: "error" }
+  | { status: "forbidden" }
   | { status: "missing" }
 > {
   if (!z.uuid().safeParse(cameraId).success) return { status: "missing" };
@@ -64,6 +68,7 @@ export async function loadAdminCameraHandoffPolicy(
     .schema("api")
     .rpc("get_camera_handoff_policy_admin", { p_camera_id: cameraId });
 
+  if (isAdminAuthorizationError(error)) return { status: "forbidden" };
   if (error?.code === "P0002") return { status: "missing" };
   if (error) return { status: "error" };
 
