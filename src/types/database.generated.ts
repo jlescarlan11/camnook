@@ -128,6 +128,13 @@ export type Database = {
         Args: { p_actor_user_id: string; p_request_count: number }
         Returns: boolean
       }
+      claim_privacy_email_forward: {
+        Args: {
+          p_email_sha256_hex: string
+          p_webhook_sha256_hex: string
+        }
+        Returns: Json
+      }
       get_gcash_recipient_configuration_admin: {
         Args: Record<PropertyKey, never>
         Returns: Json
@@ -159,6 +166,10 @@ export type Database = {
           p_privacy_notice_version: string
           p_sha256_hex: string
         }
+        Returns: Json
+      }
+      finalize_privacy_email_forward: {
+        Args: { p_email_sha256_hex: string }
         Returns: Json
       }
       authorize_verification_evidence_access: {

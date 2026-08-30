@@ -471,7 +471,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains thirty-four forward migrations. On 13 August 2026, the four
+The repository contains thirty-five forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

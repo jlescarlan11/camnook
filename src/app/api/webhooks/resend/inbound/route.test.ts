@@ -1,10 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const adminMocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 const resendMocks = vi.hoisted(() => ({
   getReceivedEmail: vi.fn(),
   listAttachments: vi.fn(),
   send: vi.fn(),
   verify: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: vi.fn(() => ({
+    schema: vi.fn(() => ({ rpc: adminMocks.rpc })),
+  })),
 }));
 
 vi.mock("resend", () => ({
@@ -95,6 +102,15 @@ describe("Resend inbound privacy email webhook", () => {
       error: null,
     });
     resendMocks.send.mockResolvedValue({ data: { id: "forwarded-email-id" }, error: null });
+    adminMocks.rpc.mockImplementation(async (name: string) => {
+      if (name === "claim_privacy_email_forward") {
+        return { data: { status: "claimed" }, error: null };
+      }
+      if (name === "finalize_privacy_email_forward") {
+        return { data: { status: "forwarded" }, error: null };
+      }
+      throw new Error(`unexpected RPC ${name}`);
+    });
   });
 
   afterEach(() => {
@@ -270,7 +286,60 @@ describe("Resend inbound privacy email webhook", () => {
       },
       { idempotencyKey: "privacy-forward-received-email-id" },
     );
+    expect(adminMocks.rpc).toHaveBeenCalledWith(
+      "claim_privacy_email_forward",
+      {
+        p_email_sha256_hex: expect.stringMatching(/^[0-9a-f]{64}$/),
+        p_webhook_sha256_hex: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
+    );
+    expect(JSON.stringify(adminMocks.rpc.mock.calls)).not.toContain("received-email-id");
+    expect(JSON.stringify(adminMocks.rpc.mock.calls)).not.toContain("webhook-delivery-id");
+    expect(adminMocks.rpc).toHaveBeenCalledWith(
+      "finalize_privacy_email_forward",
+      { p_email_sha256_hex: expect.stringMatching(/^[0-9a-f]{64}$/) },
+    );
     await expect(response.json()).resolves.toEqual({ accepted: true });
+  });
+
+  it("acknowledges a durable replay without retrieving or forwarding again", async () => {
+    adminMocks.rpc.mockResolvedValue({
+      data: { status: "forwarded" },
+      error: null,
+    });
+
+    const response = await POST(signedRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ accepted: true });
+    expect(resendMocks.getReceivedEmail).not.toHaveBeenCalled();
+    expect(resendMocks.send).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when an old unresolved forward requires reconciliation", async () => {
+    adminMocks.rpc.mockResolvedValue({
+      data: { status: "indeterminate" },
+      error: null,
+    });
+
+    const response = await POST(signedRequest());
+
+    expect(response.status).toBe(503);
+    expect(resendMocks.getReceivedEmail).not.toHaveBeenCalled();
+    expect(resendMocks.send).not.toHaveBeenCalled();
+  });
+
+  it("requests a safe retry when send succeeds but ledger finalization fails", async () => {
+    adminMocks.rpc.mockImplementation(async (name: string) =>
+      name === "claim_privacy_email_forward"
+        ? { data: { status: "claimed" }, error: null }
+        : { data: null, error: { message: "database unavailable" } },
+    );
+
+    const response = await POST(signedRequest());
+
+    expect(response.status).toBe(503);
+    expect(resendMocks.send).toHaveBeenCalledOnce();
   });
 
   it("honors a non-alias Reply-To supplied by the original sender", async () => {

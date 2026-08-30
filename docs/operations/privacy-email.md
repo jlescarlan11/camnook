@@ -29,13 +29,17 @@ The route at `/api/webhooks/resend/inbound`:
 3. accepts only `email.received` events whose envelope addresses include exactly
    `privacy@camnook.shop`;
 4. refuses messages whose sender is the privacy alias, preventing a loop;
-5. retrieves the verified inbound message, lists attachment download URLs in
+5. hashes the received-email and webhook IDs, then claims a private database
+   ledger row before any forwarding provider call;
+6. acknowledges an already-forwarded ledger entry without retrieving or sending
+   the message again;
+7. retrieves the verified inbound message, lists attachment download URLs in
    pages of up to 100 instead of issuing one provider request per attachment,
    verifies the complete attachment-ID set, re-sends them with `Reply-To` set to
    the sender's safe reply target, and uses a stable idempotency key so an
    at-least-once webhook retry does not intentionally create a second message;
-   and
-6. returns only generic status responses and never logs the sender, recipient,
+8. finalizes the durable ledger only after Resend confirms the send; and
+9. returns only generic status responses and never logs the sender, recipient,
    subject, body, attachment metadata, or provider IDs.
 
 Resend's `email.received` webhook contains metadata only; message bodies and
@@ -49,6 +53,13 @@ and one idempotent send request. Do not replace the paginated list with parallel
 per-attachment retrieval; a message with only four attachments can otherwise
 exceed a five-request-per-second team limit once content retrieval and forwarding
 are included.
+
+The send idempotency key is provider-enforced for 24 hours. An unresolved ledger
+claim remains safely retryable for 20 hours, covering Resend's documented
+automatic retry schedule with margin. After that boundary the route makes no
+further provider call and returns a generic `503` requiring operator
+reconciliation. The private ledger stores only 32-byte SHA-256 digests and
+timestamps—never message content, addresses, subjects, or raw provider IDs.
 
 Resend retains inbound messages according to the account's provider settings.
 The forwarding destination must be protected with MFA and monitored on every
@@ -75,12 +86,20 @@ system, and follow the approved incident/deletion process.
    a reply can be addressed to the original synthetic sender.
 7. Send Resend's webhook test event, then confirm an invalid-signature request
    receives `401`, an over-limit request receives `413`, and a valid duplicate
-   does not produce duplicate forwarding.
+   does not produce duplicate forwarding. Confirm a replay after ledger
+   finalization is acknowledged without another provider content or send call.
 
 If forwarding fails, disable Receiving or remove the inbound root MX record,
 then investigate without logging message data. Restoring the previous DNS state
 stops new mail from entering this workflow; it does not delete mail Resend has
 already received.
+
+If the route reports that forwarding requires reconciliation, do not replay or
+manually resend first. Compare the received event and sent-message state in the
+restricted Resend dashboard, hash the received email ID locally, and reconcile
+that digest with the private ledger through an authorized, separately recorded
+database operation. Never copy the raw provider ID or message content into a
+ticket, shell history, or application log.
 
 The current Resend Free limits must be checked before rollout and monitored over
 time. A free provider tier is not a delivery guarantee. Upgrade or replace the

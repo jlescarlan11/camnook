@@ -1,7 +1,10 @@
+import { createHash } from "node:crypto";
+
 import { Resend } from "resend";
 import { z } from "zod";
 
 import { PRIVACY_EMAIL } from "@/features/privacy-email/constants";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +15,11 @@ const forwardingConfigSchema = z.object({
   destination: z.string().trim().pipe(z.email()),
   webhookSecret: z.string().trim().min(1),
 });
+const forwardLedgerResponseSchema = z
+  .object({
+    status: z.enum(["claimed", "forwarded", "indeterminate", "retry"]),
+  })
+  .strict();
 
 function normalizeMailbox(value: string) {
   const displayNameMatch = value.match(/<([^<>]+)>\s*$/);
@@ -39,6 +47,43 @@ function wasSentToPrivacyAddress(addresses: string[]) {
 function retryableForwardingFailure() {
   console.error("Privacy email forwarding failed; Resend will retry the webhook.");
   return Response.json({ accepted: false }, { status: 503 });
+}
+
+function providerIdDigest(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function claimPrivacyEmailForward(emailId: string, webhookId: string) {
+  try {
+    const admin = createSupabaseAdminClient();
+    const emailDigest = providerIdDigest(emailId);
+    const result = await admin.schema("api").rpc("claim_privacy_email_forward", {
+      p_email_sha256_hex: emailDigest,
+      p_webhook_sha256_hex: providerIdDigest(webhookId),
+    });
+    const parsed = forwardLedgerResponseSchema.safeParse(result.data);
+    return result.error || !parsed.success
+      ? null
+      : { admin, emailDigest, status: parsed.data.status };
+  } catch {
+    return null;
+  }
+}
+
+async function finalizePrivacyEmailForward(
+  claim: NonNullable<Awaited<ReturnType<typeof claimPrivacyEmailForward>>>,
+) {
+  try {
+    const result = await claim.admin
+      .schema("api")
+      .rpc("finalize_privacy_email_forward", {
+        p_email_sha256_hex: claim.emailDigest,
+      });
+    const parsed = forwardLedgerResponseSchema.safeParse(result.data);
+    return !result.error && parsed.success && parsed.data.status === "forwarded";
+  } catch {
+    return false;
+  }
 }
 
 async function readBoundedWebhookBody(request: Request) {
@@ -186,6 +231,19 @@ export async function POST(request: Request) {
     return new Response(null, { status: 204 });
   }
 
+  const forwardClaim = await claimPrivacyEmailForward(
+    event.data.email_id,
+    webhookId,
+  );
+  if (!forwardClaim) return retryableForwardingFailure();
+  if (forwardClaim.status === "forwarded") {
+    return Response.json({ accepted: true });
+  }
+  if (forwardClaim.status === "indeterminate") {
+    console.error("Privacy email forwarding requires operator reconciliation.");
+    return Response.json({ accepted: false }, { status: 503 });
+  }
+
   let receivedEmailResult;
 
   try {
@@ -241,6 +299,9 @@ export async function POST(request: Request) {
   }
 
   if (forwardingResult.error || !forwardingResult.data) {
+    return retryableForwardingFailure();
+  }
+  if (!(await finalizePrivacyEmailForward(forwardClaim))) {
     return retryableForwardingFailure();
   }
 
