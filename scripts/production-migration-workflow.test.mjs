@@ -6,6 +6,10 @@ const workflow = readFileSync(
   new URL("../.github/workflows/release.yml", import.meta.url),
   "utf8",
 );
+const productionAuthWorkflow = readFileSync(
+  new URL("../.github/workflows/configure-production-auth.yml", import.meta.url),
+  "utf8",
+);
 const vercelConfig = JSON.parse(
   readFileSync(new URL("../vercel.json", import.meta.url), "utf8"),
 );
@@ -114,5 +118,15 @@ describe("immutable release workflow policy", () => {
   it("uses the repository-pinned package manager for local release checks", () => {
     expect(prePushHook).toContain("corepack pnpm verify:push");
     expect(prePushHook).not.toMatch(/^pnpm verify:push$/m);
+  });
+});
+
+describe("Production Auth configuration workflow policy", () => {
+  it("never automatically retries an indeterminate hosted Auth mutation", () => {
+    expect(productionAuthWorkflow).toContain("--retry 0");
+    expect(productionAuthWorkflow).not.toContain("--retry-all-errors");
+    expect(productionAuthWorkflow).toContain(
+      "Production Auth configuration outcome is indeterminate; reconcile hosted Auth before any retry.",
+    );
   });
 });
