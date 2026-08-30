@@ -147,6 +147,12 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
 
 ### Verification
 
+These tables and operations are historical retention infrastructure. Online
+government-ID collection is retired: application source exposes no upload,
+account-state, evidence-access, review, or decision action/component. Only the
+protected expiry and evidence-cleanup worker remains active so existing records
+and private objects can complete their immutable retention lifecycle.
+
 `public.verification_records`
 
 - `id` PK, `user_id` FK, `status`, `id_type`, `document_expiration_date`, decision timestamps, `decided_by`, rejection reason, and `supersedes_id`.
@@ -269,9 +275,6 @@ while stale, availability-conflict, and indeterminate outcomes remain distinct.
 GCash recipient configuration and payment verify/reject decisions use the same
 one-RPC mutation boundary. Proof access retains an explicit preauthorization
 because it proceeds to private Storage after receiving a purpose-bound grant.
-Identity verification decisions also use this database-only boundary, while
-verification-evidence access remains preauthorized before a private Storage URL
-can be issued.
 The physical pickup completion transition is also database-only and delegates
 its admin check to `complete_pickup`; condition-photo upload and access retain
 preauthorization because they touch private Storage.
