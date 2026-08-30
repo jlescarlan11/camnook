@@ -137,7 +137,7 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
     const expiry = await admin.schema("api").rpc("expire_due_verifications", {
       p_operation_id: randomUUID(),
     });
-    const parsedExpiry = z.number().int().nonnegative().safeParse(expiry.data);
+    const parsedExpiry = z.number().int().nonnegative().max(100).safeParse(expiry.data);
     if (expiry.error || !parsedExpiry.success) failed += 1;
     else expired = parsedExpiry.data;
   } catch {

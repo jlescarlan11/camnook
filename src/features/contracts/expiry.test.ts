@@ -24,6 +24,7 @@ describe("due booking expiration", () => {
 
   it.each([
     { data: -1, error: null },
+    { data: 101, error: null },
     { data: null, error: { message: "private database detail" } },
   ])("fails closed on an invalid or failed database outcome", async (result) => {
     vi.mocked(createSupabaseAdminClient).mockReturnValue({

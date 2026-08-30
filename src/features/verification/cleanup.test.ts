@@ -276,6 +276,31 @@ describe("due verification evidence cleanup", () => {
     },
   );
 
+  it("fails the expiry unit when the database exceeds its batch contract", async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "expire_due_verifications") {
+        return { data: 101, error: null };
+      }
+      if (name === "claim_verification_evidence_cleanup") {
+        return { data: [], error: null };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    const remove = vi.fn();
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })),
+      storage: { from: vi.fn(() => ({ remove })) },
+    } as never);
+
+    await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
+      claimed: 0,
+      cleaned: 0,
+      expired: 0,
+      failed: 1,
+    });
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it.each(["returns an error", "throws"] as const)(
     "preserves completed expiry counts when the evidence claim %s",
     async (failureMode) => {
