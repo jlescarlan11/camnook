@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import {
-  loadAdminDashboardContext,
-  loadOwnerOperationsDashboard,
-  loadOwnerPortfolioReport,
-} from "./data";
+import { loadAdminDashboardContext } from "./data";
 import {
   emptyOwnerOperationsDashboard,
   emptyOwnerPortfolioReport,
@@ -26,30 +22,6 @@ function contextWith(
 }
 
 describe("owner portfolio data loaders", () => {
-  it("loads strict database-owned operations and period projections", async () => {
-    const api = contextWith(async (name) => ({
-      data:
-        name === "get_owner_operations_dashboard"
-          ? emptyOwnerOperationsDashboard
-          : emptyOwnerPortfolioReport,
-      error: null,
-    }));
-
-    await expect(
-      loadOwnerOperationsDashboard(api.context),
-    ).resolves.toMatchObject({ status: "success" });
-    await expect(
-      loadOwnerPortfolioReport(api.context, {
-        endDateExclusive: "2026-08-17",
-        startDate: "2026-08-01",
-      }),
-    ).resolves.toMatchObject({ status: "success" });
-    expect(api.rpc).toHaveBeenNthCalledWith(2, "get_owner_portfolio_report", {
-      p_period_end: "2026-08-17",
-      p_period_start: "2026-08-01",
-    });
-  });
-
   it("loads the complete admin dashboard through one snapshot RPC", async () => {
     const api = contextWith(async () => ({
       data: {
@@ -103,41 +75,68 @@ describe("owner portfolio data loaders", () => {
     ).resolves.toEqual({ forbidden: true });
   });
 
-  it("fails closed on count drift or an unexpected sensitive field", async () => {
+  it("fails the whole snapshot closed on an unexpected sensitive field", async () => {
     const api = contextWith(async () => ({
       data: {
-        ...emptyOwnerOperationsDashboard,
-        queue_counts: {
-          ...emptyOwnerOperationsDashboard.queue_counts,
-          payment: 1,
+        gcash_configuration: {
+          enabled: true,
+          recipient_account: "09171234567",
+          recipient_name: "CamNook Recipient",
+          version: 4,
         },
-        reference: "PRIVATE-FULL-REFERENCE",
+        handoff_policies: [],
+        operations: emptyOwnerOperationsDashboard,
+        portfolio: {
+          ...emptyOwnerPortfolioReport,
+        },
+        private_reference: "PRIVATE-FULL-REFERENCE",
       },
       error: null,
     }));
 
-    await expect(loadOwnerOperationsDashboard(api.context)).resolves.toEqual({
-      status: "error",
+    await expect(
+      loadAdminDashboardContext(api.context, {
+        endDateExclusive: "2026-08-17",
+        startDate: "2026-08-01",
+      }),
+    ).resolves.toEqual({
+      gcashConfiguration: { status: "error" },
+      handoffPolicies: { status: "error" },
+      operations: { status: "error" },
+      portfolio: { status: "error" },
     });
   });
 
-  it("fails closed when a report period or camera rollup does not match", async () => {
+  it("fails the whole snapshot closed when its period drifts", async () => {
     const api = contextWith(async () => ({
       data: {
-        ...emptyOwnerPortfolioReport,
+        gcash_configuration: {
+          enabled: true,
+          recipient_account: "09171234567",
+          recipient_name: "CamNook Recipient",
+          version: 4,
+        },
+        handoff_policies: [],
+        operations: emptyOwnerOperationsDashboard,
         portfolio: {
-          ...emptyOwnerPortfolioReport.portfolio,
-          camera_count: 1,
+          ...emptyOwnerPortfolioReport,
+          period: {
+            ...emptyOwnerPortfolioReport.period,
+            start_date: "2026-07-01",
+          },
         },
       },
       error: null,
     }));
 
     await expect(
-      loadOwnerPortfolioReport(api.context, {
+      loadAdminDashboardContext(api.context, {
         endDateExclusive: "2026-08-17",
         startDate: "2026-08-01",
       }),
-    ).resolves.toEqual({ status: "error" });
+    ).resolves.toMatchObject({
+      operations: { status: "error" },
+      portfolio: { status: "error" },
+    });
   });
 });
