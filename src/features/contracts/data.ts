@@ -2,10 +2,6 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { requireUser } from "@/lib/auth/require-user";
-
-type UserContext = Awaited<ReturnType<typeof requireUser>>;
-
 const accessorySchema = z.object({
   id: z.uuid(),
   name: z.string().min(1),
@@ -144,18 +140,6 @@ export function projectContractHistorySnapshot(
   if (!current) return { status: "inconsistent" } as const;
 
   return { agreement: { current, versions }, status: "success" } as const;
-}
-
-export async function loadAdminContractContext(
-  context: UserContext,
-  bookingId: string,
-  currentContractVersionId: string,
-) {
-  const result = await context.supabase
-    .schema("api")
-    .rpc("get_admin_contract_context", { p_booking_id: bookingId });
-  if (result.error) return { status: "error" } as const;
-  return projectAdminContractContext(result.data, currentContractVersionId);
 }
 
 export function projectAdminContractContext(

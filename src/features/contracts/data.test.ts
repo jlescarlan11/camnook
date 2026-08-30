@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import {
-  loadAdminContractContext,
+  projectAdminContractContext,
   projectContractHistorySnapshot,
 } from "./data";
 
@@ -99,75 +99,70 @@ describe("contract read model", () => {
   });
 
   it("rejects a malformed persisted snapshot instead of partially rendering it", () => {
-    expect(projectContractHistorySnapshot(
-      [
-        {
-          booking_id: BOOKING_ID,
-          id: VERSION_ID,
-          issued_at: "2026-08-15T00:00:00Z",
-          signature: null,
-          snapshot: { ...snapshot, renter: { legal_name: "" } },
-          status: "issued",
-          supersedes_id: null,
-          version_no: 1,
-        },
-      ],
-      VERSION_ID,
-    )).toEqual({ status: "error" });
+    expect(
+      projectContractHistorySnapshot(
+        [
+          {
+            booking_id: BOOKING_ID,
+            id: VERSION_ID,
+            issued_at: "2026-08-15T00:00:00Z",
+            signature: null,
+            snapshot: { ...snapshot, renter: { legal_name: "" } },
+            status: "issued",
+            supersedes_id: null,
+            version_no: 1,
+          },
+        ],
+        VERSION_ID,
+      ),
+    ).toEqual({ status: "error" });
   });
 
-  it("loads the complete admin contract context with one snapshot RPC", async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: {
-        audit: [{
-          action: "sign_contract",
-          actor_type: "renter",
-          actor_user_id: "77777777-7777-4777-8777-777777777777",
-          audit_id: 1,
-          contract_version_id: VERSION_ID,
-          occurred_at: "2026-08-15T01:00:00Z",
-          outcome: "success",
-          version_no: 1,
-        }],
-        cameras: [{
-          id: "11111111-1111-4111-8111-111111111111",
-          name: "Fujifilm X-T5",
-        }],
-        versions: [{
-          booking_id: BOOKING_ID,
-          id: VERSION_ID,
-          issued_at: "2026-08-15T00:00:00Z",
-          signature: {
-            id: "44444444-4444-4444-8444-444444444444",
-            signed_at: "2026-08-15T01:00:00Z",
-          },
-          snapshot,
-          status: "issued",
-          supersedes_id: null,
-          version_no: 1,
-        }],
-      },
-      error: null,
-    });
-    const context = {
-      supabase: {
-        from: vi.fn(),
-        schema: vi.fn(() => ({ rpc })),
-      },
-      user: { id: "admin" },
-    } as never;
-
-    await expect(
-      loadAdminContractContext(context, BOOKING_ID, VERSION_ID),
-    ).resolves.toMatchObject({
+  it("projects the embedded admin contract context", () => {
+    expect(
+      projectAdminContractContext(
+        {
+          audit: [
+            {
+              action: "sign_contract",
+              actor_type: "renter",
+              actor_user_id: "77777777-7777-4777-8777-777777777777",
+              audit_id: 1,
+              contract_version_id: VERSION_ID,
+              occurred_at: "2026-08-15T01:00:00Z",
+              outcome: "success",
+              version_no: 1,
+            },
+          ],
+          cameras: [
+            {
+              id: "11111111-1111-4111-8111-111111111111",
+              name: "Fujifilm X-T5",
+            },
+          ],
+          versions: [
+            {
+              booking_id: BOOKING_ID,
+              id: VERSION_ID,
+              issued_at: "2026-08-15T00:00:00Z",
+              signature: {
+                id: "44444444-4444-4444-8444-444444444444",
+                signed_at: "2026-08-15T01:00:00Z",
+              },
+              snapshot,
+              status: "issued",
+              supersedes_id: null,
+              version_no: 1,
+            },
+          ],
+        },
+        VERSION_ID,
+      ),
+    ).toMatchObject({
       agreement: { current: { id: VERSION_ID } },
       cameras: [{ name: "Fujifilm X-T5" }],
       events: [{ action: "sign_contract" }],
       status: "success",
-    });
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith("get_admin_contract_context", {
-      p_booking_id: BOOKING_ID,
     });
   });
 });
