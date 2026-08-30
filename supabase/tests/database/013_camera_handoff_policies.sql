@@ -48,6 +48,7 @@ do $$
 declare
   version bigint;
   policy jsonb;
+  summaries jsonb;
 begin
   version := api.replace_camera_handoff_policy(
     'b0100000-0000-4000-8000-000000000001',
@@ -75,6 +76,25 @@ begin
     or jsonb_array_length(policy -> 'approved_times') <> 2
   then
     raise exception 'admin read-back did not match the committed policy';
+  end if;
+
+  summaries := api.get_camera_handoff_summaries_admin();
+  if jsonb_array_length(summaries) <> 3
+    or summaries::text ~ 'provider:cebu-city|latitude|longitude|provider_city_id'
+    or exists (
+      select 1
+      from jsonb_array_elements(summaries) as source(item)
+      where item ->> 'camera_status' = 'archived'
+    )
+    or not exists (
+      select 1
+      from jsonb_array_elements(summaries) as source(item)
+      where item ->> 'camera_id' = 'b0100000-0000-4000-8000-000000000003'
+        and (item ->> 'enabled')::boolean = false
+        and (item ->> 'version')::bigint = 0
+    )
+  then
+    raise exception 'admin handoff summaries were incomplete or overexposed';
   end if;
 
   if (
@@ -234,6 +254,13 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    perform api.get_camera_handoff_summaries_admin();
+    raise exception 'anonymous caller invoked the admin summaries RPC';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -248,6 +275,13 @@ begin
       'b0100000-0000-4000-8000-000000000001'
     );
     raise exception 'renter read the admin policy contract';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_camera_handoff_summaries_admin();
+    raise exception 'renter read the admin handoff summaries';
   exception
     when insufficient_privilege then null;
   end;

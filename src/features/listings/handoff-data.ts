@@ -28,6 +28,15 @@ const adminPolicySchema = z.object({
   version: z.coerce.number().int().nonnegative(),
 });
 
+const adminSummarySchema = z.object({
+  camera_id: z.uuid(),
+  camera_name: z.string().min(1),
+  camera_status: z.enum(["draft", "published"]),
+  city_label: z.string().nullable(),
+  enabled: z.boolean(),
+  version: z.coerce.number().int().nonnegative(),
+});
+
 export async function loadAdminCameraHandoffPolicy(
   context: AdminContext,
   cameraId: string,
@@ -70,31 +79,21 @@ export async function loadAdminCameraHandoffSummaries(
   | { cameras: AdminCameraHandoffSummary[]; status: "success" }
   | { status: "error" }
 > {
-  const [camerasResult, policiesResult] = await Promise.all([
-    context.supabase
-      .from("cameras")
-      .select("id,name,status")
-      .neq("status", "archived")
-      .order("name"),
-    context.supabase
-      .from("camera_handoff_policies")
-      .select("camera_id,city_label,enabled,version"),
-  ]);
+  const result = await context.supabase
+    .schema("api")
+    .rpc("get_camera_handoff_summaries_admin");
+  const parsed = z.array(adminSummarySchema).safeParse(result.data);
 
-  if (camerasResult.error || policiesResult.error) return { status: "error" };
+  if (result.error || !parsed.success) return { status: "error" };
 
-  const policies = new Map(
-    (policiesResult.data ?? []).map((policy) => [policy.camera_id, policy]),
-  );
-  const cameras = (camerasResult.data ?? []).map((camera) => {
-    const policy = policies.get(camera.id);
+  const cameras = parsed.data.map((camera) => {
     return {
-      cameraId: camera.id,
-      cameraName: camera.name,
-      cameraStatus: camera.status,
-      cityLabel: policy?.city_label ?? null,
-      enabled: policy?.enabled ?? false,
-      version: policy?.version ?? 0,
+      cameraId: camera.camera_id,
+      cameraName: camera.camera_name,
+      cameraStatus: camera.camera_status,
+      cityLabel: camera.city_label,
+      enabled: camera.enabled,
+      version: camera.version,
     } satisfies AdminCameraHandoffSummary;
   });
 

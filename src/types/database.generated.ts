@@ -373,6 +373,7 @@ export type Database = {
         Returns: Json
       }
       get_owner_operations_dashboard: { Args: never; Returns: Json }
+      get_camera_handoff_summaries_admin: { Args: never; Returns: Json }
       get_owner_portfolio_report: {
         Args: { p_period_end: string; p_period_start: string }
         Returns: Json

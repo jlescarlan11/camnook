@@ -9,40 +9,22 @@ import {
 
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
 
-class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown }> {
-  constructor(private readonly result: { data: unknown; error: unknown }) {}
-  select() { return this; }
-  neq() { return this; }
-  order() { return this; }
-  then<TResult1 = { data: unknown; error: unknown }, TResult2 = never>(
-    onfulfilled?: ((value: { data: unknown; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-  ) {
-    return Promise.resolve(this.result).then(onfulfilled, onrejected);
-  }
-}
-
 function context(options?: { policy?: unknown; policyError?: unknown }) {
-  const rpc = vi.fn().mockResolvedValue({
-    data: options?.policy,
+  const rpc = vi.fn((name: string) => Promise.resolve({
+    data: name === "get_camera_handoff_summaries_admin"
+      ? [{
+          camera_id: CAMERA_ID,
+          camera_name: "Canon R50",
+          camera_status: "published",
+          city_label: "Cebu City",
+          enabled: true,
+          version: 2,
+        }]
+      : options?.policy,
     error: options?.policyError ?? null,
-  });
-  const from = vi.fn((table: string) =>
-    new QueryBuilder(
-      table === "cameras"
-        ? {
-            data: [{ id: CAMERA_ID, name: "Canon R50", status: "published" }],
-            error: null,
-          }
-        : {
-            data: [{ camera_id: CAMERA_ID, city_label: "Cebu City", enabled: true, version: 2 }],
-            error: null,
-          },
-    ),
-  );
+  }));
   return {
-    context: { supabase: { from, schema: vi.fn(() => ({ rpc })) } } as never,
-    from,
+    context: { supabase: { schema: vi.fn(() => ({ rpc })) } } as never,
     rpc,
   };
 }
@@ -118,7 +100,10 @@ describe("camera handoff admin data", () => {
       ],
       status: "success",
     });
-    expect(fixture.from).toHaveBeenCalledWith("camera_handoff_policies");
+    expect(fixture.rpc).toHaveBeenCalledTimes(1);
+    expect(fixture.rpc).toHaveBeenCalledWith(
+      "get_camera_handoff_summaries_admin",
+    );
     expect(JSON.stringify(result)).not.toMatch(/latitude|longitude|provider_city/);
   });
 });
