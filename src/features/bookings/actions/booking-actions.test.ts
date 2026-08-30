@@ -308,10 +308,11 @@ describe("saveProfile", () => {
 
   it("trims valid renter profile fields and sends only the two RPC parameters", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { account_status: "active" }, error: null });
-    const existing = profileQuery({ data: null, error: null });
     const api = rpcClient(rpc);
-    const supabase = { ...existing.client, ...api } as never;
-    vi.mocked(requireUser).mockResolvedValue({ supabase, user: { id: "user-1" } } as never);
+    vi.mocked(requireUser).mockResolvedValue({
+      supabase: api,
+      user: { id: "user-1" },
+    } as never);
 
     await expect(
       saveProfile(
@@ -345,14 +346,15 @@ describe("saveProfile", () => {
     expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it("fails closed for a suspended renter without calling ensure_profile", async () => {
-    const rpc = vi.fn();
-    const existing = profileQuery({
+  it("returns the suspended state from the one authoritative profile RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
       data: { account_status: "suspended" },
       error: null,
     });
-    const supabase = { ...existing.client, ...rpcClient(rpc) } as never;
-    vi.mocked(requireUser).mockResolvedValue({ supabase, user: { id: "user-1" } } as never);
+    vi.mocked(requireUser).mockResolvedValue({
+      supabase: rpcClient(rpc),
+      user: { id: "user-1" },
+    } as never);
 
     await expect(
       saveProfile(
@@ -360,21 +362,19 @@ describe("saveProfile", () => {
         fields({ legalName: "Maria Santos", phone: "+63 917 123 4567" }),
       ),
     ).resolves.toMatchObject({ error: "suspended", status: "error" });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    ["lookup", { data: null, error: { code: "08006", message: "profile relation secret" } }],
-    ["mutation", { data: null, error: { code: "XX000", message: "ensure_profile internals" } }],
-  ] as const)("constrains a profile %s failure without leaking provider details", async (stage, failure) => {
-    const rpc = vi.fn().mockResolvedValue(
-      stage === "mutation" ? failure : { data: { account_status: "active" }, error: null },
-    );
-    const existing = profileQuery(
-      stage === "lookup" ? failure : { data: null, error: null },
-    );
-    const supabase = { ...existing.client, ...rpcClient(rpc) } as never;
-    vi.mocked(requireUser).mockResolvedValue({ supabase, user: { id: "user-1" } } as never);
+  it("constrains a profile mutation failure without leaking provider details", async () => {
+    const failure = {
+      data: null,
+      error: { code: "XX000", message: "ensure_profile internals" },
+    };
+    const rpc = vi.fn().mockResolvedValue(failure);
+    vi.mocked(requireUser).mockResolvedValue({
+      supabase: rpcClient(rpc),
+      user: { id: "user-1" },
+    } as never);
 
     const result = await saveProfile(
       { status: "idle" },
@@ -390,7 +390,6 @@ describe("saveProfile", () => {
       },
     });
     expect(JSON.stringify(result)).not.toContain(failure.error.message);
-    if (stage === "lookup") expect(rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -725,30 +724,63 @@ describe("requestBooking", () => {
   });
 
   it.each([
-    [null, "profile_required"],
-    [{ account_status: "suspended" }, "suspended"],
-  ] as const)("blocks a missing or suspended profile %#", async (profile, error) => {
-    const query = profileQuery({ data: profile, error: null });
-    const rpc = vi.fn();
-    const supabase = { ...query.client, ...rpcClient(rpc) } as never;
+    ["booking_profile_required", "profile_required"],
+    ["booking_profile_suspended", "suspended"],
+  ] as const)("maps database profile precondition %s to %s", async (message, error) => {
+    process.env.GEOAPIFY_API_KEY = "provider-development-key";
+    process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
+    process.env.MEETUP_RECOMMENDATION_SECRET =
+      "server-only-meetup-reference-secret-value";
     vi.mocked(getAuthenticatedUser).mockResolvedValue({
-      supabase,
+      supabase: {},
       user: { id: "user-1" },
     } as never);
+    const adminRpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "42501", message },
+    });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      rpcClient(adminRpc) as never,
+    );
+    const reference = mintRecommendationReference(
+      {
+        address: "Cardinal Rosales Avenue, Cebu City",
+        binding: buildMeetupBinding({
+          cameraId: CAMERA_ID,
+          configVersion: "geoapify-v1",
+          handoffTime: "09:00",
+          pickupDate: "2099-08-24",
+          policyVersion: 3,
+          renterId: "user-1",
+          returnDate: "2099-08-26",
+        }),
+        city: "Cebu City",
+        configVersion: "geoapify-v1",
+        expiresAt: "2099-08-24T00:00:00.000Z",
+        latitude: 10.317,
+        longitude: 123.905,
+        name: "Ayala Center Cebu",
+        renterCity: { label: "Mandaue City" },
+      },
+      process.env.MEETUP_RECOMMENDATION_SECRET,
+    );
 
     await expect(
       requestBooking(
         { status: "idle" },
         fields({
           camera: CAMERA_ID,
-          expectedLocation: "Quezon City",
+          expectedLocation: "Cebu City",
+          handoffTime: "09:00",
           intendedUse: "Family event",
-          pickup: "2099-08-14T09:00",
-          return: "2099-08-15T09:00",
+          meetupReference: reference,
+          pickupDate: "2099-08-24",
+          policyVersion: "3",
+          returnDate: "2099-08-26",
         }),
       ),
     ).resolves.toMatchObject({ error, status: "error" });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(adminRpc).toHaveBeenCalledTimes(1);
   });
 
   it("constrains persistence failures without revealing provider details", async () => {

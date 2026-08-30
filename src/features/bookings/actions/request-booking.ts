@@ -147,30 +147,6 @@ export async function requestBooking(
     redirect(loginPath(`/account/bookings/new?${query.toString()}`));
   }
 
-  const { data: profile, error: profileError } = await context.supabase
-    .from("profiles")
-    .select("account_status")
-    .eq("user_id", context.user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    return {
-      error: "request_failed",
-      status: "error",
-      values: preservedValues,
-    };
-  }
-  if (!profile) {
-    return {
-      error: "profile_required",
-      status: "error",
-      values: preservedValues,
-    };
-  }
-  if (profile.account_status !== "active") {
-    return { error: "suspended", status: "error", values: preservedValues };
-  }
-
   const config = getMeetupProviderConfig();
   if (!config) {
     return { error: "request_failed", status: "error", values: preservedValues };
@@ -221,15 +197,19 @@ export async function requestBooking(
   if (error || typeof data !== "string" || !z.uuid().safeParse(data).success) {
     return {
       error:
-        error?.code === "P0001"
-          ? "request_limit"
-          : error?.code === "40001"
-          ? "schedule_changed"
-          : error?.code === "23P01"
-            ? "unavailable"
-            : error?.code === "23514"
-              ? "meetup_required"
-            : "request_failed",
+        error?.code === "42501" && error.message === "booking_profile_required"
+          ? "profile_required"
+          : error?.code === "42501" && error.message === "booking_profile_suspended"
+            ? "suspended"
+            : error?.code === "P0001"
+              ? "request_limit"
+              : error?.code === "40001"
+                ? "schedule_changed"
+                : error?.code === "23P01"
+                  ? "unavailable"
+                  : error?.code === "23514"
+                    ? "meetup_required"
+                    : "request_failed",
       status: "error",
       values: preservedValues,
     };

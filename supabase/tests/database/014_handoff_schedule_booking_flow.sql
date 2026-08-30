@@ -205,6 +205,55 @@ end;
 $$;
 
 reset role;
+update public.profiles
+set account_status = 'suspended'
+where user_id = 'c0000000-0000-4000-8000-000000000002';
+
+set local role service_role;
+set local "request.jwt.claim.sub" = 'c0000000-0000-4000-8000-000000000002';
+set local "request.jwt.claim.role" = 'service_role';
+
+do $$
+declare
+  monday date :=
+    (statement_timestamp() at time zone 'Asia/Manila')::date
+    + (((8 - extract(dow from statement_timestamp() at time zone 'Asia/Manila')::integer) % 7) + 7);
+begin
+  begin
+    perform api.request_booking_schedule_with_meetup_idempotent(
+      'c0000000-0000-4000-8000-000000000002',
+      'c0100000-0000-4000-8000-000000000001',
+      monday, monday + 2, '09:00', 1, 'Family event', 'Cebu City',
+      'Mandaue City', 'Schedule Public Mall', 'Public Avenue, Cebu City',
+      'Cebu City', 10.317, 123.905, 'geoapify-v1',
+      'c0200000-0000-4000-8000-000000000020'
+    );
+    raise exception 'suspended profile submitted a booking request';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'booking_profile_suspended' then raise; end if;
+  end;
+
+  begin
+    perform api.request_booking_schedule_with_meetup_idempotent(
+      'c0000000-0000-4000-8000-000000000099',
+      'c0100000-0000-4000-8000-000000000001',
+      monday, monday + 2, '09:00', 1, 'Family event', 'Cebu City',
+      'Mandaue City', 'Schedule Public Mall', 'Public Avenue, Cebu City',
+      'Cebu City', 10.317, 123.905, 'geoapify-v1',
+      'c0200000-0000-4000-8000-000000000021'
+    );
+    raise exception 'missing profile submitted a booking request';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'booking_profile_required' then raise; end if;
+  end;
+end;
+$$;
+
+reset role;
+update public.profiles
+set account_status = 'active'
+where user_id = 'c0000000-0000-4000-8000-000000000002';
+
 set local role service_role;
 set local "request.jwt.claim.sub" = 'c0000000-0000-4000-8000-000000000002';
 set local "request.jwt.claim.role" = 'service_role';
@@ -271,6 +320,30 @@ begin
   exception when sqlstate '23P01' then
     if sqlerrm <> 'handoff_period_unavailable' then raise; end if;
   end;
+end;
+$$;
+
+reset role;
+
+update public.profiles
+set account_status = 'suspended'
+where user_id = 'c0000000-0000-4000-8000-000000000002';
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = 'c0000000-0000-4000-8000-000000000002';
+
+do $$
+declare
+  saved public.profiles := api.ensure_profile(
+    'Changed While Suspended', '+639799999999'
+  );
+begin
+  if saved.account_status <> 'suspended'
+    or saved.legal_name <> 'Schedule Renter'
+    or saved.phone <> '+639700000002'
+  then
+    raise exception 'suspended profile fields changed through ensure_profile';
+  end if;
 end;
 $$;
 

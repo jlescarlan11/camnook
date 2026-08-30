@@ -256,6 +256,12 @@ data function. Only the exact `42501` admin-authorization signal redirects to
 `/forbidden`; transport and schema failures remain fail-closed error states.
 This reduces valid admin-page database RPCs from two to one.
 
+Profile saves and booking submissions enforce profile state inside their
+authoritative mutation RPCs, without a separate client-side profile lookup.
+Suspended profile fields remain unchanged, while booking submission returns
+distinct safe missing/suspended categories and holds the profile row stable
+through request creation. Each action uses one database request instead of two.
+
 `public.availability_blocks`
 
 - `id` PK; `camera_id`; optional unique `booking_id`; `kind`; `starts_at`; `ends_at`; generated stored `period = tstzrange(starts_at, ends_at, '[)')`; creator; reason; and `released_at`/`released_by`.
@@ -551,7 +557,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains fifty-three forward migrations. On 13 August 2026, the four
+The repository contains fifty-four forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

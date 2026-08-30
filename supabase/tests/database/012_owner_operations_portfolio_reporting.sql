@@ -677,6 +677,12 @@ begin
   end if;
 
   if has_function_privilege(
+    'service_role', 'private.assert_active_booking_profile(uuid)', 'EXECUTE'
+  ) then
+    raise exception 'service role executed the private booking profile assertion';
+  end if;
+
+  if has_function_privilege(
       'anon', 'api.get_admin_dashboard_context(date,date)', 'EXECUTE'
     )
     or not has_function_privilege(

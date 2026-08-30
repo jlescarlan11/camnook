@@ -46,19 +46,7 @@ export async function saveProfile(
     };
   }
 
-  const { supabase, user } = await requireUser();
-  const { data: existing, error: readError } = await supabase
-    .from("profiles")
-    .select("account_status")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (readError) {
-    return { error: "save_failed", status: "error", values };
-  }
-  if (existing?.account_status === "suspended") {
-    return { error: "suspended", status: "error", values };
-  }
+  const { supabase } = await requireUser();
 
   const { data, error } = await supabase.schema("api").rpc("ensure_profile", {
     p_legal_name: parsed.data.legalName,
