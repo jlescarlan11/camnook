@@ -9,6 +9,7 @@ import { isCalendarDate, isHandoffTime } from "../../bookings/calendar";
 import { buildMeetupBinding } from "../binding";
 import { cityInputSchema } from "../city-input";
 import { getMeetupProviderConfig } from "../config";
+import { claimGeoapifyProviderBudget } from "../provider-budget";
 import { GeoapifyAdapter, ProviderBoundaryError } from "../provider";
 import { recommendPublicMeetup } from "../service";
 import { recordMeetupTelemetry } from "../telemetry";
@@ -140,12 +141,10 @@ export async function recommendMeetup(
     };
   }
 
-  const providerBudget = await context.supabase
-    .schema("api")
-    .rpc("claim_geoapify_provider_budget", {
-      p_request_count: config.allowedCategories.length + 1,
-    });
-  if (providerBudget.error || providerBudget.data !== true) {
+  if (!(await claimGeoapifyProviderBudget(
+    context.user.id,
+    config.allowedCategories.length + 1,
+  ))) {
     return { error: "provider_unavailable", status: "error" };
   }
 

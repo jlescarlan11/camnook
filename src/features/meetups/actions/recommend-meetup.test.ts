@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/require-user", () => ({ getAuthenticatedUser: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: vi.fn() }));
+vi.mock("../provider-budget", () => ({ claimGeoapifyProviderBudget: vi.fn() }));
 
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+import { claimGeoapifyProviderBudget } from "../provider-budget";
 import { recommendMeetup } from "./recommend-meetup";
 
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
@@ -53,12 +55,8 @@ describe("recommendMeetup", () => {
       "server-only-meetup-reference-secret-value";
     vi.mocked(getAuthenticatedUser).mockResolvedValue({
       user: { id: "renter-1" },
-      supabase: {
-        schema: vi.fn(() => ({
-          rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
-        })),
-      },
     } as never);
+    vi.mocked(claimGeoapifyProviderBudget).mockResolvedValue(true);
     vi.mocked(createSupabaseAdminClient).mockReturnValue({
       schema: vi.fn(() => ({
         rpc: vi.fn().mockResolvedValue({
@@ -180,14 +178,7 @@ describe("recommendMeetup", () => {
   });
 
   it("does not call Geoapify when the bounded request budget is unavailable", async () => {
-    vi.mocked(getAuthenticatedUser).mockResolvedValue({
-      user: { id: "renter-1" },
-      supabase: {
-        schema: vi.fn(() => ({
-          rpc: vi.fn().mockResolvedValue({ data: false, error: null }),
-        })),
-      },
-    } as never);
+    vi.mocked(claimGeoapifyProviderBudget).mockResolvedValue(false);
     const request = vi.fn();
     vi.stubGlobal("fetch", request);
 

@@ -9,6 +9,7 @@ import { getMeetupProviderConfig } from "../meetups/config";
 import { cityInputSchema } from "../meetups/city-input";
 import { coarseCoordinate } from "../meetups/domain";
 import { GeoapifyAdapter, ProviderBoundaryError } from "../meetups/provider";
+import { claimGeoapifyProviderBudget } from "../meetups/provider-budget";
 import {
   mintHandoffCityReference,
   readHandoffCityReference,
@@ -176,10 +177,7 @@ export async function suggestHandoffCity(
     };
   }
 
-  const providerBudget = await context.supabase
-    .schema("api")
-    .rpc("claim_geoapify_provider_budget", { p_request_count: 1 });
-  if (providerBudget.error || providerBudget.data !== true) {
+  if (!(await claimGeoapifyProviderBudget(context.user.id, 1))) {
     return { error: "provider_unavailable", status: "error" };
   }
   const adapter = new GeoapifyAdapter({
@@ -278,10 +276,7 @@ export async function suggestHandoffAddress(
   const config = getMeetupProviderConfig();
   if (!config) return { error: "configuration", status: "error" };
 
-  const providerBudget = await context.supabase
-    .schema("api")
-    .rpc("claim_geoapify_provider_budget", { p_request_count: 1 });
-  if (providerBudget.error || providerBudget.data !== true) {
+  if (!(await claimGeoapifyProviderBudget(context.user.id, 1))) {
     return {
       error: "provider_unavailable",
       query: input.data.query,

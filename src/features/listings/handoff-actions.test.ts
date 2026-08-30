@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: vi.fn() }));
+vi.mock("../meetups/provider-budget", () => ({ claimGeoapifyProviderBudget: vi.fn() }));
 
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 
+import { claimGeoapifyProviderBudget } from "../meetups/provider-budget";
 import {
   saveCameraHandoffPolicy,
   suggestHandoffAddress,
@@ -85,8 +87,6 @@ function authorize(options?: {
     Promise.resolve(
       name === "get_camera_handoff_policy_admin"
         ? { data: anchor, error: options?.anchorError ?? null }
-        : name === "claim_geoapify_provider_budget"
-          ? { data: true, error: null }
         : (options?.replace ?? { data: 3, error: null }),
     ),
   );
@@ -107,6 +107,7 @@ describe("camera handoff city and policy actions", () => {
     process.env.MEETUP_PROVIDER_CONFIG_VERSION = "geoapify-v1";
     process.env.MEETUP_RECOMMENDATION_SECRET =
       "server-only-handoff-city-secret-value";
+    vi.mocked(claimGeoapifyProviderBudget).mockResolvedValue(true);
   });
 
   it("validates enabled schedules and duplicates before authorization", async () => {

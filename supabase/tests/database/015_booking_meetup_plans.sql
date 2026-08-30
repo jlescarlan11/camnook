@@ -264,17 +264,63 @@ set local "request.jwt.claim.sub" = 'd0000000-0000-4000-8000-000000000002';
 
 do $$
 begin
-  if not api.claim_geoapify_provider_budget(3)
-    or not api.claim_geoapify_provider_budget(2)
-    or api.claim_geoapify_provider_budget(1)
+  begin
+    perform api.claim_geoapify_provider_budget(
+      'd0000000-0000-4000-8000-000000000002', 1
+    );
+    raise exception 'authenticated clients could reserve Geoapify provider budget';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+reset role;
+
+set local role service_role;
+set local "request.jwt.claim.role" = 'service_role';
+
+do $$
+begin
+  if not api.claim_geoapify_provider_budget(
+    'd0000000-0000-4000-8000-000000000002', 3
+  )
+    or not api.claim_geoapify_provider_budget(
+      'd0000000-0000-4000-8000-000000000002', 2
+    )
+    or api.claim_geoapify_provider_budget(
+      'd0000000-0000-4000-8000-000000000002', 1
+    )
   then
     raise exception 'Geoapify request budget did not enforce the shared per-second cap';
   end if;
 
   begin
-    perform api.claim_geoapify_provider_budget(6);
+    perform api.claim_geoapify_provider_budget(
+      'd0000000-0000-4000-8000-000000000002', 6
+    );
     raise exception 'Geoapify request budget accepted an invalid request count';
   exception when sqlstate '22023' then null;
+  end;
+end;
+$$;
+
+reset role;
+
+update public.profiles
+set account_status = 'suspended'
+where user_id = 'd0000000-0000-4000-8000-000000000003';
+
+set local role service_role;
+set local "request.jwt.claim.role" = 'service_role';
+
+do $$
+begin
+  begin
+    perform api.claim_geoapify_provider_budget(
+      'd0000000-0000-4000-8000-000000000003', 1
+    );
+    raise exception 'inactive profiles could reserve Geoapify provider budget';
+  exception when insufficient_privilege then null;
   end;
 end;
 $$;

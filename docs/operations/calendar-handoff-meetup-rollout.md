@@ -84,11 +84,13 @@ database: a renter recommendation reserves one city lookup plus one call for
 each reviewed category (two to five calls); an owner city or address suggestion
 reserves one call. The reservation is fail-closed at five shared calls per
 second and ten calls per actor per fifteen-minute window, and only short-lived
-aggregate counters are retained. This is intentionally below no known provider
-plan guarantee: at the 2026-08-30 review, Geoapify's Free plan documented five
-requests per second and 3,000 credits per day, with ordinary geocoding and
-Places calls consuming one credit each. Reconfirm the active plan, quota, and
-current pricing before changing either bound.
+aggregate counters are retained. Only server actions using the service client
+may reserve budget; direct authenticated callers and inactive profiles are
+denied. This is intentionally below no known provider plan guarantee: at the
+2026-08-30 review, Geoapify's Free plan documented five requests per second and
+3,000 credits per day, with ordinary geocoding and Places calls consuming one
+credit each. Reconfirm the active plan, quota, and current pricing before
+changing either bound.
 
 Activation order is coherent and reversible: verify the approved listing
 calendar/slot, then enable meetup planning and run

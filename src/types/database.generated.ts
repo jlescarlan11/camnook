@@ -125,7 +125,7 @@ export type Database = {
         Returns: Json
       }
       claim_geoapify_provider_budget: {
-        Args: { p_request_count: number }
+        Args: { p_actor_user_id: string; p_request_count: number }
         Returns: boolean
       }
       get_gcash_recipient_configuration_admin: {
