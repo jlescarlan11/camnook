@@ -25,10 +25,11 @@ by `vercel.json`; a merge cannot independently move the Production aliases.
 The enforced order is CI → automatic Development
 dry-run/apply/history/hosted manifest/advisors → protected Production approval →
 staged READY/unaliased Production candidate → Production
-dry-run/apply/history/read-only hosted manifest/advisors → promote the exact
-candidate → public smoke. Every mutation boundary rechecks the exact current
-`main` SHA and environment/project identity. A newer `main` SHA supersedes an
-older queued release before it can mutate the next environment or promote.
+dry-run/apply/history/read-only hosted manifest/advisors → protected smoke of
+the exact staged deployment → promote that candidate → public-alias smoke.
+Every mutation boundary rechecks the exact current `main` SHA and
+environment/project identity. A newer `main` SHA supersedes an older queued
+release before it can mutate the next environment or promote.
 
 A failed or indeterminate database command is followed by read-only migration
 history reconciliation and is never blindly retried. A failed or indeterminate
@@ -37,6 +38,11 @@ the workflow restores the previously recorded application deployment while
 leaving compatible forward schema and migration history intact. Raw provider
 responses, deployment logs, SQL, secrets, and user-linked data are not release
 evidence.
+
+The staged smoke uses Vercel's authenticated deployment-targeted request, not a
+public alias. A non-200 response stops before promotion and leaves the recorded
+live deployment in place. The separate public smoke after promotion verifies
+that alias routing also reaches the candidate.
 
 `workflow_dispatch` is emergency reconciliation, not a bypass. Dispatch the
 workflow from `main`, supply the full current `main` SHA, type

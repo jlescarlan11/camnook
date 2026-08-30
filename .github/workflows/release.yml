@@ -251,6 +251,19 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke staged candidate before promotion
+        run: |
+          set -euo pipefail
+          candidate_status="$(
+            vercel curl / --deployment "$CANDIDATE_ID" --token "$VERCEL_TOKEN" -- \
+              --silent --show-error --max-time 30 --output /dev/null \
+              --write-out '%{http_code}'
+          )"
+          if [[ "$candidate_status" != "200" ]]; then
+            echo "::error::Staged candidate smoke returned HTTP $candidate_status; the live alias remains unchanged"
+            exit 1
+          fi
+
       - name: Promote candidate with reconciliation
         run: |
           set -euo pipefail

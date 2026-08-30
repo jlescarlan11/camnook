@@ -98,6 +98,16 @@ describe("immutable release workflow policy", () => {
   });
 
   it("promotes only the exact candidate and restores the prior alias on smoke failure", () => {
+    expect(position("name: Run Production security advisors")).toBeLessThan(
+      position("name: Smoke staged candidate before promotion"),
+    );
+    expect(position("name: Smoke staged candidate before promotion")).toBeLessThan(
+      position("name: Promote candidate with reconciliation"),
+    );
+    expect(workflow).toContain(
+      'vercel curl / --deployment "$CANDIDATE_ID" --token "$VERCEL_TOKEN"',
+    );
+    expect(workflow).toContain('candidate_status" != "200"');
     expect(workflow).toContain('vercel promote "$CANDIDATE_ID"');
     expect(workflow).toContain('test "$live_id" = "$CANDIDATE_ID"');
     expect(workflow).toContain('vercel rollback "$PRIOR_DEPLOYMENT_ID"');
