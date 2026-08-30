@@ -29,10 +29,12 @@ The route at `/api/webhooks/resend/inbound`:
 3. accepts only `email.received` events whose envelope addresses include exactly
    `privacy@camnook.shop`;
 4. refuses messages whose sender is the privacy alias, preventing a loop;
-5. retrieves the verified inbound message and any attachments by provider ID,
-   re-sends them with `Reply-To` set to the sender's safe reply target, and uses
-   a stable idempotency key so an at-least-once webhook retry does not
-   intentionally create a second message; and
+5. retrieves the verified inbound message, lists attachment download URLs in
+   pages of up to 100 instead of issuing one provider request per attachment,
+   verifies the complete attachment-ID set, re-sends them with `Reply-To` set to
+   the sender's safe reply target, and uses a stable idempotency key so an
+   at-least-once webhook retry does not intentionally create a second message;
+   and
 6. returns only generic status responses and never logs the sender, recipient,
    subject, body, attachment metadata, or provider IDs.
 
@@ -40,6 +42,13 @@ Resend's `email.received` webhook contains metadata only; message bodies and
 attachment bytes are retrieved after verification through the Receiving APIs.
 The 256 KiB raw-body ceiling therefore bounds unauthenticated function memory
 without constraining the documented content-delivery path.
+
+Resend applies a team-wide API rate limit. For an email with attachments, the
+route uses one content request, one attachment-list request per 100 attachments,
+and one idempotent send request. Do not replace the paginated list with parallel
+per-attachment retrieval; a message with only four attachments can otherwise
+exceed a five-request-per-second team limit once content retrieval and forwarding
+are included.
 
 Resend retains inbound messages according to the account's provider settings.
 The forwarding destination must be protected with MFA and monitored on every

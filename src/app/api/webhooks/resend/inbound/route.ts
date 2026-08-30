@@ -80,6 +80,57 @@ async function readBoundedWebhookBody(request: Request) {
   return new TextDecoder().decode(body);
 }
 
+async function listForwardingAttachments(
+  resend: Resend,
+  emailId: string,
+  expectedAttachments: Array<{ id: string }>,
+) {
+  if (expectedAttachments.length === 0) return [];
+  const expectedIds = new Set(expectedAttachments.map((attachment) => attachment.id));
+  if (expectedIds.size !== expectedAttachments.length) return null;
+
+  const byId = new Map<
+    string,
+    {
+      contentId?: string;
+      contentType: string;
+      filename?: string;
+      path: string;
+    }
+  >();
+  let after: string | undefined;
+  const maxPages = Math.ceil(expectedIds.size / 100);
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await resend.emails.receiving.attachments.list({
+      ...(after ? { after } : {}),
+      emailId,
+      limit: 100,
+    });
+    if (result.error || !result.data) return null;
+
+    for (const attachment of result.data.data) {
+      if (byId.has(attachment.id) || !expectedIds.has(attachment.id)) return null;
+      byId.set(attachment.id, {
+        contentType: attachment.content_type,
+        path: attachment.download_url,
+        ...(attachment.content_id ? { contentId: attachment.content_id } : {}),
+        ...(attachment.filename ? { filename: attachment.filename } : {}),
+      });
+    }
+
+    if (!result.data.has_more) {
+      return byId.size === expectedIds.size
+        ? expectedAttachments.map((attachment) => byId.get(attachment.id)!)
+        : null;
+    }
+    after = result.data.data.at(-1)?.id;
+    if (!after) return null;
+  }
+
+  return null;
+}
+
 export async function POST(request: Request) {
   const config = getForwardingConfig();
 
@@ -151,35 +202,21 @@ export async function POST(request: Request) {
   }
 
   const receivedEmail = receivedEmailResult.data;
-  let attachmentResults;
+  let attachments;
 
   try {
-    attachmentResults = await Promise.all(
-      receivedEmail.attachments.map((attachment) =>
-        resend.emails.receiving.attachments.get({
-          emailId: event.data.email_id,
-          id: attachment.id,
-        }),
-      ),
+    attachments = await listForwardingAttachments(
+      resend,
+      event.data.email_id,
+      receivedEmail.attachments,
     );
   } catch {
     return retryableForwardingFailure();
   }
 
-  if (attachmentResults.some((result) => result.error || !result.data)) {
+  if (!attachments) {
     return retryableForwardingFailure();
   }
-
-  const attachments = attachmentResults.flatMap((result) =>
-    result.data
-      ? [{
-          contentId: result.data.content_id,
-          contentType: result.data.content_type,
-          path: result.data.download_url,
-          ...(result.data.filename ? { filename: result.data.filename } : {}),
-        }]
-      : [],
-  );
   const receivedReplyTargets = (receivedEmail.reply_to ?? []).filter(
     (address) => normalizeMailbox(address) !== PRIVACY_EMAIL,
   );

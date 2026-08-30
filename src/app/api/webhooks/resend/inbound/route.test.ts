@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const resendMocks = vi.hoisted(() => ({
-  getAttachment: vi.fn(),
   getReceivedEmail: vi.fn(),
+  listAttachments: vi.fn(),
   send: vi.fn(),
   verify: vi.fn(),
 }));
@@ -11,7 +11,7 @@ vi.mock("resend", () => ({
   Resend: class MockResend {
     emails = {
       receiving: {
-        attachments: { get: resendMocks.getAttachment },
+        attachments: { list: resendMocks.listAttachments },
         get: resendMocks.getReceivedEmail,
       },
       send: resendMocks.send,
@@ -90,7 +90,10 @@ describe("Resend inbound privacy email webhook", () => {
     process.env.RESEND_WEBHOOK_SECRET = "whsec_test_secret";
     resendMocks.verify.mockReturnValue(receivedEvent());
     resendMocks.getReceivedEmail.mockResolvedValue({ data: receivedEmail(), error: null });
-    resendMocks.getAttachment.mockResolvedValue({ data: null, error: null });
+    resendMocks.listAttachments.mockResolvedValue({
+      data: { data: [], has_more: false, object: "list" },
+      error: null,
+    });
     resendMocks.send.mockResolvedValue({ data: { id: "forwarded-email-id" }, error: null });
   });
 
@@ -307,17 +310,20 @@ describe("Resend inbound privacy email webhook", () => {
       }),
       error: null,
     });
-    resendMocks.getAttachment.mockResolvedValue({
+    resendMocks.listAttachments.mockResolvedValue({
       data: {
-        content_disposition: "attachment",
-        content_id: "attachment-cid",
-        content_type: "text/plain",
-        download_url: "https://provider.test/signed-attachment",
-        expires_at: "2026-08-15T00:05:00.000Z",
-        filename: "request.txt",
-        id: "attachment-id",
-        object: "attachment",
-        size: 12,
+        data: [{
+          content_disposition: "attachment",
+          content_id: "attachment-cid",
+          content_type: "text/plain",
+          download_url: "https://provider.test/signed-attachment",
+          expires_at: "2026-08-15T00:05:00.000Z",
+          filename: "request.txt",
+          id: "attachment-id",
+          size: 12,
+        }],
+        has_more: false,
+        object: "list",
       },
       error: null,
     });
@@ -325,9 +331,9 @@ describe("Resend inbound privacy email webhook", () => {
     const response = await POST(signedRequest());
 
     expect(response.status).toBe(200);
-    expect(resendMocks.getAttachment).toHaveBeenCalledWith({
+    expect(resendMocks.listAttachments).toHaveBeenCalledWith({
       emailId: "received-email-id",
-      id: "attachment-id",
+      limit: 100,
     });
     expect(resendMocks.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -340,6 +346,80 @@ describe("Resend inbound privacy email webhook", () => {
       }),
       expect.anything(),
     );
+  });
+
+  it("lists attachment URLs in bounded pages instead of one request per attachment", async () => {
+    const expectedAttachments = Array.from({ length: 101 }, (_, index) => ({
+      filename: `request-${index}.txt`,
+      id: `attachment-${index}`,
+    }));
+    const attachmentData = expectedAttachments.map((attachment) => ({
+      content_disposition: "attachment",
+      content_id: null,
+      content_type: "text/plain",
+      download_url: `https://provider.test/${attachment.id}`,
+      expires_at: "2026-08-15T00:05:00.000Z",
+      filename: attachment.filename,
+      id: attachment.id,
+      size: 12,
+    }));
+    resendMocks.getReceivedEmail.mockResolvedValue({
+      data: receivedEmail({ attachments: expectedAttachments }),
+      error: null,
+    });
+    resendMocks.listAttachments
+      .mockResolvedValueOnce({
+        data: { data: attachmentData.slice(0, 100), has_more: true, object: "list" },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { data: attachmentData.slice(100), has_more: false, object: "list" },
+        error: null,
+      });
+
+    const response = await POST(signedRequest());
+
+    expect(response.status).toBe(200);
+    expect(resendMocks.listAttachments).toHaveBeenCalledTimes(2);
+    expect(resendMocks.listAttachments).toHaveBeenNthCalledWith(1, {
+      emailId: "received-email-id",
+      limit: 100,
+    });
+    expect(resendMocks.listAttachments).toHaveBeenNthCalledWith(2, {
+      after: "attachment-99",
+      emailId: "received-email-id",
+      limit: 100,
+    });
+    expect(resendMocks.send.mock.calls[0]?.[0].attachments).toHaveLength(101);
+  });
+
+  it("fails closed when the attachment list does not match the received email", async () => {
+    resendMocks.getReceivedEmail.mockResolvedValue({
+      data: receivedEmail({ attachments: [{ id: "expected-attachment" }] }),
+      error: null,
+    });
+    resendMocks.listAttachments.mockResolvedValue({
+      data: {
+        data: [{
+          content_disposition: "attachment",
+          content_id: null,
+          content_type: "text/plain",
+          download_url: "https://provider.test/unexpected-attachment",
+          expires_at: "2026-08-15T00:05:00.000Z",
+          filename: "unexpected.txt",
+          id: "unexpected-attachment",
+          size: 12,
+        }],
+        has_more: false,
+        object: "list",
+      },
+      error: null,
+    });
+
+    const response = await POST(signedRequest());
+
+    expect(response.status).toBe(503);
+    expect(resendMocks.send).not.toHaveBeenCalled();
   });
 
   it("returns a retryable response when inbound content cannot be retrieved", async () => {
@@ -359,7 +439,7 @@ describe("Resend inbound privacy email webhook", () => {
       data: receivedEmail({ attachments: [{ id: "attachment-id" }] }),
       error: null,
     });
-    resendMocks.getAttachment.mockResolvedValue({
+    resendMocks.listAttachments.mockResolvedValue({
       data: null,
       error: { message: "provider failure" },
     });
