@@ -610,6 +610,19 @@ begin
   then
     raise exception 'owner projection execute privileges were broader or narrower than intended';
   end if;
+
+  if has_function_privilege(
+      'anon', 'api.get_admin_booking_detail_snapshot(uuid)', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_admin_booking_detail_snapshot(uuid)', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated', 'private.get_admin_booking_detail_snapshot(uuid)', 'EXECUTE'
+    )
+  then
+    raise exception 'admin booking snapshot privileges were broader or narrower than intended';
+  end if;
 end;
 $$;
 
@@ -626,6 +639,14 @@ begin
   begin
     perform api.get_owner_portfolio_report('2026-11-09', '2026-11-23');
     raise exception 'anon executed the owner portfolio projection';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_admin_booking_detail_snapshot(
+      'a0300000-0000-4000-8000-000000000001'
+    );
+    raise exception 'anon executed the admin booking snapshot';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -647,6 +668,14 @@ begin
     raise exception 'a renter executed the owner portfolio projection';
   exception when insufficient_privilege then null;
   end;
+
+  begin
+    perform api.get_admin_booking_detail_snapshot(
+      'a0300000-0000-4000-8000-000000000001'
+    );
+    raise exception 'a renter executed the admin booking snapshot';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -656,6 +685,9 @@ do $$
 declare
   dashboard jsonb := api.get_owner_operations_dashboard();
   report jsonb := api.get_owner_portfolio_report('2026-11-09', '2026-11-23');
+  booking_detail jsonb := api.get_admin_booking_detail_snapshot(
+    'a0300000-0000-4000-8000-000000000001'
+  );
   camera_revenue numeric;
 begin
   if dashboard #>> '{queue_counts,review}' <> '1'
@@ -694,6 +726,24 @@ begin
   then
     raise exception 'deposit liabilities did not reconcile through immutable reversals';
   end if;
+
+  if booking_detail #>> '{booking,id}'
+      <> 'a0300000-0000-4000-8000-000000000001'
+    or booking_detail #>> '{profile,legal_name}' <> 'Portfolio Renter'
+    or booking_detail #>> '{camera,name}' <> 'Portfolio Published'
+    or booking_detail #>> '{quote,total_due}' <> '5000.00'
+    or booking_detail::text ~* 'PRIVATE-PORTFOLIO-SERIAL|acquisition_cost|object_path|sha256|provider_place_id|renter_city_provider_id|actor_user_id|operation_id'
+  then
+    raise exception 'admin booking snapshot was incomplete or overexposed';
+  end if;
+
+  begin
+    perform api.get_admin_booking_detail_snapshot(
+      'aaaaaaaa-ffff-4000-8000-000000000000'
+    );
+    raise exception 'missing admin booking snapshot returned success';
+  exception when no_data_found then null;
+  end;
 
   if dashboard::text ~* 'PRIVATE-PAYMENT|Private Sender|Private Recipient|PRIVATE-PORTFOLIO-SERIAL|government-id|Private damage|Private maintenance|Private manual|object_path|sha256|internal_notes|operator_notes|intended_use|expected_location|request_ip|user_agent'
   then

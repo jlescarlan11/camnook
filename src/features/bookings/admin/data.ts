@@ -5,7 +5,6 @@ import { z } from "zod";
 import type { requireAdmin } from "@/lib/auth/require-admin";
 import {
   projectMeetupPlan,
-  SAFE_MEETUP_PLAN_COLUMNS,
   safeMeetupPlanRowSchema,
 } from "@/features/meetups/plan";
 
@@ -15,19 +14,76 @@ type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
 
 export const ADMIN_QUEUE_BOOKING_COLUMNS =
   "id,renter_id,camera_id,pickup_at,return_at,requested_at";
-export const ADMIN_DETAIL_BOOKING_COLUMNS =
-  "id,renter_id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required";
-export const ADMIN_PROFILE_COLUMNS =
-  "user_id,legal_name,phone,account_status";
-export const ADMIN_CAMERA_COLUMNS =
-  "id,slug,name,status,published_at,daily_rate,security_deposit";
-export const ADMIN_ACCESSORY_COLUMNS = "id,name,quantity,sort_position";
-export const ADMIN_AVAILABILITY_COLUMNS = "starts_at,ends_at,reason";
-export const ADMIN_TEMPLATE_COLUMNS =
-  "id,version,schema_version,terms,approved_at,activated_at,deactivated_at";
-export const ADMIN_CONTRACT_REFERENCE_COLUMNS =
-  "id,template_id,version_no,status,issued_at";
-export const ADMIN_REJECTION_COLUMNS = "note,occurred_at";
+const adminDetailSnapshotSchema = z.object({
+  accessories: z.array(z.object({
+    id: z.uuid(),
+    name: z.string(),
+    quantity: z.number().int(),
+    sort_position: z.number().int(),
+  })),
+  availability: z.array(z.object({
+    ends_at: z.string().nullable(),
+    reason: z.string().nullable(),
+    starts_at: z.string().nullable(),
+  })),
+  booking: z.object({
+    approval_deadline_at: z.string().nullable(),
+    approved_at: z.string().nullable(),
+    billable_days_snapshot: z.number().int().nullable(),
+    camera_id: z.uuid(),
+    currency: z.string(),
+    current_contract_version_id: z.uuid().nullable(),
+    daily_rate_snapshot: z.number().nullable(),
+    expected_location: z.string(),
+    id: z.uuid(),
+    intended_use: z.string(),
+    meetup_snapshot_required: z.boolean(),
+    pickup_at: z.string(),
+    rental_amount: z.number().nullable(),
+    renter_id: z.uuid(),
+    requested_at: z.string(),
+    return_at: z.string(),
+    security_deposit_amount: z.number().nullable(),
+    state: z.string(),
+    total_due: z.number().nullable(),
+  }),
+  camera: z.object({
+    daily_rate: z.number().nullable(),
+    id: z.uuid(),
+    name: z.string(),
+    published_at: z.string().nullable(),
+    security_deposit: z.number().nullable(),
+    slug: z.string(),
+    status: z.string(),
+  }).nullable(),
+  contract: z.object({
+    id: z.uuid(),
+    issued_at: z.string(),
+    status: z.string(),
+    template_id: z.uuid(),
+    version_no: z.number().int(),
+  }).nullable(),
+  meetup: safeMeetupPlanRowSchema.nullable(),
+  profile: z.object({
+    account_status: z.string(),
+    legal_name: z.string(),
+    phone: z.string(),
+  }).nullable(),
+  quote: z.unknown().nullable(),
+  rejection: z.object({
+    note: z.string().nullable(),
+    occurred_at: z.string(),
+  }).nullable(),
+  template: z.object({
+    activated_at: z.string().nullable(),
+    approved_at: z.string().nullable(),
+    deactivated_at: z.string().nullable(),
+    id: z.uuid(),
+    schema_version: z.number().int(),
+    terms: z.unknown(),
+    version: z.string(),
+  }).nullable(),
+});
 
 type QueueBookingRow = {
   camera_id: string;
@@ -54,44 +110,10 @@ type DetailBookingRow = QueueBookingRow & {
   total_due: number | null;
 };
 
-type ProfileRow = {
-  account_status: string;
-  legal_name: string;
-  phone: string;
-  user_id?: string;
-};
-
-type CameraRow = {
-  daily_rate: number | null;
-  id: string;
-  name: string;
-  published_at: string | null;
-  security_deposit: number | null;
-  slug: string;
-  status: string;
-};
-
-type AccessoryRow = {
-  id: string;
-  name: string;
-  quantity: number;
-  sort_position: number;
-};
-
 type AvailabilityRow = {
   ends_at: string | null;
   reason: string | null;
   starts_at: string | null;
-};
-
-type TemplateRow = {
-  activated_at: string | null;
-  approved_at: string | null;
-  deactivated_at: string | null;
-  id: string;
-  schema_version: number;
-  terms: unknown;
-  version: string;
 };
 
 type ContractReferenceRow = {
@@ -101,8 +123,6 @@ type ContractReferenceRow = {
   template_id: string;
   version_no: number;
 };
-
-type RejectionRow = { note: string | null; occurred_at: string };
 
 function unique(values: string[]) {
   return [...new Set(values)];
@@ -247,125 +267,41 @@ export async function loadAdminBookingDetail(
     return { status: "missing" } as const;
   }
 
-  const bookingResult = await context.supabase
-    .from("bookings")
-    .select(ADMIN_DETAIL_BOOKING_COLUMNS)
-    .eq("id", bookingId)
-    .maybeSingle();
+  const snapshotResult = await context.supabase
+    .schema("api")
+    .rpc("get_admin_booking_detail_snapshot", { p_booking_id: bookingId });
 
-  if (bookingResult.error) return { status: "error" } as const;
-  if (!bookingResult.data) return { status: "missing" } as const;
-  const booking = bookingResult.data as DetailBookingRow;
-
-  const [
-    profileResult,
-    cameraResult,
-    accessoriesResult,
-    availabilityResult,
-    templateResult,
-    meetupResult,
-  ] = await Promise.all([
-    context.supabase
-      .from("profiles")
-      .select(ADMIN_PROFILE_COLUMNS)
-      .eq("user_id", booking.renter_id)
-      .maybeSingle(),
-    context.supabase
-      .from("cameras")
-      .select(ADMIN_CAMERA_COLUMNS)
-      .eq("id", booking.camera_id)
-      .maybeSingle(),
-    context.supabase
-      .from("camera_accessories")
-      .select(ADMIN_ACCESSORY_COLUMNS)
-      .eq("camera_id", booking.camera_id)
-      .is("archived_at", null)
-      .order("sort_position")
-      .order("name")
-      .order("id"),
-    context.supabase
-      .from("public_availability")
-      .select(ADMIN_AVAILABILITY_COLUMNS)
-      .eq("camera_id", booking.camera_id)
-      .lt("starts_at", booking.return_at)
-      .gt("ends_at", booking.pickup_at)
-      .order("starts_at"),
-    context.supabase
-      .from("contract_templates")
-      .select(ADMIN_TEMPLATE_COLUMNS)
-      .not("approved_at", "is", null)
-      .not("activated_at", "is", null)
-      .is("deactivated_at", null)
-      .order("id")
-      .limit(1)
-      .maybeSingle(),
-    context.supabase
-      .from("booking_meetup_plans")
-      .select(SAFE_MEETUP_PLAN_COLUMNS)
-      .eq("booking_id", booking.id)
-      .maybeSingle(),
-  ]);
-
-  if (
-    profileResult.error ||
-    cameraResult.error ||
-    accessoriesResult.error ||
-    availabilityResult.error ||
-    templateResult.error ||
-    meetupResult.error
-  ) {
+  if (snapshotResult.error?.code === "P0002") {
+    return { status: "missing" } as const;
+  }
+  const snapshot = adminDetailSnapshotSchema.safeParse(snapshotResult.data);
+  if (snapshotResult.error || !snapshot.success) {
     return { status: "error" } as const;
   }
 
-  const profile = (profileResult.data as ProfileRow | null) ?? null;
-  const camera = (cameraResult.data as CameraRow | null) ?? null;
-  const accessories = (accessoriesResult.data ?? []) as AccessoryRow[];
+  const {
+    accessories,
+    booking,
+    camera,
+    contract,
+    meetup,
+    profile,
+    template,
+  } = snapshot.data;
   const availability = sanitizedAvailability(
-    (availabilityResult.data ?? []) as AvailabilityRow[],
+    snapshot.data.availability,
   );
-  const template = (templateResult.data as TemplateRow | null) ?? null;
-  const meetup = meetupResult.data
-    ? safeMeetupPlanRowSchema.safeParse(meetupResult.data)
-    : null;
-  if (meetup && !meetup.success) return { status: "error" } as const;
-  if (booking.meetup_snapshot_required && !meetup?.success) {
+  if (booking.meetup_snapshot_required && !meetup) {
     return { status: "inconsistent" } as const;
   }
 
-  let quote = null;
-  if (booking.state === "FOR_REVIEW") {
-    const quoteResult = await context.supabase.schema("api").rpc("quote_booking", {
-      p_camera_id: booking.camera_id,
-      p_pickup_at: booking.pickup_at,
-      p_return_at: booking.return_at,
-    });
-    if (!quoteResult.error) quote = sanitizedQuote(quoteResult.data);
-  }
-
-  let contract: ContractReferenceRow | null = null;
-  if (booking.current_contract_version_id) {
-    const contractResult = await context.supabase
-      .from("contract_versions")
-      .select(ADMIN_CONTRACT_REFERENCE_COLUMNS)
-      .eq("id", booking.current_contract_version_id)
-      .maybeSingle();
-    if (contractResult.error) return { status: "error" } as const;
-    contract = (contractResult.data as ContractReferenceRow | null) ?? null;
-  }
+  const quote = sanitizedQuote(
+    snapshot.data.quote === null ? null : [snapshot.data.quote],
+  );
 
   let rejection: { reason: string; rejectedAt: string } | null = null;
   if (booking.state === "REJECTED") {
-    const rejectionResult = await context.supabase
-      .from("booking_state_history")
-      .select(ADMIN_REJECTION_COLUMNS)
-      .eq("booking_id", booking.id)
-      .eq("to_state", "REJECTED")
-      .order("occurred_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (rejectionResult.error) return { status: "error" } as const;
-    const row = (rejectionResult.data as RejectionRow | null) ?? null;
+    const row = snapshot.data.rejection;
     if (row?.note) {
       rejection = { reason: row.note, rejectedAt: row.occurred_at };
     }
@@ -429,7 +365,7 @@ export async function loadAdminBookingDetail(
       expectedLocation: booking.expected_location,
       id: booking.id,
       intendedUse: booking.intended_use,
-      meetup: meetup?.success ? projectMeetupPlan(meetup.data) : null,
+      meetup: meetup ? projectMeetupPlan(meetup) : null,
       pickupAt: booking.pickup_at,
       profile: profile
         ? {

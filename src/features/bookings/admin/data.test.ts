@@ -98,7 +98,60 @@ function adminContext(
     builders.push(builder);
     return builder;
   });
-  const rpc = vi.fn().mockResolvedValue(quoteResult);
+  const rpc = vi.fn((name: string) => {
+    if (name !== "get_admin_booking_detail_snapshot") {
+      return Promise.resolve(quoteResult);
+    }
+
+    const read = (table: string) => {
+      const configured = results[table];
+      return Array.isArray(configured) ? configured[0] : configured;
+    };
+    const bookingResult = read("bookings");
+    if (!bookingResult?.data) {
+      return Promise.resolve({
+        data: null,
+        error: bookingResult?.error ?? { code: "P0002" },
+      });
+    }
+    const booking = bookingResult.data as Record<string, unknown>;
+    const requiredTables = [
+      "profiles",
+      "cameras",
+      "camera_accessories",
+      "public_availability",
+      "contract_templates",
+      "booking_meetup_plans",
+      ...(booking.current_contract_version_id ? ["contract_versions"] : []),
+      ...(booking.state === "REJECTED" ? ["booking_state_history"] : []),
+    ];
+    const failed = requiredTables.map(read).find((result) => result?.error);
+    if (failed?.error) {
+      return Promise.resolve({ data: null, error: failed.error });
+    }
+
+    return Promise.resolve({
+      data: {
+        accessories: read("camera_accessories")?.data ?? [],
+        availability: read("public_availability")?.data ?? [],
+        booking,
+        camera: read("cameras")?.data ?? null,
+        contract: booking.current_contract_version_id
+          ? read("contract_versions")?.data ?? null
+          : null,
+        meetup: read("booking_meetup_plans")?.data ?? null,
+        profile: read("profiles")?.data ?? null,
+        quote: booking.state === "FOR_REVIEW" && !quoteResult.error
+          ? (quoteResult.data as unknown[])?.[0] ?? null
+          : null,
+        rejection: booking.state === "REJECTED"
+          ? read("booking_state_history")?.data ?? null
+          : null,
+        template: read("contract_templates")?.data ?? null,
+      },
+      error: null,
+    });
+  });
   const schema = vi.fn(() => ({ rpc }));
   return {
     builders,
@@ -402,114 +455,12 @@ describe("admin booking detail data", () => {
       /verification_documents|object_path|signed|serial_number|SECRET-SERIAL|acquisition_cost|replacement_value|internal_notes|rejection_reason|operator_notes|actor_user_id|metadata|content_sha256|snapshot|rendered_pdf_path/,
     );
 
-    expect(harness.from).not.toHaveBeenCalledWith("verification_documents");
-    expect(harness.from).not.toHaveBeenCalledWith("verification_records");
-    const bookingQuery = harness.builders.find(
-      (item) => item.table === "bookings",
-    )!;
-    expect(operation(bookingQuery, "select")[0].args).toEqual([
-      "id,renter_id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required",
-    ]);
-    expect(operation(bookingQuery, "eq")).toEqual([
-      { args: ["id", BOOKING_ID], name: "eq" },
-    ]);
-    const profileQuery = harness.builders.find((item) => item.table === "profiles")!;
-    expect(operation(profileQuery, "select")[0].args).toEqual([
-      "user_id,legal_name,phone,account_status",
-    ]);
-    expect(operation(profileQuery, "eq")).toEqual([
-      { args: ["user_id", RENTER_ID], name: "eq" },
-    ]);
-    const meetupQuery = harness.builders.find(
-      (item) => item.table === "booking_meetup_plans",
-    )!;
-    expect(operation(meetupQuery, "select")[0].args).toEqual([
-      "booking_id,renter_city_label,venue_name,venue_address,venue_city,venue_latitude,venue_longitude,provider,provider_config_version,attribution,created_at",
-    ]);
-    expect(JSON.stringify(operation(meetupQuery, "select"))).not.toMatch(
-      /provider_place_id|renter_city_provider_id/,
+    expect(harness.from).not.toHaveBeenCalled();
+    expect(harness.rpc).toHaveBeenCalledTimes(1);
+    expect(harness.rpc).toHaveBeenCalledWith(
+      "get_admin_booking_detail_snapshot",
+      { p_booking_id: BOOKING_ID },
     );
-    const cameraQuery = harness.builders.find((item) => item.table === "cameras")!;
-    expect(operation(cameraQuery, "select")[0].args).toEqual([
-      "id,slug,name,status,published_at,daily_rate,security_deposit",
-    ]);
-    expect(operation(cameraQuery, "eq")).toEqual([
-      { args: ["id", CAMERA_ID], name: "eq" },
-    ]);
-    const accessoryQuery = harness.builders.find(
-      (item) => item.table === "camera_accessories",
-    )!;
-    expect(operation(accessoryQuery, "select")[0].args).toEqual([
-      "id,name,quantity,sort_position",
-    ]);
-    expect(operation(accessoryQuery, "eq")).toEqual([
-      { args: ["camera_id", CAMERA_ID], name: "eq" },
-    ]);
-    expect(operation(accessoryQuery, "is")).toEqual([
-      { args: ["archived_at", null], name: "is" },
-    ]);
-    expect(operation(accessoryQuery, "order")).toEqual([
-      { args: ["sort_position"], name: "order" },
-      { args: ["name"], name: "order" },
-      { args: ["id"], name: "order" },
-    ]);
-    const availabilityQuery = harness.builders.find(
-      (item) => item.table === "public_availability",
-    )!;
-    expect(operation(availabilityQuery, "select")[0].args).toEqual([
-      "starts_at,ends_at,reason",
-    ]);
-    expect(operation(availabilityQuery, "eq")).toEqual([
-      { args: ["camera_id", CAMERA_ID], name: "eq" },
-    ]);
-    expect(operation(availabilityQuery, "lt")).toEqual([
-      {
-        args: ["starts_at", "2026-08-21T01:00:00.000Z"],
-        name: "lt",
-      },
-    ]);
-    expect(operation(availabilityQuery, "gt")).toEqual([
-      {
-        args: ["ends_at", "2026-08-20T01:00:00.000Z"],
-        name: "gt",
-      },
-    ]);
-    expect(operation(availabilityQuery, "order")).toEqual([
-      { args: ["starts_at"], name: "order" },
-    ]);
-    const templateQuery = harness.builders.find(
-      (item) => item.table === "contract_templates",
-    )!;
-    expect(operation(templateQuery, "select")[0].args).toEqual([
-      "id,version,schema_version,terms,approved_at,activated_at,deactivated_at",
-    ]);
-    expect(operation(templateQuery, "not")).toEqual([
-      { args: ["approved_at", "is", null], name: "not" },
-      { args: ["activated_at", "is", null], name: "not" },
-    ]);
-    expect(operation(templateQuery, "is")).toEqual([
-      { args: ["deactivated_at", null], name: "is" },
-    ]);
-    expect(operation(templateQuery, "order")).toEqual([
-      { args: ["id"], name: "order" },
-    ]);
-    expect(operation(templateQuery, "limit")).toEqual([
-      { args: [1], name: "limit" },
-    ]);
-    expect(harness.from.mock.calls.map(([table]) => table)).toEqual([
-      "bookings",
-      "profiles",
-      "cameras",
-      "camera_accessories",
-      "public_availability",
-      "contract_templates",
-      "booking_meetup_plans",
-    ]);
-    expect(harness.rpc).toHaveBeenCalledWith("quote_booking", {
-      p_camera_id: CAMERA_ID,
-      p_pickup_at: "2026-08-20T01:00:00.000Z",
-      p_return_at: "2026-08-21T01:00:00.000Z",
-    });
   });
 
   it("keeps a quote failure as a fail-closed readiness reason without raw details", async () => {
@@ -594,26 +545,8 @@ describe("admin booking detail data", () => {
     expect(JSON.stringify(result)).not.toMatch(
       /content_sha256|rendered_pdf_path|snapshot|private\/contracts/,
     );
-    const contractQuery = harness.builders.find(
-      (item) => item.table === "contract_versions",
-    )!;
-    expect(operation(contractQuery, "select")[0].args).toEqual([
-      "id,template_id,version_no,status,issued_at",
-    ]);
-    expect(operation(contractQuery, "eq")).toEqual([
-      { args: ["id", CONTRACT_ID], name: "eq" },
-    ]);
-    expect(harness.from.mock.calls.map(([table]) => table)).toEqual([
-      "bookings",
-      "profiles",
-      "cameras",
-      "camera_accessories",
-      "public_availability",
-      "contract_templates",
-      "booking_meetup_plans",
-      "contract_versions",
-    ]);
-    expect(harness.rpc).not.toHaveBeenCalled();
+    expect(harness.from).not.toHaveBeenCalled();
+    expect(harness.rpc).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -694,33 +627,8 @@ describe("admin booking detail data", () => {
     expect(JSON.stringify(result)).not.toMatch(
       /actor_user_id|private-admin|metadata|operation_id|private-operation/,
     );
-    const historyQuery = harness.builders.find(
-      (item) => item.table === "booking_state_history",
-    )!;
-    expect(operation(historyQuery, "select")[0].args).toEqual([
-      "note,occurred_at",
-    ]);
-    expect(operation(historyQuery, "eq")).toEqual([
-      { args: ["booking_id", BOOKING_ID], name: "eq" },
-      { args: ["to_state", "REJECTED"], name: "eq" },
-    ]);
-    expect(operation(historyQuery, "order")).toEqual([
-      { args: ["occurred_at", { ascending: false }], name: "order" },
-      { args: ["id", { ascending: false }], name: "order" },
-    ]);
-    expect(operation(historyQuery, "limit")).toEqual([
-      { args: [1], name: "limit" },
-    ]);
-    expect(harness.from.mock.calls.map(([table]) => table)).toEqual([
-      "bookings",
-      "profiles",
-      "cameras",
-      "camera_accessories",
-      "public_availability",
-      "contract_templates",
-      "booking_meetup_plans",
-      "booking_state_history",
-    ]);
+    expect(harness.from).not.toHaveBeenCalled();
+    expect(harness.rpc).toHaveBeenCalledTimes(1);
   });
 
   it("treats a rejected booking without durable reason history as inconsistent", async () => {

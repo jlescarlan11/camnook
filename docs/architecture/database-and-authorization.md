@@ -219,6 +219,15 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
   rechecks this condition at the transaction boundary.
 - OD-01 pricing uses one started 24-hour elapsed duration. Quote and approval call the same pure database pricing function, and approval reads the camera rate itself rather than accepting an authoritative total from a renter.
 
+The admin booking-detail page reads booking, renter, camera, fixed accessories,
+overlapping sanitized availability, active template, meetup plan, current
+contract reference, rejection evidence, and any current quote through one
+sole-admin snapshot RPC. This replaces seven to eight independent Data API
+requests, keeps the fields on an explicit allowlist, and ensures readiness is
+computed from one database statement rather than a mixture of commits. Known
+quote ineligibility remains a fail-closed `quote_unavailable` readiness reason;
+unexpected database failures fail the whole detail read.
+
 `public.availability_blocks`
 
 - `id` PK; `camera_id`; optional unique `booking_id`; `kind`; `starts_at`; `ends_at`; generated stored `period = tstzrange(starts_at, ends_at, '[)')`; creator; reason; and `released_at`/`released_by`.
@@ -477,7 +486,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-two forward migrations. On 13 August 2026, the four
+The repository contains forty-three forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
