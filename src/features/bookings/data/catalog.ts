@@ -1,5 +1,7 @@
 import "server-only";
 
+import { z } from "zod";
+
 import { getSupabasePublicConfig } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { PublicHandoffPolicy } from "@/features/listings/handoff-types";
@@ -21,43 +23,36 @@ export type CatalogResult =
   | { cameras: PublicCamera[]; status: "success" }
   | { status: "error" };
 
-type PublicCameraRow = {
-  daily_rate: number | null;
-  description: string | null;
-  id: string | null;
-  name: string | null;
-  security_deposit: number | null;
-  slug: string | null;
-};
-
-type PhotoRow = {
-  alt_text: string | null;
-  camera_id: string | null;
-  object_path: string | null;
-};
-
-type AccessoryRow = {
-  camera_id: string;
-  name: string;
-  quantity: number;
-};
-
-type AvailabilityRow = {
-  camera_id: string | null;
-  ends_at: string | null;
-  reason: string | null;
-  starts_at: string | null;
-};
-
-type HandoffPolicyRow = {
-  allowed_weekdays: number[] | null;
-  approved_times: string[] | null;
-  camera_id: string | null;
-  city_label: string | null;
-  enabled: boolean | null;
-  timezone: string | null;
-  version: number | null;
-};
+const publicCatalogSnapshotSchema = z.array(z.object({
+  accessories: z.array(z.object({
+    name: z.string().min(1),
+    quantity: z.number().int().positive(),
+  }).strict()),
+  availability: z.array(z.object({
+    ends_at: z.string().min(1),
+    reason: z.enum(["booked", "unavailable"]),
+    starts_at: z.string().min(1),
+  }).strict()),
+  daily_rate: z.number().nonnegative(),
+  description: z.string().min(1),
+  handoff_policy: z.object({
+    allowed_weekdays: z.array(z.number().int().min(0).max(6)),
+    approved_times: z.array(z.string().regex(/^\d{2}:\d{2}$/)),
+    city_label: z.string().nullable(),
+    enabled: z.boolean(),
+    timezone: z.string(),
+    version: z.number().int().nonnegative(),
+  }).strict().nullable(),
+  id: z.uuid(),
+  name: z.string().min(1),
+  photos: z.array(z.object({
+    alt_text: z.string().nullable(),
+    object_path: z.string().min(1),
+  }).strict()),
+  published_at: z.string().min(1),
+  security_deposit: z.number().nonnegative(),
+  slug: z.string().min(1),
+}).strict());
 
 export function buildPublicCameraPhotoUrl(
   configuredUrl: string,
@@ -92,126 +87,48 @@ export function buildPublicCameraPhotoUrl(
 export async function loadCatalog(): Promise<CatalogResult> {
   const supabase = await createSupabaseServerClient();
   const { url } = getSupabasePublicConfig();
-  const [
-    camerasResult,
-    photosResult,
-    accessoriesResult,
-    availabilityResult,
-    handoffPoliciesResult,
-  ] =
-    await Promise.all([
-      supabase
-        .from("public_cameras")
-        .select(
-          "id,slug,name,description,daily_rate,security_deposit,published_at",
-        )
-        .order("published_at", { ascending: false }),
-      supabase
-        .from("public_camera_photos")
-        .select("id,camera_id,object_path,alt_text,sort_position")
-        .order("sort_position"),
-      supabase
-        .from("camera_accessories")
-        .select("camera_id,name,quantity,sort_position")
-        .is("archived_at", null)
-        .order("sort_position"),
-      supabase
-        .from("public_availability")
-        .select("camera_id,starts_at,ends_at,reason")
-        .order("starts_at"),
-      supabase
-        .from("public_camera_handoff_policies")
-        .select(
-          "camera_id,city_label,allowed_weekdays,approved_times,timezone,enabled,version",
-        )
-        .order("camera_id"),
-    ]);
+  const result = await supabase
+    .schema("api")
+    .rpc("get_public_catalog_snapshot");
+  const parsed = publicCatalogSnapshotSchema.safeParse(result.data);
+  if (result.error || !parsed.success) return { status: "error" };
 
-  if (
-    camerasResult.error ||
-    photosResult.error ||
-    accessoriesResult.error ||
-    availabilityResult.error ||
-    handoffPoliciesResult.error
-  ) {
-    return { status: "error" };
-  }
+  const cameras = parsed.data.map((camera): PublicCamera => {
+    const cameraName = camera.name;
+    const handoffPolicy = camera.handoff_policy;
 
-  const photos = (photosResult.data ?? []) as PhotoRow[];
-  const accessories = (accessoriesResult.data ?? []) as AccessoryRow[];
-  const availability = (availabilityResult.data ?? []) as AvailabilityRow[];
-  const handoffPolicies = (handoffPoliciesResult.data ?? []) as HandoffPolicyRow[];
-  const cameras = ((camerasResult.data ?? []) as PublicCameraRow[]).flatMap(
-    (camera): PublicCamera[] => {
-      if (
-        !camera.id ||
-        !camera.slug ||
-        !camera.name ||
-        !camera.description ||
-        camera.daily_rate === null ||
-        camera.security_deposit === null
-      ) {
-        return [];
-      }
-      const cameraName = camera.name;
-      const handoffPolicy = handoffPolicies.find(
-        (policy) => policy.camera_id === camera.id,
-      );
-
-      return [
-        {
-          accessories: accessories
-            .filter((item) => item.camera_id === camera.id)
-            .map((item) => ({ name: item.name, quantity: item.quantity })),
-          availability: availability.flatMap((period) =>
-            period.camera_id === camera.id &&
-            period.starts_at &&
-            period.ends_at &&
-            period.reason
-              ? [
-                  {
-                    endsAt: period.ends_at,
-                    reason: period.reason,
-                    startsAt: period.starts_at,
-                  },
-                ]
-              : [],
-          ),
-          dailyRate: camera.daily_rate,
-          description: camera.description,
-          id: camera.id,
-          handoffPolicy:
-            handoffPolicy?.city_label &&
-            handoffPolicy.timezone === "Asia/Manila" &&
-            handoffPolicy.version !== null &&
-            handoffPolicy.enabled !== null
-              ? {
-                  allowedWeekdays: handoffPolicy.allowed_weekdays ?? [],
-                  approvedTimes: handoffPolicy.approved_times ?? [],
-                  cityLabel: handoffPolicy.city_label,
-                  enabled: handoffPolicy.enabled,
-                  timezone: "Asia/Manila",
-                  version: handoffPolicy.version,
-                }
-              : null,
-          name: cameraName,
-          photos: photos.flatMap((photo) => {
-            if (
-              photo.camera_id !== camera.id ||
-              !photo.object_path
-            ) {
-              return [];
+    return {
+      accessories: camera.accessories,
+      availability: camera.availability.map((period) => ({
+        endsAt: period.ends_at,
+        reason: period.reason,
+        startsAt: period.starts_at,
+      })),
+      dailyRate: camera.daily_rate,
+      description: camera.description,
+      id: camera.id,
+      handoffPolicy:
+        handoffPolicy?.city_label &&
+        handoffPolicy.timezone === "Asia/Manila"
+          ? {
+              allowedWeekdays: handoffPolicy.allowed_weekdays,
+              approvedTimes: handoffPolicy.approved_times,
+              cityLabel: handoffPolicy.city_label,
+              enabled: handoffPolicy.enabled,
+              timezone: "Asia/Manila",
+              version: handoffPolicy.version,
             }
-            const photoUrl = buildPublicCameraPhotoUrl(url, photo.object_path);
-            const alt = photo.alt_text?.trim() || cameraName;
-            return photoUrl ? [{ alt, url: photoUrl }] : [];
-          }),
-          securityDeposit: camera.security_deposit,
-          slug: camera.slug,
-        },
-      ];
-    },
-  );
+          : null,
+      name: cameraName,
+      photos: camera.photos.flatMap((photo) => {
+        const photoUrl = buildPublicCameraPhotoUrl(url, photo.object_path);
+        const alt = photo.alt_text?.trim() || cameraName;
+        return photoUrl ? [{ alt, url: photoUrl }] : [];
+      }),
+      securityDeposit: camera.security_deposit,
+      slug: camera.slug,
+    };
+  });
 
   return { cameras, status: "success" };
 }

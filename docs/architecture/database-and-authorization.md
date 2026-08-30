@@ -205,6 +205,14 @@ All identifiers are random UUIDs unless sequence order is useful for append-only
 - `public_availability` returns active blocks only for currently published cameras, with camera ID plus busy range and generalized reason (`booked` or `unavailable`), never booking ID or renter data. Anonymous and ordinary authenticated direct-table policies enforce the same publication boundary; explicit admins retain private inventory visibility.
 - Because RLS controls rows rather than columns, anonymous access also uses explicit column-level grants on the source tables. `anon` receives no privilege on serial, cost/value, booking, renter, or internal-note columns and cannot bypass the projection with a direct Data API query.
 
+The homepage, camera detail, and booking-request catalog read one anonymous-safe
+snapshot RPC instead of five independent Data API requests, an 80% request
+reduction. The snapshot returns only explicit public camera, active photo,
+active accessory, sanitized availability, and handoff-policy fields from one
+database statement. It never returns serial numbers, acquisition or replacement
+values, private availability reasons, booking references, provider place IDs, or
+coordinates; the application also rejects unexpected response fields.
+
 ### Requests, reservations, and exclusion constraint
 
 `public.bookings`
@@ -523,7 +531,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-nine forward migrations. On 13 August 2026, the four
+The repository contains fifty forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

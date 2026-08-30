@@ -50,6 +50,27 @@ insert into public.camera_handoff_policies (
 insert into public.camera_handoff_slots (camera_id, local_time)
 values ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', '09:00');
 
+insert into public.camera_photos (
+  id, camera_id, object_path, alt_text, sort_position
+) values (
+  'd2000000-0000-4000-8000-000000000001',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd/public-catalog.png',
+  'Public catalog camera',
+  0
+);
+
+insert into public.camera_accessories (
+  id, camera_id, name, quantity, replacement_value, sort_position
+) values (
+  'd3000000-0000-4000-8000-000000000001',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'Battery',
+  2,
+  2500,
+  0
+);
+
 insert into public.cameras (
   id,
   slug,
@@ -143,10 +164,62 @@ insert into public.availability_blocks (
 set local role anon;
 
 do $$
+declare
+  catalog jsonb := api.get_public_catalog_snapshot();
+  camera jsonb;
 begin
   if (select count(*) from public.public_cameras) <> 1 then
     raise exception 'anonymous discovery must expose the published camera';
   end if;
+
+  if jsonb_array_length(catalog) <> 1 then
+    raise exception 'public catalog snapshot exposed an unpublished camera';
+  end if;
+
+  camera := catalog -> 0;
+
+  if camera ->> 'id' <> 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+    or camera ->> 'slug' <> 'test-camera'
+    or camera -> 'photos' <> jsonb_build_array(jsonb_build_object(
+      'object_path', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd/public-catalog.png',
+      'alt_text', 'Public catalog camera'
+    ))
+    or camera -> 'accessories' <> jsonb_build_array(jsonb_build_object(
+      'name', 'Battery',
+      'quantity', 2
+    ))
+    or camera -> 'availability' -> 0 ->> 'reason' <> 'unavailable'
+    or camera -> 'handoff_policy' ->> 'city_label' <> 'Manila'
+    or camera -> 'handoff_policy' -> 'approved_times' <> '["09:00"]'::jsonb
+  then
+    raise exception 'public catalog snapshot omitted or changed approved public fields';
+  end if;
+
+  if array(
+    select jsonb_object_keys(camera)
+    order by 1
+  ) <> array[
+    'accessories', 'availability', 'daily_rate', 'description',
+    'handoff_policy', 'id', 'name', 'photos', 'published_at',
+    'security_deposit', 'slug'
+  ]::text[]
+    or camera::text like '%PRIVATE-SERIAL%'
+    or camera::text like '%Active public availability fixture%'
+    or camera::text like '%replacement_value%'
+    or camera::text like '%provider_city_id%'
+    or camera::text like '%latitude%'
+    or camera::text like '%longitude%'
+    or camera::text like '%booking_id%'
+  then
+    raise exception 'public catalog snapshot exposed a private field or value';
+  end if;
+
+  begin
+    perform private.get_public_catalog_snapshot();
+    raise exception 'anonymous role unexpectedly called the private catalog snapshot';
+  exception
+    when insufficient_privilege then null;
+  end;
 
   if (
     select count(*)
