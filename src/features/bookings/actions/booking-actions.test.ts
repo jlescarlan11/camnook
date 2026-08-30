@@ -58,7 +58,6 @@ function profileQuery(result: unknown) {
 describe("quoteBooking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.HANDOFF_SCHEDULING_ENABLED;
     delete process.env.MEETUP_PLANNING_ENABLED;
   });
 
@@ -141,7 +140,6 @@ describe("quoteBooking", () => {
   });
 
   it("passes only validated calendar fields to the schedule quote RPC", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
     const rpc = vi.fn().mockResolvedValue({
       data: [
         {
@@ -191,8 +189,7 @@ describe("quoteBooking", () => {
     expect(JSON.stringify(rpc.mock.calls)).not.toContain("totalDue");
   });
 
-  it("fails closed for partial schedule input or a disabled rollout", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
+  it("fails closed for partial schedule input", async () => {
     await expect(
       quoteBooking(
         { status: "idle" },
@@ -214,43 +211,12 @@ describe("quoteBooking", () => {
       },
     });
     expect(createSupabaseServerClient).not.toHaveBeenCalled();
-
-    process.env.HANDOFF_SCHEDULING_ENABLED = "false";
-    await expect(
-      quoteBooking(
-        { status: "idle" },
-        fields({
-          camera: CAMERA_ID,
-          handoffTime: "09:00",
-          pickupDate: "2099-08-24",
-          policyVersion: "3",
-          returnDate: "2099-08-26",
-        }),
-      ),
-    ).resolves.toMatchObject({ error: "not_quotable", status: "error" });
-    expect(createSupabaseServerClient).not.toHaveBeenCalled();
-  });
-
-  it("does not accept the legacy datetime contract after calendar activation", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
-    await expect(
-      quoteBooking(
-        { status: "idle" },
-        fields({
-          camera: CAMERA_ID,
-          pickup: "2099-08-14T09:00",
-          return: "2099-08-15T09:00",
-        }),
-      ),
-    ).resolves.toMatchObject({ error: "not_quotable", status: "error" });
-    expect(createSupabaseServerClient).not.toHaveBeenCalled();
   });
 
   it.each([
     ["40001", "schedule_changed"],
     ["23P01", "unavailable"],
   ] as const)("maps schedule quote failure %s to %s", async (code, category) => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
     const rpc = vi.fn().mockResolvedValue({
       data: null,
       error: { code, message: "private schedule and block details" },
@@ -389,7 +355,6 @@ describe("saveProfile", () => {
 describe("requestBooking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.HANDOFF_SCHEDULING_ENABLED;
     delete process.env.MEETUP_PLANNING_ENABLED;
     delete process.env.MEETUP_RECOMMENDATION_SECRET;
     delete process.env.GEOAPIFY_API_KEY;
@@ -464,7 +429,6 @@ describe("requestBooking", () => {
   });
 
   it("revalidates the untrusted schedule in the authenticated request RPC", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
     const rpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
     const active = profileQuery({ data: { account_status: "active" }, error: null });
     const supabase = { ...active.client, ...rpcClient(rpc) } as never;
@@ -500,7 +464,6 @@ describe("requestBooking", () => {
   });
 
   it("requires a confirmed bound meetup and submits only decrypted server claims through the service RPC", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
     process.env.MEETUP_PLANNING_ENABLED = "true";
     process.env.GEOAPIFY_API_KEY = "provider-development-key";
     process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
@@ -572,7 +535,6 @@ describe("requestBooking", () => {
   });
 
   it("cannot bypass meetup confirmation and rejects expired or tampered references before service mutation", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
     process.env.MEETUP_PLANNING_ENABLED = "true";
     process.env.GEOAPIFY_API_KEY = "provider-development-key";
     process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
@@ -610,25 +572,7 @@ describe("requestBooking", () => {
     expect(createSupabaseAdminClient).not.toHaveBeenCalled();
   });
 
-  it("does not accept the legacy request contract after calendar activation", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
-    await expect(
-      requestBooking(
-        { status: "idle" },
-        fields({
-          camera: CAMERA_ID,
-          expectedLocation: "Cebu City",
-          intendedUse: "Family event",
-          pickup: "2099-08-14T09:00",
-          return: "2099-08-15T09:00",
-        }),
-      ),
-    ).resolves.toMatchObject({ error: "schedule_changed", status: "error" });
-    expect(getAuthenticatedUser).not.toHaveBeenCalled();
-  });
-
   it("preserves the complete schedule through unauthenticated OTP routing", async () => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
     vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
 
     await expect(
@@ -655,7 +599,6 @@ describe("requestBooking", () => {
     ["40001", "schedule_changed"],
     ["23P01", "unavailable"],
   ] as const)("maps schedule failure %s to %s without raw detail", async (code, category) => {
-    process.env.HANDOFF_SCHEDULING_ENABLED = "true";
     const rpc = vi.fn().mockResolvedValue({
       data: null,
       error: { code, message: "private block and renter identity" },

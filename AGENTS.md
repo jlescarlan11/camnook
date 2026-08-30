@@ -7,3 +7,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## CamNook production visibility
+
+Code shipped to CamNook Production is expected to be immediately active and
+visible. Do not place completed product behavior behind a new feature flag,
+rollout variable, or manual enable toggle unless the user explicitly requests
+one. Pushes intended for Production must use the repository's verified release
+path, publish the exact committed revision, and verify the live behavior after
+promotion.

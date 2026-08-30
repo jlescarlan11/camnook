@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-import { isHandoffSchedulingEnabled } from "../handoff-rollout";
 import {
   normalizeQuoteInputKey,
   normalizeScheduleQuoteInputKey,
@@ -78,18 +77,6 @@ export async function quoteBooking(
     /^\d+$/.test(generationValue) && Number.isSafeInteger(parsedGeneration)
       ? parsedGeneration
       : 0;
-  const schedulingEnabled = isHandoffSchedulingEnabled();
-  if (
-    (usesSchedule && !schedulingEnabled) ||
-    (!usesSchedule && schedulingEnabled)
-  ) {
-    return {
-      error: "not_quotable",
-      status: "error",
-      submissionGeneration,
-      values: scheduleValues,
-    };
-  }
   const camera = cameraSchema.safeParse(values.camera);
   const period = usesSchedule
     ? null

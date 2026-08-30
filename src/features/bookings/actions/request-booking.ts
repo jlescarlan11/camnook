@@ -13,7 +13,6 @@ import { readRecommendationReference } from "@/features/meetups/reference";
 import { isMeetupPlanningEnabled } from "@/features/meetups/rollout";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
-import { isHandoffSchedulingEnabled } from "../handoff-rollout";
 import { parseManilaBookingPeriod } from "../manila-time";
 import { stringFormValue, type ActionStatus } from "./state";
 
@@ -84,18 +83,10 @@ export async function requestBooking(
     expectedLocation: values.expectedLocation,
     intendedUse: values.intendedUse,
   };
-  const schedulingEnabled = isHandoffSchedulingEnabled();
   const meetupPlanningEnabled = isMeetupPlanningEnabled();
   const usesMeetupInput =
     values.meetupConfirmed !== "" || values.meetupReference !== "";
 
-  if (!usesSchedule && schedulingEnabled) {
-    return {
-      error: "schedule_changed",
-      status: "error",
-      values: preservedValues,
-    };
-  }
   if (usesMeetupInput && !meetupPlanningEnabled) {
     return { error: "schedule_changed", status: "error", values: preservedValues };
   }
@@ -115,13 +106,6 @@ export async function requestBooking(
 
   let policyVersion: number | null = null;
   if (usesSchedule) {
-    if (!schedulingEnabled) {
-      return {
-        error: "schedule_changed",
-        status: "error",
-        values: preservedValues,
-      };
-    }
     if (!isCalendarDate(values.pickupDate)) {
       fieldErrors.pickupDate = "Choose a valid pickup date.";
     }

@@ -91,7 +91,6 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          HANDOFF_SCHEDULING_ENABLED: "true"
           MEETUP_PLANNING_ENABLED: "true"
 
   database-concurrency:

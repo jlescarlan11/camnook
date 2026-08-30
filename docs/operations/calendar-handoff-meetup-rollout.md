@@ -9,21 +9,21 @@ readiness work remains incomplete.
 
 ## Immutable release boundary
 
-`HANDOFF_SCHEDULING_ENABLED` and `MEETUP_PLANNING_ENABLED` are server-only and
-enabled only by the exact string `true`. Production releases from `main` enable
-handoff scheduling and keep meetup planning disabled until its provider and
-privacy readiness requirements pass. The first flag stops new schedule-bound
-requests when disabled; the second stops location lookup, recommendation, and
-meetup-bound requests. Disabling either never deletes or
-rewrites camera policies, bookings, meetup plans, contracts, handoffs, history,
-or audits. Existing snapshot-backed bookings remain readable; only genuine
-legacy bookings may use the validated `PICKUP_LOCATION` compatibility path.
+Handoff scheduling is an always-on part of the published booking flow. It is
+not controlled by a deployment-time feature flag. `MEETUP_PLANNING_ENABLED`
+remains server-only and is enabled only by the exact string `true` until its
+provider and privacy readiness requirements pass. Disabling meetup planning
+stops location lookup, recommendation, and meetup-bound requests without
+deleting or rewriting camera policies, bookings, meetup plans, contracts,
+handoffs, history, or audits. Existing snapshot-backed bookings remain
+readable; only genuine legacy bookings may use the validated `PICKUP_LOCATION`
+compatibility path.
 
 ## Candidate and target preflight
 
 1. Freeze the exact Git SHA and require a clean tree. Run `pnpm lint`,
    `pnpm typecheck`, `pnpm test`, `pnpm launch:verify`, the full database and
-   real-session concurrency suites, and a build with both feature flags true.
+   real-session concurrency suites, and a build with meetup planning enabled.
 2. Before every hosted command, compare the intended environment and project:
    Development `ekmoiepalelqpmemvrkl`; Production
    `iegcixcevvkryfwfotqz`. Abort on any mismatch. Never link Production for
@@ -35,8 +35,8 @@ legacy bookings may use the validated `PICKUP_LOCATION` compatibility path.
    production-shaped singleton-admin/legacy-record baseline, and proves no row
    residue. A successful automatic `main` CI first migrates and verifies
    Development. Its success unlocks Production approval, which stages a
-   Production-shaped Vercel candidate with handoff scheduling enabled and meetup
-   planning disabled; only that
+   Production-shaped Vercel candidate with built-in handoff scheduling and
+   meetup planning disabled; only that
    exact unaliased artifact and SHA may continue through Production and
    promotion.
 4. Record only SHA, migration names/counts, deployment IDs/states, config
@@ -56,7 +56,7 @@ After disabled migrations and code are on the exact protected Preview SHA:
 
 1. Create non-customer owner/renter test identities and one Development-only
    camera policy using an approved lender city, weekday, and PHT slot.
-2. Enable both flags only in the protected Preview environment.
+2. Enable meetup planning only in the protected Preview environment.
 3. Verify guest calendar sanitization; PHT dates in PHT and non-PHT browsers;
    explicit geolocation; denial/timeout fallback to city/municipality only; one
    public recommendation; visible city/venue confirmation; sign-in return; and
@@ -83,8 +83,8 @@ quota/cost alerting, rotation owner, and outage response are configured. Verify
 provider health, runtime/database monitoring, and rollback control without
 recording sensitive values.
 
-Activation order is coherent and reversible: enable handoff scheduling first,
-verify the approved listing calendar/slot, then enable meetup planning and run
+Activation order is coherent and reversible: verify the approved listing
+calendar/slot, then enable meetup planning and run
 one authorized non-customer smoke. Require one booking and one immutable meetup
 snapshot, the same contract/pickup/return read-back, owner/cross-account access
 checks, and zero unexplained application/provider/privacy events during the
@@ -93,8 +93,7 @@ owner-defined observation window. Freeze fresh evidence and require
 
 ## Rollback and indeterminate outcomes
 
-Disable `MEETUP_PLANNING_ENABLED` first, then
-`HANDOFF_SCHEDULING_ENABLED`. This stops new recommendation/schedule admissions
+Disable `MEETUP_PLANNING_ENABLED` to stop new recommendation-backed admissions
 without database deletion. Do not rotate the reference secret as the first
 response unless invalidating all unexpired 15-minute recommendations is intended.
 Reconcile an indeterminate request by its durable owned booking before retrying;
@@ -102,8 +101,9 @@ never fabricate client success or delete history. Provider outage requires no
 cleanup of renter coordinates because they are never persisted. Recovery is a
 forward fix followed by a new protected Preview and evidence window.
 
-The repository release workflow enables handoff scheduling while keeping meetup
-planning disabled, disables Vercel's independent `main` promotion, and promotes
+The repository release workflow ships handoff scheduling as built-in behavior
+while keeping meetup planning disabled, disables Vercel's independent `main`
+promotion, and promotes
 only after the exact SHA's
 Production migration history, read-only hosted manifest, and advisors pass. An
 application smoke failure restores the prior Vercel alias without reversing

@@ -3,12 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CameraPhoto } from "@/features/bookings/components/camera-photo";
-import { QuoteForm } from "@/features/bookings/components/quote-form";
 import { ScheduleQuoteForm } from "@/features/bookings/components/schedule-quote-form";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadPublicCamera } from "@/features/bookings/data/catalog";
-import { formatManilaDateTime } from "@/features/bookings/manila-time";
-import { isHandoffSchedulingEnabled } from "@/features/bookings/handoff-rollout";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +24,6 @@ export default async function CameraPage({ params }: CameraPageProps) {
   const { slug } = await params;
   const result = await loadPublicCamera(slug);
   if (result.status === "missing") notFound();
-  const handoffSchedulingEnabled = isHandoffSchedulingEnabled();
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">
@@ -69,39 +65,15 @@ export default async function CameraPage({ params }: CameraPageProps) {
                   )}
                 </section>
 
-                {!handoffSchedulingEnabled ? (
-                  <section className="mt-8 border-t border-stone-200 pt-7">
-                    <h2 className="text-xl font-semibold">Busy periods</h2>
-                    <p className="mt-2 text-sm leading-6 text-stone-600">Sanitized schedule only; all times are Asia/Manila.</p>
-                    {result.camera.availability.length ? (
-                      <ul className="mt-4 space-y-3">
-                        {result.camera.availability.map((period) => (
-                          <li className="rounded-xl bg-stone-50 p-4 text-sm" key={`${period.startsAt}-${period.endsAt}`}>
-                            <span className="font-medium capitalize">{period.reason}</span>
-                            <span className="mt-1 block text-stone-600">
-                              {formatManilaDateTime(period.startsAt)} – {formatManilaDateTime(period.endsAt)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-3 text-sm text-stone-600">No busy periods are currently published.</p>
-                    )}
-                  </section>
-                ) : null}
               </div>
             </article>
             <aside className="min-w-0 lg:sticky lg:top-6 lg:self-start">
-              {handoffSchedulingEnabled ? (
-                <ScheduleQuoteForm
-                  availability={result.camera.availability}
-                  cameraId={result.camera.id}
-                  cameraName={result.camera.name}
-                  policy={result.camera.handoffPolicy}
-                />
-              ) : (
-                <QuoteForm cameraId={result.camera.id} cameraName={result.camera.name} />
-              )}
+              <ScheduleQuoteForm
+                availability={result.camera.availability}
+                cameraId={result.camera.id}
+                cameraName={result.camera.name}
+                policy={result.camera.handoffPolicy}
+              />
             </aside>
           </div>
         )}
