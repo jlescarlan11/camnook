@@ -315,6 +315,11 @@ sole-admin snapshot. Valid periods therefore use one Data API request instead of
 four, and invalid periods use one instead of three, while the UI retains the
 existing fail-closed section states.
 
+The admin payment-review page loads the pending transaction projection and its
+booking-scoped audit history through one sole-admin snapshot RPC. This removes the
+detail-then-audit request waterfall (two Data API requests to one) while retaining
+the existing proof-path, digest, and signed-URL exclusions.
+
 ### Manual GCash records
 
 `public.payment_transactions`
@@ -512,7 +517,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-seven forward migrations. On 13 August 2026, the four
+The repository contains forty-eight forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

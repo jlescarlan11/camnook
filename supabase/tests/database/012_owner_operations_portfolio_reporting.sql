@@ -675,6 +675,19 @@ begin
   then
     raise exception 'admin dashboard context privileges were broader or narrower than intended';
   end if;
+
+  if has_function_privilege(
+      'anon', 'api.get_admin_payment_review_context(uuid)', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_admin_payment_review_context(uuid)', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated', 'private.get_admin_payment_review_context(uuid)', 'EXECUTE'
+    )
+  then
+    raise exception 'admin payment context privileges were broader or narrower than intended';
+  end if;
 end;
 $$;
 
@@ -727,6 +740,14 @@ begin
   begin
     perform api.get_admin_dashboard_context('2026-11-09', '2026-11-23');
     raise exception 'anon executed the admin dashboard context';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_admin_payment_review_context(
+      'a0700000-0000-4000-8000-000000000003'
+    );
+    raise exception 'anon executed the admin payment context';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -785,6 +806,14 @@ begin
   begin
     perform api.get_admin_dashboard_context('2026-11-09', '2026-11-23');
     raise exception 'a renter executed the admin dashboard context';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_admin_payment_review_context(
+      'a0700000-0000-4000-8000-000000000003'
+    );
+    raise exception 'a renter executed the admin payment context';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -852,6 +881,12 @@ declare
   );
   dashboard_context jsonb := api.get_admin_dashboard_context(
     '2026-11-09', '2026-11-23'
+  );
+  payment_context jsonb := api.get_admin_payment_review_context(
+    'a0700000-0000-4000-8000-000000000003'
+  );
+  payment_audit jsonb := api.get_payment_audit_history(
+    'a0300000-0000-4000-8000-000000000003'
   );
   camera_revenue numeric;
 begin
@@ -923,6 +958,16 @@ begin
       ~* 'latitude|longitude|provider_city_id'
   then
     raise exception 'admin dashboard context was incomplete or overexposed';
+  end if;
+
+  if payment_context #>> '{detail,transaction_id}'
+      <> 'a0700000-0000-4000-8000-000000000003'
+    or payment_context #>> '{detail,booking_id}'
+      <> 'a0300000-0000-4000-8000-000000000003'
+    or payment_context -> 'audit' <> payment_audit
+    or payment_context::text ~* 'object_path|sha256|signed_url|request_metadata_digest'
+  then
+    raise exception 'admin payment context was incomplete or overexposed';
   end if;
 
   begin

@@ -394,6 +394,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_admin_payment_review_context: {
+        Args: { p_payment_id: string }
+        Returns: Json
+      }
       get_owner_portfolio_report: {
         Args: { p_period_end: string; p_period_start: string }
         Returns: Json

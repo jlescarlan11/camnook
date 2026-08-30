@@ -17,6 +17,11 @@ import {
 type UserContext = Awaited<ReturnType<typeof requireUser>>;
 type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
 
+const paymentReviewContextSchema = z.object({
+  audit: paymentAuditHistorySchema,
+  detail: paymentReviewDetailSchema,
+}).strict();
+
 export async function loadGcashRecipientConfiguration(context: AdminContext) {
   const result = await context.supabase
     .schema("api")
@@ -74,35 +79,24 @@ export async function loadPaymentReviewDetail(
     return { status: "missing" } as const;
   }
 
-  const detailResult = await context.supabase
+  const contextResult = await context.supabase
     .schema("api")
-    .rpc("get_payment_review_detail", { p_payment_id: paymentId });
-  const detail = paymentReviewDetailSchema.safeParse(detailResult.data);
+    .rpc("get_admin_payment_review_context", { p_payment_id: paymentId });
+  const parsed = paymentReviewContextSchema.safeParse(contextResult.data);
 
-  if (detailResult.error?.code === "P0002") {
+  if (contextResult.error?.code === "P0002") {
     return { status: "missing" } as const;
   }
-  if (detailResult.error?.code === "P0001") {
+  if (contextResult.error?.code === "P0001") {
     return { status: "stale" } as const;
   }
-  if (detailResult.error || !detail.success) {
-    return { status: "error" } as const;
-  }
-
-  const auditResult = await context.supabase
-    .schema("api")
-    .rpc("get_payment_audit_history", {
-      p_booking_id: detail.data.booking_id,
-    });
-  const audit = paymentAuditHistorySchema.safeParse(auditResult.data);
-
-  if (auditResult.error || !audit.success) {
+  if (contextResult.error || !parsed.success) {
     return { status: "error" } as const;
   }
 
   return {
-    audit: audit.data,
-    item: detail.data,
+    audit: parsed.data.audit,
+    item: parsed.data.detail,
     status: "success",
   } as const;
 }
