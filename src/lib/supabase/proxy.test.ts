@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
 vi.mock("@supabase/ssr", () => ({ createServerClient: vi.fn() }));
 vi.mock("./config", () => ({
   getSupabasePublicConfig: () => ({

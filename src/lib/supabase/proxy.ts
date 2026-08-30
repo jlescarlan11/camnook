@@ -5,6 +5,7 @@ import type { Database } from "@/types/database.generated";
 
 import { isProtectedRoute, loginPath, sanitizeReturnTo } from "../auth/routes";
 import { getSupabasePublicConfig } from "./config";
+import { fetchWithSupabaseServerDeadline } from "./fetch";
 
 type OutgoingCookie = {
   name: string;
@@ -53,6 +54,7 @@ export async function updateSupabaseSession(request: NextRequest) {
         });
       },
     },
+    global: { fetch: fetchWithSupabaseServerDeadline },
   });
 
   // Keep this call immediately after client creation. It validates the JWT and

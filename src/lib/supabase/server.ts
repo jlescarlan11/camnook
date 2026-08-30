@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import type { Database } from "@/types/database.generated";
 
 import { getSupabasePublicConfig } from "./config";
+import { fetchWithSupabaseServerDeadline } from "./fetch";
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
@@ -30,6 +31,7 @@ export async function createSupabaseServerClient() {
         }
       },
     },
+    global: { fetch: fetchWithSupabaseServerDeadline },
   });
 }
 

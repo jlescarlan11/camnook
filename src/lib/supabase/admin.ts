@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 
 import { getSupabasePublicConfig } from "./config";
+import { fetchWithSupabaseServerDeadline } from "./fetch";
 
 export function createSupabaseAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -21,5 +22,6 @@ export function createSupabaseAdminClient() {
       detectSessionInUrl: false,
       persistSession: false,
     },
+    global: { fetch: fetchWithSupabaseServerDeadline },
   });
 }
