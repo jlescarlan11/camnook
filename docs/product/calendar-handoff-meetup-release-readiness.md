@@ -18,7 +18,7 @@ separately authorized Production window.
 | Authorization boundaries | Direct role/RPC, RLS owner/admin, strict projection, and action-binding tests pass. | PASS |
 | Privacy evidence | Source/action/log/row/audit schemas exclude renter coordinates, provider IDs, secrets, tokens, private anchors, and raw payloads. Hosted network/log review remains. | PARTIAL |
 | Legacy compatibility | Database, contract, booking, pickup, and return regressions pass with snapshot-less legacy rows. | PASS |
-| Production preflight | Last verified Production evidence is 22/25 migrations; provider, policy, monitoring, and rollback evidence are unavailable. | BLOCKED |
+| Production preflight | Last verified Production evidence is 22/26 migrations; provider, policy, monitoring, and rollback evidence are unavailable. | BLOCKED |
 | Missing prerequisite is no-go | Schema-v3 machine evidence computes ten explicit blockers and `launch:require-go` exits 2. | PASS |
 | Controlled Production smoke | Forbidden by the current task and missing prerequisites. | BLOCKED |
 | History-preserving rollback | Exact disable order and retention contract are documented/tested at the flag/unit boundary; hosted rehearsal remains. | PARTIAL |
