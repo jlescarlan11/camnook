@@ -1,4 +1,4 @@
-select '1..4' as result
+select '1..5' as result
 union all
 select case
   when exists (
@@ -85,4 +85,17 @@ select case
     'EXECUTE'
   ) then 'ok 4 - verification retention cleanup is service-role-only'
   else 'not ok 4 - verification retention cleanup privileges are unsafe'
+end
+union all
+select case
+  when exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and tablename = 'verification_records'
+      and indexname = 'verification_records_expiry_due_idx'
+      and indexdef like '%(document_expiration_date, submitted_at, id)%'
+      and indexdef like '%WHERE (status = %verified%'
+  ) then 'ok 5 - verification expiry has a bounded oldest-first queue index'
+  else 'not ok 5 - verification expiry queue index is missing'
 end;
