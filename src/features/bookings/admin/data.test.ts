@@ -36,6 +36,16 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  gt(...args: unknown[]) {
+    this.operations.push({ args, name: "gt" });
+    return this;
+  }
+
+  lt(...args: unknown[]) {
+    this.operations.push({ args, name: "lt" });
+    return this;
+  }
+
   is(...args: unknown[]) {
     this.operations.push({ args, name: "is" });
     return this;
@@ -451,6 +461,18 @@ describe("admin booking detail data", () => {
     ]);
     expect(operation(availabilityQuery, "eq")).toEqual([
       { args: ["camera_id", CAMERA_ID], name: "eq" },
+    ]);
+    expect(operation(availabilityQuery, "lt")).toEqual([
+      {
+        args: ["starts_at", "2026-08-21T01:00:00.000Z"],
+        name: "lt",
+      },
+    ]);
+    expect(operation(availabilityQuery, "gt")).toEqual([
+      {
+        args: ["ends_at", "2026-08-20T01:00:00.000Z"],
+        name: "gt",
+      },
     ]);
     expect(operation(availabilityQuery, "order")).toEqual([
       { args: ["starts_at"], name: "order" },

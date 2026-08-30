@@ -219,10 +219,13 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
             </section>
 
             <section className="mt-7 border-t border-stone-200 pt-6">
-              <h2 className="text-xl font-semibold">Current availability context</h2>
+              <h2 className="text-xl font-semibold">
+                Availability for requested interval
+              </h2>
               {result.booking.availability.length === 0 ? (
                 <p className="mt-3 text-stone-600">
-                  No sanitized availability periods are currently listed.
+                  No conflicting sanitized availability period overlaps this
+                  request.
                 </p>
               ) : (
                 <ul className="mt-4 space-y-3">

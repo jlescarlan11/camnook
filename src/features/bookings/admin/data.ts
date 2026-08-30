@@ -287,6 +287,8 @@ export async function loadAdminBookingDetail(
       .from("public_availability")
       .select(ADMIN_AVAILABILITY_COLUMNS)
       .eq("camera_id", booking.camera_id)
+      .lt("starts_at", booking.return_at)
+      .gt("ends_at", booking.pickup_at)
       .order("starts_at"),
     context.supabase
       .from("contract_templates")
