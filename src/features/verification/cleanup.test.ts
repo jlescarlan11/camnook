@@ -180,51 +180,57 @@ describe("due verification evidence cleanup", () => {
     expect(peakFinalizations).toBe(10);
   });
 
-  it("accounts for sibling finalizations when one database request throws", async () => {
-    const rpc = vi.fn(async (name: string) => {
-      if (name === "expire_due_verifications") {
-        return { data: 0, error: null };
-      }
-      if (name === "claim_verification_evidence_cleanup") {
-        return {
-          data: [
-            {
-              id: INTENT_ID,
-              kind: "upload_intent",
-              object_path: INTENT_PATH,
-              owner_user_id: OWNER_ID,
-            },
-            {
-              id: DOCUMENT_ID,
-              kind: "verification_document",
-              object_path: DOCUMENT_PATH,
-              owner_user_id: OWNER_ID,
-            },
-          ],
-          error: null,
-        };
-      }
-      if (name === "finalize_due_verification_upload_cleanup") {
-        throw new Error("private network detail");
-      }
-      if (name === "finalize_due_verification_document_deletion") {
-        return { data: { status: "deleted" }, error: null };
-      }
-      throw new Error(`unexpected RPC: ${name}`);
-    });
-    const remove = vi.fn().mockResolvedValue({ data: [], error: null });
-    vi.mocked(createSupabaseAdminClient).mockReturnValue({
-      schema: vi.fn(() => ({ rpc })),
-      storage: { from: vi.fn(() => ({ remove })) },
-    } as never);
+  it.each(["throws", "returns malformed data"] as const)(
+    "accounts for sibling finalizations when one database request %s",
+    async (failureMode) => {
+      const rpc = vi.fn(async (name: string) => {
+        if (name === "expire_due_verifications") {
+          return { data: 0, error: null };
+        }
+        if (name === "claim_verification_evidence_cleanup") {
+          return {
+            data: [
+              {
+                id: INTENT_ID,
+                kind: "upload_intent",
+                object_path: INTENT_PATH,
+                owner_user_id: OWNER_ID,
+              },
+              {
+                id: DOCUMENT_ID,
+                kind: "verification_document",
+                object_path: DOCUMENT_PATH,
+                owner_user_id: OWNER_ID,
+              },
+            ],
+            error: null,
+          };
+        }
+        if (name === "finalize_due_verification_upload_cleanup") {
+          if (failureMode === "throws") {
+            throw new Error("private network detail");
+          }
+          return { data: null, error: null };
+        }
+        if (name === "finalize_due_verification_document_deletion") {
+          return { data: { status: "deleted" }, error: null };
+        }
+        throw new Error(`unexpected RPC: ${name}`);
+      });
+      const remove = vi.fn().mockResolvedValue({ data: [], error: null });
+      vi.mocked(createSupabaseAdminClient).mockReturnValue({
+        schema: vi.fn(() => ({ rpc })),
+        storage: { from: vi.fn(() => ({ remove })) },
+      } as never);
 
-    await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
-      claimed: 2,
-      cleaned: 1,
-      expired: 0,
-      failed: 1,
-    });
-  });
+      await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
+        claimed: 2,
+        cleaned: 1,
+        expired: 0,
+        failed: 1,
+      });
+    },
+  );
 
   it.each(["returns an error", "throws"] as const)(
     "continues evidence cleanup when Manila-date expiry %s",

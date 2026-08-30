@@ -31,6 +31,9 @@ const abandonedUploadClaimSchema = z.array(
     }),
   ]),
 );
+const cleanupFinalizationSchema = z.object({
+  status: z.enum(["cleaned", "deleted"]),
+});
 
 const CLEANUP_BATCH_SIZE = 100;
 const FINALIZE_CONCURRENCY = 10;
@@ -109,8 +112,13 @@ export async function cleanupAbandonedPrivateUploads(): Promise<AbandonedUploadC
         );
 
         for (const result of results) {
-          if (result.status === "rejected" || result.value.error) failed += 1;
-          else cleaned += 1;
+          if (
+            result.status === "rejected" ||
+            result.value.error ||
+            !cleanupFinalizationSchema.safeParse(result.value.data).success
+          ) {
+            failed += 1;
+          } else cleaned += 1;
         }
       }
     }
@@ -202,8 +210,13 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
       );
 
       for (const result of results) {
-        if (result.status === "rejected" || result.value.error) failed += 1;
-        else cleaned += 1;
+        if (
+          result.status === "rejected" ||
+          result.value.error ||
+          !cleanupFinalizationSchema.safeParse(result.value.data).success
+        ) {
+          failed += 1;
+        } else cleaned += 1;
       }
     }
   }
