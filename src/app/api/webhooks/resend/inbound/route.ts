@@ -12,9 +12,9 @@ export const dynamic = "force-dynamic";
 const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
 
 const forwardingConfigSchema = z.object({
-  apiKey: z.string().trim().min(1),
+  apiKey: z.string().trim().startsWith("re_").min(8),
   destination: z.string().trim().pipe(z.email()),
-  webhookSecret: z.string().trim().min(1),
+  webhookSecret: z.string().trim().startsWith("whsec_").min(16),
 });
 const forwardLedgerResponseSchema = z
   .object({

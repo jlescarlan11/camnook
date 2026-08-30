@@ -136,6 +136,21 @@ describe("Resend inbound privacy email webhook", () => {
     expect(resendMocks.send).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["RESEND_API_KEY", "not-a-resend-key"],
+    ["RESEND_WEBHOOK_SECRET", "weak"],
+    ["RESEND_WEBHOOK_SECRET", "whsec_short"],
+  ])("fails closed for malformed %s", async (name, value) => {
+    process.env[name] = value;
+
+    const response = await POST(signedRequest());
+
+    expect(response.status).toBe(503);
+    expect(resendMocks.verify).not.toHaveBeenCalled();
+    expect(resendMocks.getReceivedEmail).not.toHaveBeenCalled();
+    expect(resendMocks.send).not.toHaveBeenCalled();
+  });
+
   it("rejects a destination that would create a forwarding loop", async () => {
     process.env.PRIVACY_FORWARD_TO = "privacy@camnook.shop";
 
