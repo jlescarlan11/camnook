@@ -316,7 +316,9 @@ The proposed model deliberately omits a redundant `contracts` parent: one bookin
 snapshot. It owns the nine required queues: booking review, contract signature,
 payment review, pickup, active rental, physical return, issue review, held
 deposit, and pending refund. Counts are calculated from the exact returned
-arrays. Supporting identity and cancellation queues preserve earlier workflows
+arrays. The complete resolution-queue projection is computed once per dashboard
+statement and its issue/cancellation slices share that snapshot. Supporting
+identity and cancellation queues preserve earlier workflows
 but omit government-ID type, evidence metadata, and free-form cancellation
 reason. Any function or strict DTO failure closes the operations surface; it is
 never converted into zero.
@@ -471,7 +473,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains thirty-eight forward migrations. On 13 August 2026, the four
+The repository contains thirty-nine forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

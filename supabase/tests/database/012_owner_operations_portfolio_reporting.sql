@@ -763,6 +763,27 @@ $$;
 reset role;
 
 do $$
+declare
+  function_definition text := pg_get_functiondef(
+    'private.get_owner_operations_dashboard()'::regprocedure
+  );
+  helper_call constant text := 'private.get_resolution_queues()';
+begin
+  if (
+    char_length(function_definition)
+      - char_length(replace(function_definition, helper_call, ''))
+  ) / char_length(helper_call) <> 1
+    or position(
+      'resolution_queues := private.get_resolution_queues();'
+      in function_definition
+    ) = 0
+  then
+    raise exception 'owner dashboard did not reuse one resolution-queue snapshot';
+  end if;
+end;
+$$;
+
+do $$
 begin
   if exists (
     select 1 from public.public_cameras
