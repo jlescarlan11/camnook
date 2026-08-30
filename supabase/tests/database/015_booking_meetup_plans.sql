@@ -117,6 +117,20 @@ begin
     perform api.request_booking_schedule_with_meetup_idempotent(
       'd0000000-0000-4000-8000-000000000002',
       'd0100000-0000-4000-8000-000000000001',
+      current_date + 8, current_date + 10, '09:00', 1,
+      'Different use', 'Cebu shoot', 'Mandaue City',
+      'Ayala Center Cebu', 'Cardinal Rosales Avenue, Cebu City', 'Cebu City',
+      10.317, 123.905, 'geoapify-v1',
+      'd0400000-0000-4000-8000-000000000001'
+    );
+    raise exception 'booking operation key was reused for a different payload';
+  exception when sqlstate '22023' then null;
+  end;
+
+  begin
+    perform api.request_booking_schedule_with_meetup_idempotent(
+      'd0000000-0000-4000-8000-000000000002',
+      'd0100000-0000-4000-8000-000000000001',
       current_date + 12, current_date + 14, '09:00', 1,
       'Documentary', 'Cebu shoot', 'Mandaue City',
       '', 'Cardinal Rosales Avenue, Cebu City', 'Cebu City',
