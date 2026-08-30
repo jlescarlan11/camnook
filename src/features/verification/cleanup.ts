@@ -129,14 +129,19 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
   }
 
   const operationId = randomUUID();
-  const claim = await admin.schema("api").rpc(
-    "claim_verification_evidence_cleanup",
-    { p_limit: VERIFICATION_CLAIM_LIMIT_PER_KIND, p_operation_id: operationId },
-  );
+  let claim;
+  try {
+    claim = await admin.schema("api").rpc(
+      "claim_verification_evidence_cleanup",
+      { p_limit: VERIFICATION_CLAIM_LIMIT_PER_KIND, p_operation_id: operationId },
+    );
+  } catch {
+    return { claimed: 0, cleaned: 0, expired, failed: failed + 1 };
+  }
   const claimed = cleanupClaimSchema.safeParse(claim.data);
 
   if (claim.error || !claimed.success) {
-    throw new Error("Unable to claim due verification evidence cleanup");
+    return { claimed: 0, cleaned: 0, expired, failed: failed + 1 };
   }
 
   let cleaned = 0;

@@ -226,6 +226,37 @@ describe("due verification evidence cleanup", () => {
       expect(remove).toHaveBeenCalledWith([DOCUMENT_PATH]);
     },
   );
+
+  it.each(["returns an error", "throws"] as const)(
+    "preserves completed expiry counts when the evidence claim %s",
+    async (failureMode) => {
+      const rpc = vi.fn(async (name: string) => {
+        if (name === "expire_due_verifications") {
+          return { data: 2, error: null };
+        }
+        if (name === "claim_verification_evidence_cleanup") {
+          if (failureMode === "throws") {
+            throw new Error("private network detail");
+          }
+          return { data: null, error: { message: "private database detail" } };
+        }
+        throw new Error(`unexpected RPC: ${name}`);
+      });
+      const remove = vi.fn();
+      vi.mocked(createSupabaseAdminClient).mockReturnValue({
+        schema: vi.fn(() => ({ rpc })),
+        storage: { from: vi.fn(() => ({ remove })) },
+      } as never);
+
+      await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
+        claimed: 0,
+        cleaned: 0,
+        expired: 2,
+        failed: 1,
+      });
+      expect(remove).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("abandoned private upload cleanup", () => {
