@@ -36,7 +36,6 @@ describe("Production Auth SMTP configuration", () => {
   it("uses the protected Resend credential and returns only safe state", async () => {
     const fetch = vi
       .fn()
-      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(
         Response.json({
@@ -60,11 +59,17 @@ describe("Production Auth SMTP configuration", () => {
       passwordMinimumLength: 15,
       provider: "resend",
     });
-    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledTimes(2);
     for (const [, init] of fetch.mock.calls) {
       expect(init.signal).toBeInstanceOf(AbortSignal);
     }
-    const patchBody = JSON.parse(fetch.mock.calls[1][1].body as string);
+    expect(fetch.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetch.mock.calls[1][1]).toEqual(
+      expect.objectContaining({ method: "GET" }),
+    );
+    const patchBody = JSON.parse(fetch.mock.calls[0][1].body as string);
     expect(patchBody.smtp_pass).toBe("re_protected_resend_key");
     expect(patchBody.smtp_port).toBe("465");
     expect(JSON.stringify(body)).not.toContain("re_protected");
@@ -82,6 +87,21 @@ describe("Production Auth SMTP configuration", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
+  });
+
+  it("does not verify after the provider rejects the configuration", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('{"message":"private provider detail"}', { status: 500 }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "provider_rejected_configuration",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed when a bounded management request times out", async () => {

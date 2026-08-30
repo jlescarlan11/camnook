@@ -48,19 +48,6 @@ export async function POST(request: Request) {
 
   const headers = managementHeaders(token);
   try {
-    const current = await fetch(AUTH_CONFIG_URL, {
-      cache: "no-store",
-      headers,
-      method: "GET",
-      signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
-    });
-    if (!current.ok) {
-      return NextResponse.json(
-        { error: current.status === 401 || current.status === 403 ? "unauthorized" : "provider_unavailable" },
-        { status: current.status === 401 || current.status === 403 ? 401 : 502 },
-      );
-    }
-
     const updated = await fetch(AUTH_CONFIG_URL, {
       body: JSON.stringify({
         external_email_enabled: true,
@@ -80,7 +67,15 @@ export async function POST(request: Request) {
       signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
     });
     if (!updated.ok) {
-      return NextResponse.json({ error: "provider_rejected_configuration" }, { status: 502 });
+      const unauthorized = updated.status === 401 || updated.status === 403;
+      return NextResponse.json(
+        {
+          error: unauthorized
+            ? "unauthorized"
+            : "provider_rejected_configuration",
+        },
+        { status: unauthorized ? 401 : 502 },
+      );
     }
 
     const verified = await fetch(AUTH_CONFIG_URL, {
