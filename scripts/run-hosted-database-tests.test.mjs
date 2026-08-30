@@ -1,4 +1,12 @@
-import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -58,7 +66,8 @@ describe("hosted database test runner diagnostics", { timeout: 15_000 }, () => {
     fakeBin = join(fixtureRoot, "bin");
     responseTmp = join(fixtureRoot, "responses");
     invocationMarker = join(fixtureRoot, "curl-invoked");
-    spawnSync("mkdir", ["-p", fakeBin, responseTmp]);
+    mkdirSync(fakeBin, { recursive: true });
+    mkdirSync(responseTmp, { recursive: true });
     const fakeCurl = join(fakeBin, "curl");
     writeFileSync(
       fakeCurl,
