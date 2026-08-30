@@ -258,6 +258,29 @@ $$;
 
 reset role;
 
+set local role authenticated;
+set local "request.jwt.claim.role" = 'authenticated';
+set local "request.jwt.claim.sub" = 'd0000000-0000-4000-8000-000000000002';
+
+do $$
+begin
+  if not api.claim_geoapify_provider_budget(3)
+    or not api.claim_geoapify_provider_budget(2)
+    or api.claim_geoapify_provider_budget(1)
+  then
+    raise exception 'Geoapify request budget did not enforce the shared per-second cap';
+  end if;
+
+  begin
+    perform api.claim_geoapify_provider_budget(6);
+    raise exception 'Geoapify request budget accepted an invalid request count';
+  exception when sqlstate '22023' then null;
+  end;
+end;
+$$;
+
+reset role;
+
 select 'ok 1 - meetup plans are service-bound, atomic, private, immutable, contract-snapshotted, and legacy-safe';
 
 rollback;

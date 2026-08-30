@@ -53,6 +53,11 @@ describe("recommendMeetup", () => {
       "server-only-meetup-reference-secret-value";
     vi.mocked(getAuthenticatedUser).mockResolvedValue({
       user: { id: "renter-1" },
+      supabase: {
+        schema: vi.fn(() => ({
+          rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
+        })),
+      },
     } as never);
     vi.mocked(createSupabaseAdminClient).mockReturnValue({
       schema: vi.fn(() => ({
@@ -172,5 +177,23 @@ describe("recommendMeetup", () => {
     const stale = await recommendMeetup({ status: "idle" }, validSchedule());
     expect(stale).toEqual({ error: "schedule_changed", status: "error" });
     expect(JSON.stringify(stale)).not.toContain("private policy");
+  });
+
+  it("does not call Geoapify when the bounded request budget is unavailable", async () => {
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({
+      user: { id: "renter-1" },
+      supabase: {
+        schema: vi.fn(() => ({
+          rpc: vi.fn().mockResolvedValue({ data: false, error: null }),
+        })),
+      },
+    } as never);
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+
+    await expect(
+      recommendMeetup({ status: "idle" }, validSchedule()),
+    ).resolves.toEqual({ error: "provider_unavailable", status: "error" });
+    expect(request).not.toHaveBeenCalled();
   });
 });

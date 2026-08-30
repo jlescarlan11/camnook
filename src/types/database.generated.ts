@@ -124,6 +124,10 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_geoapify_provider_budget: {
+        Args: { p_request_count: number }
+        Returns: boolean
+      }
       get_gcash_recipient_configuration_admin: {
         Args: Record<PropertyKey, never>
         Returns: Json

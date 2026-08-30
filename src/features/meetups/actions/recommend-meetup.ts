@@ -140,6 +140,15 @@ export async function recommendMeetup(
     };
   }
 
+  const providerBudget = await context.supabase
+    .schema("api")
+    .rpc("claim_geoapify_provider_budget", {
+      p_request_count: config.allowedCategories.length + 1,
+    });
+  if (providerBudget.error || providerBudget.data !== true) {
+    return { error: "provider_unavailable", status: "error" };
+  }
+
   const binding = buildMeetupBinding({
     cameraId,
     configVersion: config.configVersion,

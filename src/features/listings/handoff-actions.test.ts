@@ -85,6 +85,8 @@ function authorize(options?: {
     Promise.resolve(
       name === "get_camera_handoff_policy_admin"
         ? { data: anchor, error: options?.anchorError ?? null }
+        : name === "claim_geoapify_provider_budget"
+          ? { data: true, error: null }
         : (options?.replace ?? { data: 3, error: null }),
     ),
   );

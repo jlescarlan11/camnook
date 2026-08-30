@@ -151,6 +151,37 @@ export async function suggestHandoffCity(
 
   const config = getMeetupProviderConfig();
   if (!config) return { error: "configuration", status: "error" };
+
+  const cityInput =
+    contextInput.data.locationMode === "manual"
+      ? cityInputSchema.safeParse(value(formData, "manualCity"))
+      : z
+          .object({
+            accuracy: numericInput(0, 50_000),
+            latitude: numericInput(-90, 90),
+            longitude: numericInput(-180, 180),
+          })
+          .safeParse({
+            accuracy: value(formData, "accuracy"),
+            latitude: value(formData, "latitude"),
+            longitude: value(formData, "longitude"),
+          });
+  if (!cityInput.success) {
+    return {
+      error:
+        contextInput.data.locationMode === "manual"
+          ? "invalid_city"
+          : "invalid_location",
+      status: "error",
+    };
+  }
+
+  const providerBudget = await context.supabase
+    .schema("api")
+    .rpc("claim_geoapify_provider_budget", { p_request_count: 1 });
+  if (providerBudget.error || providerBudget.data !== true) {
+    return { error: "provider_unavailable", status: "error" };
+  }
   const adapter = new GeoapifyAdapter({
     apiKey: config.apiKey,
     timeoutMs: config.timeoutMs,
@@ -158,30 +189,12 @@ export async function suggestHandoffCity(
 
   let city;
   try {
-    if (contextInput.data.locationMode === "manual") {
-      const manualCity = cityInputSchema.safeParse(value(formData, "manualCity"));
-      if (!manualCity.success) {
-        return { error: "invalid_city", status: "error" };
-      }
-      city = await adapter.geocodeCity(manualCity.data);
+    if (typeof cityInput.data === "string") {
+      city = await adapter.geocodeCity(cityInput.data);
     } else {
-      const location = z
-        .object({
-          accuracy: numericInput(0, 50_000),
-          latitude: numericInput(-90, 90),
-          longitude: numericInput(-180, 180),
-        })
-        .safeParse({
-          accuracy: value(formData, "accuracy"),
-          latitude: value(formData, "latitude"),
-          longitude: value(formData, "longitude"),
-        });
-      if (!location.success) {
-        return { error: "invalid_location", status: "error" };
-      }
       city = await adapter.reverseGeocodeCity({
-        latitude: location.data.latitude,
-        longitude: location.data.longitude,
+        latitude: cityInput.data.latitude,
+        longitude: cityInput.data.longitude,
       });
     }
   } catch (error) {
@@ -264,6 +277,17 @@ export async function suggestHandoffAddress(
 
   const config = getMeetupProviderConfig();
   if (!config) return { error: "configuration", status: "error" };
+
+  const providerBudget = await context.supabase
+    .schema("api")
+    .rpc("claim_geoapify_provider_budget", { p_request_count: 1 });
+  if (providerBudget.error || providerBudget.data !== true) {
+    return {
+      error: "provider_unavailable",
+      query: input.data.query,
+      status: "error",
+    };
+  }
 
   const adapter = new GeoapifyAdapter({
     apiKey: config.apiKey,
