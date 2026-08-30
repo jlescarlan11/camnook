@@ -3,10 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  AdminAuthorizationRequiredError,
   isAuthenticationError,
-  requireAdmin,
 } from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { stringFormValue } from "../actions/state";
 import {
@@ -43,10 +42,7 @@ function categoryStatus(category: ApprovalErrorCategory | RejectionErrorCategory
 }
 
 function isKnownAuthorizationDenial(error: unknown) {
-  return (
-    isAuthenticationError(error) ||
-    error instanceof AdminAuthorizationRequiredError
-  );
+  return isAuthenticationError(error);
 }
 
 export async function approveBooking(
@@ -64,9 +60,9 @@ export async function approveBooking(
     };
   }
 
-  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  let context: Awaited<ReturnType<typeof requireUser>>;
   try {
-    context = await requireAdmin();
+    context = await requireUser();
   } catch (error) {
     if (isKnownAuthorizationDenial(error)) {
       return {
@@ -129,9 +125,9 @@ export async function rejectBooking(
     };
   }
 
-  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  let context: Awaited<ReturnType<typeof requireUser>>;
   try {
-    context = await requireAdmin();
+    context = await requireUser();
   } catch (error) {
     if (isKnownAuthorizationDenial(error)) {
       return {

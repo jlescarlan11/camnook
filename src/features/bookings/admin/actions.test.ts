@@ -3,24 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/require-admin", () => {
-  class AdminAuthorizationRequiredError extends Error {}
-  class AdminAuthorizationCheckError extends Error {}
   return {
-    AdminAuthorizationCheckError,
-    AdminAuthorizationRequiredError,
     isAuthenticationError: (error: unknown) =>
       error instanceof Error && error.name === "AuthenticationRequiredError",
-    requireAdmin: vi.fn(),
   };
 });
+vi.mock("@/lib/auth/require-user", () => ({ requireUser: vi.fn() }));
 
 import { revalidatePath } from "next/cache";
 
-import {
-  AdminAuthorizationCheckError,
-  AdminAuthorizationRequiredError,
-  requireAdmin,
-} from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { approveBooking, rejectBooking } from "./actions";
 
@@ -32,10 +24,10 @@ function fields(values: Record<string, string>) {
   return data;
 }
 
-function authorizeWithRpc(result: unknown) {
+function authenticateWithRpc(result: unknown) {
   const rpc = vi.fn().mockResolvedValue(result);
   const schema = vi.fn(() => ({ rpc }));
-  vi.mocked(requireAdmin).mockResolvedValue({
+  vi.mocked(requireUser).mockResolvedValue({
     supabase: { schema },
     user: { id: "admin-user" },
   } as never);
@@ -53,14 +45,13 @@ describe("approveBooking", () => {
       fieldErrors: { bookingId: "This booking reference is invalid." },
       status: "error",
     });
-    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it.each([
-    Object.assign(new Error(), { name: "AuthenticationRequiredError" }),
-    new AdminAuthorizationRequiredError(),
-  ])("denies a direct unauthorized action without mutation", async (error) => {
-    vi.mocked(requireAdmin).mockRejectedValue(error);
+  it("denies an unauthenticated direct action without mutation", async () => {
+    vi.mocked(requireUser).mockRejectedValue(
+      Object.assign(new Error(), { name: "AuthenticationRequiredError" }),
+    );
 
     const result = await approveBooking(
       { status: "idle" },
@@ -76,7 +67,7 @@ describe("approveBooking", () => {
   });
 
   it("sends only the booking ID to the API schema and revalidates both read paths after commit", async () => {
-    const api = authorizeWithRpc({ data: null, error: null });
+    const api = authenticateWithRpc({ data: null, error: null });
 
     await expect(
       approveBooking(
@@ -117,7 +108,7 @@ describe("approveBooking", () => {
   ])(
     "maps and refreshes the committed contract %s/%s",
     async (code, message, category, status) => {
-      authorizeWithRpc({
+      authenticateWithRpc({
         data: null,
         error: { code, details: "private details", message },
       });
@@ -146,7 +137,7 @@ describe("approveBooking", () => {
     const rpc = vi.fn();
     if (outcome instanceof Error) rpc.mockRejectedValue(outcome);
     else rpc.mockResolvedValue(outcome);
-    vi.mocked(requireAdmin).mockResolvedValue({
+    vi.mocked(requireUser).mockResolvedValue({
       supabase: { schema: vi.fn(() => ({ rpc })) },
       user: { id: "admin-user" },
     } as never);
@@ -168,10 +159,8 @@ describe("approveBooking", () => {
     );
   });
 
-  it("fails closed when administrator status cannot be checked", async () => {
-    vi.mocked(requireAdmin).mockRejectedValue(
-      new AdminAuthorizationCheckError(),
-    );
+  it("fails closed when authentication cannot be checked", async () => {
+    vi.mocked(requireUser).mockRejectedValue(new Error("auth unavailable"));
 
     await expect(
       approveBooking(
@@ -202,14 +191,13 @@ describe("rejectBooking", () => {
       },
       status: "error",
     });
-    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it.each([
-    Object.assign(new Error(), { name: "AuthenticationRequiredError" }),
-    new AdminAuthorizationRequiredError(),
-  ])("denies a direct unauthorized rejection without mutation", async (error) => {
-    vi.mocked(requireAdmin).mockRejectedValue(error);
+  it("denies an unauthenticated rejection without mutation", async () => {
+    vi.mocked(requireUser).mockRejectedValue(
+      Object.assign(new Error(), { name: "AuthenticationRequiredError" }),
+    );
 
     const result = await rejectBooking(
       { status: "idle" },
@@ -224,10 +212,8 @@ describe("rejectBooking", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("fails closed when administrator status cannot be checked", async () => {
-    vi.mocked(requireAdmin).mockRejectedValue(
-      new AdminAuthorizationCheckError(),
-    );
+  it("fails closed when authentication cannot be checked", async () => {
+    vi.mocked(requireUser).mockRejectedValue(new Error("auth unavailable"));
 
     await expect(
       rejectBooking(
@@ -247,7 +233,7 @@ describe("rejectBooking", () => {
 
   it("marks a thrown rejection RPC outcome indeterminate and refreshes both views", async () => {
     const rpc = vi.fn().mockRejectedValue(new Error("private network route"));
-    vi.mocked(requireAdmin).mockResolvedValue({
+    vi.mocked(requireUser).mockResolvedValue({
       supabase: { schema: vi.fn(() => ({ rpc })) },
       user: { id: "admin-user" },
     } as never);
@@ -270,7 +256,7 @@ describe("rejectBooking", () => {
   });
 
   it("sends exactly the booking ID and trimmed reason then revalidates persisted views", async () => {
-    const api = authorizeWithRpc({ data: null, error: null });
+    const api = authenticateWithRpc({ data: null, error: null });
 
     await expect(
       rejectBooking(
@@ -308,7 +294,7 @@ describe("rejectBooking", () => {
   ])(
     "maps a rejection outcome without leaking provider details",
     async (code, message, category, status) => {
-      authorizeWithRpc({ data: null, error: { code, message } });
+      authenticateWithRpc({ data: null, error: { code, message } });
 
       const result = await rejectBooking(
         { status: "idle" },
