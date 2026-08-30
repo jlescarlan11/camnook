@@ -176,8 +176,9 @@ end;
 $$;
 
 reset role;
-set local role authenticated;
+set local role service_role;
 set local "request.jwt.claim.sub" = 'c0000000-0000-4000-8000-000000000002';
+set local "request.jwt.claim.role" = 'service_role';
 
 do $$
 declare
@@ -186,7 +187,8 @@ declare
     + (((8 - extract(dow from statement_timestamp() at time zone 'Asia/Manila')::integer) % 7) + 7);
   created_booking_id uuid;
 begin
-  created_booking_id := api.request_booking_schedule_idempotent(
+  created_booking_id := api.request_booking_schedule_with_meetup_idempotent(
+    'c0000000-0000-4000-8000-000000000002',
     'c0100000-0000-4000-8000-000000000001',
     monday,
     monday + 2,
@@ -194,31 +196,32 @@ begin
     1,
     'Family event',
     'Cebu City',
+    'Mandaue City',
+    'Schedule Public Mall',
+    'Public Avenue, Cebu City',
+    'Cebu City',
+    10.317,
+    123.905,
+    'geoapify-v1',
     'c0200000-0000-4000-8000-000000000001'
   );
+  perform set_config(
+    'camnook.test_schedule_booking_id', created_booking_id::text, true
+  );
 
-  if api.request_booking_schedule_idempotent(
+  if api.request_booking_schedule_with_meetup_idempotent(
+    'c0000000-0000-4000-8000-000000000002',
     'c0100000-0000-4000-8000-000000000001', monday, monday + 2, '09:00', 1,
-    'Family event', 'Cebu City', 'c0200000-0000-4000-8000-000000000001'
-  ) <> created_booking_id
-    or (select count(*) from public.bookings where renter_id = auth.uid()) <> 1
-  then
+    'Family event', 'Cebu City', 'Mandaue City', 'Schedule Public Mall',
+    'Public Avenue, Cebu City', 'Cebu City', 10.317, 123.905, 'geoapify-v1',
+    'c0200000-0000-4000-8000-000000000001'
+  ) <> created_booking_id then
     raise exception 'repeated booking request operation was not idempotent';
   end if;
 
-  if not exists (
-    select 1 from public.bookings as booking
-    where booking.id = created_booking_id
-      and booking.renter_id = auth.uid()
-      and booking.state = 'FOR_REVIEW'
-      and booking.pickup_at at time zone 'Asia/Manila' = monday + time '09:00'
-      and booking.return_at at time zone 'Asia/Manila' = monday + 2 + time '09:00'
-  ) then
-    raise exception 'validated schedule request was not persisted correctly';
-  end if;
-
   begin
-    perform api.request_booking_schedule_idempotent(
+    perform api.request_booking_schedule_with_meetup_idempotent(
+      'c0000000-0000-4000-8000-000000000002',
       'c0100000-0000-4000-8000-000000000001',
       monday + 7,
       monday + 9,
@@ -226,6 +229,13 @@ begin
       1,
       'Overlapping event',
       'Private block identity must remain hidden',
+      'Mandaue City',
+      'Schedule Public Mall',
+      'Public Avenue, Cebu City',
+      'Cebu City',
+      10.317,
+      123.905,
+      'geoapify-v1',
       'c0200000-0000-4000-8000-000000000011'
     );
     raise exception 'overlapping schedule request was persisted';
@@ -238,12 +248,28 @@ $$;
 reset role;
 
 do $$
+declare
+  monday date :=
+    (statement_timestamp() at time zone 'Asia/Manila')::date
+    + (((8 - extract(dow from statement_timestamp() at time zone 'Asia/Manila')::integer) % 7) + 7);
+  created_booking_id uuid := current_setting('camnook.test_schedule_booking_id')::uuid;
 begin
   if (
     select count(*) from public.bookings
     where camera_id = 'c0100000-0000-4000-8000-000000000001'
   ) <> 1 then
     raise exception 'failed schedule request left partial booking state';
+  end if;
+  if not exists (
+    select 1 from public.bookings as booking
+    where booking.id = created_booking_id
+      and booking.renter_id = 'c0000000-0000-4000-8000-000000000002'
+      and booking.state = 'FOR_REVIEW'
+      and booking.pickup_at at time zone 'Asia/Manila' = monday + time '09:00'
+      and booking.return_at at time zone 'Asia/Manila' = monday + 2 + time '09:00'
+      and booking.meetup_snapshot_required
+  ) then
+    raise exception 'validated schedule request was not persisted correctly';
   end if;
   if exists (
     select 1

@@ -72,6 +72,23 @@ begin
   ) then
     raise exception 'authenticated role can execute the service-only meetup request';
   end if;
+  if has_function_privilege(
+    'authenticated',
+    'api.request_booking_schedule_idempotent(uuid,date,date,time without time zone,bigint,text,text,uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated role can bypass the mandatory meetup snapshot';
+  end if;
+  begin
+    perform api.request_booking_schedule_idempotent(
+      'd0100000-0000-4000-8000-000000000001',
+      current_date + 8, current_date + 10, '09:00', 1,
+      'Direct bypass attempt', 'Cebu shoot',
+      'd0400000-0000-4000-8000-000000000099'
+    );
+    raise exception 'authenticated caller created a schedule-only request';
+  exception when insufficient_privilege then null;
+  end;
   begin
     perform api.get_meetup_recommendation_context(
       'd0100000-0000-4000-8000-000000000001',

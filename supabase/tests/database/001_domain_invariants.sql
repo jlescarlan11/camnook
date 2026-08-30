@@ -223,16 +223,21 @@ begin
   end if;
 
   perform api.ensure_profile('First Renter', '+639000000002');
-  perform api.request_booking_schedule_idempotent(
-    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-    pickup_date,
-    pickup_date + 1,
-    '09:00',
-    1,
-    'Portrait session',
-    'Makati City',
-    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
-  );
+
+  begin
+    perform api.request_booking_schedule_idempotent(
+      'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      pickup_date,
+      pickup_date + 1,
+      '09:00',
+      1,
+      'Portrait session',
+      'Makati City',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+    );
+    raise exception 'schedule-only booking request remained executable';
+  exception when insufficient_privilege then null;
+  end;
 
   begin
     perform api.request_booking_idempotent(
@@ -260,6 +265,30 @@ begin
   end;
 end;
 $$;
+
+reset role;
+
+insert into public.bookings (
+  id, renter_id, camera_id, pickup_at, return_at, intended_use,
+  expected_location, meetup_snapshot_required
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  ((statement_timestamp() at time zone 'Asia/Manila')::date + 7 + time '09:00') at time zone 'Asia/Manila',
+  ((statement_timestamp() at time zone 'Asia/Manila')::date + 8 + time '09:00') at time zone 'Asia/Manila',
+  'Portrait session', 'Makati City', false
+);
+
+insert into public.booking_state_history (
+  booking_id, from_state, to_state, actor_user_id, actor_type, reason_code
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', null, 'FOR_REVIEW',
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'renter', 'booking_requested'
+);
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 set constraints all immediate;
 

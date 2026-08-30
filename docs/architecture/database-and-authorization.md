@@ -386,7 +386,7 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | Operation | Atomic effects |
 | --- | --- |
 | `ensure_profile` | Idempotently create the authenticated user's profile |
-| `request_booking` | Create own `FOR_REVIEW` booking and history; no availability block |
+| `request_booking` | Server-only meetup-bound request creates renter-owned `FOR_REVIEW` booking, immutable meetup plan, and history; legacy authenticated request RPCs are not executable; no availability block |
 | `approve_booking` | Validate admin, future pickup, active renter, camera, pricing, template, and accessory set; lock booking/camera; calculate approved snapshots; recheck overlap; insert block; set 24-hour deadline; issue contract v1; append history/audit |
 | `reject_booking` | Require current `FOR_REVIEW`; transition to `REJECTED`; append reason/history/audit; release any defensive booking hold |
 | `authorize_verification_evidence_access` | Re-authorize sole admin and exact `identity_review` purpose; lock current pending retained evidence; append path-free access audit; return a 60-second target only to the Server Action |
@@ -471,7 +471,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains thirty-five forward migrations. On 13 August 2026, the four
+The repository contains thirty-six forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
