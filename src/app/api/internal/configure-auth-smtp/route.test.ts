@@ -144,4 +144,22 @@ describe("Production Auth SMTP configuration", () => {
     });
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+
+  it("fails closed when the verification response exceeds its byte limit", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        Response.json({ padding: "x".repeat(65 * 1024) }),
+      );
+    vi.stubGlobal("fetch", fetch);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "configuration_not_confirmed",
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });

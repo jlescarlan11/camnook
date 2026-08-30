@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 const PRODUCTION_PROJECT_REF = "iegcixcevvkryfwfotqz";
 const AUTH_CONFIG_URL = `https://api.supabase.com/v1/projects/${PRODUCTION_PROJECT_REF}/config/auth`;
 const AUTH_CONFIG_REQUEST_TIMEOUT_MS = 15_000;
+const MAX_AUTH_CONFIG_RESPONSE_BYTES = 64 * 1024;
 
 function bearerToken(request: Request) {
   const authorization = request.headers.get("authorization");
@@ -35,6 +36,43 @@ function configurationSummary(config: Record<string, unknown>) {
   };
 }
 
+async function readBoundedConfiguration(response: Response) {
+  if (!response.body) throw new Error("configuration response body unavailable");
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    byteLength += value.byteLength;
+    if (byteLength > MAX_AUTH_CONFIG_RESPONSE_BYTES) {
+      try {
+        await reader.cancel();
+      } catch {
+        // The response limit remains decisive if the provider already closed.
+      }
+      throw new Error("configuration response too large");
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  const parsed = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(body),
+  ) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("configuration response malformed");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 async function readVerifiedConfiguration(headers: Record<string, string>) {
   const verified = await fetch(AUTH_CONFIG_URL, {
     cache: "no-store",
@@ -44,7 +82,7 @@ async function readVerifiedConfiguration(headers: Record<string, string>) {
   });
   if (!verified.ok) return null;
 
-  const config = (await verified.json()) as Record<string, unknown>;
+  const config = await readBoundedConfiguration(verified);
   const summary = configurationSummary(config);
   return summary.customSmtpEnabled && summary.passwordMinimumLength === 15
     ? summary
