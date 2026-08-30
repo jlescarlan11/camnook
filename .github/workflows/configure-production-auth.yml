@@ -25,6 +25,7 @@ jobs:
           if ! response="$(
             curl --fail-with-body --silent --show-error \
               --connect-timeout 10 \
+              --max-filesize 262144 \
               --max-time 60 \
               --retry 0 \
               --request POST \

@@ -166,6 +166,7 @@ describe("immutable release workflow policy", () => {
 describe("Production Auth configuration workflow policy", () => {
   it("never automatically retries an indeterminate hosted Auth mutation", () => {
     expect(productionAuthWorkflow).toContain("--retry 0");
+    expect(productionAuthWorkflow).toContain("--max-filesize 262144");
     expect(productionAuthWorkflow).not.toContain("--retry-all-errors");
     expect(productionAuthWorkflow).toContain(
       "Production Auth configuration outcome is indeterminate; reconcile hosted Auth before any retry.",
