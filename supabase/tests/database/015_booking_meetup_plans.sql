@@ -102,24 +102,26 @@ begin
     raise exception 'service context did not return the bound lender city';
   end if;
 
-  created_id := api.request_booking_schedule_with_meetup(
+  created_id := api.request_booking_schedule_with_meetup_idempotent(
     'd0000000-0000-4000-8000-000000000002',
     'd0100000-0000-4000-8000-000000000001',
     current_date + 8, current_date + 10, '09:00', 1,
     'Documentary', 'Cebu shoot', 'Mandaue City',
     'Ayala Center Cebu', 'Cardinal Rosales Avenue, Cebu City', 'Cebu City',
-    10.317, 123.905, 'geoapify-v1'
+    10.317, 123.905, 'geoapify-v1',
+    'd0400000-0000-4000-8000-000000000001'
   );
   perform set_config('camnook.test_meetup_booking_id', created_id::text, true);
 
   begin
-    perform api.request_booking_schedule_with_meetup(
+    perform api.request_booking_schedule_with_meetup_idempotent(
       'd0000000-0000-4000-8000-000000000002',
       'd0100000-0000-4000-8000-000000000001',
       current_date + 12, current_date + 14, '09:00', 1,
       'Documentary', 'Cebu shoot', 'Mandaue City',
       '', 'Cardinal Rosales Avenue, Cebu City', 'Cebu City',
-      10.317, 123.905, 'geoapify-v1'
+      10.317, 123.905, 'geoapify-v1',
+      'd0400000-0000-4000-8000-000000000002'
     );
     raise exception 'invalid meetup snapshot was accepted';
   exception when sqlstate '22023' then null;

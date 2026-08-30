@@ -211,12 +211,13 @@ begin
   end if;
 
   perform api.ensure_profile('First Renter', '+639000000002');
-  perform api.request_booking(
+  perform api.request_booking_idempotent(
     'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
     statement_timestamp() + interval '7 days',
     statement_timestamp() + interval '8 days',
     'Portrait session',
-    'Makati City'
+    'Makati City',
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
   );
 end;
 $$;

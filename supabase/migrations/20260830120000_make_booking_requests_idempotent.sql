@@ -155,6 +155,9 @@ revoke all on function private.complete_booking_request_operation(uuid, uuid, uu
 revoke all on function api.request_booking_idempotent(uuid, timestamptz, timestamptz, text, text, uuid) from public;
 revoke all on function api.request_booking_schedule_idempotent(uuid, date, date, time without time zone, bigint, text, text, uuid) from public;
 revoke all on function api.request_booking_schedule_with_meetup_idempotent(uuid, uuid, date, date, time without time zone, bigint, text, text, text, text, text, text, numeric, numeric, text, uuid) from public, anon, authenticated;
+revoke execute on function api.request_booking(uuid, timestamptz, timestamptz, text, text) from authenticated;
+revoke execute on function api.request_booking_schedule(uuid, date, date, time without time zone, bigint, text, text) from authenticated;
+revoke execute on function api.request_booking_schedule_with_meetup(uuid, uuid, date, date, time without time zone, bigint, text, text, text, text, text, text, numeric, numeric, text) from service_role;
 grant execute on function api.request_booking_idempotent(uuid, timestamptz, timestamptz, text, text, uuid) to authenticated;
 grant execute on function api.request_booking_schedule_idempotent(uuid, date, date, time without time zone, bigint, text, text, uuid) to authenticated;
 grant execute on function api.request_booking_schedule_with_meetup_idempotent(uuid, uuid, date, date, time without time zone, bigint, text, text, text, text, text, text, numeric, numeric, text, uuid) to service_role;

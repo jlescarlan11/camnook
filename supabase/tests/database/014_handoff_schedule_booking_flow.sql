@@ -159,14 +159,15 @@ begin
   end;
 
   begin
-    perform api.request_booking_schedule(
+    perform api.request_booking_schedule_idempotent(
       'c0100000-0000-4000-8000-000000000001',
       monday,
       monday + 2,
       '09:00',
       1,
       'Unauthorized request',
-      'Cebu City'
+      'Cebu City',
+      'c0200000-0000-4000-8000-000000000010'
     );
     raise exception 'anonymous caller created a request';
   exception when insufficient_privilege then null;
@@ -217,14 +218,15 @@ begin
   end if;
 
   begin
-    perform api.request_booking_schedule(
+    perform api.request_booking_schedule_idempotent(
       'c0100000-0000-4000-8000-000000000001',
       monday + 7,
       monday + 9,
       '09:00',
       1,
       'Overlapping event',
-      'Private block identity must remain hidden'
+      'Private block identity must remain hidden',
+      'c0200000-0000-4000-8000-000000000011'
     );
     raise exception 'overlapping schedule request was persisted';
   exception when sqlstate '23P01' then

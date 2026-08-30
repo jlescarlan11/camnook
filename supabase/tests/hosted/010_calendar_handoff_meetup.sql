@@ -212,7 +212,7 @@ begin
     raise exception 'service meetup context did not bind the hosted policy';
   end if;
 
-  created_booking_id := api.request_booking_schedule_with_meetup(
+  created_booking_id := api.request_booking_schedule_with_meetup_idempotent(
     current_setting('camnook.hosted_renter_id')::uuid,
     current_setting('camnook.hosted_camera_id')::uuid,
     current_date + 8,
@@ -227,7 +227,8 @@ begin
     'Cebu City',
     10.317,
     123.905,
-    'hosted-smoke-v1'
+    'hosted-smoke-v1',
+    'b0400000-0000-4000-8000-000000000001'
   );
   perform set_config(
     'camnook.hosted_booking_id',
@@ -236,7 +237,7 @@ begin
   );
 
   begin
-    perform api.request_booking_schedule_with_meetup(
+    perform api.request_booking_schedule_with_meetup_idempotent(
       current_setting('camnook.hosted_renter_id')::uuid,
       current_setting('camnook.hosted_camera_id')::uuid,
       current_date + 12,
@@ -251,7 +252,8 @@ begin
       'Cebu City',
       10.317,
       123.905,
-      'hosted-smoke-v1'
+      'hosted-smoke-v1',
+      'b0400000-0000-4000-8000-000000000002'
     );
     raise exception 'invalid hosted meetup snapshot was accepted';
   exception when sqlstate '22023' then null;
