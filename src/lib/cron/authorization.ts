@@ -4,7 +4,7 @@ export function hasValidCronAuthorization(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization");
 
-  if (!secret || !authorization) return false;
+  if (!secret || secret.length < 16 || !authorization) return false;
 
   const expected = Buffer.from(`Bearer ${secret}`);
   const received = Buffer.from(authorization);
