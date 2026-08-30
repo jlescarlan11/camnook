@@ -185,6 +185,12 @@ describe("recommendMeetup", () => {
     await expect(
       recommendMeetup({ status: "idle" }, validSchedule()),
     ).resolves.toEqual({ error: "provider_unavailable", status: "error" });
+    await expect(
+      recommendMeetup(
+        { status: "idle" },
+        validSchedule({ locationMode: "manual", manualCity: "Mandaue City" }),
+      ),
+    ).resolves.toEqual({ error: "provider_unavailable", status: "error" });
     expect(request).not.toHaveBeenCalled();
   });
 });

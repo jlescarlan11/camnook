@@ -99,27 +99,13 @@ export async function recommendMeetup(
     };
   }
 
-  const adapter = new GeoapifyAdapter({
-    apiKey: config.apiKey,
-    timeoutMs: config.timeoutMs,
-  });
   let renterCity;
   let currentPosition;
+  let manualCity;
   if (mode === "manual") {
     const city = cityInputSchema.safeParse(value(formData, "manualCity"));
     if (!city.success) return { error: "invalid_city", status: "error" };
-    try {
-      renterCity = await adapter.geocodeCity(city.data);
-    } catch (error) {
-      return {
-        error:
-          error instanceof ProviderBoundaryError &&
-          error.code === "unsupported_city"
-            ? "invalid_city"
-            : "provider_unavailable",
-        status: "error",
-      };
-    }
+    manualCity = city.data;
   } else {
     const location = z
       .object({
@@ -146,6 +132,25 @@ export async function recommendMeetup(
     config.allowedCategories.length + 1,
   ))) {
     return { error: "provider_unavailable", status: "error" };
+  }
+
+  const adapter = new GeoapifyAdapter({
+    apiKey: config.apiKey,
+    timeoutMs: config.timeoutMs,
+  });
+  if (manualCity) {
+    try {
+      renterCity = await adapter.geocodeCity(manualCity);
+    } catch (error) {
+      return {
+        error:
+          error instanceof ProviderBoundaryError &&
+          error.code === "unsupported_city"
+            ? "invalid_city"
+            : "provider_unavailable",
+        status: "error",
+      };
+    }
   }
 
   const binding = buildMeetupBinding({
