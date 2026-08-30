@@ -231,7 +231,18 @@ exit "$FAKE_CURL_EXIT"
     ["malformed body", { FAKE_CURL_BODY: "not-json" }, "invalid_success_response"],
     [
       "a failing assertion",
-      { FAKE_CURL_BODY: JSON.stringify([["ok 1 - safe"], ["not ok 2 - private"]]) },
+      {
+        FAKE_CURL_BODY: JSON.stringify([
+          ["1..2"],
+          ["ok 1 - safe"],
+          ["not ok 2 - private"],
+        ]),
+      },
+      "tap_assertion_failure",
+    ],
+    [
+      "a partial assertion set",
+      { FAKE_CURL_BODY: JSON.stringify([["1..2"], ["ok 1 - incomplete"]]) },
       "tap_assertion_failure",
     ],
   ])("fails safely for %s", (_name, overrides, category) => {

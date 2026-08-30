@@ -163,15 +163,34 @@ export function validateSuccessBody(body) {
   }
 
   const tapLines = flattenValues(parsed).map((value) => value.trim());
-  const passing = tapLines.filter((value) => /^ok\b/i.test(value)).length;
+  const plans = tapLines
+    .map((value) => value.match(/^1\.\.(\d+)$/))
+    .filter(Boolean)
+    .map((match) => Number(match[1]));
+  const passingNumbers = tapLines
+    .map((value) => value.match(/^ok\s+(\d+)(?:\s+-\s+.*)?$/i))
+    .filter(Boolean)
+    .map((match) => Number(match[1]));
   const failing = tapLines.filter((value) => /^not ok\b/i.test(value)).length;
-  if (passing === 0 || failing > 0) {
+  const planIsValid =
+    plans.length === 1 &&
+    Number.isSafeInteger(plans[0]) &&
+    plans[0] > 0 &&
+    plans[0] <= 100;
+  const planned = planIsValid ? plans[0] : 0;
+  const expectedNumbers = Array.from({ length: planned }, (_, index) => index + 1);
+  const complete =
+    planIsValid &&
+    passingNumbers.length === planned &&
+    new Set(passingNumbers).size === planned &&
+    expectedNumbers.every((number) => passingNumbers.includes(number));
+  if (!complete || failing > 0) {
     return {
       ok: false,
-      diagnostic: `outcome=deterministic; category=tap_assertion_failure; ok=${passing}; not_ok=${failing}`,
+      diagnostic: `outcome=deterministic; category=tap_assertion_failure; planned=${planned}; ok=${passingNumbers.length}; not_ok=${failing}`,
     };
   }
-  return { ok: true, passing };
+  return { ok: true, passing: passingNumbers.length };
 }
 
 function readBody(path) {

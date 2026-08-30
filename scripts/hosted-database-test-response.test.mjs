@@ -83,11 +83,24 @@ describe("hosted database test response diagnostics", () => {
     ).toEqual({
       ok: false,
       diagnostic:
-        "outcome=deterministic; category=tap_assertion_failure; ok=1; not_ok=1",
+        "outcome=deterministic; category=tap_assertion_failure; planned=0; ok=1; not_ok=1",
     });
     expect(validateSuccessBody("not-json")).toEqual({
       ok: false,
       diagnostic: "outcome=deterministic; category=invalid_success_response",
+    });
+  });
+
+  it.each([
+    ["missing plan", ["ok 1 - no plan"]],
+    ["partial result", ["1..2", "ok 1 - partial"]],
+    ["duplicate assertion", ["1..2", "ok 1 - first", "ok 1 - duplicate"]],
+    ["duplicate plan", ["1..1", "1..1", "ok 1 - duplicate plan"]],
+    ["oversized plan", ["1..4294967295", "ok 1 - bounded"]],
+  ])("rejects a %s TAP response", (_name, lines) => {
+    expect(validateSuccessBody(JSON.stringify(lines))).toMatchObject({
+      ok: false,
+      diagnostic: expect.stringContaining("category=tap_assertion_failure"),
     });
   });
 
