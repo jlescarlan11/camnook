@@ -1,7 +1,7 @@
 # Production Launch Control and First-Day Audit
 
 Status: calendar/handoff/meetup release is **NO_GO** as of 21 August 2026. The
-candidate contains 26 migrations while the last verified Production evidence
+candidate contains 27 migrations while the last verified Production evidence
 contains 22. The Development provider check, protected Preview story, current
 hosted monitoring, owner-approved camera policy, Production provider controls,
 and rollback rehearsal are not verified. Production remains unchanged.

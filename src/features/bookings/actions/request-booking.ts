@@ -13,7 +13,6 @@ import { readRecommendationReference } from "@/features/meetups/reference";
 import { isMeetupPlanningEnabled } from "@/features/meetups/rollout";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
-import { parseManilaBookingPeriod } from "../manila-time";
 import { stringFormValue, type ActionStatus } from "./state";
 
 export type RequestBookingActionState = {
@@ -74,11 +73,7 @@ export async function requestBooking(
   ].some((value) => value !== "");
   const fields = bookingFieldsSchema.safeParse(values);
   const operationId = z.uuid().safeParse(values.operationId);
-  const period = usesSchedule
-    ? null
-    : parseManilaBookingPeriod(values.pickup, values.return);
-  const fieldErrors: RequestBookingActionState["fieldErrors"] =
-    period && !period.ok ? { ...period.fieldErrors } : {};
+  const fieldErrors: RequestBookingActionState["fieldErrors"] = {};
   const preservedValues = {
     expectedLocation: values.expectedLocation,
     intendedUse: values.intendedUse,
@@ -104,32 +99,30 @@ export async function requestBooking(
     }
   }
 
+  if (!isCalendarDate(values.pickupDate)) {
+    fieldErrors.pickupDate = "Choose a valid pickup date.";
+  }
+  if (!isCalendarDate(values.returnDate)) {
+    fieldErrors.returnDate = "Choose a valid return date.";
+  }
+  if (!isHandoffTime(values.handoffTime)) {
+    fieldErrors.handoffTime = "Choose an approved handoff time.";
+  }
+  const parsedVersion = Number(values.policyVersion);
   let policyVersion: number | null = null;
-  if (usesSchedule) {
-    if (!isCalendarDate(values.pickupDate)) {
-      fieldErrors.pickupDate = "Choose a valid pickup date.";
-    }
-    if (!isCalendarDate(values.returnDate)) {
-      fieldErrors.returnDate = "Choose a valid return date.";
-    }
-    if (!isHandoffTime(values.handoffTime)) {
-      fieldErrors.handoffTime = "Choose an approved handoff time.";
-    }
-    const parsedVersion = Number(values.policyVersion);
-    if (
-      !/^\d+$/.test(values.policyVersion) ||
-      !Number.isSafeInteger(parsedVersion) ||
-      parsedVersion < 1
-    ) {
-      fieldErrors.policyVersion = "The handoff schedule must be refreshed.";
-    } else {
-      policyVersion = parsedVersion;
-    }
+  if (
+    !/^\d+$/.test(values.policyVersion) ||
+    !Number.isSafeInteger(parsedVersion) ||
+    parsedVersion < 1
+  ) {
+    fieldErrors.policyVersion = "The handoff schedule must be refreshed.";
+  } else {
+    policyVersion = parsedVersion;
   }
 
   if (
-    !fields.success || !operationId.success ||
-    (usesSchedule ? Object.keys(fieldErrors).length > 0 : !period?.ok)
+    !usesSchedule || !fields.success || !operationId.success ||
+    Object.keys(fieldErrors).length > 0
   ) {
     return {
       error: "invalid_input",
@@ -149,24 +142,16 @@ export async function requestBooking(
       values: preservedValues,
     };
   }
-  const legacyPeriod = period?.ok ? period : null;
-
   const context = await getAuthenticatedUser();
   if (!context) {
     const query = new URLSearchParams(
-      usesSchedule
-        ? {
-            camera: fields.data.camera,
-            handoffTime: values.handoffTime,
-            pickupDate: values.pickupDate,
-            policyVersion: values.policyVersion,
-            returnDate: values.returnDate,
-          }
-        : {
-            camera: fields.data.camera,
-            pickup: values.pickup,
-            return: values.return,
-          },
+      {
+        camera: fields.data.camera,
+        handoffTime: values.handoffTime,
+        pickupDate: values.pickupDate,
+        policyVersion: values.policyVersion,
+        returnDate: values.returnDate,
+      },
     );
     redirect(loginPath(`/account/bookings/new?${query.toString()}`));
   }
@@ -196,7 +181,7 @@ export async function requestBooking(
   }
 
   let result;
-  if (usesSchedule && meetupPlanningEnabled) {
+  if (meetupPlanningEnabled) {
     const config = getMeetupProviderConfig();
     if (!config) {
       return { error: "request_failed", status: "error", values: preservedValues };
@@ -242,7 +227,7 @@ export async function requestBooking(
       p_venue_name: claims.name,
       p_operation_id: operationId.data,
     });
-  } else if (usesSchedule) {
+  } else {
     const api = context.supabase.schema("api");
     result = await api.rpc("request_booking_schedule_idempotent", {
         p_camera_id: fields.data.camera,
@@ -254,16 +239,6 @@ export async function requestBooking(
         p_return_date: values.returnDate,
         p_operation_id: operationId.data,
       });
-  } else {
-    const api = context.supabase.schema("api");
-    result = await api.rpc("request_booking_idempotent", {
-        p_camera_id: fields.data.camera,
-        p_expected_location: fields.data.expectedLocation,
-        p_intended_use: fields.data.intendedUse,
-        p_pickup_at: legacyPeriod!.pickupAt,
-        p_return_at: legacyPeriod!.returnAt,
-        p_operation_id: operationId.data,
-    });
   }
   const { data, error } = result;
 

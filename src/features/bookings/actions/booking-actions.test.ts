@@ -37,9 +37,25 @@ const BOOKING_ID = "22222222-2222-4222-8222-222222222222";
 function fields(values: Record<string, string>) {
   const data = new FormData();
   Object.entries(values).forEach(([name, value]) => data.set(name, value));
+  const hasSchedule = ["handoffTime", "pickupDate", "policyVersion", "returnDate"].some(
+    (name) => data.has(name),
+  );
+  if (!hasSchedule) {
+    data.set("handoffTime", "09:00");
+    data.set("pickupDate", "2099-08-14");
+    data.set("policyVersion", "3");
+    data.set("returnDate", "2099-08-16");
+  }
   if (!data.has("operationId")) {
     data.set("operationId", "33333333-3333-4333-8333-333333333333");
   }
+  return data;
+}
+
+function legacyFields(values: Record<string, string>) {
+  const data = new FormData();
+  Object.entries(values).forEach(([name, value]) => data.set(name, value));
+  data.set("operationId", "33333333-3333-4333-8333-333333333333");
   return data;
 }
 
@@ -61,7 +77,30 @@ describe("quoteBooking", () => {
     delete process.env.MEETUP_PLANNING_ENABLED;
   });
 
-  it("passes only normalized instants and camera ID to the authoritative quote RPC", async () => {
+  it("rejects the legacy quote contract before creating a database client", async () => {
+    await expect(
+      quoteBooking(
+        { status: "idle" },
+        legacyFields({
+          camera: CAMERA_ID,
+          pickup: "2099-08-14T09:00",
+          return: "2099-08-15T09:01",
+        }),
+      ),
+    ).resolves.toMatchObject({
+      error: "invalid_input",
+      fieldErrors: {
+        handoffTime: expect.any(String),
+        pickupDate: expect.any(String),
+        policyVersion: expect.any(String),
+        returnDate: expect.any(String),
+      },
+      status: "error",
+    });
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("passes only validated schedule fields and camera ID to the authoritative quote RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [
         {
@@ -93,7 +132,7 @@ describe("quoteBooking", () => {
       ),
     ).resolves.toEqual({
       inputKey:
-        '["11111111-1111-4111-8111-111111111111","2099-08-14T09:00","2099-08-15T09:01"]',
+        '["11111111-1111-4111-8111-111111111111","2099-08-14","2099-08-16","09:00","3"]',
       quote: {
         billableDays: 7,
         cameraId: CAMERA_ID,
@@ -109,14 +148,18 @@ describe("quoteBooking", () => {
       submissionGeneration: 7,
       values: {
         camera: CAMERA_ID,
-        pickup: "2099-08-14T09:00",
-        return: "2099-08-15T09:01",
+        handoffTime: "09:00",
+        pickupDate: "2099-08-14",
+        policyVersion: "3",
+        returnDate: "2099-08-16",
       },
     });
-    expect(rpc).toHaveBeenCalledWith("quote_booking", {
+    expect(rpc).toHaveBeenCalledWith("quote_booking_schedule", {
       p_camera_id: CAMERA_ID,
-      p_pickup_at: "2099-08-14T09:00:00+08:00",
-      p_return_at: "2099-08-15T09:01:00+08:00",
+      p_handoff_time: "09:00",
+      p_pickup_date: "2099-08-14",
+      p_policy_version: 3,
+      p_return_date: "2099-08-16",
     });
     expect(api.schema).toHaveBeenCalledWith("api");
   });
@@ -131,8 +174,6 @@ describe("quoteBooking", () => {
       error: "invalid_input",
       fieldErrors: {
         camera: "Choose a camera.",
-        pickup: "Enter a pickup date and time.",
-        return: "Enter a valid return date and time.",
       },
       status: "error",
     });
@@ -361,7 +402,32 @@ describe("requestBooking", () => {
     delete process.env.MEETUP_ALLOWED_CATEGORIES;
   });
 
-  it("sends exactly five renter-entered parameters then revalidates and redirects", async () => {
+  it("rejects the legacy request contract before authenticating or mutating", async () => {
+    await expect(
+      requestBooking(
+        { status: "idle" },
+        legacyFields({
+          camera: CAMERA_ID,
+          expectedLocation: "Quezon City",
+          intendedUse: "Family event",
+          pickup: "2099-08-14T09:00",
+          return: "2099-08-15T09:00",
+        }),
+      ),
+    ).resolves.toMatchObject({
+      error: "invalid_input",
+      fieldErrors: {
+        handoffTime: expect.any(String),
+        pickupDate: expect.any(String),
+        policyVersion: expect.any(String),
+        returnDate: expect.any(String),
+      },
+      status: "error",
+    });
+    expect(getAuthenticatedUser).not.toHaveBeenCalled();
+  });
+
+  it("sends only schedule-bound renter inputs then revalidates and redirects", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
     const active = profileQuery({ data: { account_status: "active" }, error: null });
     const api = rpcClient(rpc);
@@ -386,13 +452,15 @@ describe("requestBooking", () => {
         }),
       ),
     ).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
-    expect(rpc).toHaveBeenCalledWith("request_booking_idempotent", {
+    expect(rpc).toHaveBeenCalledWith("request_booking_schedule_idempotent", {
       p_camera_id: CAMERA_ID,
       p_expected_location: "Quezon City",
+      p_handoff_time: "09:00",
       p_intended_use: "Family event",
       p_operation_id: "33333333-3333-4333-8333-333333333333",
-      p_pickup_at: "2099-08-14T09:00:00+08:00",
-      p_return_at: "2099-08-15T09:00:00+08:00",
+      p_pickup_date: "2099-08-14",
+      p_policy_version: 3,
+      p_return_date: "2099-08-16",
     });
     expect(api.schema).toHaveBeenCalledWith("api");
     expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/account");
@@ -419,8 +487,6 @@ describe("requestBooking", () => {
         camera: "Choose a camera.",
         expectedLocation: "Describe the expected location (2–500 characters).",
         intendedUse: "Describe the intended use (2–1000 characters).",
-        pickup: "Enter a pickup date and time.",
-        return: "Enter a return date and time.",
       },
       status: "error",
       values: { expectedLocation: "x", intendedUse: "" },
@@ -643,7 +709,7 @@ describe("requestBooking", () => {
       ),
     ).rejects.toThrow("redirect:/login?next=");
     expect(vi.mocked(redirect)).toHaveBeenCalledWith(
-      "/login?next=%2Faccount%2Fbookings%2Fnew%3Fcamera%3D11111111-1111-4111-8111-111111111111%26pickup%3D2099-08-14T09%253A00%26return%3D2099-08-15T09%253A00",
+      "/login?next=%2Faccount%2Fbookings%2Fnew%3Fcamera%3D11111111-1111-4111-8111-111111111111%26handoffTime%3D09%253A00%26pickupDate%3D2099-08-14%26policyVersion%3D3%26returnDate%3D2099-08-16",
     );
   });
 

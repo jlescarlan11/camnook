@@ -40,6 +40,16 @@ insert into public.cameras (
   statement_timestamp()
 );
 
+insert into public.camera_handoff_policies (
+  camera_id, city_label, allowed_weekdays, timezone, enabled, version
+) values (
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'Manila', array[0,1,2,3,4,5,6]::smallint[], 'Asia/Manila', true, 1
+);
+
+insert into public.camera_handoff_slots (camera_id, local_time)
+values ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', '09:00');
+
 insert into public.cameras (
   id,
   slug,
@@ -205,20 +215,49 @@ set local role authenticated;
 set local "request.jwt.claim.sub" = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 do $$
+declare
+  pickup_date date := (statement_timestamp() at time zone 'Asia/Manila')::date + 7;
 begin
   if api.is_admin() then
     raise exception 'non-admin account passed the admin authorization check';
   end if;
 
   perform api.ensure_profile('First Renter', '+639000000002');
-  perform api.request_booking_idempotent(
+  perform api.request_booking_schedule_idempotent(
     'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-    statement_timestamp() + interval '7 days',
-    statement_timestamp() + interval '8 days',
+    pickup_date,
+    pickup_date + 1,
+    '09:00',
+    1,
     'Portrait session',
     'Makati City',
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
   );
+
+  begin
+    perform api.request_booking_idempotent(
+      'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      statement_timestamp() + interval '7 days',
+      statement_timestamp() + interval '8 days',
+      'Portrait session',
+      'Makati City',
+      'ffffffff-ffff-4fff-8fff-ffffffffffff'
+    );
+    raise exception 'legacy idempotent booking request remained executable';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform private.request_booking(
+      'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      statement_timestamp() + interval '7 days',
+      statement_timestamp() + interval '8 days',
+      'Portrait session',
+      'Makati City'
+    );
+    raise exception 'private legacy booking request remained executable';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 
