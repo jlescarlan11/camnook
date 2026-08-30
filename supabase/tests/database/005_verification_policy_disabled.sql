@@ -54,7 +54,17 @@ select case
 end
 union all
 select case
-  when has_function_privilege(
+  when not has_function_privilege(
+    'authenticated',
+    'private.expire_due_verifications(uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'api.expire_due_verifications(uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
     'service_role',
     'api.expire_due_verifications(uuid)',
     'EXECUTE'
@@ -73,6 +83,6 @@ select case
     'service_role',
     'api.finalize_due_verification_document_deletion(uuid,uuid,uuid)',
     'EXECUTE'
-  ) then 'ok 4 - service-role retention cleanup remains executable'
-  else 'not ok 4 - service-role retention cleanup was revoked'
+  ) then 'ok 4 - verification retention cleanup is service-role-only'
+  else 'not ok 4 - verification retention cleanup privileges are unsafe'
 end;
