@@ -56,6 +56,6 @@ describe("booking expiration cron route", () => {
     await expect(response.json()).resolves.toEqual({
       error: "booking_expiration_failed",
     });
-    expect(consoleError).toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith("Booking expiration failed");
   });
 });

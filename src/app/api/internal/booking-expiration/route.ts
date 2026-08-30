@@ -10,8 +10,8 @@ export async function GET(request: Request) {
 
   try {
     return Response.json(await expireDueBookings());
-  } catch (error) {
-    console.error("Booking expiration failed", error);
+  } catch {
+    console.error("Booking expiration failed");
     return Response.json({ error: "booking_expiration_failed" }, { status: 503 });
   }
 }
