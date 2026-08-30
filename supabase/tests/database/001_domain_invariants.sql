@@ -1133,6 +1133,26 @@ select set_config(
   true
 );
 
+insert into public.payment_proofs (
+  id,
+  transaction_id,
+  owner_user_id,
+  object_path,
+  media_type,
+  byte_size,
+  sha256,
+  finalized_at
+) values (
+  'facefeed-face-4eed-8ace-facefeed0003',
+  'ffffffff-ffff-4fff-8fff-ffffffffffff',
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'facefeed-face-4eed-8ace-facefeed0003/proof.png',
+  'image/png',
+  9,
+  extensions.digest(convert_to('proof-one', 'UTF8'), 'sha256'),
+  statement_timestamp()
+);
+
 update public.payment_transactions
 set status = 'verified',
     decided_at = statement_timestamp(),

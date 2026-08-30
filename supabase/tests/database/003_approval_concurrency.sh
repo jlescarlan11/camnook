@@ -1835,6 +1835,20 @@ insert into public.payment_transactions (
   '09171234567'
 );
 
+insert into public.payment_proofs (
+  id, transaction_id, owner_user_id, object_path, media_type, byte_size,
+  sha256, finalized_at
+) values (
+  '29200000-0000-4000-8000-000000000003',
+  '29200000-0000-4000-8000-000000000001',
+  '20000000-0000-4000-8000-000000000002',
+  '29200000-0000-4000-8000-000000000003/proof.png',
+  'image/png',
+  9,
+  extensions.digest(convert_to('payment-decision-proof', 'UTF8'), 'sha256'),
+  statement_timestamp()
+);
+
 set constraints all immediate;
 commit;
 

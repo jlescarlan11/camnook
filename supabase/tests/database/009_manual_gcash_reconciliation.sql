@@ -694,9 +694,9 @@ begin
       true,
       '60800000-0000-4000-8000-000000000002'
     );
-    raise exception 'payment without a finalized proof was accepted';
+    raise exception 'duplicate verified normalized GCash reference was accepted';
   exception
-    when check_violation then null;
+    when unique_violation then null;
   end;
 
   rejected := api.reject_payment(
