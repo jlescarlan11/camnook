@@ -20,6 +20,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_abandoned_private_upload_cleanup: {
+        Args: { p_limit: number; p_operation_id: string }
+        Returns: Json
+      }
       approve_booking: { Args: { p_booking_id: string }; Returns: undefined }
       get_camera_handoff_policy_admin: {
         Args: { p_camera_id: string }
@@ -305,6 +309,14 @@ export type Database = {
           p_document_id: string
           p_operation_id: string
           p_owner_user_id: string
+        }
+        Returns: Json
+      }
+      finalize_abandoned_private_upload_cleanup: {
+        Args: {
+          p_intent_id: string
+          p_kind: string
+          p_operation_id: string
         }
         Returns: Json
       }

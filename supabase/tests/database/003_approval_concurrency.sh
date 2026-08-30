@@ -388,6 +388,12 @@ echo "running privacy email forwarding invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/016_privacy_email_forwarding.sql"
 
+echo "running abandoned private upload cleanup invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/017_abandoned_private_upload_cleanup.sql"
+
 "$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
   -c 'create database camnook_hosted_compat template postgres' >/dev/null
 

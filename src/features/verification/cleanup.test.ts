@@ -5,7 +5,10 @@ vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: vi.fn() }));
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-import { cleanupDueVerificationEvidence } from "./cleanup";
+import {
+  cleanupAbandonedPrivateUploads,
+  cleanupDueVerificationEvidence,
+} from "./cleanup";
 
 const OWNER_ID = "30000000-0000-4000-8000-000000000001";
 const INTENT_ID = "31000000-0000-4000-8000-000000000001";
@@ -192,5 +195,109 @@ describe("due verification evidence cleanup", () => {
     );
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("abandoned private upload cleanup", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("deletes each private evidence kind from only its declared bucket", async () => {
+    const paymentIntentId = "61000000-0000-4000-8000-000000000001";
+    const conditionIntentId = "81000000-0000-4000-8000-000000000001";
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "claim_abandoned_private_upload_cleanup") {
+        return {
+          data: [
+            {
+              bucket_id: "payment-proofs",
+              id: paymentIntentId,
+              kind: "payment_proof_upload_intent",
+              object_path: `${paymentIntentId}/proof.jpg`,
+            },
+            {
+              bucket_id: "condition-evidence",
+              id: conditionIntentId,
+              kind: "condition_photo_upload_intent",
+              object_path: `booking/report/${conditionIntentId}.png`,
+            },
+          ],
+          error: null,
+        };
+      }
+      if (name === "finalize_abandoned_private_upload_cleanup") {
+        return { data: { status: "cleaned" }, error: null };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    const paymentRemove = vi.fn().mockResolvedValue({ data: [], error: null });
+    const conditionRemove = vi.fn().mockResolvedValue({ data: [], error: null });
+    const from = vi.fn((bucket: string) => ({
+      remove: bucket === "payment-proofs" ? paymentRemove : conditionRemove,
+    }));
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })),
+      storage: { from },
+    } as never);
+
+    await expect(cleanupAbandonedPrivateUploads()).resolves.toEqual({
+      claimed: 2,
+      cleaned: 2,
+      failed: 0,
+    });
+    expect(paymentRemove).toHaveBeenCalledWith([`${paymentIntentId}/proof.jpg`]);
+    expect(conditionRemove).toHaveBeenCalledWith([
+      `booking/report/${conditionIntentId}.png`,
+    ]);
+    expect(rpc).toHaveBeenCalledWith(
+      "finalize_abandoned_private_upload_cleanup",
+      expect.objectContaining({
+        p_intent_id: paymentIntentId,
+        p_kind: "payment_proof_upload_intent",
+      }),
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      "finalize_abandoned_private_upload_cleanup",
+      expect.objectContaining({
+        p_intent_id: conditionIntentId,
+        p_kind: "condition_photo_upload_intent",
+      }),
+    );
+  });
+
+  it("leaves a durable claim retryable when one bucket deletion fails", async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "claim_abandoned_private_upload_cleanup") {
+        return {
+          data: [
+            {
+              bucket_id: "payment-proofs",
+              id: "61000000-0000-4000-8000-000000000002",
+              kind: "payment_proof_upload_intent",
+              object_path: "payment/retry.jpg",
+            },
+          ],
+          error: null,
+        };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    const remove = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "storage unavailable" },
+    });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })),
+      storage: { from: vi.fn(() => ({ remove })) },
+    } as never);
+
+    await expect(cleanupAbandonedPrivateUploads()).resolves.toEqual({
+      claimed: 1,
+      cleaned: 0,
+      failed: 1,
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      "finalize_abandoned_private_upload_cleanup",
+      expect.anything(),
+    );
   });
 });

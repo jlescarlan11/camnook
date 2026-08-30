@@ -15,6 +15,23 @@ const cleanupClaimSchema = z.array(
   }),
 );
 
+const abandonedUploadClaimSchema = z.array(
+  z.discriminatedUnion("kind", [
+    z.object({
+      bucket_id: z.literal("payment-proofs"),
+      id: z.uuid(),
+      kind: z.literal("payment_proof_upload_intent"),
+      object_path: z.string().min(1),
+    }),
+    z.object({
+      bucket_id: z.literal("condition-evidence"),
+      id: z.uuid(),
+      kind: z.literal("condition_photo_upload_intent"),
+      object_path: z.string().min(1),
+    }),
+  ]),
+);
+
 const CLEANUP_BATCH_SIZE = 100;
 const FINALIZE_CONCURRENCY = 10;
 const MAX_CLEANUP_ITEMS = 1000;
@@ -25,6 +42,73 @@ export type VerificationCleanupSummary = {
   expired: number;
   failed: number;
 };
+
+export type AbandonedUploadCleanupSummary = {
+  claimed: number;
+  cleaned: number;
+  failed: number;
+};
+
+export async function cleanupAbandonedPrivateUploads(): Promise<AbandonedUploadCleanupSummary> {
+  const admin = createSupabaseAdminClient();
+  const claim = await admin.schema("api").rpc(
+    "claim_abandoned_private_upload_cleanup",
+    { p_limit: MAX_CLEANUP_ITEMS, p_operation_id: randomUUID() },
+  );
+  const claimed = abandonedUploadClaimSchema.safeParse(claim.data);
+
+  if (claim.error || !claimed.success) {
+    throw new Error("Unable to claim abandoned private upload cleanup");
+  }
+
+  let cleaned = 0;
+  let failed = 0;
+
+  for (const bucketId of ["payment-proofs", "condition-evidence"] as const) {
+    const bucketItems = claimed.data.filter((item) => item.bucket_id === bucketId);
+    const bucket = admin.storage.from(bucketId);
+
+    for (let index = 0; index < bucketItems.length; index += CLEANUP_BATCH_SIZE) {
+      const batch = bucketItems.slice(index, index + CLEANUP_BATCH_SIZE);
+      const removed = await bucket.remove(batch.map((item) => item.object_path));
+
+      if (removed.error) {
+        failed += batch.length;
+        continue;
+      }
+
+      for (
+        let finalizeIndex = 0;
+        finalizeIndex < batch.length;
+        finalizeIndex += FINALIZE_CONCURRENCY
+      ) {
+        const finalizeBatch = batch.slice(
+          finalizeIndex,
+          finalizeIndex + FINALIZE_CONCURRENCY,
+        );
+        const results = await Promise.all(
+          finalizeBatch.map((item) =>
+            admin.schema("api").rpc(
+              "finalize_abandoned_private_upload_cleanup",
+              {
+                p_intent_id: item.id,
+                p_kind: item.kind,
+                p_operation_id: randomUUID(),
+              },
+            ),
+          ),
+        );
+
+        for (const result of results) {
+          if (result.error) failed += 1;
+          else cleaned += 1;
+        }
+      }
+    }
+  }
+
+  return { claimed: claimed.data.length, cleaned, failed };
+}
 
 export async function cleanupDueVerificationEvidence(): Promise<VerificationCleanupSummary> {
   const admin = createSupabaseAdminClient();

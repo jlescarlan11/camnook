@@ -1,4 +1,7 @@
-import { cleanupDueVerificationEvidence } from "@/features/verification/cleanup";
+import {
+  cleanupAbandonedPrivateUploads,
+  cleanupDueVerificationEvidence,
+} from "@/features/verification/cleanup";
 import { hasValidCronAuthorization } from "@/lib/cron/authorization";
 
 export const dynamic = "force-dynamic";
@@ -9,13 +12,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    const summary = await cleanupDueVerificationEvidence();
-    if (summary.failed > 0) {
-      console.error("Verification evidence cleanup incomplete", summary);
+    const verification = await cleanupDueVerificationEvidence();
+    const abandonedUploads = await cleanupAbandonedPrivateUploads();
+    const summary = { abandonedUploads, verification };
+    if (verification.failed > 0 || abandonedUploads.failed > 0) {
+      console.error("Private evidence cleanup incomplete", summary);
     }
-    return Response.json(summary, { status: summary.failed === 0 ? 200 : 503 });
+    return Response.json(summary, {
+      status: verification.failed === 0 && abandonedUploads.failed === 0 ? 200 : 503,
+    });
   } catch {
-    console.error("Verification evidence cleanup failed");
+    console.error("Private evidence cleanup failed");
     return Response.json({ error: "cleanup_failed" }, { status: 503 });
   }
 }

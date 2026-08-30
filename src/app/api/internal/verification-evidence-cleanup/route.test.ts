@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/features/verification/cleanup", () => ({
+  cleanupAbandonedPrivateUploads: vi.fn(),
   cleanupDueVerificationEvidence: vi.fn(),
 }));
 
-import { cleanupDueVerificationEvidence } from "@/features/verification/cleanup";
+import {
+  cleanupAbandonedPrivateUploads,
+  cleanupDueVerificationEvidence,
+} from "@/features/verification/cleanup";
 
 import { GET } from "./route";
 
@@ -28,6 +32,7 @@ describe("verification evidence cleanup cron route", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(cleanupAbandonedPrivateUploads).not.toHaveBeenCalled();
     expect(cleanupDueVerificationEvidence).not.toHaveBeenCalled();
   });
 
@@ -38,6 +43,11 @@ describe("verification evidence cleanup cron route", () => {
       expired: 2,
       failed: 0,
     });
+    vi.mocked(cleanupAbandonedPrivateUploads).mockResolvedValue({
+      claimed: 2,
+      cleaned: 2,
+      failed: 0,
+    });
     const response = await GET(
       new Request("https://camnook.test/api/internal/verification-evidence-cleanup", {
         headers: { authorization: "Bearer verification-cleanup-test-secret" },
@@ -46,10 +56,8 @@ describe("verification evidence cleanup cron route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      claimed: 3,
-      cleaned: 3,
-      expired: 2,
-      failed: 0,
+      abandonedUploads: { claimed: 2, cleaned: 2, failed: 0 },
+      verification: { claimed: 3, cleaned: 3, expired: 2, failed: 0 },
     });
   });
 
@@ -61,6 +69,11 @@ describe("verification evidence cleanup cron route", () => {
       expired: 1,
       failed: 1,
     });
+    vi.mocked(cleanupAbandonedPrivateUploads).mockResolvedValue({
+      claimed: 2,
+      cleaned: 1,
+      failed: 1,
+    });
 
     const response = await GET(
       new Request("https://camnook.test/api/internal/verification-evidence-cleanup", {
@@ -70,8 +83,11 @@ describe("verification evidence cleanup cron route", () => {
 
     expect(response.status).toBe(503);
     expect(consoleError).toHaveBeenCalledWith(
-      "Verification evidence cleanup incomplete",
-      { claimed: 3, cleaned: 2, expired: 1, failed: 1 },
+      "Private evidence cleanup incomplete",
+      {
+        abandonedUploads: { claimed: 2, cleaned: 1, failed: 1 },
+        verification: { claimed: 3, cleaned: 2, expired: 1, failed: 1 },
+      },
     );
   });
 
@@ -90,7 +106,7 @@ describe("verification evidence cleanup cron route", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ error: "cleanup_failed" });
     expect(consoleError).toHaveBeenCalledWith(
-      "Verification evidence cleanup failed",
+      "Private evidence cleanup failed",
     );
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
       "private object path",
