@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 const PRODUCTION_PROJECT_REF = "iegcixcevvkryfwfotqz";
 const AUTH_CONFIG_URL = `https://api.supabase.com/v1/projects/${PRODUCTION_PROJECT_REF}/config/auth`;
+const AUTH_CONFIG_REQUEST_TIMEOUT_MS = 15_000;
 
 function bearerToken(request: Request) {
   const authorization = request.headers.get("authorization");
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       cache: "no-store",
       headers,
       method: "GET",
+      signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
     });
     if (!current.ok) {
       return NextResponse.json(
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
       cache: "no-store",
       headers,
       method: "PATCH",
+      signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
     });
     if (!updated.ok) {
       return NextResponse.json({ error: "provider_rejected_configuration" }, { status: 502 });
@@ -84,6 +87,7 @@ export async function POST(request: Request) {
       cache: "no-store",
       headers,
       method: "GET",
+      signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
     });
     if (!verified.ok) {
       return NextResponse.json({ error: "configuration_not_confirmed" }, { status: 502 });

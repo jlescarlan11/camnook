@@ -44,6 +44,12 @@ public alias. A non-200 response stops before promotion and leaves the recorded
 live deployment in place. The separate public smoke after promotion verifies
 that alias routing also reaches the candidate.
 
+The separate protected Production Auth workflow gives each Supabase Management
+API read, update, and verification request a 15-second deadline inside the
+application's 60-second caller deadline. A timeout during the update remains an
+indeterminate hosted mutation: reconcile the current Auth settings and never
+retry it automatically.
+
 `workflow_dispatch` is emergency reconciliation, not a bypass. Dispatch the
 workflow from `main`, supply the full current `main` SHA, type
 `RELEASE_EXACT_MAIN`, and provide a bounded audit reason. Admission also proves

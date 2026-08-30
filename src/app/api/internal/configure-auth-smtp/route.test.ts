@@ -61,6 +61,9 @@ describe("Production Auth SMTP configuration", () => {
       provider: "resend",
     });
     expect(fetch).toHaveBeenCalledTimes(3);
+    for (const [, init] of fetch.mock.calls) {
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+    }
     const patchBody = JSON.parse(fetch.mock.calls[1][1].body as string);
     expect(patchBody.smtp_pass).toBe("re_protected_resend_key");
     expect(patchBody.smtp_port).toBe("465");
@@ -79,5 +82,19 @@ describe("Production Auth SMTP configuration", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
+  });
+
+  it("fails closed when a bounded management request times out", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")),
+    );
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "provider_unavailable",
+    });
   });
 });
