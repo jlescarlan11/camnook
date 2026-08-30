@@ -10,7 +10,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildMeetupBinding } from "@/features/meetups/binding";
 import { getMeetupProviderConfig } from "@/features/meetups/config";
 import { readRecommendationReference } from "@/features/meetups/reference";
-import { isMeetupPlanningEnabled } from "@/features/meetups/rollout";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
 import { stringFormValue, type ActionStatus } from "./state";
@@ -78,14 +77,6 @@ export async function requestBooking(
     expectedLocation: values.expectedLocation,
     intendedUse: values.intendedUse,
   };
-  const meetupPlanningEnabled = isMeetupPlanningEnabled();
-  const usesMeetupInput =
-    values.meetupConfirmed !== "" || values.meetupReference !== "";
-
-  if (usesMeetupInput && !meetupPlanningEnabled) {
-    return { error: "schedule_changed", status: "error", values: preservedValues };
-  }
-
   if (!fields.success) {
     const flattened = z.flattenError(fields.error).fieldErrors;
     if (flattened.camera) fieldErrors.camera = "Choose a camera.";
@@ -132,7 +123,6 @@ export async function requestBooking(
     };
   }
   if (
-    meetupPlanningEnabled &&
     (values.meetupConfirmed !== "true" || !values.meetupReference)
   ) {
     return {
@@ -180,66 +170,51 @@ export async function requestBooking(
     return { error: "suspended", status: "error", values: preservedValues };
   }
 
-  let result;
-  if (meetupPlanningEnabled) {
-    const config = getMeetupProviderConfig();
-    if (!config) {
-      return { error: "request_failed", status: "error", values: preservedValues };
-    }
-    const binding = buildMeetupBinding({
-      cameraId: fields.data.camera,
-      configVersion: config.configVersion,
-      handoffTime: values.handoffTime,
-      pickupDate: values.pickupDate,
-      policyVersion: policyVersion!,
-      renterId: context.user.id,
-      returnDate: values.returnDate,
-    });
-    const claims = readRecommendationReference(
-      values.meetupReference,
-      config.referenceSecret,
-      { binding },
-    );
-    if (!claims || claims.configVersion !== config.configVersion) {
-      return { error: "meetup_expired", status: "error", values: preservedValues };
-    }
-    let admin;
-    try {
-      admin = createSupabaseAdminClient();
-    } catch {
-      return { error: "request_failed", status: "error", values: preservedValues };
-    }
-    result = await admin.schema("api").rpc("request_booking_schedule_with_meetup_idempotent", {
-      p_camera_id: fields.data.camera,
-      p_expected_location: fields.data.expectedLocation,
-      p_handoff_time: values.handoffTime,
-      p_intended_use: fields.data.intendedUse,
-      p_pickup_date: values.pickupDate,
-      p_policy_version: policyVersion!,
-      p_provider_config_version: claims.configVersion,
-      p_renter_city_label: claims.renterCity.label,
-      p_renter_id: context.user.id,
-      p_return_date: values.returnDate,
-      p_venue_address: claims.address,
-      p_venue_city: claims.city,
-      p_venue_latitude: claims.latitude,
-      p_venue_longitude: claims.longitude,
-      p_venue_name: claims.name,
-      p_operation_id: operationId.data,
-    });
-  } else {
-    const api = context.supabase.schema("api");
-    result = await api.rpc("request_booking_schedule_idempotent", {
-        p_camera_id: fields.data.camera,
-        p_expected_location: fields.data.expectedLocation,
-        p_handoff_time: values.handoffTime,
-        p_intended_use: fields.data.intendedUse,
-        p_pickup_date: values.pickupDate,
-        p_policy_version: policyVersion!,
-        p_return_date: values.returnDate,
-        p_operation_id: operationId.data,
-      });
+  const config = getMeetupProviderConfig();
+  if (!config) {
+    return { error: "request_failed", status: "error", values: preservedValues };
   }
+  const binding = buildMeetupBinding({
+    cameraId: fields.data.camera,
+    configVersion: config.configVersion,
+    handoffTime: values.handoffTime,
+    pickupDate: values.pickupDate,
+    policyVersion: policyVersion!,
+    renterId: context.user.id,
+    returnDate: values.returnDate,
+  });
+  const claims = readRecommendationReference(
+    values.meetupReference,
+    config.referenceSecret,
+    { binding },
+  );
+  if (!claims || claims.configVersion !== config.configVersion) {
+    return { error: "meetup_expired", status: "error", values: preservedValues };
+  }
+  let admin;
+  try {
+    admin = createSupabaseAdminClient();
+  } catch {
+    return { error: "request_failed", status: "error", values: preservedValues };
+  }
+  const result = await admin.schema("api").rpc("request_booking_schedule_with_meetup_idempotent", {
+    p_camera_id: fields.data.camera,
+    p_expected_location: fields.data.expectedLocation,
+    p_handoff_time: values.handoffTime,
+    p_intended_use: fields.data.intendedUse,
+    p_pickup_date: values.pickupDate,
+    p_policy_version: policyVersion!,
+    p_provider_config_version: claims.configVersion,
+    p_renter_city_label: claims.renterCity.label,
+    p_renter_id: context.user.id,
+    p_return_date: values.returnDate,
+    p_venue_address: claims.address,
+    p_venue_city: claims.city,
+    p_venue_latitude: claims.latitude,
+    p_venue_longitude: claims.longitude,
+    p_venue_name: claims.name,
+    p_operation_id: operationId.data,
+  });
   const { data, error } = result;
 
   if (error || typeof data !== "string" || !z.uuid().safeParse(data).success) {

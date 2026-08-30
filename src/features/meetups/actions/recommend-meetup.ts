@@ -10,7 +10,6 @@ import { buildMeetupBinding } from "../binding";
 import { cityInputSchema } from "../city-input";
 import { getMeetupProviderConfig } from "../config";
 import { GeoapifyAdapter, ProviderBoundaryError } from "../provider";
-import { isMeetupPlanningEnabled } from "../rollout";
 import { recommendPublicMeetup } from "../service";
 import { recordMeetupTelemetry } from "../telemetry";
 import type { SafeMeetupRecommendation } from "../types";
@@ -47,9 +46,6 @@ export async function recommendMeetup(
   _previous: RecommendMeetupState,
   formData: FormData,
 ): Promise<RecommendMeetupState> {
-  if (!isMeetupPlanningEnabled()) {
-    return { error: "configuration", status: "error" };
-  }
   const cameraId = value(formData, "camera");
   const pickupDate = value(formData, "pickupDate");
   const returnDate = value(formData, "returnDate");

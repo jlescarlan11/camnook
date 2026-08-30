@@ -1857,9 +1857,7 @@ set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000002';
 select api.submit_payment(
   '29000000-0000-4000-8000-000000000001',
   '29300000-0000-4000-8000-000000000002',
-  6000,
-  'PAYMENT-SUBMIT-RACE',
-  'Race Renter A'
+  'PAYMENT-SUBMIT-RACE'
 );
 \! touch "$payment_submit_ready_file"
 select pg_sleep(1);
@@ -1874,9 +1872,7 @@ set local "request.jwt.claim.sub" = '20000000-0000-4000-8000-000000000002';
 select api.submit_payment(
   '29000000-0000-4000-8000-000000000001',
   '29300000-0000-4000-8000-000000000002',
-  6000,
-  'PAYMENT SUBMIT RACE',
-  'Race Renter A'
+  'PAYMENT SUBMIT RACE'
 );
 commit;
 SQL

@@ -16,13 +16,11 @@ export function RequestForm({
   returnValue,
   returnHref,
   schedule,
-  meetupPlanningEnabled = false,
 }: {
   camera: string;
   pickup: string;
   returnValue: string;
   returnHref?: string;
-  meetupPlanningEnabled?: boolean;
   schedule?: {
     handoffTime: string;
     pickupDate: string;
@@ -46,7 +44,7 @@ export function RequestForm({
     requestBooking,
     initialRequestBookingActionState,
   );
-  const meetupRequired = meetupPlanningEnabled && Boolean(schedule);
+  const meetupRequired = Boolean(schedule);
   const recommendation = recommendationState.recommendation;
   const meetupConfirmed =
     Boolean(recommendation?.reference) &&

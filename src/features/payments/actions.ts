@@ -24,7 +24,6 @@ const referenceSchema = z
   .min(4)
   .max(120)
   .regex(/^[A-Za-z0-9 -]+$/);
-const senderNameSchema = z.string().trim().min(2).max(160);
 
 type UserContext = Awaited<ReturnType<typeof requireUser>>;
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -38,25 +37,13 @@ export type PaymentActionState = {
     | "stale"
     | "unauthorized";
   fieldErrors?: {
-    amount?: string;
     proof?: string;
     reference?: string;
-    senderName?: string;
   };
   result?: "accepted" | "proof_saved";
   status: "error" | "idle" | "success";
   transactionId?: string;
 };
-
-function amountFromForm(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !/^\d+(?:\.\d{1,2})?$/.test(value)) {
-    return null;
-  }
-  const amount = Number(value);
-  return Number.isSafeInteger(Math.round(amount * 100)) && amount > 0
-    ? amount
-    : null;
-}
 
 function hasSupportedSignature(bytes: Buffer, mediaType: string) {
   if (mediaType === "image/jpeg") {
@@ -304,10 +291,6 @@ export async function submitPayment(
   const reference = referenceSchema.safeParse(
     stringFormValue(formData, "reference"),
   );
-  const senderName = senderNameSchema.safeParse(
-    stringFormValue(formData, "senderName"),
-  );
-  const amount = amountFromForm(formData.get("amount"));
   const proofInput = validateProofInput(formData.get("proof"));
   const fieldErrors: PaymentActionState["fieldErrors"] = {};
 
@@ -317,14 +300,13 @@ export async function submitPayment(
   if (!attemptIdSchema.safeParse(attemptId).success) {
     return { error: "invalid", status: "error" };
   }
-  if (amount === null) fieldErrors.amount = "Enter the exact total due.";
   if (!reference.success) {
     fieldErrors.reference = "Enter the 4–120 character GCash reference.";
   }
-  if (!senderName.success) {
-    fieldErrors.senderName = "Enter the sender name shown in GCash.";
+  if ("error" in proofInput || !proofInput.proof) {
+    fieldErrors.proof =
+      "Upload a non-empty JPEG or PNG transfer proof no larger than 5 MiB.";
   }
-  if ("error" in proofInput) fieldErrors.proof = proofInput.error;
   if (Object.keys(fieldErrors).length > 0) {
     return { error: "invalid", fieldErrors, status: "error" };
   }
@@ -337,11 +319,9 @@ export async function submitPayment(
   }
 
   const result = await context.supabase.schema("api").rpc("submit_payment", {
-    p_amount: amount!,
     p_attempt_id: attemptId,
     p_booking_id: bookingId,
     p_reference: reference.data!,
-    p_sender_name: senderName.data!,
   });
   const payment = paymentSubmissionResponseSchema.safeParse(result.data);
 
@@ -366,22 +346,18 @@ export async function submitPayment(
     return { error: "indeterminate", status: "error" };
   }
 
-  if (proofInput.proof) {
-    const proofResult = await storePaymentProof(
-      context,
-      payment.data.transaction_id,
-      proofInput.proof,
-    );
-    revalidatePaymentViews(bookingId, payment.data.transaction_id);
-    if (proofResult !== "saved") {
-      return {
-        error: "proof_failed",
-        status: "error",
-        transactionId: payment.data.transaction_id,
-      };
-    }
-  } else {
-    revalidatePaymentViews(bookingId, payment.data.transaction_id);
+  const proofResult = await storePaymentProof(
+    context,
+    payment.data.transaction_id,
+    proofInput.proof!,
+  );
+  revalidatePaymentViews(bookingId, payment.data.transaction_id);
+  if (proofResult !== "saved") {
+    return {
+      error: "proof_failed",
+      status: "error",
+      transactionId: payment.data.transaction_id,
+    };
   }
 
   return {

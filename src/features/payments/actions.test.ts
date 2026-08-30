@@ -18,11 +18,15 @@ const PAYMENT_ID = "72000000-0000-4000-8000-000000000003";
 
 function submissionForm() {
   const data = new FormData();
-  data.set("amount", "6000.00");
   data.set("attemptId", ATTEMPT_ID);
   data.set("bookingId", BOOKING_ID);
   data.set("reference", "GCASH REFERENCE");
-  data.set("senderName", "Payment Renter");
+  data.set(
+    "proof",
+    new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "receipt.jpg", {
+      type: "image/jpeg",
+    }),
+  );
   return data;
 }
 
@@ -41,22 +45,22 @@ function authorize(result: unknown) {
 describe("payment owner actions", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("rejects altered amount/reference fields before authentication", async () => {
+  it("rejects an invalid reference or missing proof before authentication", async () => {
     const data = submissionForm();
-    data.set("amount", "6000.001");
     data.set("reference", "<script>");
+    data.delete("proof");
 
     const result = await submitPayment({ status: "idle" }, data);
 
     expect(result).toMatchObject({ error: "invalid", status: "error" });
     expect(result.fieldErrors).toMatchObject({
-      amount: expect.any(String),
+      proof: expect.any(String),
       reference: expect.any(String),
     });
     expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it("submits only the exact form facts and preserves the attempt identifier", async () => {
+  it("submits only the reference and stable identifiers before proof persistence", async () => {
     const rpc = authorize({
       data: {
         booking_state: "PAYMENT_REVIEW",
@@ -70,16 +74,14 @@ describe("payment owner actions", () => {
     await expect(
       submitPayment({ status: "idle" }, submissionForm()),
     ).resolves.toEqual({
-      result: "accepted",
-      status: "success",
+      error: "proof_failed",
+      status: "error",
       transactionId: PAYMENT_ID,
     });
     expect(rpc).toHaveBeenCalledWith("submit_payment", {
-      p_amount: 6000,
       p_attempt_id: ATTEMPT_ID,
       p_booking_id: BOOKING_ID,
       p_reference: "GCASH REFERENCE",
-      p_sender_name: "Payment Renter",
     });
     expect(revalidatePath).toHaveBeenCalledWith(
       `/account/bookings/${BOOKING_ID}`,

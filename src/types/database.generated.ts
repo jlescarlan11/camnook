@@ -124,6 +124,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_gcash_recipient_configuration_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       create_payment_proof_upload_intent: {
         Args: {
           p_actor_user_id: string
@@ -730,11 +734,9 @@ export type Database = {
       }
       submit_payment: {
         Args: {
-          p_amount: number
           p_attempt_id: string
           p_booking_id: string
           p_reference: string
-          p_sender_name: string
         }
         Returns: Json
       }

@@ -21,7 +21,11 @@ import {
 } from "@/lib/auth/require-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-import { decidePayment, requestPaymentProofAccess } from "./admin-actions";
+import {
+  configureGcashRecipient,
+  decidePayment,
+  requestPaymentProofAccess,
+} from "./admin-actions";
 
 const PAYMENT_ID = "73000000-0000-4000-8000-000000000001";
 const PROOF_ID = "73000000-0000-4000-8000-000000000002";
@@ -48,6 +52,24 @@ function authorize(result: unknown) {
 
 describe("payment admin actions", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("activates a validated GCash recipient without accepting an enable toggle", async () => {
+    const rpc = authorize({ data: { enabled: true, version: 4 }, error: null });
+    const data = new FormData();
+    data.set("recipientAccount", "09171234567");
+    data.set("recipientName", "CamNook Recipient");
+    data.set("enabled", "false");
+
+    await expect(
+      configureGcashRecipient({ status: "idle" }, data),
+    ).resolves.toEqual({ status: "success", version: 4 });
+    expect(rpc).toHaveBeenCalledWith("configure_gcash_recipient", {
+      p_enabled: true,
+      p_operation_id: expect.any(String),
+      p_recipient_account: "09171234567",
+      p_recipient_name: "CamNook Recipient",
+    });
+  });
 
   it("requires explicit actual-account confirmation before authorization", async () => {
     const data = verifyForm();

@@ -41,7 +41,7 @@ function ProofField({ error, id }: { error?: string; id: string }) {
   return (
     <div>
       <label className="block text-sm font-medium" htmlFor={id}>
-        Transfer proof (optional)
+        Transfer proof
       </label>
       <input
         accept="image/jpeg,image/png"
@@ -49,10 +49,11 @@ function ProofField({ error, id }: { error?: string; id: string }) {
         className="mt-2 block min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-2 file:font-medium file:text-amber-950"
         id={id}
         name="proof"
+        required
         type="file"
       />
       <p className="mt-2 text-xs leading-5 text-stone-500" id={`${id}-help`}>
-        JPEG or PNG, maximum 5 MiB. Proof is private, optional, and never
+        Required JPEG or PNG, maximum 5 MiB. Proof is private and never
         replaces checking the actual approved GCash account.
       </p>
       {error ? (
@@ -112,7 +113,7 @@ export function PaymentPanel({
           <p className="mt-1">
             {transaction.proof_exists
               ? "A private proof is attached. You may replace it with a corrected version while review is pending."
-              : "No proof is attached. The transfer details remain submitted; you may add optional proof below."}
+              : "The proof upload needs to be retried below before reconciliation can be completed."}
           </p>
         </div>
       ) : transaction?.status === "verified" ? (
@@ -168,55 +169,21 @@ export function PaymentPanel({
           <input name="attemptId" type="hidden" value={attemptId} />
           <input name="bookingId" type="hidden" value={payment.booking_id} />
           <div>
-            <label className="block text-sm font-medium" htmlFor="payment-amount">
-              Exact total due
+            <label className="block text-sm font-medium" htmlFor="payment-reference">
+              GCash reference
             </label>
             <input
-              className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-stone-100 px-4 py-3"
-              id="payment-amount"
-              name="amount"
-              readOnly
-              value={payment.instructions.total_due.toFixed(2)}
+              autoComplete="off"
+              className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="payment-reference"
+              maxLength={120}
+              name="reference"
+              pattern="[A-Za-z0-9 -]{4,120}"
+              required
             />
-            {submitState.fieldErrors?.amount ? (
-              <p className="mt-2 text-sm text-red-800" role="alert">{submitState.fieldErrors.amount}</p>
+            {submitState.fieldErrors?.reference ? (
+              <p className="mt-2 text-sm text-red-800" role="alert">{submitState.fieldErrors.reference}</p>
             ) : null}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium" htmlFor="payment-reference">
-                GCash reference
-              </label>
-              <input
-                autoComplete="off"
-                className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
-                id="payment-reference"
-                maxLength={120}
-                name="reference"
-                pattern="[A-Za-z0-9 -]{4,120}"
-                required
-              />
-              {submitState.fieldErrors?.reference ? (
-                <p className="mt-2 text-sm text-red-800" role="alert">{submitState.fieldErrors.reference}</p>
-              ) : null}
-            </div>
-            <div>
-              <label className="block text-sm font-medium" htmlFor="payment-sender">
-                Sender name in GCash
-              </label>
-              <input
-                autoComplete="name"
-                className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
-                id="payment-sender"
-                maxLength={160}
-                minLength={2}
-                name="senderName"
-                required
-              />
-              {submitState.fieldErrors?.senderName ? (
-                <p className="mt-2 text-sm text-red-800" role="alert">{submitState.fieldErrors.senderName}</p>
-              ) : null}
-            </div>
           </div>
           <ProofField error={submitState.fieldErrors?.proof} id="payment-proof" />
           <button

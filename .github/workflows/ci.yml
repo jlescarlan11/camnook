@@ -90,8 +90,6 @@ jobs:
 
       - name: Build
         run: pnpm build
-        env:
-          MEETUP_PLANNING_ENABLED: "true"
 
   database-concurrency:
     name: Database concurrency

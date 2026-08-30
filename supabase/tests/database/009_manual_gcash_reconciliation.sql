@@ -222,6 +222,20 @@ select api.configure_gcash_recipient(
   '60500000-0000-4000-8000-000000000001'
 );
 
+do $$
+declare
+  configuration jsonb := api.get_gcash_recipient_configuration_admin();
+begin
+  if not (configuration ->> 'enabled')::boolean
+    or configuration ->> 'recipient_name' <> 'CamNook Approved Recipient'
+    or configuration ->> 'recipient_account' <> '09171234567'
+    or (configuration ->> 'version')::integer < 1
+  then
+    raise exception 'admin GCash configuration projection is incomplete';
+  end if;
+end;
+$$;
+
 set local "request.jwt.claim.sub" = '60000000-0000-4000-8000-000000000002';
 
 do $$
@@ -252,16 +266,12 @@ begin
   first_submission := api.submit_payment(
     '60400000-0000-4000-8000-000000000001',
     '60500000-0000-4000-8000-000000000002',
-    (state #>> '{instructions,total_due}')::numeric,
-    'GCASH-REF-ONE',
-    'Payment Renter'
+    'GCASH-REF-ONE'
   );
   retry_submission := api.submit_payment(
     '60400000-0000-4000-8000-000000000001',
     '60500000-0000-4000-8000-000000000002',
-    (state #>> '{instructions,total_due}')::numeric,
-    'GCASH REF ONE',
-    'Payment Renter'
+    'GCASH REF ONE'
   );
 
   if not (first_submission ->> 'created')::boolean
@@ -282,9 +292,7 @@ begin
     perform api.submit_payment(
       '60400000-0000-4000-8000-000000000001',
       '60500000-0000-4000-8000-000000000003',
-      (state #>> '{instructions,total_due}')::numeric,
-      'GCASH-REF-OTHER',
-      'Payment Renter'
+      'GCASH-REF-OTHER'
     );
     raise exception 'second pending payment submission was accepted';
   exception
@@ -662,9 +670,7 @@ begin
   submitted := api.submit_payment(
     '60400000-0000-4000-8000-000000000002',
     '60800000-0000-4000-8000-000000000001',
-    (state #>> '{instructions,total_due}')::numeric,
-    'GCASH REF ONE',
-    'Payment Renter'
+    'GCASH REF ONE'
   );
   perform set_config('test.payment_transaction_two', submitted ->> 'transaction_id', true);
 end;
@@ -688,9 +694,9 @@ begin
       true,
       '60800000-0000-4000-8000-000000000002'
     );
-    raise exception 'duplicate verified normalized GCash reference was accepted';
+    raise exception 'payment without a finalized proof was accepted';
   exception
-    when unique_violation then null;
+    when check_violation then null;
   end;
 
   rejected := api.reject_payment(

@@ -1,6 +1,6 @@
 # Calendar, handoff, and meetup rollout
 
-Status: **HANDOFF READY FOR OWNER POLICY; MEETUP NO_GO**, reviewed 2026-08-22.
+Status: **HANDOFF AND MEETUP BUILT IN**, reviewed 2026-08-30.
 Issue #105 coordinates the release of #101–#104. Release run `32558869428`
 successfully verified and applied all 25 repository migrations to Development
 and Production for SHA `5976173337e33a247b330e253d25435fee870c16`, then
@@ -9,15 +9,11 @@ readiness work remains incomplete.
 
 ## Immutable release boundary
 
-Handoff scheduling is an always-on part of the published booking flow. It is
-not controlled by a deployment-time feature flag. `MEETUP_PLANNING_ENABLED`
-remains server-only and is enabled only by the exact string `true` until its
-provider and privacy readiness requirements pass. Disabling meetup planning
-stops location lookup, recommendation, and meetup-bound requests without
-deleting or rewriting camera policies, bookings, meetup plans, contracts,
-handoffs, history, or audits. Existing snapshot-backed bookings remain
-readable; only genuine legacy bookings may use the validated `PICKUP_LOCATION`
-compatibility path.
+Handoff scheduling and meetup planning are always-on parts of the published
+booking flow. Neither is controlled by a deployment-time feature flag. Missing
+provider configuration, an unavailable provider, an invalid recommendation, or
+an unconfigured camera policy fails closed without creating a booking. Existing
+snapshot-backed bookings remain readable.
 
 ## Candidate and target preflight
 
@@ -36,7 +32,7 @@ compatibility path.
    residue. A successful automatic `main` CI first migrates and verifies
    Development. Its success unlocks Production approval, which stages a
    Production-shaped Vercel candidate with built-in handoff scheduling and
-   meetup planning disabled; only that
+   meetup planning; only that
    exact unaliased artifact and SHA may continue through Production and
    promotion.
 4. Record only SHA, migration names/counts, deployment IDs/states, config
@@ -48,7 +44,7 @@ compatibility path.
 
 An authorized CamNook representative must first accept Geoapify terms and create
 a dedicated Development project/key. Configure all server-only values in
-`docs/operations/geoapify-meetups.md`, keep both rollout flags false, and run
+`docs/operations/geoapify-meetups.md`, verify the server-only provider values, and run
 `pnpm meetup:check:development`. A missing key, quota, timeout, malformed result,
 or zero eligible venue is a safe `NO_GO`; do not substitute fixture evidence.
 
@@ -93,16 +89,16 @@ owner-defined observation window. Freeze fresh evidence and require
 
 ## Rollback and indeterminate outcomes
 
-Disable `MEETUP_PLANNING_ENABLED` to stop new recommendation-backed admissions
-without database deletion. Do not rotate the reference secret as the first
+Provider configuration can be removed to fail closed during an incident without
+database deletion. Do not rotate the reference secret as the first
 response unless invalidating all unexpired 15-minute recommendations is intended.
 Reconcile an indeterminate request by its durable owned booking before retrying;
 never fabricate client success or delete history. Provider outage requires no
 cleanup of renter coordinates because they are never persisted. Recovery is a
 forward fix followed by a new protected Preview and evidence window.
 
-The repository release workflow ships handoff scheduling as built-in behavior
-while keeping meetup planning disabled, disables Vercel's independent `main`
+The repository release workflow ships handoff scheduling and meetup planning as
+built-in behavior, disables Vercel's independent `main`
 promotion, and promotes
 only after the exact SHA's
 Production migration history, read-only hosted manifest, and advisors pass. An

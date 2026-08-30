@@ -49,6 +49,8 @@ function fields(values: Record<string, string>) {
   if (!data.has("operationId")) {
     data.set("operationId", "33333333-3333-4333-8333-333333333333");
   }
+  if (!data.has("meetupConfirmed")) data.set("meetupConfirmed", "true");
+  if (!data.has("meetupReference")) data.set("meetupReference", "v1.test.reference");
   return data;
 }
 
@@ -74,7 +76,6 @@ function profileQuery(result: unknown) {
 describe("quoteBooking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.MEETUP_PLANNING_ENABLED;
   });
 
   it("rejects the legacy quote contract before creating a database client", async () => {
@@ -396,7 +397,6 @@ describe("saveProfile", () => {
 describe("requestBooking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.MEETUP_PLANNING_ENABLED;
     delete process.env.MEETUP_RECOMMENDATION_SECRET;
     delete process.env.GEOAPIFY_API_KEY;
     delete process.env.MEETUP_ALLOWED_CATEGORIES;
@@ -427,7 +427,7 @@ describe("requestBooking", () => {
     expect(getAuthenticatedUser).not.toHaveBeenCalled();
   });
 
-  it("sends only schedule-bound renter inputs then revalidates and redirects", async () => {
+  it("fails closed when a bound meetup reference cannot be verified", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
     const active = profileQuery({ data: { account_status: "active" }, error: null });
     const api = rpcClient(rpc);
@@ -451,22 +451,8 @@ describe("requestBooking", () => {
           state: "CONFIRMED",
         }),
       ),
-    ).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
-    expect(rpc).toHaveBeenCalledWith("request_booking_schedule_idempotent", {
-      p_camera_id: CAMERA_ID,
-      p_expected_location: "Quezon City",
-      p_handoff_time: "09:00",
-      p_intended_use: "Family event",
-      p_operation_id: "33333333-3333-4333-8333-333333333333",
-      p_pickup_date: "2099-08-14",
-      p_policy_version: 3,
-      p_return_date: "2099-08-16",
-    });
-    expect(api.schema).toHaveBeenCalledWith("api");
-    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/account");
-    expect(vi.mocked(redirect)).toHaveBeenCalledWith(
-      `/account/bookings/${BOOKING_ID}?requested=1`,
-    );
+    ).resolves.toMatchObject({ error: "request_failed", status: "error" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("returns field errors without authenticating or mutating invalid input", async () => {
@@ -494,7 +480,7 @@ describe("requestBooking", () => {
     expect(getAuthenticatedUser).not.toHaveBeenCalled();
   });
 
-  it("revalidates the untrusted schedule in the authenticated request RPC", async () => {
+  it("does not use the schedule-only RPC when meetup configuration is unavailable", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
     const active = profileQuery({ data: { account_status: "active" }, error: null });
     const supabase = { ...active.client, ...rpcClient(rpc) } as never;
@@ -516,21 +502,11 @@ describe("requestBooking", () => {
           returnDate: "2099-08-26",
         }),
       ),
-    ).rejects.toThrow("redirect:/account/bookings/22222222-2222-4222-8222-222222222222?requested=1");
-    expect(rpc).toHaveBeenCalledWith("request_booking_schedule_idempotent", {
-      p_camera_id: CAMERA_ID,
-      p_expected_location: "Cebu City",
-      p_handoff_time: "09:00",
-      p_intended_use: "Family event",
-      p_operation_id: "33333333-3333-4333-8333-333333333333",
-      p_pickup_date: "2099-08-24",
-      p_policy_version: 3,
-      p_return_date: "2099-08-26",
-    });
+    ).resolves.toMatchObject({ error: "request_failed", status: "error" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("requires a confirmed bound meetup and submits only decrypted server claims through the service RPC", async () => {
-    process.env.MEETUP_PLANNING_ENABLED = "true";
     process.env.GEOAPIFY_API_KEY = "provider-development-key";
     process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
     process.env.MEETUP_RECOMMENDATION_SECRET =
@@ -601,7 +577,6 @@ describe("requestBooking", () => {
   });
 
   it("cannot bypass meetup confirmation and rejects expired or tampered references before service mutation", async () => {
-    process.env.MEETUP_PLANNING_ENABLED = "true";
     process.env.GEOAPIFY_API_KEY = "provider-development-key";
     process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
     process.env.MEETUP_RECOMMENDATION_SECRET =
@@ -616,7 +591,11 @@ describe("requestBooking", () => {
       returnDate: "2099-08-26",
     };
     await expect(
-      requestBooking({ status: "idle" }, fields(common)),
+      requestBooking({ status: "idle" }, fields({
+        ...common,
+        meetupConfirmed: "",
+        meetupReference: "",
+      })),
     ).resolves.toMatchObject({ error: "meetup_required", status: "error" });
     expect(getAuthenticatedUser).not.toHaveBeenCalled();
 
@@ -649,6 +628,8 @@ describe("requestBooking", () => {
           expectedLocation: "Cebu City",
           handoffTime: "09:00",
           intendedUse: "Family event",
+          meetupConfirmed: "true",
+          meetupReference: "v1.pending.authentication",
           pickupDate: "2099-08-24",
           policyVersion: "3",
           returnDate: "2099-08-26",
@@ -665,16 +646,44 @@ describe("requestBooking", () => {
     ["40001", "schedule_changed"],
     ["23P01", "unavailable"],
   ] as const)("maps schedule failure %s to %s without raw detail", async (code, category) => {
-    const rpc = vi.fn().mockResolvedValue({
+    process.env.GEOAPIFY_API_KEY = "provider-development-key";
+    process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
+    process.env.MEETUP_RECOMMENDATION_SECRET =
+      "server-only-meetup-reference-secret-value";
+    const adminRpc = vi.fn().mockResolvedValue({
       data: null,
       error: { code, message: "private block and renter identity" },
     });
     const active = profileQuery({ data: { account_status: "active" }, error: null });
-    const supabase = { ...active.client, ...rpcClient(rpc) } as never;
     vi.mocked(getAuthenticatedUser).mockResolvedValue({
-      supabase,
+      supabase: active.client,
       user: { id: "user-1" },
     } as never);
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(
+      rpcClient(adminRpc) as never,
+    );
+    const reference = mintRecommendationReference(
+      {
+        address: "Cardinal Rosales Avenue, Cebu City",
+        binding: buildMeetupBinding({
+          cameraId: CAMERA_ID,
+          configVersion: "geoapify-v1",
+          handoffTime: "09:00",
+          pickupDate: "2099-08-24",
+          policyVersion: 3,
+          renterId: "user-1",
+          returnDate: "2099-08-26",
+        }),
+        city: "Cebu City",
+        configVersion: "geoapify-v1",
+        expiresAt: "2099-08-24T00:00:00.000Z",
+        latitude: 10.317,
+        longitude: 123.905,
+        name: "Ayala Center Cebu",
+        renterCity: { label: "Mandaue City" },
+      },
+      process.env.MEETUP_RECOMMENDATION_SECRET,
+    );
 
     const result = await requestBooking(
       { status: "idle" },
@@ -683,6 +692,7 @@ describe("requestBooking", () => {
         expectedLocation: "Cebu City",
         handoffTime: "09:00",
         intendedUse: "Family event",
+        meetupReference: reference,
         pickupDate: "2099-08-24",
         policyVersion: "3",
         returnDate: "2099-08-26",

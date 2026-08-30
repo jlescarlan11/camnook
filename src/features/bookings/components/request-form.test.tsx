@@ -22,7 +22,6 @@ describe("RequestForm meetup planning", () => {
     const markup = renderToStaticMarkup(
       <RequestForm
         camera="11111111-1111-4111-8111-111111111111"
-        meetupPlanningEnabled
         pickup=""
         returnValue=""
         schedule={schedule}
@@ -38,20 +37,5 @@ describe("RequestForm meetup planning", () => {
     expect(markup).not.toContain('name="latitude"');
     expect(markup).not.toContain('name="longitude"');
     vi.unstubAllGlobals();
-  });
-
-  it("preserves the pre-rollout request form without meetup controls", () => {
-    const markup = renderToStaticMarkup(
-      <RequestForm
-        camera="11111111-1111-4111-8111-111111111111"
-        pickup=""
-        returnValue=""
-        schedule={schedule}
-      />,
-    );
-
-    expect(markup).not.toContain("Use my current city");
-    expect(markup).not.toContain('name="meetupReference"');
-    expect(markup).toContain("Submit booking request");
   });
 });

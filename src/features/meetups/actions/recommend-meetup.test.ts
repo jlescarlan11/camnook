@@ -47,7 +47,6 @@ describe("recommendMeetup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
-    process.env.MEETUP_PLANNING_ENABLED = "true";
     process.env.GEOAPIFY_API_KEY = "provider-development-key";
     process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
     process.env.MEETUP_RECOMMENDATION_SECRET =
@@ -71,15 +70,6 @@ describe("recommendMeetup", () => {
         }),
       })),
     } as never);
-  });
-
-  it("does nothing while rollout is disabled and never reaches auth or location services", async () => {
-    process.env.MEETUP_PLANNING_ENABLED = "false";
-    await expect(
-      recommendMeetup({ status: "idle" }, validSchedule()),
-    ).resolves.toEqual({ error: "configuration", status: "error" });
-    expect(getAuthenticatedUser).not.toHaveBeenCalled();
-    expect(createSupabaseAdminClient).not.toHaveBeenCalled();
   });
 
   it("derives one safe recommendation without returning or logging the precise browser position", async () => {

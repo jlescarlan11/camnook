@@ -1,8 +1,8 @@
 # Manual GCash Reconciliation Operations
 
-Status: local synthetic validation complete. No hosted migration, real recipient
-configuration, deployment, or public paid-rental activation is authorized by
-this runbook.
+Status: implementation updated 2026-08-30. The admin dashboard is the supported
+recipient-configuration surface; saving a valid recipient makes it live without
+a deployment flag or separate enable toggle.
 
 ## Runtime and environment boundary
 
@@ -10,9 +10,8 @@ GCash is a manual external money rail. CamNook presents a versioned recipient,
 records renter-declared transfer facts, and lets the sole admin reconcile them;
 it never initiates, captures, refunds, or otherwise moves money.
 
-The forward migration creates `private.gcash_payment_configuration` disabled.
-Until the sole admin explicitly enables a valid versioned recipient, owner
-instructions and submission fail closed. Never commit a real recipient name,
+Until the sole admin saves a valid versioned recipient, renter instructions and
+submission fail closed. Never commit a real recipient name,
 account number, transaction reference, screenshot, user UUID, or service-role
 credential. Local and Development validation uses synthetic values only.
 
@@ -45,11 +44,11 @@ rollout, first follow the repository database target checks and verify the
 ignored link immediately before every hosted command. Apply the migration before
 regenerating database types or deploying a matching protected Preview.
 
-After migration and synthetic smoke validation, a sole admin may call
-`api.configure_gcash_recipient` through a controlled database session with:
+After migration and synthetic smoke validation, the sole admin saves the
+recipient from the GCash payment recipient section of `/admin`. The action uses:
 
 - an operation UUID;
-- `enabled = true`;
+- automatic activation on save;
 - the approved display name and account identifier; and
 - no copied secrets or real values in a terminal transcript, migration, issue,
   pull request, or runbook.
@@ -68,14 +67,14 @@ security, staffing, support, or public-launch gates are complete.
 The admin dashboard orders current submitted incoming transactions by oldest
 submission and exposes queue age for the 12-hour review target. For each item:
 
-1. Open the payment detail and inspect the booking context, declared amount,
-   sender, reference, submission time/deadline, and proof-presence flag.
-2. If optional proof is relevant, request access for
+1. Open the payment detail and inspect the booking context, authoritative amount,
+   renter, reference, submission time/deadline, and proof-presence flag.
+2. Open the required finalized proof by requesting access for
    `payment_reconciliation`. Use the link within 60 seconds. Do not copy its URL
    or the private object path into notes, logs, messages, or tickets.
 3. Independently sign in to the actual approved GCash account and locate the
    transfer. A screenshot is supporting evidence only and is never sufficient.
-4. Match the actual account, exact total, sender facts, and normalized reference.
+4. Match the actual account, exact total, renter facts, and normalized reference.
 5. Verify only after explicitly confirming the actual-account check and entering
    the observed amount/reference. The database derives the rental-income and
    security-deposit-liability allocations and confirms the booking atomically.
@@ -92,7 +91,7 @@ historical record.
 ## Proof recovery and correction
 
 - If transfer details were accepted but proof upload failed, the booking remains
-  in `PAYMENT_REVIEW`. Retry only the optional proof; do not resubmit payment or
+  in `PAYMENT_REVIEW`. Retry only the required proof; do not resubmit payment or
   resend money.
 - A retry reconciles an existing exact no-overwrite object by downloading and
   hashing it before finalization. Missing, late, mismatched, or abandoned objects
@@ -120,13 +119,12 @@ data. Transactions, allocations, proof versions, booking history, and audit are
 append-only. A future correction to verified finance requires an explicit
 reviewed reversal; direct mutation is not recovery.
 
-## Disablement and roll-forward recovery
+## Incident response and roll-forward recovery
 
-If new submissions must stop, the sole admin can disable the recipient through
-the same controlled configuration operation. This prevents new instructions
-and submissions. It does not invalidate existing submitted transactions or
-erase the recipient snapshot used when they were submitted; admins must still
-reconcile the existing queue.
+If new submissions must stop during an incident, use the controlled database
+configuration operation. The normal admin UI intentionally has no enable/disable
+toggle. Stopping new submissions does not invalidate existing transactions or
+erase their recipient snapshot; admins must still reconcile the existing queue.
 
 Database rollback is forward-only. Ship a reviewed corrective migration while
 preserving every transaction, allocation, proof version, state-history row, and

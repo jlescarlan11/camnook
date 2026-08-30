@@ -4,7 +4,6 @@ import Link from "next/link";
 import { quoteBooking } from "@/features/bookings/actions/quote-booking";
 import { ProfileForm } from "@/features/bookings/components/profile-form";
 import { RequestForm } from "@/features/bookings/components/request-form";
-import { isMeetupPlanningEnabled } from "@/features/meetups/rollout";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountData } from "@/features/bookings/data/account";
 import { loadCatalog } from "@/features/bookings/data/catalog";
@@ -49,7 +48,6 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
   };
   const query = new URLSearchParams(values).toString();
   const context = await requirePageUser(`/account/bookings/new?${query}`);
-  const meetupPlanningEnabled = isMeetupPlanningEnabled();
   const quoteData = new FormData();
   Object.entries(values).forEach(([name, value]) => quoteData.set(name, value));
   const [quoteState, account, catalog] = await Promise.all([
@@ -117,7 +115,6 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
                 <p className="mt-2 text-sm leading-6 text-stone-600">Submitting creates a <strong>FOR_REVIEW</strong> request. It does not place an availability hold.</p>
                 <RequestForm
                   camera={values.camera}
-                  meetupPlanningEnabled={meetupPlanningEnabled}
                   pickup={values.pickup}
                   returnHref={`/cameras/${camera.slug}`}
                   returnValue={values.return}

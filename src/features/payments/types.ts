@@ -2,6 +2,19 @@ import { z } from "zod";
 
 export const PAYMENT_MEDIA_TYPES = ["image/jpeg", "image/png"] as const;
 
+export const gcashRecipientConfigurationSchema = z
+  .object({
+    enabled: z.boolean(),
+    recipient_account: z.string().min(1).nullable(),
+    recipient_name: z.string().min(1).nullable(),
+    version: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export type GcashRecipientConfiguration = z.infer<
+  typeof gcashRecipientConfigurationSchema
+>;
+
 export const PAYMENT_REJECTION_REASONS = [
   "amount_mismatch",
   "duplicate_reference",

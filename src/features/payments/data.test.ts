@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import {
+  loadGcashRecipientConfiguration,
   loadMyPaymentState,
   loadPaymentAccountingSummary,
   loadPaymentReviewDetail,
@@ -45,6 +46,28 @@ const ownerState = {
 };
 
 describe("payment data projections", () => {
+  it("loads only the admin GCash recipient configuration projection", async () => {
+    const api = contextWith(async () => ({
+      data: {
+        enabled: true,
+        recipient_account: "09171234567",
+        recipient_name: "CamNook Recipient",
+        version: 4,
+      },
+      error: null,
+    }));
+
+    await expect(
+      loadGcashRecipientConfiguration(api.context),
+    ).resolves.toMatchObject({
+      configuration: { enabled: true, version: 4 },
+      status: "success",
+    });
+    expect(api.rpc).toHaveBeenCalledWith(
+      "get_gcash_recipient_configuration_admin",
+    );
+  });
+
   it("validates the owner reference before requesting the owner-only RPC", async () => {
     const api = contextWith(async () => ({ data: ownerState, error: null }));
 

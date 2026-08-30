@@ -1,10 +1,8 @@
 # Geoapify meetup recommendation operations
 
-Reviewed: 2026-08-21. Scope: Development provisioning and a future gated
-production rollout. Geoapify registration and the Development credential are not
-yet present in the linked CamNook Vercel project; an authorized account owner must
-accept the provider terms and create the project/key before the bounded live check
-can pass. No Production environment was changed during this work.
+Reviewed: 2026-08-30. Scope: the always-on meetup recommendation path used by
+published booking requests. The application has no meetup feature flag; missing
+or invalid provider configuration fails closed without admitting a booking.
 
 ## Provider decision evidence
 
@@ -48,8 +46,6 @@ server-only Vercel Development variables; never use a `NEXT_PUBLIC_` prefix:
 - `MEETUP_PROVIDER_CONFIG_VERSION`: bump when category/ranking policy changes.
 - `MEETUP_PROVIDER_TIMEOUT_MS`: 500–10000; default 4000.
 - `MEETUP_SEARCH_RADIUS_METERS`: 1000–20000; default 8000.
-- `MEETUP_PLANNING_ENABLED`: exact `true` only after schema, provider, policy,
-  Preview, monitoring, and rollback evidence pass. Any other value is disabled.
 
 Use `vercel env add <NAME> development` for secrets and settings. Do not paste
 values into tickets, commits, terminal transcripts, analytics, or chat. The
@@ -87,8 +83,9 @@ then revoke the old key. Rotate `MEETUP_RECOMMENDATION_SECRET` only with awarene
 that every unexpired opaque reference minted with the old value becomes invalid;
 the current lifetime is 15 minutes.
 
-For an outage or privacy incident, disable the later rollout flag, revoke the
-Geoapify key, and remove all meetup variables from the affected Vercel environment.
+For an outage or privacy incident, revoke the Geoapify key and remove the meetup
+provider variables from the affected Vercel environment. The application fails
+closed until valid configuration is restored.
 No precise renter location backfill or cleanup should exist because CamNook never
 persists it. Public venue snapshots created by the later booking issue follow that
 booking's retention rules.

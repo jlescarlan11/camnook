@@ -26,6 +26,16 @@ export type PaymentAccessActionState = {
   status: "error" | "idle" | "success";
 };
 
+export type GcashConfigurationActionState = {
+  error?: "indeterminate" | "invalid" | "unauthorized";
+  fieldErrors?: {
+    recipientAccount?: string;
+    recipientName?: string;
+  };
+  status: "error" | "idle" | "success";
+  version?: number;
+};
+
 export type PaymentDecisionActionState = {
   action?: "reject" | "verify";
   bookingState?: "CONFIRMED" | "EXPIRED" | "TO_PAY";
@@ -46,6 +56,78 @@ const observedReferenceSchema = z
   .min(4)
   .max(120)
   .regex(/^[A-Za-z0-9 -]+$/);
+const recipientNameSchema = z.string().trim().min(2).max(160);
+const recipientAccountSchema = z
+  .string()
+  .trim()
+  .regex(/^(09[0-9]{9}|\+639[0-9]{9})$/);
+
+export async function configureGcashRecipient(
+  _state: GcashConfigurationActionState,
+  formData: FormData,
+): Promise<GcashConfigurationActionState> {
+  const recipientName = recipientNameSchema.safeParse(
+    stringFormValue(formData, "recipientName"),
+  );
+  const recipientAccount = recipientAccountSchema.safeParse(
+    stringFormValue(formData, "recipientAccount"),
+  );
+  const fieldErrors: GcashConfigurationActionState["fieldErrors"] = {};
+
+  if (!recipientName.success) {
+    fieldErrors.recipientName = "Enter the approved recipient name.";
+  }
+  if (!recipientAccount.success) {
+    fieldErrors.recipientAccount =
+      "Enter an 11-digit 09 GCash number or +639 number.";
+  }
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: "invalid", fieldErrors, status: "error" };
+  }
+
+  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    context = await requireAdmin();
+  } catch (error) {
+    return {
+      error: isAuthorizationDenial(error) ? "unauthorized" : "indeterminate",
+      status: "error",
+    };
+  }
+
+  try {
+    const result = await context.supabase
+      .schema("api")
+      .rpc("configure_gcash_recipient", {
+        p_enabled: true,
+        p_operation_id: randomUUID(),
+        p_recipient_account: recipientAccount.data!,
+        p_recipient_name: recipientName.data!,
+      });
+    const committed = z
+      .object({ enabled: z.literal(true), version: z.number().int().positive() })
+      .strict()
+      .safeParse(result.data);
+
+    if (result.error || !committed.success) {
+      return {
+        error:
+          result.error?.code === "42501"
+            ? "unauthorized"
+            : result.error?.code === "22023"
+              ? "invalid"
+              : "indeterminate",
+        status: "error",
+      };
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/account");
+    return { status: "success", version: committed.data.version };
+  } catch {
+    return { error: "indeterminate", status: "error" };
+  }
+}
 
 function isAuthorizationDenial(error: unknown) {
   return (

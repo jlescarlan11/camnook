@@ -113,7 +113,9 @@ export function PaymentReviewControls({
           </button>
         </form>
       ) : (
-        <p className="mt-4 text-sm text-stone-600">No proof is attached.</p>
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          No finalized proof is attached. Verification remains unavailable until the renter uploads one; rejection is still available.
+        </p>
       )}
       {signedUrl ? (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status">
@@ -194,7 +196,7 @@ export function PaymentReviewControls({
           ) : null}
           <button
             className="mt-5 min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
-            disabled={pending || committed}
+            disabled={pending || committed || !hasProof}
             type="submit"
           >
             {verifyPending ? "Reconciling transfer…" : "Verify and confirm booking"}

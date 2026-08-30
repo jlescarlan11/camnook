@@ -14,6 +14,8 @@ import {
 import { resolvePortfolioPeriod } from "@/features/portfolio/period";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
 import { loadAdminCameraHandoffSummaries } from "@/features/listings/handoff-data";
+import { loadGcashRecipientConfiguration } from "@/features/payments/data";
+import { GcashConfigurationForm } from "@/features/payments/gcash-configuration-form";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +31,13 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const context = await requirePageAdmin("/admin");
   const periodSelection = resolvePortfolioPeriod(await searchParams);
 
-  const [operations, portfolio, handoffPolicies] = await Promise.all([
+  const [operations, portfolio, handoffPolicies, gcashConfiguration] = await Promise.all([
     loadOwnerOperationsDashboard(context),
     periodSelection.status === "valid"
       ? loadOwnerPortfolioReport(context, periodSelection.period)
       : Promise.resolve({ status: "invalid" } as const),
     loadAdminCameraHandoffSummaries(context),
+    loadGcashRecipientConfiguration(context),
   ]);
 
   return (
@@ -79,12 +82,25 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             Production operating controls
           </h2>
           <p className="mt-1">
-            Government-ID uploads are disabled. Booking approval does not require
+            Online Government-ID uploads were removed. Booking approval does not require
             online KYC; the named renter and original ID are checked physically at
             pickup without retaining an ID image or number. This surface reports
             committed records and keeps money and handoff mutations audited.
           </p>
         </section>
+
+        {gcashConfiguration.status === "success" ? (
+          <GcashConfigurationForm
+            configuration={gcashConfiguration.configuration}
+          />
+        ) : (
+          <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+            <h2 className="text-xl font-semibold">GCash configuration unavailable</h2>
+            <p className="mt-2 text-sm leading-6">
+              The authoritative recipient could not be read, so no payment configuration form is shown. Reload before changing payment instructions.
+            </p>
+          </section>
+        )}
 
         <section
           aria-labelledby="handoff-policies-heading"

@@ -6,6 +6,7 @@ import type { requireAdmin } from "@/lib/auth/require-admin";
 import type { requireUser } from "@/lib/auth/require-user";
 
 import {
+  gcashRecipientConfigurationSchema,
   paymentAccountingSummarySchema,
   paymentAuditHistorySchema,
   paymentReviewDetailSchema,
@@ -15,6 +16,16 @@ import {
 
 type UserContext = Awaited<ReturnType<typeof requireUser>>;
 type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
+
+export async function loadGcashRecipientConfiguration(context: AdminContext) {
+  const result = await context.supabase
+    .schema("api")
+    .rpc("get_gcash_recipient_configuration_admin");
+  const parsed = gcashRecipientConfigurationSchema.safeParse(result.data);
+
+  if (result.error || !parsed.success) return { status: "error" } as const;
+  return { configuration: parsed.data, status: "success" } as const;
+}
 
 export async function loadMyPaymentState(
   context: UserContext,
