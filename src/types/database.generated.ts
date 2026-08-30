@@ -378,6 +378,10 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: Json
       }
+      get_admin_contract_context: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
       get_owner_portfolio_report: {
         Args: { p_period_end: string; p_period_start: string }
         Returns: Json

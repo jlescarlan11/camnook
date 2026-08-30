@@ -100,6 +100,20 @@ const auditRowSchema = z.object({
   version_no: z.number().int().positive(),
 });
 
+const adminContractContextSchema = z.object({
+  audit: z.array(auditRowSchema),
+  cameras: z.array(z.object({
+    id: z.uuid(),
+    name: z.string().min(1),
+  })),
+  versions: z.array(versionRowSchema.extend({
+    signature: z.object({
+      id: z.uuid(),
+      signed_at: z.string().min(1),
+    }).nullable(),
+  })),
+});
+
 export type ContractVersionDTO = {
   id: string;
   issuedAt: string;
@@ -222,4 +236,51 @@ export async function loadPublishedCameraOptions(context: UserContext) {
 
   if (result.error || !rows.success) return { status: "error" } as const;
   return { cameras: rows.data, status: "success" } as const;
+}
+
+export async function loadAdminContractContext(
+  context: UserContext,
+  bookingId: string,
+  currentContractVersionId: string,
+) {
+  const result = await context.supabase
+    .schema("api")
+    .rpc("get_admin_contract_context", { p_booking_id: bookingId });
+  const contextData = adminContractContextSchema.safeParse(result.data);
+
+  if (result.error || !contextData.success) {
+    return { status: "error" } as const;
+  }
+
+  const versions = contextData.data.versions.map((version) => ({
+    id: version.id,
+    issuedAt: version.issued_at,
+    signature: version.signature
+      ? { id: version.signature.id, signedAt: version.signature.signed_at }
+      : null,
+    snapshot: version.snapshot,
+    status: version.status,
+    supersedesId: version.supersedes_id,
+    versionNo: version.version_no,
+  }));
+  const current = versions.find(
+    (version) => version.id === currentContractVersionId,
+  );
+  if (!current) return { status: "inconsistent" } as const;
+
+  return {
+    agreement: { current, versions },
+    cameras: contextData.data.cameras,
+    events: contextData.data.audit.map((row) => ({
+      action: row.action,
+      actorType: row.actor_type,
+      actorUserId: row.actor_user_id,
+      auditId: row.audit_id,
+      contractVersionId: row.contract_version_id,
+      occurredAt: row.occurred_at,
+      outcome: row.outcome,
+      versionNo: row.version_no,
+    })),
+    status: "success",
+  } as const;
 }

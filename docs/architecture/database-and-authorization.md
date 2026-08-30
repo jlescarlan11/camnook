@@ -289,6 +289,13 @@ The proposed model deliberately omits a redundant `contracts` parent: one bookin
 - Unique `(contract_version_id, renter_id)`. The renter ID must match the booking renter and the version must be current.
 - Fully append-only. A new contract version requires a new signature.
 
+The approved-booking admin page loads contract versions with minimized signature
+metadata, contract audit events, and eligible replacement cameras through one
+sole-admin snapshot RPC. The renter-facing contract history remains separately
+RLS-scoped. This replaces four Data API requests, including a sequential
+version-then-signature waterfall, while preserving the immutable canonical
+snapshot and excluding signature intent, attestation, and request digests.
+
 ### Manual GCash records
 
 `public.payment_transactions`
@@ -486,7 +493,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-three forward migrations. On 13 August 2026, the four
+The repository contains forty-four forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

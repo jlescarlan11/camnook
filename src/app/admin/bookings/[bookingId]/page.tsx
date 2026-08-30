@@ -16,9 +16,7 @@ import {
 import { ContractDetails } from "@/features/contracts/components/contract-details";
 import { SupersedeContractControl } from "@/features/contracts/components/supersede-contract-control";
 import {
-  loadAdminContractAudit,
-  loadContractHistory,
-  loadPublishedCameraOptions,
+  loadAdminContractContext,
 } from "@/features/contracts/data";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
 import { loadPickupDetail } from "@/features/pickup/data";
@@ -69,15 +67,11 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
       ? loadResolutionDetail(context, bookingId)
       : Promise.resolve(null),
     result.status === "success" && result.booking.approval
-      ? Promise.all([
-          loadContractHistory(
-            context,
-            result.booking.id,
-            result.booking.approval.currentContractVersionId,
-          ),
-          loadAdminContractAudit(context, result.booking.id),
-          loadPublishedCameraOptions(context),
-        ])
+      ? loadAdminContractContext(
+          context,
+          result.booking.id,
+          result.booking.approval.currentContractVersionId,
+        )
       : Promise.resolve(null),
   ]);
   const resolutionOperationIds: ResolutionOperationIds | null =
@@ -409,21 +403,20 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
             )}
 
             {result.booking.approval && contractData ? (
-              contractData[0].status === "success" ? (
+              contractData.status === "success" ? (
                 <>
                   <ContractDetails
-                    agreement={contractData[0].agreement}
+                    agreement={contractData.agreement}
                     approvalDeadlineAt={
                       result.booking.approval.approvalDeadlineAt
                     }
                   />
                   {(result.booking.state === "CONTRACT_PENDING" ||
                     result.booking.state === "TO_PAY") &&
-                  contractData[2].status === "success" &&
                   result.booking.camera ? (
                     <SupersedeContractControl
                       bookingId={result.booking.id}
-                      cameras={contractData[2].cameras}
+                      cameras={contractData.cameras}
                       currentCameraId={result.booking.camera.id}
                       pickup={formatManilaDateTimeInput(result.booking.pickupAt)}
                       returnValue={formatManilaDateTimeInput(
@@ -445,13 +438,13 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
             ) : null}
 
             {contractData ? (
-              contractData[1].status === "success" ? (
+              contractData.status === "success" ? (
                 <details className="mt-7 rounded-xl border border-stone-200 p-4">
                   <summary className="cursor-pointer font-semibold">
                     Contract audit history
                   </summary>
                   <ol className="mt-4 space-y-3 text-sm leading-6">
-                    {contractData[1].events.map((event) => (
+                    {contractData.events.map((event) => (
                       <li key={event.auditId}>
                         <span className="font-semibold">
                           Version {event.versionNo} · {event.action}

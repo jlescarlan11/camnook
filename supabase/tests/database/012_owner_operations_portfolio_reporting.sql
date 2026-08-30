@@ -623,6 +623,19 @@ begin
   then
     raise exception 'admin booking snapshot privileges were broader or narrower than intended';
   end if;
+
+  if has_function_privilege(
+      'anon', 'api.get_admin_contract_context(uuid)', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_admin_contract_context(uuid)', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated', 'private.get_admin_contract_context(uuid)', 'EXECUTE'
+    )
+  then
+    raise exception 'admin contract context privileges were broader or narrower than intended';
+  end if;
 end;
 $$;
 
@@ -647,6 +660,14 @@ begin
       'a0300000-0000-4000-8000-000000000001'
     );
     raise exception 'anon executed the admin booking snapshot';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_admin_contract_context(
+      'a0300000-0000-4000-8000-000000000003'
+    );
+    raise exception 'anon executed the admin contract context';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -676,6 +697,14 @@ begin
     raise exception 'a renter executed the admin booking snapshot';
   exception when insufficient_privilege then null;
   end;
+
+  begin
+    perform api.get_admin_contract_context(
+      'a0300000-0000-4000-8000-000000000003'
+    );
+    raise exception 'a renter executed the admin contract context';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -687,6 +716,9 @@ declare
   report jsonb := api.get_owner_portfolio_report('2026-11-09', '2026-11-23');
   booking_detail jsonb := api.get_admin_booking_detail_snapshot(
     'a0300000-0000-4000-8000-000000000001'
+  );
+  contract_context jsonb := api.get_admin_contract_context(
+    'a0300000-0000-4000-8000-000000000003'
   );
   camera_revenue numeric;
 begin
@@ -735,6 +767,18 @@ begin
     or booking_detail::text ~* 'PRIVATE-PORTFOLIO-SERIAL|acquisition_cost|object_path|sha256|provider_place_id|renter_city_provider_id|actor_user_id|operation_id'
   then
     raise exception 'admin booking snapshot was incomplete or overexposed';
+  end if;
+
+  if jsonb_array_length(contract_context -> 'versions') <> 1
+    or contract_context #>> '{versions,0,id}'
+      <> 'a0400000-0000-4000-8000-000000000003'
+    or contract_context #>> '{versions,0,signature,id}'
+      <> 'a0500000-0000-4000-8000-000000000003'
+    or jsonb_array_length(contract_context -> 'audit') = 0
+    or jsonb_array_length(contract_context -> 'cameras') <> 1
+    or contract_context::text ~* 'signature_intent|attestation_text|request_ip_digest|user_agent_digest'
+  then
+    raise exception 'admin contract context was incomplete or overexposed';
   end if;
 
   begin
