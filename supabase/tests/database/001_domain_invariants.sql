@@ -1383,7 +1383,6 @@ begin
       and policyname not in (
         'catalog_photo_staging_delete',
         'camera_listing_objects_publication_delete',
-        'verification_documents_owner_delete',
         'payment_proof_objects_owner_delete_unfinished'
       )
   ) or (
@@ -1394,32 +1393,19 @@ begin
       and policyname in (
         'catalog_photo_staging_delete',
         'camera_listing_objects_publication_delete',
-        'verification_documents_owner_delete',
         'payment_proof_objects_owner_delete_unfinished'
       )
-  ) <> 4 then
+  ) <> 3 then
     raise exception 'storage delete access expanded beyond catalog publication recovery';
-  end if;
-
-  if (
-    select count(*) from pg_policies
-    where schemaname = 'storage'
-      and tablename = 'objects'
-      and cmd = 'INSERT'
-      and policyname = 'verification_documents_owner_insert'
-  ) <> 1 then
-    raise exception 'government-ID insertion must use one exact intent policy';
   end if;
 
   if exists (
     select 1 from pg_policies
     where schemaname = 'storage'
       and tablename = 'objects'
-      and cmd = 'INSERT'
       and policyname like 'verification_documents%'
-      and policyname <> 'verification_documents_owner_insert'
   ) then
-    raise exception 'government-ID insertion expanded beyond the exact intent policy';
+    raise exception 'retired government-ID Storage access remains enabled';
   end if;
 
   if exists (
