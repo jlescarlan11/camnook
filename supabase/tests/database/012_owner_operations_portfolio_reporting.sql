@@ -636,6 +636,19 @@ begin
   then
     raise exception 'admin contract context privileges were broader or narrower than intended';
   end if;
+
+  if has_function_privilege(
+      'anon', 'api.get_my_booking_detail_context(uuid)', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_my_booking_detail_context(uuid)', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated', 'private.get_my_booking_detail_context(uuid)', 'EXECUTE'
+    )
+  then
+    raise exception 'renter booking context privileges were broader or narrower than intended';
+  end if;
 end;
 $$;
 
@@ -668,6 +681,14 @@ begin
       'a0300000-0000-4000-8000-000000000003'
     );
     raise exception 'anon executed the admin contract context';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_my_booking_detail_context(
+      'a0300000-0000-4000-8000-000000000001'
+    );
+    raise exception 'anon executed the renter booking context';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -705,6 +726,47 @@ begin
     raise exception 'a renter executed the admin contract context';
   exception when insufficient_privilege then null;
   end;
+
+  begin
+    perform api.get_my_booking_detail_context(
+      'a0300000-0000-4000-8000-000000000001'
+    );
+    raise exception 'a different renter read the booking context';
+  exception when no_data_found then null;
+  end;
+end;
+$$;
+
+set local "request.jwt.claim.sub" = 'a0000000-0000-4000-8000-000000000002';
+
+do $$
+declare
+  unapproved jsonb := api.get_my_booking_detail_context(
+    'a0300000-0000-4000-8000-000000000001'
+  );
+  approved jsonb := api.get_my_booking_detail_context(
+    'a0300000-0000-4000-8000-000000000003'
+  );
+begin
+  if unapproved #>> '{booking,id}'
+      <> 'a0300000-0000-4000-8000-000000000001'
+    or unapproved #>> '{camera,name}' <> 'Portfolio Published'
+    or jsonb_array_length(unapproved -> 'versions') <> 0
+    or unapproved #>> '{payment,booking_id}'
+      <> 'a0300000-0000-4000-8000-000000000001'
+    or unapproved #>> '{pickup,booking_id}'
+      <> 'a0300000-0000-4000-8000-000000000001'
+    or unapproved #>> '{resolution,booking_id}'
+      <> 'a0300000-0000-4000-8000-000000000001'
+    or approved #>> '{versions,0,id}'
+      <> 'a0400000-0000-4000-8000-000000000003'
+    or approved #>> '{versions,0,signature,id}'
+      <> 'a0500000-0000-4000-8000-000000000003'
+    or unapproved::text ~* 'operator_notes|object_path|provider_place_id|renter_city_provider_id|signature_intent|attestation_text|request_ip_digest|user_agent_digest'
+    or approved::text ~* 'operator_notes|object_path|provider_place_id|renter_city_provider_id|signature_intent|attestation_text|request_ip_digest|user_agent_digest'
+  then
+    raise exception 'renter booking context was incomplete, cross-owned, or overexposed';
+  end if;
 end;
 $$;
 

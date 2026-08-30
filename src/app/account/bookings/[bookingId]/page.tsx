@@ -8,17 +8,14 @@ import { SiteHeader } from "@/features/bookings/components/site-header";
 import { PersistedIntendedUse } from "@/features/bookings/components/persisted-intended-use";
 import {
   bookingPresentation,
-  loadBookingDetail,
+  loadBookingDetailContext,
 } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { ContractDetails } from "@/features/contracts/components/contract-details";
 import { SignContractControl } from "@/features/contracts/components/sign-contract-control";
-import { loadMyPaymentState } from "@/features/payments/data";
 import { PaymentPanel } from "@/features/payments/payment-panel";
 import { loadPickupInstructions } from "@/features/pickup/config";
-import { loadMyPickupState } from "@/features/pickup/data";
 import { RenterPickupStatus } from "@/features/pickup/renter-pickup-status";
-import { loadMyResolutionState } from "@/features/resolution/data";
 import { RenterResolutionStatus } from "@/features/resolution/renter-resolution-status";
 import { requirePageUser } from "@/lib/auth/require-user";
 
@@ -41,14 +38,18 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
   const context = await requirePageUser(
     `/account/bookings/${bookingId}${requested}`,
   );
-  const [result, paymentResult, pickupResult, resolutionResult] = await Promise.all([
-    loadBookingDetail(context, bookingId),
-    loadMyPaymentState(context, bookingId),
-    loadMyPickupState(context, bookingId),
-    loadMyResolutionState(context, bookingId),
-  ]);
+  const result = await loadBookingDetailContext(context, bookingId);
   const pickupInstructions = loadPickupInstructions();
   if (result.status === "missing") notFound();
+  const paymentResult = result.status === "success"
+    ? { payment: result.payment, status: "success" as const }
+    : { status: "error" as const };
+  const pickupResult = result.status === "success"
+    ? { pickup: result.pickup, status: "success" as const }
+    : { status: "error" as const };
+  const resolutionResult = result.status === "success"
+    ? { resolution: result.resolution, status: "success" as const }
+    : { status: "error" as const };
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">

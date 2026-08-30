@@ -89,6 +89,13 @@ const signatureRowSchema = z.object({
   signed_at: z.string().min(1),
 });
 
+const contractHistorySnapshotSchema = z.array(versionRowSchema.extend({
+  signature: z.object({
+    id: z.uuid(),
+    signed_at: z.string().min(1),
+  }).nullable(),
+}));
+
 const auditRowSchema = z.object({
   action: z.string().min(1),
   actor_type: z.enum(["renter", "admin", "system"]),
@@ -106,12 +113,7 @@ const adminContractContextSchema = z.object({
     id: z.uuid(),
     name: z.string().min(1),
   })),
-  versions: z.array(versionRowSchema.extend({
-    signature: z.object({
-      id: z.uuid(),
-      signed_at: z.string().min(1),
-    }).nullable(),
-  })),
+  versions: contractHistorySnapshotSchema,
 });
 
 export type ContractVersionDTO = {
@@ -128,6 +130,32 @@ export type ContractHistoryDTO = {
   current: ContractVersionDTO;
   versions: ContractVersionDTO[];
 };
+
+export function projectContractHistorySnapshot(
+  value: unknown,
+  currentContractVersionId: string,
+) {
+  const parsed = contractHistorySnapshotSchema.safeParse(value);
+  if (!parsed.success) return { status: "error" } as const;
+
+  const versions = parsed.data.map((version) => ({
+    id: version.id,
+    issuedAt: version.issued_at,
+    signature: version.signature
+      ? { id: version.signature.id, signedAt: version.signature.signed_at }
+      : null,
+    snapshot: version.snapshot,
+    status: version.status,
+    supersedesId: version.supersedes_id,
+    versionNo: version.version_no,
+  }));
+  const current = versions.find(
+    (version) => version.id === currentContractVersionId,
+  );
+  if (!current) return { status: "inconsistent" } as const;
+
+  return { agreement: { current, versions }, status: "success" } as const;
+}
 
 export async function loadContractHistory(
   context: UserContext,
@@ -252,24 +280,14 @@ export async function loadAdminContractContext(
     return { status: "error" } as const;
   }
 
-  const versions = contextData.data.versions.map((version) => ({
-    id: version.id,
-    issuedAt: version.issued_at,
-    signature: version.signature
-      ? { id: version.signature.id, signedAt: version.signature.signed_at }
-      : null,
-    snapshot: version.snapshot,
-    status: version.status,
-    supersedesId: version.supersedes_id,
-    versionNo: version.version_no,
-  }));
-  const current = versions.find(
-    (version) => version.id === currentContractVersionId,
+  const agreement = projectContractHistorySnapshot(
+    contextData.data.versions,
+    currentContractVersionId,
   );
-  if (!current) return { status: "inconsistent" } as const;
+  if (agreement.status !== "success") return agreement;
 
   return {
-    agreement: { current, versions },
+    agreement: agreement.agreement,
     cameras: contextData.data.cameras,
     events: contextData.data.audit.map((row) => ({
       action: row.action,

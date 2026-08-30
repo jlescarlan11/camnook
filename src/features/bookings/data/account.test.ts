@@ -6,6 +6,7 @@ import {
   bookingPresentation,
   loadAccountData,
   loadBookingDetail,
+  loadBookingDetailContext,
   projectBooking,
   type SafeBookingRow,
 } from "./account";
@@ -179,6 +180,71 @@ describe("renter booking projection", () => {
     );
     expect(filters).toContainEqual(["bookings", "id", baseRow.id]);
     expect(filters).toContainEqual(["bookings", "renter_id", "user-1"]);
+  });
+
+  it("loads the renter booking page through one owner-scoped snapshot RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        booking: baseRow,
+        camera: { name: "Fujifilm X-T5", slug: "fujifilm-x-t5" },
+        meetup: null,
+        payment: {
+          approval_deadline_at: null,
+          booking_id: baseRow.id,
+          booking_state: "FOR_REVIEW",
+          can_submit: false,
+          instructions: null,
+          instructions_error: null,
+          proof_policy: {
+            allowed_media_types: ["image/jpeg", "image/png"],
+            max_byte_size: 5 * 1024 * 1024,
+            upload_intent_seconds: 900,
+          },
+          transaction: null,
+        },
+        pickup: {
+          booking_id: baseRow.id,
+          booking_state: "FOR_REVIEW",
+          handoff: null,
+          pickup_at: baseRow.pickup_at,
+          return_at: baseRow.return_at,
+          timeline: [],
+        },
+        resolution: {
+          booking_id: baseRow.id,
+          booking_state: "FOR_REVIEW",
+          can_request_cancellation: true,
+          cancellation: null,
+          deposit: {
+            deduction_amount: 0,
+            held_amount: 0,
+            refunded_amount: 0,
+            remaining_refund_liability: 0,
+            status: "none",
+          },
+          issue_decision: null,
+          return_inspection: null,
+        },
+        versions: [],
+      },
+      error: null,
+    });
+    const context = {
+      supabase: { schema: vi.fn(() => ({ rpc })) },
+      user: { id: "user-1" },
+    } as never;
+
+    await expect(loadBookingDetailContext(context, baseRow.id)).resolves.toMatchObject({
+      booking: { camera: { name: "Fujifilm X-T5" }, id: baseRow.id },
+      payment: { booking_id: baseRow.id },
+      pickup: { booking_id: baseRow.id },
+      resolution: { booking_id: baseRow.id },
+      status: "success",
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("get_my_booking_detail_context", {
+      p_booking_id: baseRow.id,
+    });
   });
 
   it("returns an honest empty account and constrains account query failures", async () => {

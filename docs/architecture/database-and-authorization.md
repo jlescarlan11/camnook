@@ -296,6 +296,13 @@ RLS-scoped. This replaces four Data API requests, including a sequential
 version-then-signature waterfall, while preserving the immutable canonical
 snapshot and excluding signature intent, attestation, and request digests.
 
+The renter booking-detail page loads its owned booking, public camera identity,
+safe meetup snapshot, minimized contract history, payment state, pickup timeline,
+and resolution state through one owner-scoped snapshot RPC. This replaces six
+Data API requests for unapproved bookings and eight for approved bookings,
+including both sequential waterfalls, without exposing operator notes, identity
+evidence, payment-proof paths, or signature intent and request metadata.
+
 ### Manual GCash records
 
 `public.payment_transactions`
@@ -493,7 +500,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-four forward migrations. On 13 August 2026, the four
+The repository contains forty-five forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

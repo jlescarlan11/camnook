@@ -5,13 +5,22 @@ import { z } from "zod";
 import type { requireUser } from "@/lib/auth/require-user";
 import type { Database } from "@/types/database.generated";
 
-import { loadContractHistory } from "../../contracts/data";
+import {
+  loadContractHistory,
+  projectContractHistorySnapshot,
+} from "../../contracts/data";
 import {
   projectMeetupPlan,
   SAFE_MEETUP_PLAN_COLUMNS,
   safeMeetupPlanRowSchema,
   type SafeMeetupPlan,
 } from "../../meetups/plan";
+import { paymentStateSchema } from "../../payments/types";
+import { myPickupStateSchema } from "../../pickup/types";
+import {
+  myResolutionStateSchema,
+  resolutionBookingStateSchema,
+} from "../../resolution/types";
 
 export const SAFE_BOOKING_COLUMNS =
   "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required";
@@ -40,6 +49,38 @@ export type SafeBookingRow = {
 };
 
 type PublicCameraIdentity = { name: string; slug: string };
+
+const bookingDetailContextSchema = z.object({
+  booking: z.object({
+    approval_deadline_at: z.string().nullable(),
+    approved_at: z.string().nullable(),
+    billable_days_snapshot: z.number().int().positive().nullable(),
+    camera_id: z.uuid(),
+    currency: z.string().min(1),
+    current_contract_version_id: z.uuid().nullable(),
+    daily_rate_snapshot: z.number().nonnegative().nullable(),
+    expected_location: z.string().min(1),
+    id: z.uuid(),
+    intended_use: z.string().min(1),
+    meetup_snapshot_required: z.boolean(),
+    pickup_at: z.string().min(1),
+    rental_amount: z.number().nonnegative().nullable(),
+    requested_at: z.string().min(1),
+    return_at: z.string().min(1),
+    security_deposit_amount: z.number().nonnegative().nullable(),
+    state: resolutionBookingStateSchema,
+    total_due: z.number().nonnegative().nullable(),
+  }).strict(),
+  camera: z.object({
+    name: z.string().min(1),
+    slug: z.string().min(1),
+  }).strict().nullable(),
+  meetup: safeMeetupPlanRowSchema.nullable(),
+  payment: paymentStateSchema,
+  pickup: myPickupStateSchema,
+  resolution: myResolutionStateSchema,
+  versions: z.unknown(),
+}).strict();
 
 export type BookingDTO = ReturnType<typeof projectBooking>;
 
@@ -237,6 +278,54 @@ export async function loadBookingDetail(
   }
 
   return { agreement: null, booking, status: "success" } as const;
+}
+
+export async function loadBookingDetailContext(
+  context: UserContext,
+  bookingId: string,
+) {
+  if (!z.uuid().safeParse(bookingId).success) {
+    return { status: "missing" } as const;
+  }
+
+  const result = await context.supabase
+    .schema("api")
+    .rpc("get_my_booking_detail_context", { p_booking_id: bookingId });
+  const parsed = bookingDetailContextSchema.safeParse(result.data);
+
+  if (result.error?.code === "P0002") return { status: "missing" } as const;
+  if (result.error || !parsed.success) return { status: "error" } as const;
+
+  const data = parsed.data;
+  if (data.booking.meetup_snapshot_required && !data.meetup) {
+    return { status: "inconsistent" } as const;
+  }
+  const booking = projectBooking(
+    data.booking as SafeBookingRow,
+    data.camera,
+    data.meetup ? projectMeetupPlan(data.meetup) : null,
+  );
+  let agreement = null;
+  if ("approval" in booking) {
+    if (!data.booking.current_contract_version_id) {
+      return { status: "inconsistent" } as const;
+    }
+    const contract = projectContractHistorySnapshot(
+      data.versions,
+      data.booking.current_contract_version_id,
+    );
+    if (contract.status !== "success") return contract;
+    agreement = contract.agreement;
+  }
+
+  return {
+    agreement,
+    booking,
+    payment: data.payment,
+    pickup: data.pickup,
+    resolution: data.resolution,
+    status: "success",
+  } as const;
 }
 
 export function bookingPresentation(result: {
