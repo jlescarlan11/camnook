@@ -327,7 +327,10 @@ Deposit reconciliation uses signed verified security-deposit allocations,
 decision-linked deductions, and the immutable external refund/reversal ledger.
 Verified deposits minus deductions minus net refunds equals remaining
 liability; held and terminal pending-refund queues partition that remaining
-liability exactly. Deposit movements never enter rental revenue.
+liability exactly. A single materialized, set-based snapshot aggregates each
+ledger family once for the whole dashboard instead of recalculating three
+booking-key aggregates for every booking and every deposit view. Deposit
+movements never enter rental revenue.
 
 `api.get_owner_portfolio_report(start_date, end_date)` accepts a nonempty Manila
 date interval `[start, end)`. Period revenue is signed verified
@@ -473,7 +476,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains thirty-nine forward migrations. On 13 August 2026, the four
+The repository contains forty forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

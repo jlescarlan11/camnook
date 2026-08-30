@@ -784,6 +784,33 @@ end;
 $$;
 
 do $$
+declare
+  dashboard_definition text := pg_get_functiondef(
+    'private.get_owner_operations_dashboard()'::regprocedure
+  );
+  snapshot_definition text := pg_get_functiondef(
+    'private.get_owner_deposit_dashboard_snapshot()'::regprocedure
+  );
+  snapshot_call constant text :=
+    'private.get_owner_deposit_dashboard_snapshot()';
+begin
+  if (
+    char_length(dashboard_definition)
+      - char_length(replace(dashboard_definition, snapshot_call, ''))
+  ) / char_length(snapshot_call) <> 1
+    or position('private.deposit_outcome_json(' in dashboard_definition) <> 0
+    or position('private.deposit_outcome_json(' in snapshot_definition) <> 0
+    or position('with verified_deposits as materialized' in snapshot_definition) = 0
+    or position('deductions as materialized' in snapshot_definition) = 0
+    or position('refunds as materialized' in snapshot_definition) = 0
+    or position('booking_liabilities as materialized' in snapshot_definition) = 0
+  then
+    raise exception 'owner dashboard did not use one set-based deposit snapshot';
+  end if;
+end;
+$$;
+
+do $$
 begin
   if exists (
     select 1 from public.public_cameras
