@@ -64,6 +64,10 @@ describe("due verification evidence cleanup", () => {
       "expire_due_verifications",
       expect.objectContaining({ p_operation_id: expect.any(String) }),
     );
+    expect(rpc).toHaveBeenCalledWith("claim_verification_evidence_cleanup", {
+      p_limit: 50,
+      p_operation_id: expect.any(String),
+    });
     expect(remove).toHaveBeenCalledWith([INTENT_PATH, DOCUMENT_PATH]);
     expect(rpc).toHaveBeenCalledWith(
       "finalize_due_verification_upload_cleanup",
@@ -248,6 +252,10 @@ describe("abandoned private upload cleanup", () => {
     expect(conditionRemove).toHaveBeenCalledWith([
       `booking/report/${conditionIntentId}.png`,
     ]);
+    expect(rpc).toHaveBeenCalledWith("claim_abandoned_private_upload_cleanup", {
+      p_limit: 100,
+      p_operation_id: expect.any(String),
+    });
     expect(rpc).toHaveBeenCalledWith(
       "finalize_abandoned_private_upload_cleanup",
       expect.objectContaining({

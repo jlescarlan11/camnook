@@ -34,7 +34,10 @@ const abandonedUploadClaimSchema = z.array(
 
 const CLEANUP_BATCH_SIZE = 100;
 const FINALIZE_CONCURRENCY = 10;
-const MAX_CLEANUP_ITEMS = 1000;
+const ABANDONED_UPLOAD_CLAIM_LIMIT = 100;
+// The legacy verification claim applies this limit once to upload intents and
+// once to retained documents, so 50 bounds its combined result to 100 items.
+const VERIFICATION_CLAIM_LIMIT_PER_KIND = 50;
 
 export type VerificationCleanupSummary = {
   claimed: number;
@@ -53,7 +56,7 @@ export async function cleanupAbandonedPrivateUploads(): Promise<AbandonedUploadC
   const admin = createSupabaseAdminClient();
   const claim = await admin.schema("api").rpc(
     "claim_abandoned_private_upload_cleanup",
-    { p_limit: MAX_CLEANUP_ITEMS, p_operation_id: randomUUID() },
+    { p_limit: ABANDONED_UPLOAD_CLAIM_LIMIT, p_operation_id: randomUUID() },
   );
   const claimed = abandonedUploadClaimSchema.safeParse(claim.data);
 
@@ -123,7 +126,7 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
   const operationId = randomUUID();
   const claim = await admin.schema("api").rpc(
     "claim_verification_evidence_cleanup",
-    { p_limit: MAX_CLEANUP_ITEMS, p_operation_id: operationId },
+    { p_limit: VERIFICATION_CLAIM_LIMIT_PER_KIND, p_operation_id: operationId },
   );
   const claimed = cleanupClaimSchema.safeParse(claim.data);
 
