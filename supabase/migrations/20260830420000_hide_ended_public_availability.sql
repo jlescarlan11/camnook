@@ -9,7 +9,7 @@ create policy availability_blocks_select_anon
 on public.availability_blocks for select to anon
 using (
   released_at is null
-  and ends_at > statement_timestamp()
+  and period && tstzrange(statement_timestamp(), 'infinity'::timestamptz, '[)')
   and exists (
     select 1
     from public.cameras as camera
@@ -26,7 +26,7 @@ on public.availability_blocks for select to authenticated
 using (
   (
     released_at is null
-    and ends_at > statement_timestamp()
+    and period && tstzrange(statement_timestamp(), 'infinity'::timestamptz, '[)')
     and exists (
       select 1
       from public.cameras as camera
@@ -99,7 +99,8 @@ as $$
       from public.availability_blocks as availability
       where availability.camera_id = camera.id
         and availability.released_at is null
-        and availability.ends_at > statement_timestamp()
+        and availability.period
+          && tstzrange(statement_timestamp(), 'infinity'::timestamptz, '[)')
     ), '[]'::jsonb),
     'handoff_policy', case when policy.camera_id is null then null else
       jsonb_build_object(
