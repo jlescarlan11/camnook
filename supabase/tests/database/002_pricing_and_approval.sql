@@ -618,6 +618,11 @@ begin
       'api.get_public_catalog_snapshot()',
       'EXECUTE'
     )
+    or not has_function_privilege(
+      'anon',
+      'api.get_public_camera_snapshot(text)',
+      'EXECUTE'
+    )
     or has_function_privilege(
       'anon',
       'private.get_public_catalog_snapshot()',
@@ -628,9 +633,19 @@ begin
       'api.get_public_catalog_snapshot()',
       'EXECUTE'
     )
+    or not has_function_privilege(
+      'authenticated',
+      'api.get_public_camera_snapshot(text)',
+      'EXECUTE'
+    )
     or has_function_privilege(
       'authenticated',
       'private.get_public_catalog_snapshot()',
+      'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated',
+      'private.get_public_catalog_snapshot_for_slug(text)',
       'EXECUTE'
     )
     or not has_function_privilege(
@@ -651,6 +666,7 @@ begin
       where namespace.nspname in ('api', 'private')
         and has_function_privilege('anon', procedure.oid, 'EXECUTE')
         and procedure.oid not in (
+          'api.get_public_camera_snapshot(text)'::regprocedure::oid,
           'api.get_public_catalog_snapshot()'::regprocedure::oid,
           'api.quote_booking(uuid,timestamptz,timestamptz)'::regprocedure::oid,
           'api.quote_booking_schedule(uuid,date,date,time without time zone,bigint)'::regprocedure::oid,

@@ -16,6 +16,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   buildPublicCameraPhotoUrl,
   loadCatalog,
+  loadPublicCamera,
   publicCatalogPresentation,
 } from "./catalog";
 
@@ -159,5 +160,33 @@ describe("public catalog data", () => {
     vi.mocked(createSupabaseServerClient).mockResolvedValue(fixture.client);
 
     await expect(loadCatalog()).resolves.toEqual({ status: "error" });
+  });
+
+  it("loads one camera detail through the slug-targeted snapshot", async () => {
+    const fixture = catalogClient(cameraSnapshot());
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(fixture.client);
+
+    await expect(loadPublicCamera("fujifilm-x-t5")).resolves.toMatchObject({
+      camera: { id: CAMERA_ID, name: "Fujifilm X-T5" },
+      status: "success",
+    });
+    expect(fixture.rpc).toHaveBeenCalledTimes(1);
+    expect(fixture.rpc).toHaveBeenCalledWith(
+      "get_public_camera_snapshot",
+      { p_slug: "fujifilm-x-t5" },
+    );
+  });
+
+  it("distinguishes a missing camera and rejects an invalid slug without a read", async () => {
+    const fixture = catalogClient(null);
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(fixture.client);
+
+    await expect(loadPublicCamera("missing-camera")).resolves.toEqual({
+      status: "missing",
+    });
+    await expect(loadPublicCamera("../PRIVATE")).resolves.toEqual({
+      status: "missing",
+    });
+    expect(fixture.rpc).toHaveBeenCalledTimes(1);
   });
 });

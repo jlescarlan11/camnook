@@ -166,6 +166,7 @@ set local role anon;
 do $$
 declare
   catalog jsonb := api.get_public_catalog_snapshot();
+  targeted_camera jsonb := api.get_public_camera_snapshot('test-camera');
   camera jsonb;
 begin
   if (select count(*) from public.public_cameras) <> 1 then
@@ -177,6 +178,13 @@ begin
   end if;
 
   camera := catalog -> 0;
+
+  if targeted_camera is distinct from camera
+    or api.get_public_camera_snapshot('draft-test-camera') is not null
+    or api.get_public_camera_snapshot(null) is not null
+  then
+    raise exception 'targeted public camera snapshot crossed its slug boundary';
+  end if;
 
   if camera ->> 'id' <> 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
     or camera ->> 'slug' <> 'test-camera'
@@ -217,6 +225,13 @@ begin
   begin
     perform private.get_public_catalog_snapshot();
     raise exception 'anonymous role unexpectedly called the private catalog snapshot';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    perform private.get_public_catalog_snapshot_for_slug('test-camera');
+    raise exception 'anonymous role unexpectedly called the private targeted catalog snapshot';
   exception
     when insufficient_privilege then null;
   end;

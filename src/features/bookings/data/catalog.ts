@@ -23,7 +23,7 @@ export type CatalogResult =
   | { cameras: PublicCamera[]; status: "success" }
   | { status: "error" };
 
-const publicCatalogSnapshotSchema = z.array(z.object({
+const publicCameraSnapshotSchema = z.object({
   accessories: z.array(z.object({
     name: z.string().min(1),
     quantity: z.number().int().positive(),
@@ -52,7 +52,9 @@ const publicCatalogSnapshotSchema = z.array(z.object({
   published_at: z.string().min(1),
   security_deposit: z.number().nonnegative(),
   slug: z.string().min(1),
-}).strict());
+}).strict();
+const publicCatalogSnapshotSchema = z.array(publicCameraSnapshotSchema);
+const publicCameraSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 export function buildPublicCameraPhotoUrl(
   configuredUrl: string,
@@ -93,52 +95,64 @@ export async function loadCatalog(): Promise<CatalogResult> {
   const parsed = publicCatalogSnapshotSchema.safeParse(result.data);
   if (result.error || !parsed.success) return { status: "error" };
 
-  const cameras = parsed.data.map((camera): PublicCamera => {
-    const cameraName = camera.name;
-    const handoffPolicy = camera.handoff_policy;
-
-    return {
-      accessories: camera.accessories,
-      availability: camera.availability.map((period) => ({
-        endsAt: period.ends_at,
-        reason: period.reason,
-        startsAt: period.starts_at,
-      })),
-      dailyRate: camera.daily_rate,
-      description: camera.description,
-      id: camera.id,
-      handoffPolicy:
-        handoffPolicy?.city_label &&
-        handoffPolicy.timezone === "Asia/Manila"
-          ? {
-              allowedWeekdays: handoffPolicy.allowed_weekdays,
-              approvedTimes: handoffPolicy.approved_times,
-              cityLabel: handoffPolicy.city_label,
-              enabled: handoffPolicy.enabled,
-              timezone: "Asia/Manila",
-              version: handoffPolicy.version,
-            }
-          : null,
-      name: cameraName,
-      photos: camera.photos.flatMap((photo) => {
-        const photoUrl = buildPublicCameraPhotoUrl(url, photo.object_path);
-        const alt = photo.alt_text?.trim() || cameraName;
-        return photoUrl ? [{ alt, url: photoUrl }] : [];
-      }),
-      securityDeposit: camera.security_deposit,
-      slug: camera.slug,
-    };
-  });
+  const cameras = parsed.data.map((camera) => projectPublicCamera(camera, url));
 
   return { cameras, status: "success" };
 }
 
+function projectPublicCamera(
+  camera: z.infer<typeof publicCameraSnapshotSchema>,
+  configuredUrl: string,
+): PublicCamera {
+  const cameraName = camera.name;
+  const handoffPolicy = camera.handoff_policy;
+
+  return {
+    accessories: camera.accessories,
+    availability: camera.availability.map((period) => ({
+      endsAt: period.ends_at,
+      reason: period.reason,
+      startsAt: period.starts_at,
+    })),
+    dailyRate: camera.daily_rate,
+    description: camera.description,
+    id: camera.id,
+    handoffPolicy:
+      handoffPolicy?.city_label && handoffPolicy.timezone === "Asia/Manila"
+        ? {
+            allowedWeekdays: handoffPolicy.allowed_weekdays,
+            approvedTimes: handoffPolicy.approved_times,
+            cityLabel: handoffPolicy.city_label,
+            enabled: handoffPolicy.enabled,
+            timezone: "Asia/Manila",
+            version: handoffPolicy.version,
+          }
+        : null,
+    name: cameraName,
+    photos: camera.photos.flatMap((photo) => {
+      const photoUrl = buildPublicCameraPhotoUrl(configuredUrl, photo.object_path);
+      const alt = photo.alt_text?.trim() || cameraName;
+      return photoUrl ? [{ alt, url: photoUrl }] : [];
+    }),
+    securityDeposit: camera.security_deposit,
+    slug: camera.slug,
+  };
+}
+
 export async function loadPublicCamera(slug: string) {
-  const result = await loadCatalog();
-  if (result.status === "error") return result;
-  const camera = result.cameras.find((item) => item.slug === slug);
-  return camera
-    ? ({ camera, status: "success" } as const)
+  const parsedSlug = publicCameraSlugSchema.safeParse(slug);
+  if (!parsedSlug.success) return { status: "missing" } as const;
+
+  const supabase = await createSupabaseServerClient();
+  const { url } = getSupabasePublicConfig();
+  const result = await supabase.schema("api").rpc(
+    "get_public_camera_snapshot",
+    { p_slug: parsedSlug.data },
+  );
+  const parsed = publicCameraSnapshotSchema.nullable().safeParse(result.data);
+  if (result.error || !parsed.success) return { status: "error" } as const;
+  return parsed.data
+    ? ({ camera: projectPublicCamera(parsed.data, url), status: "success" } as const)
     : ({ status: "missing" } as const);
 }
 

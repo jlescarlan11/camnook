@@ -413,6 +413,10 @@ export type Database = {
         Returns: Json
       }
       get_public_catalog_snapshot: { Args: never; Returns: Json }
+      get_public_camera_snapshot: {
+        Args: { p_slug: string }
+        Returns: Json
+      }
       get_owner_portfolio_report: {
         Args: { p_period_end: string; p_period_start: string }
         Returns: Json

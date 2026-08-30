@@ -212,6 +212,9 @@ active accessory, sanitized availability, and handoff-policy fields from one
 database statement. It never returns serial numbers, acquisition or replacement
 values, private availability reasons, booking references, provider place IDs, or
 coordinates; the application also rejects unexpected response fields.
+Camera-detail routes use the same projection through a slug-targeted RPC, so a
+detail request reads and returns at most one published camera instead of the
+entire catalog.
 
 The renter account page receives its administrator-navigation status in the
 same owner-scoped account snapshot as its profile and bookings. This replaces a
@@ -542,7 +545,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains fifty-two forward migrations. On 13 August 2026, the four
+The repository contains fifty-three forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the
