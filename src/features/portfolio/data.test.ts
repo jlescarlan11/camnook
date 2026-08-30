@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import {
+  loadAdminDashboardContext,
   loadOwnerOperationsDashboard,
   loadOwnerPortfolioReport,
 } from "./data";
@@ -44,6 +45,48 @@ describe("owner portfolio data loaders", () => {
       }),
     ).resolves.toMatchObject({ status: "success" });
     expect(api.rpc).toHaveBeenNthCalledWith(2, "get_owner_portfolio_report", {
+      p_period_end: "2026-08-17",
+      p_period_start: "2026-08-01",
+    });
+  });
+
+  it("loads the complete admin dashboard through one snapshot RPC", async () => {
+    const api = contextWith(async () => ({
+      data: {
+        gcash_configuration: {
+          enabled: true,
+          recipient_account: "09171234567",
+          recipient_name: "CamNook Recipient",
+          version: 4,
+        },
+        handoff_policies: [{
+          camera_id: "11111111-1111-4111-8111-111111111111",
+          camera_name: "Canon R50",
+          camera_status: "published",
+          city_label: "Cebu City",
+          enabled: true,
+          version: 2,
+        }],
+        operations: emptyOwnerOperationsDashboard,
+        portfolio: emptyOwnerPortfolioReport,
+      },
+      error: null,
+    }));
+    const period = {
+      endDateExclusive: "2026-08-17",
+      startDate: "2026-08-01",
+    };
+
+    await expect(
+      loadAdminDashboardContext(api.context, period),
+    ).resolves.toMatchObject({
+      gcashConfiguration: { status: "success" },
+      handoffPolicies: { cameras: [{ cameraName: "Canon R50" }] },
+      operations: { status: "success" },
+      portfolio: { status: "success" },
+    });
+    expect(api.rpc).toHaveBeenCalledTimes(1);
+    expect(api.rpc).toHaveBeenCalledWith("get_admin_dashboard_context", {
       p_period_end: "2026-08-17",
       p_period_start: "2026-08-01",
     });

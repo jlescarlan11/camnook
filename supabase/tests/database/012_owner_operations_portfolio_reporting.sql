@@ -662,6 +662,19 @@ begin
   then
     raise exception 'renter account overview privileges were broader or narrower than intended';
   end if;
+
+  if has_function_privilege(
+      'anon', 'api.get_admin_dashboard_context(date,date)', 'EXECUTE'
+    )
+    or not has_function_privilege(
+      'authenticated', 'api.get_admin_dashboard_context(date,date)', 'EXECUTE'
+    )
+    or has_function_privilege(
+      'authenticated', 'private.get_admin_dashboard_context(date,date)', 'EXECUTE'
+    )
+  then
+    raise exception 'admin dashboard context privileges were broader or narrower than intended';
+  end if;
 end;
 $$;
 
@@ -708,6 +721,12 @@ begin
   begin
     perform api.get_my_account_overview();
     raise exception 'anon executed the renter account overview';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform api.get_admin_dashboard_context('2026-11-09', '2026-11-23');
+    raise exception 'anon executed the admin dashboard context';
   exception when insufficient_privilege then null;
   end;
 end;
@@ -761,6 +780,13 @@ begin
   then
     raise exception 'renter account overview crossed ownership boundaries';
   end if;
+
+
+  begin
+    perform api.get_admin_dashboard_context('2026-11-09', '2026-11-23');
+    raise exception 'a renter executed the admin dashboard context';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -824,6 +850,9 @@ declare
   contract_context jsonb := api.get_admin_contract_context(
     'a0300000-0000-4000-8000-000000000003'
   );
+  dashboard_context jsonb := api.get_admin_dashboard_context(
+    '2026-11-09', '2026-11-23'
+  );
   camera_revenue numeric;
 begin
   if dashboard #>> '{queue_counts,review}' <> '1'
@@ -883,6 +912,17 @@ begin
     or contract_context::text ~* 'signature_intent|attestation_text|request_ip_digest|user_agent_digest'
   then
     raise exception 'admin contract context was incomplete or overexposed';
+  end if;
+
+  if dashboard_context -> 'operations' <> dashboard
+    or dashboard_context -> 'portfolio' <> report
+    or jsonb_array_length(dashboard_context -> 'handoff_policies') <> 2
+    or dashboard_context #>> '{gcash_configuration,enabled}' <> 'false'
+    or dashboard_context #>> '{gcash_configuration,version}' <> '0'
+    or (dashboard_context -> 'handoff_policies')::text
+      ~* 'latitude|longitude|provider_city_id'
+  then
+    raise exception 'admin dashboard context was incomplete or overexposed';
   end if;
 
   begin

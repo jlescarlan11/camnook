@@ -3,18 +3,13 @@ import Link from "next/link";
 
 import { logout } from "@/features/auth/actions";
 import { SiteHeader } from "@/features/bookings/components/site-header";
-import {
-  loadOwnerOperationsDashboard,
-  loadOwnerPortfolioReport,
-} from "@/features/portfolio/data";
+import { loadAdminDashboardContext } from "@/features/portfolio/data";
 import {
   OwnerOperationsPanel,
   OwnerPortfolioPanel,
 } from "@/features/portfolio/owner-dashboard";
 import { resolvePortfolioPeriod } from "@/features/portfolio/period";
 import { requirePageAdmin } from "@/lib/auth/require-admin";
-import { loadAdminCameraHandoffSummaries } from "@/features/listings/handoff-data";
-import { loadGcashRecipientConfiguration } from "@/features/payments/data";
 import { GcashConfigurationForm } from "@/features/payments/gcash-configuration-form";
 
 export const dynamic = "force-dynamic";
@@ -31,14 +26,15 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const context = await requirePageAdmin("/admin");
   const periodSelection = resolvePortfolioPeriod(await searchParams);
 
-  const [operations, portfolio, handoffPolicies, gcashConfiguration] = await Promise.all([
-    loadOwnerOperationsDashboard(context),
-    periodSelection.status === "valid"
-      ? loadOwnerPortfolioReport(context, periodSelection.period)
-      : Promise.resolve({ status: "invalid" } as const),
-    loadAdminCameraHandoffSummaries(context),
-    loadGcashRecipientConfiguration(context),
-  ]);
+  const {
+    gcashConfiguration,
+    handoffPolicies,
+    operations,
+    portfolio,
+  } = await loadAdminDashboardContext(
+    context,
+    periodSelection.status === "valid" ? periodSelection.period : null,
+  );
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">

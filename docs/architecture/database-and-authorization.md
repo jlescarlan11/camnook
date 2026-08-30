@@ -309,6 +309,12 @@ cannot come from different commits than the booking list. The new-booking page,
 which needs only the profile prerequisite, performs one exact safe-column profile
 read and no longer fetches the renter's booking, camera, or meetup history.
 
+The admin landing page composes its operations queues, optional portfolio period,
+minimized handoff-policy summaries, and GCash recipient configuration in one
+sole-admin snapshot. Valid periods therefore use one Data API request instead of
+four, and invalid periods use one instead of three, while the UI retains the
+existing fail-closed section states.
+
 ### Manual GCash records
 
 `public.payment_transactions`
@@ -506,7 +512,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains forty-six forward migrations. On 13 August 2026, the four
+The repository contains forty-seven forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

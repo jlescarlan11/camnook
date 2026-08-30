@@ -28,7 +28,7 @@ const adminPolicySchema = z.object({
   version: z.coerce.number().int().nonnegative(),
 });
 
-const adminSummarySchema = z.object({
+export const adminCameraHandoffSummarySchema = z.object({
   camera_id: z.uuid(),
   camera_name: z.string().min(1),
   camera_status: z.enum(["draft", "published"]),
@@ -36,6 +36,19 @@ const adminSummarySchema = z.object({
   enabled: z.boolean(),
   version: z.coerce.number().int().nonnegative(),
 });
+
+export function projectAdminCameraHandoffSummary(
+  camera: z.infer<typeof adminCameraHandoffSummarySchema>,
+) {
+  return {
+    cameraId: camera.camera_id,
+    cameraName: camera.camera_name,
+    cameraStatus: camera.camera_status,
+    cityLabel: camera.city_label,
+    enabled: camera.enabled,
+    version: camera.version,
+  } satisfies AdminCameraHandoffSummary;
+}
 
 export async function loadAdminCameraHandoffPolicy(
   context: AdminContext,
@@ -82,20 +95,11 @@ export async function loadAdminCameraHandoffSummaries(
   const result = await context.supabase
     .schema("api")
     .rpc("get_camera_handoff_summaries_admin");
-  const parsed = z.array(adminSummarySchema).safeParse(result.data);
+  const parsed = z.array(adminCameraHandoffSummarySchema).safeParse(result.data);
 
   if (result.error || !parsed.success) return { status: "error" };
 
-  const cameras = parsed.data.map((camera) => {
-    return {
-      cameraId: camera.camera_id,
-      cameraName: camera.camera_name,
-      cameraStatus: camera.camera_status,
-      cityLabel: camera.city_label,
-      enabled: camera.enabled,
-      version: camera.version,
-    } satisfies AdminCameraHandoffSummary;
-  });
+  const cameras = parsed.data.map(projectAdminCameraHandoffSummary);
 
   return { cameras, status: "success" };
 }
