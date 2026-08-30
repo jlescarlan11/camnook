@@ -507,7 +507,7 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | `reject_booking` | Require current `FOR_REVIEW`; transition to `REJECTED`; append reason/history/audit; release any defensive booking hold |
 | `authorize_verification_evidence_access` | Re-authorize sole admin and exact `identity_review` purpose; lock current pending retained evidence; append path-free access audit; return a 60-second target only to the Server Action |
 | `decide_verification` | Lock latest pending record and the exact document authorized for review; require current evidence and active profile; validate allowed verified metadata or renter-safe rejection code; update projection; append immutable decision/audit history |
-| `expire_due_verifications` | Idempotently expire latest verified records after their Asia/Manila document date while preserving the earlier decision facts and appending system history/audit |
+| `expire_due_verifications` | Idempotently expire at most 100 latest verified records per run after their Asia/Manila document date while preserving the earlier decision facts and appending system history/audit |
 | `supersede_contract` | Recheck overlap for material schedule changes; supersede current version; create new snapshot; require new signature; never reset deadline |
 | `sign_contract` | Validate current version/renter/deadline; append signature; transition to `TO_PAY` |
 | `submit_payment` | Validate owner, `TO_PAY`, current signed contract, versioned recipient, exact amount, and strict deadline; insert one idempotent submitted transaction and enter `PAYMENT_REVIEW` |
@@ -587,7 +587,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains fifty-eight forward migrations. On 13 August 2026, the four
+The repository contains fifty-nine forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

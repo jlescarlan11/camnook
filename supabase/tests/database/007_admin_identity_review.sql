@@ -351,6 +351,60 @@ $$;
 
 reset role;
 
+insert into auth.users (id)
+select md5('verification-expiry-user-' || series.value::text)::uuid
+from generate_series(1, 101) as series(value);
+
+insert into public.profiles (user_id, legal_name, phone)
+select
+  md5('verification-expiry-user-' || series.value::text)::uuid,
+  'Verification expiry batch user ' || series.value::text,
+  '+63941' || lpad(series.value::text, 7, '0')
+from generate_series(1, 101) as series(value);
+
+insert into public.verification_records (
+  user_id,
+  status,
+  id_type,
+  document_expiration_date,
+  submitted_at,
+  decided_at,
+  decided_by
+)
+select
+  md5('verification-expiry-user-' || series.value::text)::uuid,
+  'verified',
+  'drivers_license',
+  (statement_timestamp() at time zone 'Asia/Manila')::date - 1,
+  statement_timestamp() - interval '1 day' - series.value * interval '1 second',
+  statement_timestamp() - interval '1 day',
+  '40000000-0000-4000-8000-000000000001'
+from generate_series(1, 101) as series(value);
+
+set local role service_role;
+select set_config('request.jwt.claim.sub', '', true);
+
+do $$
+declare
+  first_count integer;
+  second_count integer;
+begin
+  first_count := api.expire_due_verifications(
+    '49000000-0000-4000-8000-000000000022'
+  );
+  second_count := api.expire_due_verifications(
+    '49000000-0000-4000-8000-000000000023'
+  );
+  if first_count <> 100 or second_count <> 1 then
+    raise exception 'verification expiry batch is not bounded and drainable: %, %',
+      first_count,
+      second_count;
+  end if;
+end;
+$$;
+
+reset role;
+
 do $$
 begin
   if not exists (
