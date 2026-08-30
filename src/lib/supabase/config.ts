@@ -4,6 +4,26 @@ const APPROVED_HOSTED_SUPABASE_ORIGINS = new Set([
 ]);
 const LOCAL_SUPABASE_HOSTS = new Set(["127.0.0.1", "[::1]", "localhost"]);
 
+function jwtRole(value: string) {
+  const parts = value.split(".");
+  if (parts.length !== 3) return null;
+
+  try {
+    const encoded = parts[1].replaceAll("-", "+").replaceAll("_", "/");
+    const padding = "=".repeat((4 - (encoded.length % 4)) % 4);
+    const payload = JSON.parse(atob(`${encoded}${padding}`)) as unknown;
+    return payload && typeof payload === "object" && "role" in payload
+      ? String(payload.role)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPrivilegedSupabaseKey(value: string) {
+  return value.startsWith("sb_secret_") || jwtRole(value) === "service_role";
+}
+
 export function getSupabasePublicConfig() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabasePublishableKey =
@@ -14,6 +34,12 @@ export function getSupabasePublicConfig() {
     throw new Error(
       "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     );
+  }
+  if (
+    supabasePublishableKey.trim() !== supabasePublishableKey ||
+    isPrivilegedSupabaseKey(supabasePublishableKey)
+  ) {
+    throw new Error("Refusing privileged key in public Supabase configuration");
   }
 
   return {

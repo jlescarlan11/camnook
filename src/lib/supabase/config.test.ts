@@ -70,4 +70,29 @@ describe("Supabase configuration boundaries", () => {
       "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     );
   });
+
+  it.each([
+    "sb_secret_accidentally_public",
+    `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(
+      JSON.stringify({ role: "service_role" }),
+    ).toString("base64url")}.synthetic-signature`,
+    " publishable-key-with-whitespace",
+  ])("rejects a privileged or malformed browser key", (publishableKey) => {
+    configure("https://ekmoiepalelqpmemvrkl.supabase.co");
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishableKey;
+
+    expect(() => getSupabasePublicConfig()).toThrow(
+      "Refusing privileged key in public Supabase configuration",
+    );
+  });
+
+  it("continues to accept a legacy anon JWT", () => {
+    configure("https://ekmoiepalelqpmemvrkl.supabase.co");
+    const anonKey = `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(
+      JSON.stringify({ role: "anon" }),
+    ).toString("base64url")}.synthetic-signature`;
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = anonKey;
+
+    expect(getSupabasePublicConfig().publishableKey).toBe(anonKey);
+  });
 });
