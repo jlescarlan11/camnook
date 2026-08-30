@@ -6,11 +6,6 @@ import type { requireUser } from "@/lib/auth/require-user";
 
 type UserContext = Awaited<ReturnType<typeof requireUser>>;
 
-export const CONTRACT_VERSION_COLUMNS =
-  "id,booking_id,version_no,status,supersedes_id,snapshot,issued_at";
-export const CONTRACT_SIGNATURE_COLUMNS =
-  "id,contract_version_id,signed_at";
-
 const accessorySchema = z.object({
   id: z.uuid(),
   name: z.string().min(1),
@@ -83,12 +78,6 @@ const versionRowSchema = z.object({
   version_no: z.number().int().positive(),
 });
 
-const signatureRowSchema = z.object({
-  contract_version_id: z.uuid(),
-  id: z.uuid(),
-  signed_at: z.string().min(1),
-});
-
 const contractHistorySnapshotSchema = z.array(versionRowSchema.extend({
   signature: z.object({
     id: z.uuid(),
@@ -155,115 +144,6 @@ export function projectContractHistorySnapshot(
   if (!current) return { status: "inconsistent" } as const;
 
   return { agreement: { current, versions }, status: "success" } as const;
-}
-
-export async function loadContractHistory(
-  context: UserContext,
-  bookingId: string,
-  currentContractVersionId: string,
-) {
-  const versionsResult = await context.supabase
-    .from("contract_versions")
-    .select(CONTRACT_VERSION_COLUMNS)
-    .eq("booking_id", bookingId)
-    .order("version_no", { ascending: true });
-
-  const versions = z.array(versionRowSchema).safeParse(versionsResult.data);
-  if (versionsResult.error || !versions.success) {
-    return { status: "error" } as const;
-  }
-
-  const versionIds = versions.data.map((version) => version.id);
-  if (
-    versionIds.length === 0 ||
-    !versionIds.includes(currentContractVersionId)
-  ) {
-    return { status: "inconsistent" } as const;
-  }
-
-  const signaturesResult = await context.supabase
-    .from("contract_signatures")
-    .select(CONTRACT_SIGNATURE_COLUMNS)
-    .in("contract_version_id", versionIds)
-    .order("signed_at", { ascending: true });
-  const signatures = z
-    .array(signatureRowSchema)
-    .safeParse(signaturesResult.data);
-
-  if (signaturesResult.error || !signatures.success) {
-    return { status: "error" } as const;
-  }
-
-  const signatureByVersion = new Map(
-    signatures.data.map((signature) => [
-      signature.contract_version_id,
-      { id: signature.id, signedAt: signature.signed_at },
-    ]),
-  );
-  const projectedVersions = versions.data.map((version) => ({
-    id: version.id,
-    issuedAt: version.issued_at,
-    signature: signatureByVersion.get(version.id) ?? null,
-    snapshot: version.snapshot,
-    status: version.status,
-    supersedesId: version.supersedes_id,
-    versionNo: version.version_no,
-  }));
-  const current = projectedVersions.find(
-    (version) => version.id === currentContractVersionId,
-  );
-
-  if (!current) return { status: "inconsistent" } as const;
-
-  return {
-    agreement: {
-      current,
-      versions: projectedVersions,
-    },
-    status: "success",
-  } as const;
-}
-
-export async function loadAdminContractAudit(
-  context: UserContext,
-  bookingId: string,
-) {
-  const result = await context.supabase
-    .schema("api")
-    .rpc("get_contract_audit_history", { p_booking_id: bookingId });
-  const rows = z.array(auditRowSchema).safeParse(result.data);
-
-  if (result.error || !rows.success) return { status: "error" } as const;
-
-  return {
-    events: rows.data.map((row) => ({
-      action: row.action,
-      actorType: row.actor_type,
-      actorUserId: row.actor_user_id,
-      auditId: row.audit_id,
-      contractVersionId: row.contract_version_id,
-      occurredAt: row.occurred_at,
-      outcome: row.outcome,
-      versionNo: row.version_no,
-    })),
-    status: "success",
-  } as const;
-}
-
-export async function loadPublishedCameraOptions(context: UserContext) {
-  const result = await context.supabase
-    .from("cameras")
-    .select("id,name")
-    .eq("status", "published")
-    .is("archived_at", null)
-    .order("name")
-    .order("id");
-  const rows = z
-    .array(z.object({ id: z.uuid(), name: z.string().min(1) }))
-    .safeParse(result.data);
-
-  if (result.error || !rows.success) return { status: "error" } as const;
-  return { cameras: rows.data, status: "success" } as const;
 }
 
 export async function loadAdminContractContext(

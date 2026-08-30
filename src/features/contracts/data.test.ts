@@ -3,10 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import {
-  CONTRACT_SIGNATURE_COLUMNS,
-  CONTRACT_VERSION_COLUMNS,
   loadAdminContractContext,
-  loadContractHistory,
+  projectContractHistorySnapshot,
 } from "./data";
 
 const BOOKING_ID = "22222222-2222-4222-8222-222222222222";
@@ -58,59 +56,26 @@ const snapshot = {
   },
 };
 
-function contextWith(versions: unknown, signatures: unknown) {
-  const selections = new Map<string, string>();
-  const versionOrder = vi.fn().mockResolvedValue({ data: versions, error: null });
-  const signatureOrder = vi
-    .fn()
-    .mockResolvedValue({ data: signatures, error: null });
-  const client = {
-    from: vi.fn((table: string) => ({
-      select: vi.fn((columns: string) => {
-        selections.set(table, columns);
-        if (table === "contract_versions") {
-          return { eq: vi.fn(() => ({ order: versionOrder })) };
-        }
-        return {
-          in: vi.fn(() => ({ order: signatureOrder })),
-        };
-      }),
-    })),
-  };
-  return {
-    context: { supabase: client, user: { id: "renter" } } as never,
-    selections,
-  };
-}
-
 describe("contract read model", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("parses and projects only the immutable owner-safe version and signature fields", async () => {
-    const fixture = contextWith(
+  it("parses and projects an immutable contract snapshot", () => {
+    const result = projectContractHistorySnapshot(
       [
         {
           booking_id: BOOKING_ID,
           id: VERSION_ID,
           issued_at: "2026-08-15T00:00:00Z",
+          signature: {
+            id: "44444444-4444-4444-8444-444444444444",
+            signed_at: "2026-08-15T01:00:00Z",
+          },
           snapshot,
           status: "issued",
           supersedes_id: null,
           version_no: 1,
         },
       ],
-      [
-        {
-          contract_version_id: VERSION_ID,
-          id: "44444444-4444-4444-8444-444444444444",
-          signed_at: "2026-08-15T01:00:00Z",
-        },
-      ],
-    );
-
-    const result = await loadContractHistory(
-      fixture.context,
-      BOOKING_ID,
       VERSION_ID,
     );
 
@@ -124,42 +89,31 @@ describe("contract read model", () => {
       },
       status: "success",
     });
-    expect(fixture.selections.get("contract_versions")).toBe(
-      CONTRACT_VERSION_COLUMNS,
-    );
-    expect(fixture.selections.get("contract_signatures")).toBe(
-      CONTRACT_SIGNATURE_COLUMNS,
-    );
     expect(JSON.stringify(result)).not.toContain("signer_ip");
   });
 
-  it("fails closed when RLS hides every version or the current pointer is stale", async () => {
-    const fixture = contextWith([], []);
-
-    await expect(
-      loadContractHistory(fixture.context, BOOKING_ID, VERSION_ID),
-    ).resolves.toEqual({ status: "inconsistent" });
+  it("fails closed when the current pointer is stale", () => {
+    expect(projectContractHistorySnapshot([], VERSION_ID)).toEqual({
+      status: "inconsistent",
+    });
   });
 
-  it("rejects a malformed persisted snapshot instead of partially rendering it", async () => {
-    const fixture = contextWith(
+  it("rejects a malformed persisted snapshot instead of partially rendering it", () => {
+    expect(projectContractHistorySnapshot(
       [
         {
           booking_id: BOOKING_ID,
           id: VERSION_ID,
           issued_at: "2026-08-15T00:00:00Z",
+          signature: null,
           snapshot: { ...snapshot, renter: { legal_name: "" } },
           status: "issued",
           supersedes_id: null,
           version_no: 1,
         },
       ],
-      [],
-    );
-
-    await expect(
-      loadContractHistory(fixture.context, BOOKING_ID, VERSION_ID),
-    ).resolves.toEqual({ status: "error" });
+      VERSION_ID,
+    )).toEqual({ status: "error" });
   });
 
   it("loads the complete admin contract context with one snapshot RPC", async () => {
