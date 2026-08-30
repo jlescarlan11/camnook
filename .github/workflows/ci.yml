@@ -53,7 +53,7 @@ jobs:
           supabase db reset
 
       - name: Run Supabase-backed database tests
-        # 001 and 004 intentionally model Storage API deletion at the SQL
+        # 001, 004, and 017 intentionally model Storage API deletion at the SQL
         # boundary and run in the disposable PostgreSQL harness below. Hosted
         # Storage blocks direct table deletion with protect_delete().
         run: >-
@@ -69,6 +69,7 @@ jobs:
           supabase/tests/database/013_camera_handoff_policies.sql
           supabase/tests/database/014_handoff_schedule_booking_flow.sql
           supabase/tests/database/015_booking_meetup_plans.sql
+          supabase/tests/database/016_privacy_email_forwarding.sql
 
       - name: Generate database types for validation
         # Local and hosted PostgREST versions can order equivalent definitions
