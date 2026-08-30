@@ -4,10 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   bookingPresentation,
-  loadAccountData,
   loadAccountOverview,
-  loadAccountProfile,
-  loadBookingDetail,
   loadBookingDetailContext,
   projectBooking,
   type SafeBookingRow,
@@ -35,77 +32,6 @@ const baseRow: SafeBookingRow = {
 };
 
 describe("renter booking projection", () => {
-  it("selects only owner-safe profile and booking columns", async () => {
-    const selections = new Map<string, string>();
-    const filters: [string, string, unknown][] = [];
-    const profileMaybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        account_status: "active",
-        legal_name: "Maria Santos",
-        phone: "+63 917 123 4567",
-      },
-      error: null,
-    });
-    const profileEq = vi.fn(() => ({ maybeSingle: profileMaybeSingle }));
-    const bookingsOrder = vi.fn().mockResolvedValue({ data: [baseRow], error: null });
-    const bookingsEq = vi.fn((column: string, value: unknown) => {
-      filters.push(["bookings", column, value]);
-      return { order: bookingsOrder };
-    });
-    const camerasIn = vi.fn().mockResolvedValue({
-      data: [
-        {
-          id: baseRow.camera_id,
-          name: "Fujifilm X-T5",
-          slug: "fujifilm-x-t5",
-        },
-      ],
-      error: null,
-    });
-    const client = {
-      from: vi.fn((table: string) => ({
-        select: vi.fn((columns: string) => {
-          selections.set(table, columns);
-          if (table === "profiles") return { eq: profileEq };
-          if (table === "bookings") return { eq: bookingsEq };
-          if (table === "booking_meetup_plans") {
-            return {
-              in: vi.fn().mockResolvedValue({ data: [], error: null }),
-            };
-          }
-          return { in: camerasIn };
-        }),
-      })),
-    } as never;
-
-    const result = await loadAccountData({
-      supabase: client,
-      user: { id: "user-1" },
-    } as never);
-
-    expect(result).toMatchObject({
-      bookings: [{ camera: { name: "Fujifilm X-T5" } }],
-      profile: { accountStatus: "active", legalName: "Maria Santos" },
-      status: "success",
-    });
-    expect(selections.get("profiles")).toBe(
-      "legal_name,phone,account_status",
-    );
-    expect(selections.get("bookings")).toBe(
-      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required",
-    );
-    expect(selections.get("public_cameras")).toBe("id,name,slug");
-    expect(selections.get("booking_meetup_plans")).toBe(
-      "booking_id,renter_city_label,venue_name,venue_address,venue_city,venue_latitude,venue_longitude,provider,provider_config_version,attribution,created_at",
-    );
-    expect(selections.get("booking_meetup_plans")).not.toMatch(
-      /provider_place_id|renter_city_provider_id/,
-    );
-    expect(selections.get("bookings")).not.toContain("renter_id");
-    expect(selections.get("bookings")).not.toContain("operator_notes");
-    expect(filters).toContainEqual(["bookings", "renter_id", "user-1"]);
-  });
-
   it("loads the account overview through one owner-scoped snapshot RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: {
@@ -138,107 +64,23 @@ describe("renter booking projection", () => {
     expect(rpc).toHaveBeenCalledWith("get_my_account_overview");
   });
 
-  it("loads only the safe profile prerequisite on the booking request page", async () => {
-    const maybeSingle = vi.fn().mockResolvedValue({
+  it("rejects unexpected private fields in the account snapshot", async () => {
+    const rpc = vi.fn().mockResolvedValue({
       data: {
-        account_status: "active",
-        legal_name: "Maria Santos",
-        phone: "+63 917 123 4567",
+        bookings: [],
+        is_admin: false,
+        profile: null,
+        private_operator_notes: "must not cross the boundary",
       },
       error: null,
     });
-    const eq = vi.fn(() => ({ maybeSingle }));
-    const select = vi.fn(() => ({ eq }));
-    const from = vi.fn(() => ({ select }));
-
-    await expect(loadAccountProfile({
-      supabase: { from } as never,
-      user: { id: "user-1" },
-    } as never)).resolves.toMatchObject({
-      profile: { accountStatus: "active", legalName: "Maria Santos" },
-      status: "success",
-    });
-    expect(from).toHaveBeenCalledWith("profiles");
-    expect(select).toHaveBeenCalledWith("legal_name,phone,account_status");
-    expect(eq).toHaveBeenCalledWith("user_id", "user-1");
-  });
-
-  it("returns the same missing result for an absent or owner-RLS-hidden booking", async () => {
-    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
-    const filters: [string, unknown][] = [];
-    const builder = { eq: vi.fn(), maybeSingle };
-    builder.eq.mockImplementation((column: string, value: unknown) => {
-      filters.push([column, value]);
-      return builder;
-    });
-    const client = {
-      from: vi.fn(() => ({ select: vi.fn(() => builder) })),
-    };
 
     await expect(
-      loadBookingDetail(
-        { supabase: client as never, user: { id: "user-1" } } as never,
-        baseRow.id,
-      ),
-    ).resolves.toEqual({ status: "missing" });
-    expect(client.from).toHaveBeenCalledTimes(1);
-    expect(filters).toEqual([
-      ["id", baseRow.id],
-      ["renter_id", "user-1"],
-    ]);
-  });
-
-  it("loads an owner-scoped booking detail through an exact safe select", async () => {
-    const selections = new Map<string, string>();
-    const filters: [string, string, unknown][] = [];
-    const bookingBuilder = { eq: vi.fn(), maybeSingle: vi.fn() };
-    bookingBuilder.eq.mockImplementation((column: string, value: unknown) => {
-      filters.push(["bookings", column, value]);
-      return bookingBuilder;
-    });
-    bookingBuilder.maybeSingle.mockResolvedValue({ data: baseRow, error: null });
-    const cameraBuilder = { eq: vi.fn(), maybeSingle: vi.fn() };
-    cameraBuilder.eq.mockImplementation((column: string, value: unknown) => {
-      filters.push(["public_cameras", column, value]);
-      return cameraBuilder;
-    });
-    cameraBuilder.maybeSingle.mockResolvedValue({
-      data: { name: "Fujifilm X-T5", slug: "fujifilm-x-t5" },
-      error: null,
-    });
-    const meetupBuilder = { eq: vi.fn(), maybeSingle: vi.fn() };
-    meetupBuilder.eq.mockImplementation((column: string, value: unknown) => {
-      filters.push(["booking_meetup_plans", column, value]);
-      return meetupBuilder;
-    });
-    meetupBuilder.maybeSingle.mockResolvedValue({ data: null, error: null });
-    const client = {
-      from: vi.fn((table: string) => ({
-        select: vi.fn((columns: string) => {
-          selections.set(table, columns);
-          return table === "bookings"
-            ? bookingBuilder
-            : table === "booking_meetup_plans"
-              ? meetupBuilder
-              : cameraBuilder;
-        }),
-      })),
-    };
-
-    const result = await loadBookingDetail(
-      { supabase: client as never, user: { id: "user-1" } } as never,
-      baseRow.id,
-    );
-
-    expect(result).toMatchObject({
-      booking: { camera: { name: "Fujifilm X-T5" }, id: baseRow.id },
-      status: "success",
-    });
-    expect(selections.get("bookings")).toBe(
-      "id,camera_id,state,pickup_at,return_at,intended_use,expected_location,requested_at,approved_at,approval_deadline_at,billable_days_snapshot,daily_rate_snapshot,rental_amount,security_deposit_amount,total_due,currency,current_contract_version_id,meetup_snapshot_required",
-    );
-    expect(filters).toContainEqual(["bookings", "id", baseRow.id]);
-    expect(filters).toContainEqual(["bookings", "renter_id", "user-1"]);
+      loadAccountOverview({
+        supabase: { schema: vi.fn(() => ({ rpc })) },
+        user: { id: "user-1" },
+      } as never),
+    ).resolves.toEqual({ status: "error" });
   });
 
   it("loads the renter booking page through one owner-scoped snapshot RPC", async () => {
@@ -306,50 +148,19 @@ describe("renter booking projection", () => {
     });
   });
 
-  it("returns an honest empty account and constrains account query failures", async () => {
-    function accountClient(profileResult: unknown, bookingResult: unknown) {
-      const profile = { maybeSingle: vi.fn().mockResolvedValue(profileResult) };
-      const bookings = { order: vi.fn().mockResolvedValue(bookingResult) };
-      return {
-        from: vi.fn((table: string) => ({
-          select: vi.fn(() =>
-            table === "profiles"
-              ? { eq: vi.fn(() => profile) }
-              : { eq: vi.fn(() => bookings) },
-          ),
-        })),
-      };
-    }
+  it("rejects invalid booking references before the detail snapshot RPC", async () => {
+    const rpc = vi.fn();
 
-    const emptyClient = accountClient(
-      { data: null, error: null },
-      { data: [], error: null },
-    );
     await expect(
-      loadAccountData({
-        supabase: emptyClient as never,
-        user: { id: "user-1" },
-      } as never),
-    ).resolves.toEqual({ bookings: [], profile: null, status: "success" });
-
-    for (const [profileResult, bookingResult] of [
-      [
-        { data: null, error: { message: "profiles private detail" } },
-        { data: [], error: null },
-      ],
-      [
-        { data: null, error: null },
-        { data: null, error: { message: "bookings private detail" } },
-      ],
-    ]) {
-      const failedClient = accountClient(profileResult, bookingResult);
-      const result = await loadAccountData({
-        supabase: failedClient as never,
-        user: { id: "user-1" },
-      } as never);
-      expect(result).toEqual({ status: "error" });
-      expect(JSON.stringify(result)).not.toContain("private detail");
-    }
+      loadBookingDetailContext(
+        {
+          supabase: { schema: vi.fn(() => ({ rpc })) },
+          user: { id: "user-1" },
+        } as never,
+        "invalid",
+      ),
+    ).resolves.toEqual({ status: "missing" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("omits renter/operator fields and suppresses an unpopulated approval snapshot", () => {
