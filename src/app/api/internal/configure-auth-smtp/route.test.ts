@@ -6,10 +6,14 @@ const originalKey = process.env.RESEND_API_KEY;
 
 function configuredResponse() {
   return Response.json({
+    external_email_enabled: true,
+    mailer_autoconfirm: false,
+    mailer_secure_email_change_enabled: true,
     password_min_length: 15,
     smtp_admin_email: "auth@camnook.shop",
     smtp_host: "smtp.resend.com",
     smtp_port: "465",
+    smtp_sender_name: "CamNook",
     smtp_user: "resend",
   });
 }
@@ -161,5 +165,29 @@ describe("Production Auth SMTP configuration", () => {
       error: "configuration_not_confirmed",
     });
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["external email is disabled", { external_email_enabled: false }],
+    ["email autoconfirm remains enabled", { mailer_autoconfirm: true }],
+    [
+      "secure email change remains disabled",
+      { mailer_secure_email_change_enabled: false },
+    ],
+    ["the sender name drifts", { smtp_sender_name: "Unexpected" }],
+  ])("fails closed when %s", async (_name, drift) => {
+    const configured = await configuredResponse().json();
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(Response.json({ ...configured, ...drift }));
+    vi.stubGlobal("fetch", fetch);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "configuration_not_confirmed",
+    });
   });
 });

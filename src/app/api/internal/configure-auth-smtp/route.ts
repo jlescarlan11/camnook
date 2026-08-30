@@ -84,9 +84,14 @@ async function readVerifiedConfiguration(headers: Record<string, string>) {
 
   const config = await readBoundedConfiguration(verified);
   const summary = configurationSummary(config);
-  return summary.customSmtpEnabled && summary.passwordMinimumLength === 15
-    ? summary
-    : null;
+  const confirmed =
+    summary.customSmtpEnabled &&
+    summary.passwordMinimumLength === 15 &&
+    config.external_email_enabled === true &&
+    config.mailer_autoconfirm === false &&
+    config.mailer_secure_email_change_enabled === true &&
+    config.smtp_sender_name === "CamNook";
+  return confirmed ? summary : null;
 }
 
 async function reconcileConfiguration(headers: Record<string, string>) {
