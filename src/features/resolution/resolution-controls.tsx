@@ -26,6 +26,7 @@ const initialPhotoState: ConditionPhotoActionState = { status: "idle" };
 
 export type ResolutionOperationIds = {
   cancellation: string;
+  conditionPhoto: string;
   issueNote: string;
   recordReturn: string;
   refund: string;
@@ -355,6 +356,7 @@ export function ResolutionControls({
             accessState={accessState}
             bookingId={resolution.booking_id}
             conditionReportId={inspection.condition_report_id}
+            intentId={operationIds.conditionPhoto}
             photoAction={photoAction}
             photoPending={photoPending}
             photos={inspection.photos}
@@ -516,6 +518,7 @@ function ConditionEvidence({
   accessState,
   bookingId,
   conditionReportId,
+  intentId,
   photoAction,
   photoPending,
   photos,
@@ -526,6 +529,7 @@ function ConditionEvidence({
   accessState: ConditionPhotoActionState;
   bookingId: string;
   conditionReportId: string;
+  intentId: string;
   photoAction: (payload: FormData) => void;
   photoPending: boolean;
   photos: NonNullable<ResolutionDetail["return_inspection"]>["photos"];
@@ -546,6 +550,7 @@ function ConditionEvidence({
       <form action={photoAction} className="mt-3 space-y-3">
         <input name="bookingId" type="hidden" value={bookingId} />
         <input name="conditionReportId" type="hidden" value={conditionReportId} />
+        <input name="intentId" type="hidden" value={intentId} />
         <input accept="image/jpeg,image/png" name="photo" required type="file" />
         <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || currentPhotoCount >= 6} type="submit">Attach verified return photo</button>
       </form>
@@ -574,6 +579,7 @@ function ConditionEvidence({
                     <form action={photoAction} className="mt-2 space-y-2">
                       <input name="bookingId" type="hidden" value={bookingId} />
                       <input name="conditionReportId" type="hidden" value={conditionReportId} />
+                      <input name="intentId" type="hidden" value={intentId} />
                       <input name="supersedesPhotoId" type="hidden" value={photo.photo_id} />
                       <input accept="image/jpeg,image/png" name="photo" required type="file" />
                       <button className="min-h-11 rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold" disabled={photoPending} type="submit">Upload versioned replacement</button>

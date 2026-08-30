@@ -122,15 +122,17 @@ describe("pickup Server Actions", () => {
 
   it("uploads an exact no-overwrite photo, verifies bytes, then finalizes", async () => {
     const objectPath = `${BOOKING_ID}/${REPORT_ID}/${PHOTO_ID}.png`;
-    const rpc = vi.fn(async (name: string) => {
+    let claimedIntentId = "";
+    const rpc = vi.fn(async (name: string, input: Record<string, unknown>) => {
       if (name === "create_condition_photo_upload_intent") {
+        claimedIntentId = String(input.p_intent_id);
         return {
           data: {
             booking_id: BOOKING_ID,
             byte_size: 9,
             condition_report_id: REPORT_ID,
             expires_at: "2026-08-16T03:00:00Z",
-            id: INTENT_ID,
+            id: claimedIntentId,
             media_type: "image/png",
             object_path: objectPath,
             photo_id: PHOTO_ID,
@@ -166,6 +168,7 @@ describe("pickup Server Actions", () => {
     const data = new FormData();
     data.set("bookingId", BOOKING_ID);
     data.set("conditionReportId", REPORT_ID);
+    data.set("intentId", INTENT_ID);
     data.set("photo", new File([bytes], "condition.png", { type: "image/png" }));
 
     await expect(
@@ -177,14 +180,78 @@ describe("pickup Server Actions", () => {
       expect.objectContaining({ contentType: "image/png", upsert: false }),
     );
     expect(rpc).toHaveBeenCalledWith(
+      "create_condition_photo_upload_intent",
+      expect.objectContaining({ p_intent_id: expect.stringMatching(/^[0-9a-f-]{36}$/) }),
+    );
+    expect(rpc).toHaveBeenCalledWith(
       "finalize_condition_photo_upload",
       expect.objectContaining({
-        p_intent_id: INTENT_ID,
+        p_intent_id: claimedIntentId,
         p_verified_byte_size: 9,
         p_verified_media_type: "image/png",
         p_verified_sha256_hex: expect.stringMatching(/^[0-9a-f]{64}$/),
       }),
     );
+  });
+
+  it("reconciles a finalized stable photo intent after a lost response", async () => {
+    const objectPath = `${BOOKING_ID}/${REPORT_ID}/${PHOTO_ID}.png`;
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+    let persistedIntentId = "";
+    const rpc = vi.fn(async (name: string, input: Record<string, unknown>) => {
+      if (name === "create_condition_photo_upload_intent") {
+        persistedIntentId = String(input.p_intent_id);
+        return { data: null, error: { code: "23505" } };
+      }
+      if (name === "get_condition_photo_upload_intent") {
+        return {
+          data: {
+            booking_id: BOOKING_ID,
+            byte_size: 9,
+            condition_report_id: REPORT_ID,
+            expires_at: "2026-08-16T03:00:00Z",
+            id: persistedIntentId,
+            media_type: "image/png",
+            object_path: objectPath,
+            photo_id: PHOTO_ID,
+            status: "finalized",
+          },
+          error: null,
+        };
+      }
+      throw new Error(`unexpected RPC ${name}`);
+    });
+    const upload = vi.fn();
+    authorizeAdmin(rpc, { from: vi.fn(() => ({ upload })) });
+    const download = vi.fn().mockResolvedValue({
+      data: new Blob([bytes], { type: "image/png" }),
+      error: null,
+    });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      storage: { from: vi.fn(() => ({ download })) },
+    } as never);
+    const data = new FormData();
+    data.set("bookingId", BOOKING_ID);
+    data.set("conditionReportId", REPORT_ID);
+    data.set("intentId", INTENT_ID);
+    data.set("photo", new File([bytes], "condition.png", { type: "image/png" }));
+
+    await expect(
+      uploadConditionPhoto({ status: "idle" }, data),
+    ).resolves.toMatchObject({ result: "saved", status: "success" });
+    expect(upload).not.toHaveBeenCalled();
+    expect(download).toHaveBeenCalledWith(objectPath);
+
+    download.mockResolvedValueOnce({
+      data: new Blob(
+        [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1])],
+        { type: "image/png" },
+      ),
+      error: null,
+    });
+    await expect(
+      uploadConditionPhoto({ status: "idle" }, data),
+    ).resolves.toEqual({ error: "unavailable", status: "error" });
   });
 
   it("uses purpose-bound database grants before short-lived admin and owner URLs", async () => {

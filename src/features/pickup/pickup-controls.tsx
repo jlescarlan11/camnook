@@ -34,10 +34,12 @@ function completionError(error: PickupCompletionActionState["error"]) {
 export function PickupControls({
   actualAt,
   operationId,
+  photoIntentId,
   pickup,
 }: {
   actualAt: string;
   operationId: string;
+  photoIntentId: string;
   pickup: PickupDetail;
 }) {
   const [completionState, completionAction, completionPending] = useActionState(
@@ -142,6 +144,7 @@ export function PickupControls({
         <form action={photoAction} className="mt-4 space-y-3">
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
           <input name="conditionReportId" type="hidden" value={pickup.handoff.condition_report_id} />
+          <input name="intentId" type="hidden" value={photoIntentId} />
           <label className="block text-sm font-medium" htmlFor="pickup-condition-photo">Condition photo</label>
           <input accept="image/jpeg,image/png" className="block w-full text-sm" id="pickup-condition-photo" name="photo" required type="file" />
           <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || pickup.handoff.photos.length >= 6} type="submit">{photoPending ? "Verifying and saving…" : "Attach private photo"}</button>

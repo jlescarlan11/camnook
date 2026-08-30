@@ -84,6 +84,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
     resolutionData?.status === "success"
       ? {
           cancellation: randomUUID(),
+          conditionPhoto: randomUUID(),
           issueNote: randomUUID(),
           recordReturn: randomUUID(),
           refund: randomUUID(),
@@ -471,6 +472,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               <PickupControls
                 actualAt={formatManilaDateTimeInput(new Date().toISOString())}
                 operationId={randomUUID()}
+                photoIntentId={randomUUID()}
                 pickup={pickupData.pickup}
               />
             ) : pickupData ? (

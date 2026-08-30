@@ -56,6 +56,7 @@ describe("pickup UI privacy and checklist controls", () => {
       <PickupControls
         actualAt="2026-08-16T10:00"
         operationId="84000000-0000-4000-8000-000000000004"
+        photoIntentId="84000000-0000-4000-8000-000000000005"
         pickup={confirmedDetail}
       />,
     );
@@ -102,6 +103,35 @@ describe("pickup UI privacy and checklist controls", () => {
     }
     expect(markup).not.toContain("camera serial");
     expect(markup).not.toContain("another renter");
+  });
+
+  it("binds condition-photo retries to one rendered upload attempt", () => {
+    const markup = renderToStaticMarkup(
+      <PickupControls
+        actualAt="2026-08-16T10:00"
+        operationId="84000000-0000-4000-8000-000000000004"
+        photoIntentId="84000000-0000-4000-8000-000000000005"
+        pickup={{
+          ...confirmedDetail,
+          booking_state: "ACTIVE",
+          handoff: {
+            accessory_checklist_completed: true,
+            actual_at: "2026-08-16T02:00:00Z",
+            camera_serial_checked: true,
+            condition_report_id: "84000000-0000-4000-8000-000000000006",
+            condition_summary: "Clean and functional.",
+            handoff_id: "84000000-0000-4000-8000-000000000007",
+            named_renter_present: true,
+            original_id_checked: true,
+            original_id_matched: true,
+            photos: [],
+          },
+        }}
+      />,
+    );
+
+    expect(markup).toContain('name="intentId"');
+    expect(markup).toContain('value="84000000-0000-4000-8000-000000000005"');
   });
 
   it("shows only a safe active handoff summary and expected return", () => {

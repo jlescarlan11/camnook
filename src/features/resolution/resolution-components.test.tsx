@@ -29,6 +29,7 @@ const ACCESSORY_ID = "94000000-0000-4000-8000-000000000002";
 const REQUEST_ID = "94000000-0000-4000-8000-000000000003";
 const ids: ResolutionOperationIds = {
   cancellation: "94000000-0000-4000-8000-000000000011",
+  conditionPhoto: "94000000-0000-4000-8000-000000000017",
   issueNote: "94000000-0000-4000-8000-000000000012",
   recordReturn: "94000000-0000-4000-8000-000000000013",
   refund: "94000000-0000-4000-8000-000000000014",
@@ -156,6 +157,8 @@ describe("resolution UI", () => {
 
     expect(attachButton).toBeDefined();
     expect(attachButton).not.toMatch(/\sdisabled(?:=|>)/);
+    expect(markup).toContain('name="intentId"');
+    expect(markup).toContain(`value="${ids.conditionPhoto}"`);
     expect(markup.match(/Historical superseded version/g)).toHaveLength(2);
     expect(markup.match(/Upload versioned replacement/g)).toHaveLength(5);
   });

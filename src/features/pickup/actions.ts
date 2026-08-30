@@ -203,6 +203,45 @@ function validPhoto(value: FormDataEntryValue | null) {
   return value;
 }
 
+function bindConditionPhotoIntentId(input: {
+  attemptId: string;
+  byteSize: number;
+  conditionReportId: string;
+  mediaType: string;
+  sha256: string;
+  supersedesPhotoId?: string;
+}) {
+  const digest = createHash("sha256")
+    .update(JSON.stringify(input))
+    .digest();
+  digest[6] = (digest[6] & 0x0f) | 0x50;
+  digest[8] = (digest[8] & 0x3f) | 0x80;
+  const hex = digest.subarray(0, 16).toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function storedConditionPhotoMatches(
+  objectPath: string,
+  expectedBytes: Buffer,
+  expectedSha256: string,
+) {
+  let admin;
+  try {
+    admin = createSupabaseAdminClient();
+  } catch {
+    return false;
+  }
+  const downloaded = await admin.storage
+    .from("condition-evidence")
+    .download(objectPath);
+  if (downloaded.error || !downloaded.data) return false;
+  const storedBytes = Buffer.from(await downloaded.data.arrayBuffer());
+  return (
+    storedBytes.byteLength === expectedBytes.byteLength &&
+    createHash("sha256").update(storedBytes).digest("hex") === expectedSha256
+  );
+}
+
 async function cleanupPhotoIntent(
   context: AdminContext,
   intentId: string,
@@ -245,6 +284,7 @@ async function cleanupPhotoIntent(
 async function saveConditionPhoto(
   context: AdminContext,
   conditionReportId: string,
+  intentId: string,
   photo: File,
   supersedesPhotoId?: string,
 ) {
@@ -252,12 +292,19 @@ async function saveConditionPhoto(
   if (!supportedPhotoSignature(bytes, photo.type)) return "invalid" as const;
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
-  let intentId = randomUUID();
+  const activeIntentId = bindConditionPhotoIntentId({
+    attemptId: intentId,
+    byteSize: bytes.byteLength,
+    conditionReportId,
+    mediaType: photo.type,
+    sha256,
+    supersedesPhotoId,
+  });
   const createIntent = () => {
     const common = {
       p_byte_size: bytes.byteLength,
       p_condition_report_id: conditionReportId,
-      p_intent_id: intentId,
+      p_intent_id: activeIntentId,
       p_media_type: photo.type,
       p_operation_id: randomUUID(),
       p_sha256_hex: sha256,
@@ -274,22 +321,48 @@ async function saveConditionPhoto(
           .rpc("create_condition_photo_upload_intent", common);
   };
 
-  let result = await createIntent();
-  let intent = conditionPhotoIntentSchema.safeParse(result.data);
+  const result = await createIntent();
+  const intent = conditionPhotoIntentSchema.safeParse(result.data);
   if (
     !result.error &&
     intent.success &&
     intent.data.status === "cleanup_pending" &&
-    intent.data.id &&
-    (await cleanupPhotoIntent(context, intent.data.id))
+    intent.data.id
   ) {
-    intentId = randomUUID();
-    result = await createIntent();
-    intent = conditionPhotoIntentSchema.safeParse(result.data);
+    await cleanupPhotoIntent(context, intent.data.id);
+    return "unavailable" as const;
   }
 
-  if (result.error || !intent.success) return "unavailable" as const;
-  if (intent.data.status === "finalized") return "saved" as const;
+  if (result.error || !intent.success) {
+    const read = await context.supabase
+      .schema("api")
+      .rpc("get_condition_photo_upload_intent", { p_intent_id: activeIntentId });
+    const current = conditionPhotoIntentSchema.safeParse(read.data);
+    if (
+      read.error ||
+      !current.success ||
+      current.data.status !== "finalized" ||
+      current.data.id !== activeIntentId ||
+      current.data.condition_report_id !== conditionReportId ||
+      current.data.media_type !== photo.type ||
+      current.data.byte_size !== bytes.byteLength ||
+      !current.data.object_path ||
+      !(await storedConditionPhotoMatches(current.data.object_path, bytes, sha256))
+    ) {
+      return "unavailable" as const;
+    }
+    return "saved" as const;
+  }
+  if (intent.data.status === "finalized") {
+    return intent.data.id === activeIntentId &&
+      intent.data.condition_report_id === conditionReportId &&
+      intent.data.media_type === photo.type &&
+      intent.data.byte_size === bytes.byteLength &&
+      intent.data.object_path &&
+      (await storedConditionPhotoMatches(intent.data.object_path, bytes, sha256))
+      ? "saved" as const
+      : "unavailable" as const;
+  }
   if (
     intent.data.status !== "awaiting_upload" ||
     !intent.data.id ||
@@ -310,26 +383,7 @@ async function saveConditionPhoto(
     return "unavailable" as const;
   }
 
-  let admin;
-  try {
-    admin = createSupabaseAdminClient();
-  } catch {
-    await cleanupPhotoIntent(context, intent.data.id);
-    return "unavailable" as const;
-  }
-
-  const downloaded = await admin.storage
-    .from("condition-evidence")
-    .download(intent.data.object_path);
-  if (downloaded.error || !downloaded.data) {
-    await cleanupPhotoIntent(context, intent.data.id);
-    return "unavailable" as const;
-  }
-  const storedBytes = Buffer.from(await downloaded.data.arrayBuffer());
-  if (
-    storedBytes.byteLength !== bytes.byteLength ||
-    createHash("sha256").update(storedBytes).digest("hex") !== sha256
-  ) {
+  if (!(await storedConditionPhotoMatches(intent.data.object_path, bytes, sha256))) {
     await cleanupPhotoIntent(context, intent.data.id);
     return "unavailable" as const;
   }
@@ -383,11 +437,13 @@ export async function uploadConditionPhoto(
 ): Promise<ConditionPhotoActionState> {
   const bookingId = stringFormValue(formData, "bookingId");
   const conditionReportId = stringFormValue(formData, "conditionReportId");
+  const intentId = stringFormValue(formData, "intentId");
   const supersedesPhotoId = stringFormValue(formData, "supersedesPhotoId");
   const photo = validPhoto(formData.get("photo"));
   if (
     !idSchema.safeParse(bookingId).success ||
     !idSchema.safeParse(conditionReportId).success ||
+    !idSchema.safeParse(intentId).success ||
     (supersedesPhotoId !== "" && !idSchema.safeParse(supersedesPhotoId).success)
   ) {
     return { error: "invalid", status: "error" };
@@ -414,6 +470,7 @@ export async function uploadConditionPhoto(
     const saved = await saveConditionPhoto(
       context,
       conditionReportId,
+      intentId,
       photo,
       supersedesPhotoId || undefined,
     );
