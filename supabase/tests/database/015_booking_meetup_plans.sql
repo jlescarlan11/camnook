@@ -177,6 +177,45 @@ begin
 end;
 $$;
 
+savepoint booking_request_limit_fixture;
+
+insert into public.bookings (
+  id, renter_id, camera_id, pickup_at, return_at, intended_use,
+  expected_location, meetup_snapshot_required
+)
+select
+  md5('meetup-request-limit-' || item)::uuid,
+  'd0000000-0000-4000-8000-000000000002',
+  'd0100000-0000-4000-8000-000000000001',
+  (current_date + 30 + time '09:00') at time zone 'Asia/Manila',
+  (current_date + 32 + time '09:00') at time zone 'Asia/Manila',
+  'Open request limit fixture', 'Cebu shoot', false
+from generate_series(1, 9) as item;
+
+set local role service_role;
+set local "request.jwt.claim.role" = 'service_role';
+
+do $$
+begin
+  begin
+    perform api.request_booking_schedule_with_meetup_idempotent(
+      'd0000000-0000-4000-8000-000000000002',
+      'd0100000-0000-4000-8000-000000000001',
+      current_date + 34, current_date + 36, '09:00', 1,
+      'Eleventh open request', 'Cebu shoot', 'Mandaue City',
+      'Ayala Center Cebu', 'Cardinal Rosales Avenue, Cebu City', 'Cebu City',
+      10.317, 123.905, 'geoapify-v1',
+      'd0400000-0000-4000-8000-000000000010'
+    );
+    raise exception 'renter exceeded the open review request limit';
+  exception when sqlstate 'P0001' then null;
+  end;
+end;
+$$;
+
+reset role;
+rollback to savepoint booking_request_limit_fixture;
+
 set local role authenticated;
 set local "request.jwt.claim.role" = 'authenticated';
 set local "request.jwt.claim.sub" = 'd0000000-0000-4000-8000-000000000002';

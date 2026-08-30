@@ -20,6 +20,7 @@ export type RequestBookingActionState = {
     | "meetup_expired"
     | "meetup_required"
     | "profile_required"
+    | "request_limit"
     | "request_failed"
     | "schedule_changed"
     | "unavailable"
@@ -220,7 +221,9 @@ export async function requestBooking(
   if (error || typeof data !== "string" || !z.uuid().safeParse(data).success) {
     return {
       error:
-        error?.code === "40001"
+        error?.code === "P0001"
+          ? "request_limit"
+          : error?.code === "40001"
           ? "schedule_changed"
           : error?.code === "23P01"
             ? "unavailable"

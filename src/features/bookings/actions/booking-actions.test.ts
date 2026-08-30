@@ -643,6 +643,7 @@ describe("requestBooking", () => {
   });
 
   it.each([
+    ["P0001", "request_limit"],
     ["40001", "schedule_changed"],
     ["23P01", "unavailable"],
   ] as const)("maps schedule failure %s to %s without raw detail", async (code, category) => {

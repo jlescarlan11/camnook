@@ -283,6 +283,8 @@ export function RequestForm({
                 ? "This account is suspended and cannot submit requests. Contact CamNook for help."
                 : state.error === "request_failed"
                   ? "We couldn’t confirm the request response. Check your account for a persisted request before retrying."
+                  : state.error === "request_limit"
+                    ? "You already have 10 requests awaiting review. Wait for CamNook to decide one before submitting another."
                   : state.error === "schedule_changed"
                     ? "The lender’s handoff schedule changed. Return to the listing and choose again."
                     : state.error === "unavailable"
