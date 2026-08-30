@@ -35,6 +35,13 @@ const weekdayLabels = [
 
 type LocationStatus = "denied" | "idle" | "locating" | "unavailable";
 
+export function resetAddressLookupRequest(
+  lastRequestedQuery: string,
+  nextQuery: string,
+) {
+  return lastRequestedQuery === nextQuery.trim() ? lastRequestedQuery : "";
+}
+
 export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
   const [saveState, saveAction, savePending] = useActionState(
     saveCameraHandoffPolicy,
@@ -179,6 +186,10 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
                 id="addressQuery"
                 maxLength={120}
                 onChange={(event) => {
+                  lastRequestedAddressQuery.current = resetAddressLookupRequest(
+                    lastRequestedAddressQuery.current,
+                    event.target.value,
+                  );
                   setAddressQuery(event.target.value);
                   setSelectedAddress(null);
                   setConfirmedReference(null);

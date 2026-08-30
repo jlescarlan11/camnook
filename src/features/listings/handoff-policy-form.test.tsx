@@ -7,7 +7,10 @@ vi.mock("./handoff-actions", () => ({
   suggestHandoffCity: vi.fn(),
 }));
 
-import { HandoffPolicyForm } from "./handoff-policy-form";
+import {
+  HandoffPolicyForm,
+  resetAddressLookupRequest,
+} from "./handoff-policy-form";
 
 describe("HandoffPolicyForm", () => {
   it("renders associated admin fields, PHT guidance, and an accessible save control", () => {
@@ -71,5 +74,17 @@ describe("HandoffPolicyForm", () => {
     expect(markup).toContain('disabled=""');
     expect(markup).toMatch(/Save handoff policy<\/button>/);
     vi.unstubAllGlobals();
+  });
+
+  it("allows a previously searched address to be searched again after editing", () => {
+    expect(resetAddressLookupRequest("Ayala Center Cebu", "Cebu IT Park")).toBe(
+      "",
+    );
+    expect(resetAddressLookupRequest("Cebu IT Park", "Ayala Center Cebu")).toBe(
+      "",
+    );
+    expect(resetAddressLookupRequest("Ayala Center Cebu", " Ayala Center Cebu ")).toBe(
+      "Ayala Center Cebu",
+    );
   });
 });
