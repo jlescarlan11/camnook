@@ -399,7 +399,7 @@ Each operation locks its aggregate row, rechecks authorization and current state
 | `authorize_payment_proof_access` | Re-authorize sole admin and exact reconciliation purpose; append a path-free access audit; return a 60-second target only to the Server Action |
 | `verify_payment` | Confirm actual-account check, amount, timely submission, and normalized unique reference; derive balanced allocations and enter `CONFIRMED` atomically |
 | `reject_payment` | Apply a safe reason and choose `TO_PAY` or `EXPIRED` from the database clock; preserve deadline and release the block only on expiry |
-| `expire_due_bookings` | Idempotently expire only `CONTRACT_PENDING`/`TO_PAY` past deadline; release blocks; append system history |
+| `expire_due_bookings` | Idempotently expire at most 100 oldest `CONTRACT_PENDING`/`TO_PAY` bookings past deadline per invocation; release blocks; append system history |
 | `get_pickup_queue`, `get_pickup_detail` | Return sole-admin, explicit minimized pickup readiness/detail without paths, digests, serial authority, or financial facts |
 | `complete_pickup` | Under the booking lock, validate the active profile, signed contract, verified balanced payment, named renter, physical original-ID match, and every typed checklist fact; retain no ID copy or fields; insert one immutable handoff/report; transition `CONFIRMED → ACTIVE` idempotently |
 | Condition-photo intent/finalize/cleanup operations | Bind optional pickup evidence to one exact opaque no-overwrite object; verify Storage metadata and caller-confirmed digest; recover unfinished objects |
@@ -471,7 +471,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains thirty-six forward migrations. On 13 August 2026, the four
+The repository contains thirty-seven forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

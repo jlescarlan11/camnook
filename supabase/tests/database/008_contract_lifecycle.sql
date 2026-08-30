@@ -720,6 +720,129 @@ begin
 end;
 $$;
 
+-- A large due backlog must be split across bounded transactions while later
+-- invocations continue draining it.
+create temporary table expiry_batch_fixture (
+  booking_id uuid primary key,
+  contract_id uuid not null unique
+) on commit drop;
+
+insert into expiry_batch_fixture (booking_id, contract_id)
+select
+  md5('booking-expiry-batch-' || item)::uuid,
+  md5('contract-expiry-batch-' || item)::uuid
+from generate_series(1, 101) as item;
+
+insert into public.bookings (
+  id,
+  renter_id,
+  camera_id,
+  state,
+  pickup_at,
+  return_at,
+  intended_use,
+  expected_location,
+  approved_at,
+  approval_deadline_at,
+  approved_by,
+  billable_days_snapshot,
+  daily_rate_snapshot,
+  rental_amount,
+  security_deposit_amount
+)
+select
+  fixture.booking_id,
+  '50000000-0000-4000-8000-000000000002',
+  '52000000-0000-4000-8000-000000000001',
+  'CONTRACT_PENDING',
+  '2099-12-01 00:00:00+00',
+  '2099-12-02 00:00:00+00',
+  'Expiry batch fixture',
+  'Manila',
+  statement_timestamp() - interval '25 hours',
+  statement_timestamp() - interval '1 hour',
+  '50000000-0000-4000-8000-000000000001',
+  1,
+  1000.00,
+  1000.00,
+  4000.00
+from expiry_batch_fixture as fixture;
+
+insert into public.contract_versions (
+  id,
+  booking_id,
+  version_no,
+  status,
+  template_id,
+  snapshot,
+  snapshot_schema_version,
+  content_sha256,
+  issued_at,
+  issued_by
+)
+select
+  fixture.contract_id,
+  fixture.booking_id,
+  1,
+  'issued',
+  '54000000-0000-4000-8000-000000000002',
+  jsonb_build_object('expiry_batch_booking_id', fixture.booking_id),
+  1,
+  extensions.digest(
+    convert_to(jsonb_build_object('expiry_batch_booking_id', fixture.booking_id)::text, 'UTF8'),
+    'sha256'
+  ),
+  statement_timestamp() - interval '25 hours',
+  '50000000-0000-4000-8000-000000000001'
+from expiry_batch_fixture as fixture;
+
+update public.bookings as booking
+set current_contract_version_id = fixture.contract_id
+from expiry_batch_fixture as fixture
+where booking.id = fixture.booking_id;
+
+set constraints bookings_validate_current_contract_pointer immediate;
+set constraints bookings_validate_current_contract_pointer deferred;
+
+set local role service_role;
+set local "request.jwt.claim.sub" = '';
+
+do $$
+begin
+  if api.expire_due_bookings('57000000-0000-4000-8000-000000000011') <> 100 then
+    raise exception 'booking expiry did not stop at its transaction batch limit';
+  end if;
+  if api.expire_due_bookings('57000000-0000-4000-8000-000000000012') <> 1 then
+    raise exception 'booking expiry did not drain the next backlog batch';
+  end if;
+  if api.expire_due_bookings('57000000-0000-4000-8000-000000000013') <> 0 then
+    raise exception 'booking expiry backlog retry was not idempotent';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+begin
+  if (
+    select count(*)
+    from public.bookings as booking
+    join expiry_batch_fixture as fixture on fixture.booking_id = booking.id
+    where booking.state = 'EXPIRED'
+  ) <> 101
+    or (
+      select count(*)
+      from public.contract_versions as version
+      join expiry_batch_fixture as fixture on fixture.contract_id = version.id
+      where version.status = 'voided'
+    ) <> 101
+  then
+    raise exception 'bounded booking expiry left its drained backlog inconsistent';
+  end if;
+end;
+$$;
+
 set local role authenticated;
 set local "request.jwt.claim.sub" = '50000000-0000-4000-8000-000000000002';
 
