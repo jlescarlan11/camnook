@@ -2,12 +2,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: vi.fn() }));
+vi.mock("@/lib/auth/require-admin", () => ({
+  isAdminAuthorizationError: (error: unknown) =>
+    Boolean(
+      error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "42501" &&
+        "message" in error &&
+        error.message === "admin authorization required",
+    ),
+  isAuthenticationError: (error: unknown) =>
+    error instanceof Error && error.name === "AuthenticationRequiredError",
+  requireAdmin: vi.fn(),
+}));
+vi.mock("@/lib/auth/require-user", () => ({ requireUser: vi.fn() }));
 vi.mock("../meetups/provider-budget", () => ({ claimGeoapifyProviderBudget: vi.fn() }));
 
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { claimGeoapifyProviderBudget } from "../meetups/provider-budget";
 import {
@@ -95,6 +110,10 @@ function authorize(options?: {
     supabase: { schema },
     user: { id: ACTOR_ID },
   } as never);
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { schema },
+    user: { id: ACTOR_ID },
+  } as never);
   return { rpc, schema };
 }
 
@@ -126,6 +145,7 @@ describe("camera handoff city and policy actions", () => {
       status: "error",
     });
     expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
   it("denies an unauthorized suggestion before provider or database use", async () => {
@@ -140,11 +160,14 @@ describe("camera handoff city and policy actions", () => {
   });
 
   it("denies an unauthorized save without reading or replacing a policy", async () => {
-    vi.mocked(requireAdmin).mockRejectedValue(new Error("private auth detail"));
+    const authError = new Error("private auth detail");
+    authError.name = "AuthenticationRequiredError";
+    vi.mocked(requireUser).mockRejectedValue(authError);
 
     await expect(
       saveCameraHandoffPolicy({ status: "idle" }, validSaveFields()),
     ).resolves.toEqual({ error: "unauthorized", status: "error" });
+    expect(requireAdmin).not.toHaveBeenCalled();
   });
 
   it("derives a safe current-city suggestion without returning or logging the position", async () => {
@@ -437,6 +460,26 @@ describe("camera handoff city and policy actions", () => {
         p_longitude: 123.8854,
         p_provider_city_id: "provider:cebu",
       }),
+    );
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
+  it("lets the policy RPC reject a revoked admin without a separate admin lookup", async () => {
+    const api = authorize({
+      anchorError: {
+        code: "42501",
+        message: "admin authorization required",
+      },
+    });
+
+    await expect(
+      saveCameraHandoffPolicy({ status: "idle" }, validSaveFields()),
+    ).resolves.toEqual({ error: "unauthorized", status: "error" });
+    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(api.rpc).toHaveBeenCalledTimes(1);
+    expect(api.rpc).not.toHaveBeenCalledWith(
+      "replace_camera_handoff_policy",
+      expect.anything(),
     );
   });
 
