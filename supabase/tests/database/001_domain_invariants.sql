@@ -159,6 +159,17 @@ insert into public.availability_blocks (
     'Archived camera private availability fixture',
     null,
     null
+  ),
+  (
+    'd1000000-0000-4000-8000-000000000005',
+    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    'manual',
+    '2020-01-01 00:00:00+00',
+    '2020-01-02 00:00:00+00',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Ended private availability fixture',
+    null,
+    null
   );
 
 set local role anon;
@@ -196,6 +207,7 @@ begin
       'name', 'Battery',
       'quantity', 2
     ))
+    or jsonb_array_length(camera -> 'availability') <> 1
     or camera -> 'availability' -> 0 ->> 'reason' <> 'unavailable'
     or camera -> 'handoff_policy' ->> 'city_label' <> 'Manila'
     or camera -> 'handoff_policy' -> 'approved_times' <> '["09:00"]'::jsonb
@@ -213,6 +225,7 @@ begin
   ]::text[]
     or camera::text like '%PRIVATE-SERIAL%'
     or camera::text like '%Active public availability fixture%'
+    or camera::text like '%Ended private availability fixture%'
     or camera::text like '%replacement_value%'
     or camera::text like '%provider_city_id%'
     or camera::text like '%latitude%'
@@ -1094,7 +1107,7 @@ begin
     select count(*)
     from public.availability_blocks as availability
     where availability.camera_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
-  ) <> 2
+  ) <> 3
     or (
       select count(*)
       from public.public_availability as availability
