@@ -42,13 +42,6 @@ accessory_writer_sql="$test_dir/accessory-writer.sql"
 accessory_ready_file="$test_dir/accessory-approval-ready"
 accessory_release_file="$test_dir/accessory-approval-release"
 accessory_writer_application_name="camnook-accessory-writer-$$"
-verification_approval_log="$test_dir/verification-approval.log"
-verification_writer_log="$test_dir/verification-writer.log"
-verification_approval_sql="$test_dir/verification-approval.sql"
-verification_writer_sql="$test_dir/verification-writer.sql"
-verification_ready_file="$test_dir/verification-approval-ready"
-verification_release_file="$test_dir/verification-approval-release"
-verification_writer_application_name="camnook-verification-writer-$$"
 catalog_archive_a_log="$test_dir/catalog-archive-a.log"
 catalog_archive_b_log="$test_dir/catalog-archive-b.log"
 catalog_archive_a_sql="$test_dir/catalog-archive-a.sql"
@@ -108,8 +101,6 @@ handoff_policy_ready_file="$test_dir/handoff-policy-a-ready"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
-verification_approval_pid=""
-verification_writer_pid=""
 catalog_archive_a_pid=""
 catalog_archive_b_pid=""
 catalog_publish_archive_pid=""
@@ -131,8 +122,6 @@ cleanup() {
     "$session_a_pid" \
     "$accessory_approval_pid" \
     "$accessory_writer_pid" \
-    "$verification_approval_pid" \
-    "$verification_writer_pid" \
     "$catalog_archive_a_pid" \
     "$catalog_archive_b_pid" \
     "$catalog_publish_archive_pid" \
