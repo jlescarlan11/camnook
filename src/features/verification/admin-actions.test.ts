@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: vi.fn() }));
+vi.mock("@/lib/auth/require-user", () => ({ requireUser: vi.fn() }));
 vi.mock("@/lib/auth/require-admin", () => {
   class AdminAuthorizationRequiredError extends Error {}
   return {
@@ -19,6 +20,7 @@ import {
   AdminAuthorizationRequiredError,
   requireAdmin,
 } from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import {
@@ -40,6 +42,10 @@ function authorizeRpc(result: unknown) {
   const rpc = vi.fn().mockResolvedValue(result);
   const schema = vi.fn(() => ({ rpc }));
   vi.mocked(requireAdmin).mockResolvedValue({
+    supabase: { schema },
+    user: { id: "admin" },
+  } as never);
+  vi.mocked(requireUser).mockResolvedValue({
     supabase: { schema },
     user: { id: "admin" },
   } as never);
@@ -183,6 +189,32 @@ describe("admin verification actions", () => {
       `/admin/verifications/${RECORD_ID}`,
     );
     expect(revalidatePath).toHaveBeenCalledWith("/account");
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
+  it("lets the decision RPC reject a nonadmin without a separate admin lookup", async () => {
+    const api = authorizeRpc({
+      data: null,
+      error: { code: "42501", message: "verification_decision_unauthorized" },
+    });
+
+    await expect(
+      decideVerification(
+        { status: "idle" },
+        fields({
+          decision: "rejected",
+          recordId: RECORD_ID,
+          rejectionReasonCode: "document_not_readable",
+          reviewedDocumentId: DOCUMENT_ID,
+        }),
+      ),
+    ).resolves.toEqual({
+      action: "reject",
+      error: "unauthorized",
+      status: "error",
+    });
+    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(api.rpc).toHaveBeenCalledTimes(1);
   });
 
   it("requires the exact reviewed document before any decision", async () => {

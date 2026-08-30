@@ -10,6 +10,7 @@ import {
   isAuthenticationError,
   requireAdmin,
 } from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { stringFormValue } from "../bookings/actions/state";
@@ -190,9 +191,9 @@ export async function decideVerification(
     return { action, fieldErrors, status: "error" };
   }
 
-  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  let context: Awaited<ReturnType<typeof requireUser>>;
   try {
-    context = await requireAdmin();
+    context = await requireUser();
   } catch (error) {
     return {
       action,

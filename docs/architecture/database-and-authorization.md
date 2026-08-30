@@ -269,6 +269,9 @@ while stale, availability-conflict, and indeterminate outcomes remain distinct.
 GCash recipient configuration and payment verify/reject decisions use the same
 one-RPC mutation boundary. Proof access retains an explicit preauthorization
 because it proceeds to private Storage after receiving a purpose-bound grant.
+Identity verification decisions also use this database-only boundary, while
+verification-evidence access remains preauthorized before a private Storage URL
+can be issued.
 The physical pickup completion transition is also database-only and delegates
 its admin check to `complete_pickup`; condition-photo upload and access retain
 preauthorization because they touch private Storage.
