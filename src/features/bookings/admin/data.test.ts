@@ -5,7 +5,6 @@ vi.mock("server-only", () => ({}));
 import {
   loadAdminBookingDetail,
   loadAdminBookingPageContext,
-  loadAdminQueue,
 } from "./data";
 
 const BOOKING_ID = "22222222-2222-4222-8222-222222222222";
@@ -169,22 +168,6 @@ function adminContext(
   };
 }
 
-function operation(builder: QueryBuilder, name: string) {
-  return builder.operations.filter((item) => item.name === name);
-}
-
-function queuedBooking(overrides: Record<string, unknown> = {}) {
-  return {
-    camera_id: CAMERA_ID,
-    id: BOOKING_ID,
-    pickup_at: "2026-08-20T01:00:00.000Z",
-    renter_id: RENTER_ID,
-    requested_at: "2026-08-13T08:00:00.000Z",
-    return_at: "2026-08-21T01:00:00.000Z",
-    ...overrides,
-  };
-}
-
 function fullBooking(overrides: Record<string, unknown> = {}) {
   return {
     approval_deadline_at: null,
@@ -318,81 +301,6 @@ const quoteResult = {
   ],
   error: null,
 };
-
-describe("admin booking queue data", () => {
-  it("queries FOR_REVIEW records with allowlists and projects only queue data", async () => {
-    const fixture = queuedBooking({
-      operator_notes: "private notes",
-      total_due: 1,
-    });
-    const harness = adminContext({
-      bookings: { data: [fixture], error: null },
-      cameras: {
-        data: [{ id: CAMERA_ID, name: "Sony A7", serial_number: "private" }],
-        error: null,
-      },
-      profiles: {
-        data: [{ legal_name: "Maria Santos", phone: "not for queue", user_id: RENTER_ID }],
-        error: null,
-      },
-    });
-
-    await expect(loadAdminQueue(harness.context)).resolves.toEqual({
-      bookings: [
-        {
-          cameraName: "Sony A7",
-          id: BOOKING_ID,
-          pickupAt: "2026-08-20T01:00:00.000Z",
-          renterLegalName: "Maria Santos",
-          requestedAt: "2026-08-13T08:00:00.000Z",
-          returnAt: "2026-08-21T01:00:00.000Z",
-        },
-      ],
-      status: "success",
-    });
-
-    const bookings = harness.builders.find((item) => item.table === "bookings")!;
-    const profiles = harness.builders.find((item) => item.table === "profiles")!;
-    const cameras = harness.builders.find((item) => item.table === "cameras")!;
-    expect(operation(bookings, "select")[0].args).toEqual([
-      "id,renter_id,camera_id,pickup_at,return_at,requested_at",
-    ]);
-    expect(operation(bookings, "eq")).toContainEqual({
-      args: ["state", "FOR_REVIEW"],
-      name: "eq",
-    });
-    expect(operation(profiles, "select")[0].args).toEqual([
-      "user_id,legal_name",
-    ]);
-    expect(operation(cameras, "select")[0].args).toEqual(["id,name"]);
-    expect(JSON.stringify(await loadAdminQueue(harness.context))).not.toMatch(
-      /operator_notes|serial_number|phone|total_due|private notes/,
-    );
-  });
-
-  it("returns an accessible-page empty result without related queries", async () => {
-    const harness = adminContext({ bookings: { data: [], error: null } });
-
-    await expect(loadAdminQueue(harness.context)).resolves.toEqual({
-      bookings: [],
-      status: "success",
-    });
-    expect(harness.from).toHaveBeenCalledTimes(1);
-  });
-
-  it("constrains a queue read failure", async () => {
-    const harness = adminContext({
-      bookings: {
-        data: null,
-        error: { message: "database host and private relation" },
-      },
-    });
-
-    await expect(loadAdminQueue(harness.context)).resolves.toEqual({
-      status: "error",
-    });
-  });
-});
 
 describe("admin booking detail data", () => {
   it("rejects an invalid ID before any query", async () => {

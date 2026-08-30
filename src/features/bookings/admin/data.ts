@@ -18,8 +18,6 @@ import { assessApprovalReadiness } from "./readiness";
 
 type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
 
-export const ADMIN_QUEUE_BOOKING_COLUMNS =
-  "id,renter_id,camera_id,pickup_at,return_at,requested_at";
 const adminDetailSnapshotSchema = z.object({
   accessories: z.array(z.object({
     id: z.uuid(),
@@ -97,26 +95,23 @@ const adminBookingPageContextSchema = z.object({
   resolution: z.unknown(),
 }).strict();
 
-type QueueBookingRow = {
-  camera_id: string;
-  id: string;
-  pickup_at: string;
-  renter_id: string;
-  requested_at: string;
-  return_at: string;
-};
-
-type DetailBookingRow = QueueBookingRow & {
+type DetailBookingRow = {
   approval_deadline_at: string | null;
   approved_at: string | null;
   billable_days_snapshot: number | null;
+  camera_id: string;
   currency: string;
   current_contract_version_id: string | null;
   daily_rate_snapshot: number | null;
   expected_location: string;
+  id: string;
   intended_use: string;
   meetup_snapshot_required: boolean;
+  pickup_at: string;
   rental_amount: number | null;
+  renter_id: string;
+  requested_at: string;
+  return_at: string;
   security_deposit_amount: number | null;
   state: string;
   total_due: number | null;
@@ -135,63 +130,6 @@ type ContractReferenceRow = {
   template_id: string;
   version_no: number;
 };
-
-function unique(values: string[]) {
-  return [...new Set(values)];
-}
-
-export async function loadAdminQueue(context: AdminContext) {
-  const bookingsResult = await context.supabase
-    .from("bookings")
-    .select(ADMIN_QUEUE_BOOKING_COLUMNS)
-    .eq("state", "FOR_REVIEW")
-    .order("requested_at", { ascending: true });
-
-  if (bookingsResult.error) return { status: "error" } as const;
-  const rows = (bookingsResult.data ?? []) as QueueBookingRow[];
-  if (rows.length === 0) {
-    return { bookings: [], status: "success" } as const;
-  }
-
-  const [profilesResult, camerasResult] = await Promise.all([
-    context.supabase
-      .from("profiles")
-      .select("user_id,legal_name")
-      .in("user_id", unique(rows.map((row) => row.renter_id))),
-    context.supabase
-      .from("cameras")
-      .select("id,name")
-      .in("id", unique(rows.map((row) => row.camera_id))),
-  ]);
-
-  if (profilesResult.error || camerasResult.error) {
-    return { status: "error" } as const;
-  }
-
-  const legalNameById = new Map(
-    ((profilesResult.data ?? []) as { legal_name: string; user_id: string }[]).map(
-      (profile) => [profile.user_id, profile.legal_name],
-    ),
-  );
-  const cameraNameById = new Map(
-    ((camerasResult.data ?? []) as { id: string; name: string }[]).map(
-      (camera) => [camera.id, camera.name],
-    ),
-  );
-
-  return {
-    bookings: rows.map((row) => ({
-      cameraName: cameraNameById.get(row.camera_id) ?? "Camera unavailable",
-      id: row.id,
-      pickupAt: row.pickup_at,
-      renterLegalName:
-        legalNameById.get(row.renter_id) ?? "Profile unavailable",
-      requestedAt: row.requested_at,
-      returnAt: row.return_at,
-    })),
-    status: "success",
-  } as const;
-}
 
 function sanitizedAvailability(rows: AvailabilityRow[]) {
   return rows.flatMap((row) =>
