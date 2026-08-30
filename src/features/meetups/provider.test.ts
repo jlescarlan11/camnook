@@ -246,6 +246,68 @@ describe("GeoapifyAdapter", () => {
     ).rejects.toEqual(new ProviderBoundaryError("malformed"));
   });
 
+  it("rejects oversized provider responses before parsing or normalization", async () => {
+    const declaredOversize = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: vi.fn().mockResolvedValue(
+        new Response("{}", {
+          headers: { "content-length": String(512 * 1024 + 1) },
+          status: 200,
+        }),
+      ),
+      timeoutMs: 100,
+    });
+    const chunkedOversize = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new Uint8Array(256 * 1024 + 1));
+              controller.enqueue(new Uint8Array(256 * 1024 + 1));
+              controller.close();
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+      timeoutMs: 100,
+    });
+
+    await expect(
+      declaredOversize.reverseGeocodeCity({ latitude: 10, longitude: 123 }),
+    ).rejects.toEqual(new ProviderBoundaryError("malformed"));
+    await expect(
+      chunkedOversize.reverseGeocodeCity({ latitude: 10, longitude: 123 }),
+    ).rejects.toEqual(new ProviderBoundaryError("malformed"));
+  });
+
+  it("rejects provider result counts above the requested limit", async () => {
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: vi.fn().mockResolvedValue(
+        response(mcp({
+          results: Array.from({ length: 21 }, (_, index) => ({
+            categories: ["commercial.shopping_mall"],
+            city: "Cebu City",
+            formatted: `Public place ${index}, Cebu City`,
+            lat: 10.3,
+            lon: 123.9,
+            name: `Public place ${index}`,
+            place_id: `place-${index}`,
+          })),
+        })),
+      ),
+      timeoutMs: 100,
+    });
+
+    await expect(adapter.searchPublicPlaces({
+      allowedCategories: ["commercial.shopping_mall"],
+      center: { latitude: 10.3, longitude: 123.9 },
+      radiusMeters: 8_000,
+    })).rejects.toEqual(new ProviderBoundaryError("malformed"));
+  });
+
   it("maps a JSON-RPC provider error to a constrained network failure", async () => {
     const adapter = new GeoapifyAdapter({
       apiKey: "secret-key",

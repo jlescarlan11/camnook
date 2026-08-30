@@ -25,6 +25,8 @@ export class ProviderBoundaryError extends Error {
   }
 }
 
+const MAX_PROVIDER_RESPONSE_BYTES = 512 * 1024;
+
 const providerCityPartSchema = z
   .string()
   .trim()
@@ -51,21 +53,21 @@ const reverseResponseSchema = z.object({
       place_id: providerCityIdSchema.optional(),
       result_type: z.string().optional(),
     }),
-  ),
+  ).max(1),
 });
 
 const placesResponseSchema = z.object({
   results: z.array(
     z.object({
-      categories: z.array(z.string().trim().min(1)),
-      city: z.string().trim().min(1).optional(),
-      formatted: z.string().trim().min(1).optional(),
+      categories: z.array(z.string().trim().min(1).max(120)).max(50),
+      city: z.string().trim().min(1).max(120).optional(),
+      formatted: z.string().trim().min(1).max(300).optional(),
       lat: z.number().finite().min(-90).max(90),
       lon: z.number().finite().min(-180).max(180),
-      name: z.string().trim().min(1).optional(),
-      place_id: z.string().trim().min(1),
+      name: z.string().trim().min(1).max(200).optional(),
+      place_id: z.string().trim().min(1).max(240),
     }),
-  ),
+  ).max(20),
 });
 
 const citySearchResponseSchema = z.object({
@@ -80,7 +82,7 @@ const citySearchResponseSchema = z.object({
       place_id: providerCityIdSchema.optional(),
       result_type: z.string().optional(),
     }),
-  ),
+  ).max(5),
 });
 
 const providerAddressPartSchema = z
@@ -105,11 +107,11 @@ const addressSearchResponseSchema = z.object({
       place_id: providerCityIdSchema.optional(),
       result_type: z.string().trim().min(1).max(64).optional(),
     }),
-  ),
+  ).max(5),
 });
 
 const mcpResponseSchema = z.object({
-  error: z.object({ code: z.number(), message: z.string() }).optional(),
+  error: z.object({ code: z.number(), message: z.string().max(500) }).optional(),
   jsonrpc: z.literal("2.0"),
   result: z
     .object({
@@ -118,6 +120,50 @@ const mcpResponseSchema = z.object({
     })
     .optional(),
 });
+
+async function readBoundedProviderJson(response: Response) {
+  const contentLength = response.headers.get("content-length");
+  if (
+    contentLength !== null &&
+    /^\d+$/.test(contentLength) &&
+    Number(contentLength) > MAX_PROVIDER_RESPONSE_BYTES
+  ) {
+    throw new ProviderBoundaryError("malformed");
+  }
+
+  if (!response.body) throw new ProviderBoundaryError("malformed");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    byteLength += value.byteLength;
+    if (byteLength > MAX_PROVIDER_RESPONSE_BYTES) {
+      try {
+        await reader.cancel();
+      } catch {
+        // The size rejection remains decisive if the provider already closed.
+      }
+      throw new ProviderBoundaryError("malformed");
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)) as unknown;
+  } catch {
+    throw new ProviderBoundaryError("malformed");
+  }
+}
 
 type GeoapifyAdapterOptions = {
   apiKey: string;
@@ -159,12 +205,7 @@ export class GeoapifyAdapter {
       });
       if (response.status === 429) throw new ProviderBoundaryError("quota");
       if (!response.ok) throw new ProviderBoundaryError("network");
-      let payload: unknown;
-      try {
-        payload = await response.json();
-      } catch {
-        throw new ProviderBoundaryError("malformed");
-      }
+      const payload = await readBoundedProviderJson(response);
       const envelope = mcpResponseSchema.safeParse(payload);
       if (!envelope.success) throw new ProviderBoundaryError("malformed");
       if (envelope.data.error || envelope.data.result?.isError) {
