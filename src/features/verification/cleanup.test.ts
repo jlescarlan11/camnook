@@ -183,23 +183,49 @@ describe("due verification evidence cleanup", () => {
     expect(peakFinalizations).toBe(10);
   });
 
-  it("fails closed before evidence cleanup when Manila-date expiry cannot be recorded", async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: null,
-      error: { message: "private database detail" },
-    });
-    const remove = vi.fn();
-    vi.mocked(createSupabaseAdminClient).mockReturnValue({
-      schema: vi.fn(() => ({ rpc })),
-      storage: { from: vi.fn(() => ({ remove })) },
-    } as never);
+  it.each(["returns an error", "throws"] as const)(
+    "continues evidence cleanup when Manila-date expiry %s",
+    async (failureMode) => {
+      const rpc = vi.fn(async (name: string) => {
+        if (name === "expire_due_verifications") {
+          if (failureMode === "throws") {
+            throw new Error("private network detail");
+          }
+          return { data: null, error: { message: "private database detail" } };
+        }
+        if (name === "claim_verification_evidence_cleanup") {
+          return {
+            data: [
+              {
+                id: DOCUMENT_ID,
+                kind: "verification_document",
+                object_path: DOCUMENT_PATH,
+                owner_user_id: OWNER_ID,
+              },
+            ],
+            error: null,
+          };
+        }
+        if (name === "finalize_due_verification_document_deletion") {
+          return { data: { status: "deleted" }, error: null };
+        }
+        throw new Error(`unexpected RPC: ${name}`);
+      });
+      const remove = vi.fn().mockResolvedValue({ data: [], error: null });
+      vi.mocked(createSupabaseAdminClient).mockReturnValue({
+        schema: vi.fn(() => ({ rpc })),
+        storage: { from: vi.fn(() => ({ remove })) },
+      } as never);
 
-    await expect(cleanupDueVerificationEvidence()).rejects.toThrow(
-      "Unable to expire due verification decisions",
-    );
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(remove).not.toHaveBeenCalled();
-  });
+      await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
+        claimed: 1,
+        cleaned: 1,
+        expired: 0,
+        failed: 1,
+      });
+      expect(remove).toHaveBeenCalledWith([DOCUMENT_PATH]);
+    },
+  );
 });
 
 describe("abandoned private upload cleanup", () => {

@@ -115,12 +115,17 @@ export async function cleanupAbandonedPrivateUploads(): Promise<AbandonedUploadC
 
 export async function cleanupDueVerificationEvidence(): Promise<VerificationCleanupSummary> {
   const admin = createSupabaseAdminClient();
-  const expiry = await admin.schema("api").rpc("expire_due_verifications", {
-    p_operation_id: randomUUID(),
-  });
-
-  if (expiry.error || !z.number().int().nonnegative().safeParse(expiry.data).success) {
-    throw new Error("Unable to expire due verification decisions");
+  let expired = 0;
+  let failed = 0;
+  try {
+    const expiry = await admin.schema("api").rpc("expire_due_verifications", {
+      p_operation_id: randomUUID(),
+    });
+    const parsedExpiry = z.number().int().nonnegative().safeParse(expiry.data);
+    if (expiry.error || !parsedExpiry.success) failed += 1;
+    else expired = parsedExpiry.data;
+  } catch {
+    failed += 1;
   }
 
   const operationId = randomUUID();
@@ -135,7 +140,6 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
   }
 
   let cleaned = 0;
-  let failed = 0;
   const bucket = admin.storage.from("verification-documents");
 
   for (let index = 0; index < claimed.data.length; index += CLEANUP_BATCH_SIZE) {
@@ -190,7 +194,7 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
   return {
     claimed: claimed.data.length,
     cleaned,
-    expired: expiry.data as number,
+    expired,
     failed,
   };
 }
