@@ -6,7 +6,6 @@ import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
-import { getAdminStatus } from "@/lib/auth/require-admin";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +16,7 @@ export const metadata: Metadata = {
 
 export default async function AccountPage() {
   const context = await requirePageUser("/account");
-  const [isAdmin, account] = await Promise.all([
-    getAdminStatus(context),
-    loadAccountOverview(context),
-  ]);
+  const account = await loadAccountOverview(context);
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">
@@ -33,7 +29,7 @@ export default async function AccountPage() {
             <p className="mt-3 text-stone-600">Signed in as {context.user.email}</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {isAdmin ? (
+            {account.status === "success" && account.isAdmin ? (
               <Link className="inline-flex min-h-11 items-center rounded-xl border border-stone-300 bg-white px-4 py-2 font-medium" href="/admin">
                 Admin area
               </Link>

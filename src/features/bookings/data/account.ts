@@ -95,6 +95,7 @@ const accountOverviewSchema = z.object({
     camera: publicCameraIdentitySchema.nullable(),
     meetup: safeMeetupPlanRowSchema.nullable(),
   }).strict()),
+  is_admin: z.boolean(),
   profile: safeProfileSchema.nullable(),
 }).strict();
 
@@ -251,6 +252,7 @@ export async function loadAccountOverview(context: UserContext) {
           phone: parsed.data.profile.phone,
         }
       : null,
+    isAdmin: parsed.data.is_admin,
     status: "success" as const,
   };
 }

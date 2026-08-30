@@ -819,6 +819,7 @@ begin
   if jsonb_array_length(api.get_my_account_overview() -> 'bookings') <> 0
     or api.get_my_account_overview() #>> '{profile,legal_name}'
       <> 'Other Portfolio Renter'
+    or (api.get_my_account_overview() ->> 'is_admin')::boolean
   then
     raise exception 'renter account overview crossed ownership boundaries';
   end if;
@@ -881,6 +882,7 @@ begin
   end if;
 
   if overview #>> '{profile,legal_name}' <> 'Portfolio Renter'
+    or (overview ->> 'is_admin')::boolean
     or jsonb_array_length(overview -> 'bookings') < 10
     or not exists (
       select 1
@@ -928,6 +930,10 @@ declare
   );
   camera_revenue numeric;
 begin
+  if not (api.get_my_account_overview() ->> 'is_admin')::boolean then
+    raise exception 'admin account overview omitted administrator status';
+  end if;
+
   if dashboard #>> '{queue_counts,review}' <> '1'
     or dashboard #>> '{queue_counts,signature}' <> '3'
     or dashboard #>> '{queue_counts,payment}' <> '1'

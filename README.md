@@ -96,7 +96,7 @@ also runs the return/cancellation/deposit and owner-portfolio acceptance suites
 before removing the cluster. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
 
-The repository currently contains fifty forward migrations. On 13 August 2026,
+The repository currently contains fifty-one forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
 separately authorized, database-first rollout after Development/Preview
 verification, leaving both hosted projects at 11/11 at that checkpoint. On 14

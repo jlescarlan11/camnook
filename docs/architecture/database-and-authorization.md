@@ -213,6 +213,11 @@ database statement. It never returns serial numbers, acquisition or replacement
 values, private availability reasons, booking references, provider place IDs, or
 coordinates; the application also rejects unexpected response fields.
 
+The renter account page receives its administrator-navigation status in the
+same owner-scoped account snapshot as its profile and bookings. This replaces a
+second authorization RPC with one boolean computed by the database's existing
+admin predicate, reducing valid account-page database requests from two to one.
+
 ### Requests, reservations, and exclusion constraint
 
 `public.bookings`
@@ -531,7 +536,7 @@ Policy rules:
 
 ## Migration acceptance tests
 
-The repository contains fifty forward migrations. On 13 August 2026, the four
+The repository contains fifty-one forward migrations. On 13 August 2026, the four
 booking-milestone migrations were applied to Production through a separately
 authorized, database-first rollout after Development/Preview verification,
 leaving both hosted projects at 11/11 at that checkpoint. On 14 August 2026, the

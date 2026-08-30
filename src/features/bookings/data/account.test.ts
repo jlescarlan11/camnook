@@ -114,6 +114,7 @@ describe("renter booking projection", () => {
           camera: { name: "Fujifilm X-T5", slug: "fujifilm-x-t5" },
           meetup: null,
         }],
+        is_admin: true,
         profile: {
           account_status: "active",
           legal_name: "Maria Santos",
@@ -129,6 +130,7 @@ describe("renter booking projection", () => {
 
     await expect(loadAccountOverview(context)).resolves.toMatchObject({
       bookings: [{ camera: { name: "Fujifilm X-T5" }, id: baseRow.id }],
+      isAdmin: true,
       profile: { accountStatus: "active", legalName: "Maria Santos" },
       status: "success",
     });
