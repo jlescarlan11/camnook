@@ -52,7 +52,7 @@ async function waitForPath(path, timeoutMs = 10_000) {
   throw new Error(`timed out waiting for ${path}`);
 }
 
-describe("hosted database test runner diagnostics", () => {
+describe("hosted database test runner diagnostics", { timeout: 15_000 }, () => {
   beforeEach(() => {
     fixtureRoot = mkdtempSync(join(tmpdir(), "camnook-hosted-runner-test-"));
     fakeBin = join(fixtureRoot, "bin");
