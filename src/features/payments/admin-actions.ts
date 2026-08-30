@@ -50,6 +50,7 @@ export type PaymentDecisionActionState = {
 };
 
 const paymentIdSchema = z.uuid();
+const proofIdSchema = z.uuid();
 const observedReferenceSchema = z
   .string()
   .trim()
@@ -244,6 +245,7 @@ export async function decidePayment(
   formData: FormData,
 ): Promise<PaymentDecisionActionState> {
   const paymentId = stringFormValue(formData, "paymentId");
+  const expectedProofId = stringFormValue(formData, "expectedProofId");
   const decision = stringFormValue(formData, "decision");
   const observedAmountValue = stringFormValue(formData, "observedAmount");
   const observedAmount = parseAmount(observedAmountValue);
@@ -262,6 +264,9 @@ export async function decidePayment(
   }
 
   if (decision === "verified") {
+    if (!proofIdSchema.safeParse(expectedProofId).success) {
+      return { action, error: "stale", status: "error" };
+    }
     if (formData.get("actualAccount") !== "confirmed-actual-account") {
       fieldErrors.actualAccount =
         "Confirm the transfer in the approved GCash account, not from the screenshot alone.";
@@ -304,6 +309,7 @@ export async function decidePayment(
       decision === "verified"
         ? await context.supabase.schema("api").rpc("verify_payment", {
             p_actual_account_checked: true,
+            p_expected_proof_id: expectedProofId,
             p_observed_amount: observedAmount!,
             p_observed_reference: observedReference.data!,
             p_operation_id: operationId,

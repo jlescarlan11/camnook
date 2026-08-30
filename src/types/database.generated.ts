@@ -743,6 +743,7 @@ export type Database = {
       verify_payment: {
         Args: {
           p_actual_account_checked: boolean
+          p_expected_proof_id: string
           p_observed_amount: number
           p_observed_reference: string
           p_operation_id: string

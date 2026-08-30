@@ -91,7 +91,11 @@ export default async function AdminPaymentPage({ params }: PageProps) {
               renter fields, and unrelated financial records.
             </p>
 
-            <PaymentReviewControls hasProof={result.item.proof !== null} paymentId={result.item.transaction_id} />
+            <PaymentReviewControls
+              hasProof={result.item.proof !== null}
+              paymentId={result.item.transaction_id}
+              proofId={result.item.proof?.proof_id}
+            />
 
             <section className="mt-8 border-t border-stone-200 pt-7" aria-labelledby="payment-audit-heading">
               <h2 className="text-xl font-semibold" id="payment-audit-heading">Append-only audit history</h2>

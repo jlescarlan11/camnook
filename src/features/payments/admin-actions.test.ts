@@ -38,6 +38,7 @@ function verifyForm() {
   data.set("observedAmount", "6000.00");
   data.set("observedReference", "GCASH REFERENCE");
   data.set("paymentId", PAYMENT_ID);
+  data.set("expectedProofId", PROOF_ID);
   return data;
 }
 
@@ -116,12 +117,13 @@ describe("payment admin actions", () => {
     });
     expect(rpc).toHaveBeenCalledWith("verify_payment", {
       p_actual_account_checked: true,
+      p_expected_proof_id: PROOF_ID,
       p_observed_amount: 6000,
       p_observed_reference: "GCASH REFERENCE",
       p_operation_id: expect.any(String),
       p_payment_id: PAYMENT_ID,
     });
-    expect(JSON.stringify(rpc.mock.calls)).not.toMatch(/allocation|proof|path/);
+    expect(JSON.stringify(rpc.mock.calls)).not.toMatch(/allocation|object_path/);
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
   });
 

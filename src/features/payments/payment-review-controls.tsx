@@ -48,9 +48,11 @@ function decisionErrorMessage(error: PaymentDecisionActionState["error"]) {
 export function PaymentReviewControls({
   hasProof,
   paymentId,
+  proofId,
 }: {
   hasProof: boolean;
   paymentId: string;
+  proofId?: string;
 }) {
   const [accessState, accessAction, accessPending] = useActionState(
     requestPaymentProofAccess,
@@ -147,6 +149,7 @@ export function PaymentReviewControls({
         >
           <input name="decision" type="hidden" value="verified" />
           <input name="paymentId" type="hidden" value={paymentId} />
+          <input name="expectedProofId" type="hidden" value={proofId ?? ""} />
           <h3 className="font-semibold text-emerald-950">Verify transfer</h3>
           <p className="mt-2 text-sm leading-6 text-emerald-900">
             The database requires the exact authoritative total, the same

@@ -562,8 +562,23 @@ begin
     raise exception 'admin payment projections are incomplete or overexposed';
   end if;
 
+  begin
+    perform api.verify_payment(
+      current_setting('test.payment_transaction_one')::uuid,
+      '60000000-0000-4000-8000-000000000003',
+      (detail ->> 'total_due')::numeric,
+      'GCASH REF ONE',
+      true,
+      '60700000-0000-4000-8000-000000000001'
+    );
+    raise exception 'payment verification accepted a proof version that was not reviewed';
+  exception
+    when serialization_failure then null;
+  end;
+
   verified := api.verify_payment(
     current_setting('test.payment_transaction_one')::uuid,
+    (detail #>> '{proof,proof_id}')::uuid,
     (detail ->> 'total_due')::numeric,
     'GCASH REF ONE',
     true,
@@ -571,6 +586,7 @@ begin
   );
   retry := api.verify_payment(
     current_setting('test.payment_transaction_one')::uuid,
+    (detail #>> '{proof,proof_id}')::uuid,
     (detail ->> 'total_due')::numeric,
     'GCASH-REF-ONE',
     true,
@@ -679,7 +695,29 @@ $$;
 set constraints all immediate;
 set constraints all deferred;
 
+reset role;
+insert into public.payment_proofs (
+  id,
+  transaction_id,
+  owner_user_id,
+  object_path,
+  media_type,
+  byte_size,
+  sha256,
+  finalized_at
+) values (
+  '60800000-0000-4000-8000-000000000004',
+  current_setting('test.payment_transaction_two')::uuid,
+  '60000000-0000-4000-8000-000000000002',
+  '60800000-0000-4000-8000-000000000004/proof.png',
+  'image/png',
+  9,
+  extensions.digest(convert_to('proof-three', 'UTF8'), 'sha256'),
+  statement_timestamp()
+);
+
 set local "request.jwt.claim.sub" = '60000000-0000-4000-8000-000000000001';
+set local role authenticated;
 
 do $$
 declare
@@ -689,6 +727,7 @@ begin
   begin
     perform api.verify_payment(
       current_setting('test.payment_transaction_two')::uuid,
+      (detail #>> '{proof,proof_id}')::uuid,
       (detail ->> 'total_due')::numeric,
       'GCASH-REF-ONE',
       true,
