@@ -32,6 +32,7 @@ export type PickupCompletionActionState = {
     accessories?: string;
     cameraSerial?: string;
     conditionSummary?: string;
+    notes?: string;
     originalId?: string;
     renter?: string;
   };
@@ -115,7 +116,7 @@ export async function completePickup(
     fieldErrors.conditionSummary = "Record a 2–2,000 character starting condition.";
   }
   if (!notes.success) {
-    fieldErrors.conditionSummary = "Notes must be no longer than 2,000 characters.";
+    fieldErrors.notes = "Notes must be no longer than 2,000 characters.";
   }
   if (formData.get("namedRenter") !== "confirmed-named-renter") {
     fieldErrors.renter = "Confirm that the named renter is physically present.";

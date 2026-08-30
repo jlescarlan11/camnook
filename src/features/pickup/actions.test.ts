@@ -76,6 +76,18 @@ describe("pickup Server Actions", () => {
     expect(requireAdmin).not.toHaveBeenCalled();
   });
 
+  it("keeps an invalid private note attached to its own pickup field", async () => {
+    const data = completionForm();
+    data.set("notes", "x".repeat(2001));
+
+    const result = await completePickup({ status: "idle" }, data);
+
+    expect(result).toMatchObject({ error: "invalid", status: "error" });
+    expect(result.fieldErrors?.notes).toContain("Notes");
+    expect(result.fieldErrors?.conditionSummary).toBeUndefined();
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
   it("submits only observed facts to the atomic pickup RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: {

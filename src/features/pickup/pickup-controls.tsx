@@ -108,6 +108,7 @@ export function PickupControls({
           <div>
             <label className="block text-sm font-medium" htmlFor="pickup-notes">Private handoff notes (optional)</label>
             <textarea className="mt-2 min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3" id="pickup-notes" maxLength={2000} name="notes" />
+            {completionState.fieldErrors?.notes ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.notes}</p> : null}
           </div>
           <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending} type="submit">
             {completionPending ? "Rechecking and recording pickup…" : "Complete pickup and mark ACTIVE"}
