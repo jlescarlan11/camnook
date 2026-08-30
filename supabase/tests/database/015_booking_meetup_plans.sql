@@ -306,6 +306,33 @@ $$;
 
 reset role;
 
+delete from private.geoapify_provider_global_windows;
+delete from private.geoapify_provider_actor_windows;
+insert into private.geoapify_provider_daily_windows (
+  window_started_on, request_count
+) values ((statement_timestamp() at time zone 'UTC')::date, 2999)
+on conflict (window_started_on) do update
+set request_count = excluded.request_count;
+
+set local role service_role;
+set local "request.jwt.claim.role" = 'service_role';
+
+do $$
+begin
+  if not api.claim_geoapify_provider_budget(
+    'd0000000-0000-4000-8000-000000000002', 1
+  )
+    or api.claim_geoapify_provider_budget(
+      'd0000000-0000-4000-8000-000000000001', 1
+    )
+  then
+    raise exception 'Geoapify request budget did not enforce the daily cap';
+  end if;
+end;
+$$;
+
+reset role;
+
 update public.profiles
 set account_status = 'suspended'
 where user_id = 'd0000000-0000-4000-8000-000000000003';
