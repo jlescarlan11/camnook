@@ -306,6 +306,37 @@ describe("due verification evidence cleanup", () => {
       expect(remove).not.toHaveBeenCalled();
     },
   );
+
+  it("rejects an oversized verification claim before calling Storage", async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "expire_due_verifications") return { data: 0, error: null };
+      if (name === "claim_verification_evidence_cleanup") {
+        return {
+          data: Array.from({ length: 101 }, () => ({
+            id: DOCUMENT_ID,
+            kind: "verification_document",
+            object_path: DOCUMENT_PATH,
+            owner_user_id: OWNER_ID,
+          })),
+          error: null,
+        };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    const remove = vi.fn();
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })),
+      storage: { from: vi.fn(() => ({ remove })) },
+    } as never);
+
+    await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
+      claimed: 0,
+      cleaned: 0,
+      expired: 0,
+      failed: 1,
+    });
+    expect(remove).not.toHaveBeenCalled();
+  });
 });
 
 describe("abandoned private upload cleanup", () => {

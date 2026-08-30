@@ -6,14 +6,16 @@ import { z } from "zod";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+const privateObjectPathSchema = z.string().min(1).max(1_024);
+
 const cleanupClaimSchema = z.array(
   z.object({
     id: z.uuid(),
     kind: z.enum(["upload_intent", "verification_document"]),
-    object_path: z.string().min(1),
+    object_path: privateObjectPathSchema,
     owner_user_id: z.uuid(),
   }),
-);
+).max(100);
 
 const abandonedUploadClaimSchema = z.array(
   z.discriminatedUnion("kind", [
@@ -21,16 +23,16 @@ const abandonedUploadClaimSchema = z.array(
       bucket_id: z.literal("payment-proofs"),
       id: z.uuid(),
       kind: z.literal("payment_proof_upload_intent"),
-      object_path: z.string().min(1),
+      object_path: privateObjectPathSchema,
     }),
     z.object({
       bucket_id: z.literal("condition-evidence"),
       id: z.uuid(),
       kind: z.literal("condition_photo_upload_intent"),
-      object_path: z.string().min(1),
+      object_path: privateObjectPathSchema,
     }),
   ]),
-);
+).max(100);
 const cleanupFinalizationSchema = z.object({
   status: z.enum(["cleaned", "deleted"]),
 });
