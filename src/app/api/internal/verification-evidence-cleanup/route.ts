@@ -10,8 +10,12 @@ export async function GET(request: Request) {
 
   try {
     const summary = await cleanupDueVerificationEvidence();
+    if (summary.failed > 0) {
+      console.error("Verification evidence cleanup incomplete", summary);
+    }
     return Response.json(summary, { status: summary.failed === 0 ? 200 : 503 });
   } catch {
+    console.error("Verification evidence cleanup failed");
     return Response.json({ error: "cleanup_failed" }, { status: 503 });
   }
 }
