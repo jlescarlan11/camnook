@@ -83,4 +83,13 @@ describe("authentication route policy", () => {
       "/login?next=%2Fadmin%3Ftab%3Dpayments",
     );
   });
+
+  it("replaces return destinations that would overflow redirect or cookie limits", () => {
+    expect(sanitizeReturnTo(`/account?query=${"a".repeat(1_100)}`)).toBe(
+      "/account",
+    );
+    expect(sanitizeReturnTo(`/account?query=${"é".repeat(340)}`)).toBe(
+      "/account",
+    );
+  });
 });
