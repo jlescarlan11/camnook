@@ -111,9 +111,13 @@ describe("hosted database test runner diagnostics", { timeout: 15_000 }, () => {
       `#!/usr/bin/env bash
 set -euo pipefail
 output_file=""
+max_file_size=""
 while (( $# > 0 )); do
   if [[ "$1" == "-o" ]]; then
     output_file="$2"
+    shift 2
+  elif [[ "$1" == "--max-filesize" ]]; then
+    max_file_size="$2"
     shift 2
   else
     shift
@@ -121,6 +125,9 @@ while (( $# > 0 )); do
 done
 cat >/dev/null
 touch "$FAKE_CURL_MARKER"
+if [[ "\${FAKE_CURL_OVERSIZE:-0}" == "1" && "$max_file_size" == "262144" ]]; then
+  exit 63
+fi
 if [[ "\${FAKE_CURL_BLOCK:-0}" == "1" ]]; then
   sleep 30
 fi
@@ -238,6 +245,7 @@ exit "$FAKE_CURL_EXIT"
 
   it.each([
     ["transport failure", { FAKE_CURL_EXIT: "28", FAKE_CURL_HTTP_STATUS: "000" }, "transport_error"],
+    ["oversized response", { FAKE_CURL_OVERSIZE: "1" }, "transport_error"],
     ["remote service failure", { FAKE_CURL_HTTP_STATUS: "503" }, "remote_service_error"],
   ])("marks %s indeterminate and requires reconciliation", (_name, overrides, category) => {
     const result = run(overrides);

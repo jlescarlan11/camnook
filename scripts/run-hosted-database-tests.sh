@@ -69,6 +69,7 @@ for test_file in "${test_files[@]}"; do
     jq -n --rawfile query "$test_file" '{query: $query}' |
       curl -sS \
         --connect-timeout 15 \
+        --max-filesize 262144 \
         --max-time 120 \
         -o "$response_file" \
         -w '%{http_code}' \
