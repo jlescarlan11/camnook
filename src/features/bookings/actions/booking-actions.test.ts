@@ -37,6 +37,9 @@ const BOOKING_ID = "22222222-2222-4222-8222-222222222222";
 function fields(values: Record<string, string>) {
   const data = new FormData();
   Object.entries(values).forEach(([name, value]) => data.set(name, value));
+  if (!data.has("operationId")) {
+    data.set("operationId", "33333333-3333-4333-8333-333333333333");
+  }
   return data;
 }
 
@@ -418,10 +421,11 @@ describe("requestBooking", () => {
         }),
       ),
     ).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
-    expect(rpc).toHaveBeenCalledWith("request_booking", {
+    expect(rpc).toHaveBeenCalledWith("request_booking_idempotent", {
       p_camera_id: CAMERA_ID,
       p_expected_location: "Quezon City",
       p_intended_use: "Family event",
+      p_operation_id: "33333333-3333-4333-8333-333333333333",
       p_pickup_at: "2099-08-14T09:00:00+08:00",
       p_return_at: "2099-08-15T09:00:00+08:00",
     });
@@ -483,11 +487,12 @@ describe("requestBooking", () => {
         }),
       ),
     ).rejects.toThrow("redirect:/account/bookings/22222222-2222-4222-8222-222222222222?requested=1");
-    expect(rpc).toHaveBeenCalledWith("request_booking_schedule", {
+    expect(rpc).toHaveBeenCalledWith("request_booking_schedule_idempotent", {
       p_camera_id: CAMERA_ID,
       p_expected_location: "Cebu City",
       p_handoff_time: "09:00",
       p_intended_use: "Family event",
+      p_operation_id: "33333333-3333-4333-8333-333333333333",
       p_pickup_date: "2099-08-24",
       p_policy_version: 3,
       p_return_date: "2099-08-26",
@@ -554,11 +559,12 @@ describe("requestBooking", () => {
       ),
     ).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
     expect(adminRpc).toHaveBeenCalledWith(
-      "request_booking_schedule_with_meetup",
+      "request_booking_schedule_with_meetup_idempotent",
       expect.objectContaining({
         p_camera_id: CAMERA_ID,
         p_renter_city_label: "Mandaue City",
         p_renter_id: "user-1",
+        p_operation_id: "33333333-3333-4333-8333-333333333333",
         p_venue_name: "Ayala Center Cebu",
       }),
     );

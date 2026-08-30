@@ -588,6 +588,17 @@ export type Database = {
         }
         Returns: string
       }
+      request_booking_idempotent: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_intended_use: string
+          p_operation_id: string
+          p_pickup_at: string
+          p_return_at: string
+        }
+        Returns: string
+      }
       request_booking_schedule: {
         Args: {
           p_camera_id: string
@@ -600,12 +611,46 @@ export type Database = {
         }
         Returns: string
       }
+      request_booking_schedule_idempotent: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_handoff_time: string
+          p_intended_use: string
+          p_operation_id: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_return_date: string
+        }
+        Returns: string
+      }
       request_booking_schedule_with_meetup: {
         Args: {
           p_camera_id: string
           p_expected_location: string
           p_handoff_time: string
           p_intended_use: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_provider_config_version: string
+          p_renter_city_label: string
+          p_renter_id: string
+          p_return_date: string
+          p_venue_address: string
+          p_venue_city: string
+          p_venue_latitude: number
+          p_venue_longitude: number
+          p_venue_name: string
+        }
+        Returns: string
+      }
+      request_booking_schedule_with_meetup_idempotent: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_handoff_time: string
+          p_intended_use: string
+          p_operation_id: string
           p_pickup_date: string
           p_policy_version: number
           p_provider_config_version: string

@@ -65,6 +65,7 @@ export async function requestBooking(
     returnDate: stringFormValue(formData, "returnDate"),
     meetupConfirmed: stringFormValue(formData, "meetupConfirmed"),
     meetupReference: stringFormValue(formData, "meetupReference"),
+    operationId: stringFormValue(formData, "operationId"),
   };
   const usesSchedule = [
     values.pickupDate,
@@ -73,6 +74,7 @@ export async function requestBooking(
     values.policyVersion,
   ].some((value) => value !== "");
   const fields = bookingFieldsSchema.safeParse(values);
+  const operationId = z.uuid().safeParse(values.operationId);
   const period = usesSchedule
     ? null
     : parseManilaBookingPeriod(values.pickup, values.return);
@@ -142,7 +144,7 @@ export async function requestBooking(
   }
 
   if (
-    !fields.success ||
+    !fields.success || !operationId.success ||
     (usesSchedule ? Object.keys(fieldErrors).length > 0 : !period?.ok)
   ) {
     return {
@@ -238,7 +240,7 @@ export async function requestBooking(
     } catch {
       return { error: "request_failed", status: "error", values: preservedValues };
     }
-    result = await admin.schema("api").rpc("request_booking_schedule_with_meetup", {
+    result = await admin.schema("api").rpc("request_booking_schedule_with_meetup_idempotent", {
       p_camera_id: fields.data.camera,
       p_expected_location: fields.data.expectedLocation,
       p_handoff_time: values.handoffTime,
@@ -254,10 +256,11 @@ export async function requestBooking(
       p_venue_latitude: claims.latitude,
       p_venue_longitude: claims.longitude,
       p_venue_name: claims.name,
+      p_operation_id: operationId.data,
     });
   } else if (usesSchedule) {
     const api = context.supabase.schema("api");
-    result = await api.rpc("request_booking_schedule", {
+    result = await api.rpc("request_booking_schedule_idempotent", {
         p_camera_id: fields.data.camera,
         p_expected_location: fields.data.expectedLocation,
         p_handoff_time: values.handoffTime,
@@ -265,15 +268,17 @@ export async function requestBooking(
         p_pickup_date: values.pickupDate,
         p_policy_version: policyVersion!,
         p_return_date: values.returnDate,
+        p_operation_id: operationId.data,
       });
   } else {
     const api = context.supabase.schema("api");
-    result = await api.rpc("request_booking", {
+    result = await api.rpc("request_booking_idempotent", {
         p_camera_id: fields.data.camera,
         p_expected_location: fields.data.expectedLocation,
         p_intended_use: fields.data.intendedUse,
         p_pickup_at: legacyPeriod!.pickupAt,
         p_return_at: legacyPeriod!.returnAt,
+        p_operation_id: operationId.data,
     });
   }
   const { data, error } = result;

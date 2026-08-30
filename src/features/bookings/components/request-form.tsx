@@ -31,6 +31,7 @@ export function RequestForm({
   };
 }) {
   const [intendedUse, setIntendedUse] = useState("");
+  const [requestOperationId] = useState(() => crypto.randomUUID());
   const [expectedLocation, setExpectedLocation] = useState("");
   const [manualCity, setManualCity] = useState("");
   const [confirmedReference, setConfirmedReference] = useState<string | null>(null);
@@ -188,6 +189,7 @@ export function RequestForm({
       ) : null}
 
       <form action={formAction} className="space-y-5">
+      <input name="operationId" type="hidden" value={requestOperationId} />
       <input name="camera" type="hidden" value={camera} />
       <input name="pickup" type="hidden" value={pickup} />
       <input name="return" type="hidden" value={returnValue} />

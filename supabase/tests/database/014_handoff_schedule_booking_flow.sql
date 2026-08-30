@@ -185,15 +185,25 @@ declare
     + (((8 - extract(dow from statement_timestamp() at time zone 'Asia/Manila')::integer) % 7) + 7);
   created_booking_id uuid;
 begin
-  created_booking_id := api.request_booking_schedule(
+  created_booking_id := api.request_booking_schedule_idempotent(
     'c0100000-0000-4000-8000-000000000001',
     monday,
     monday + 2,
     '09:00',
     1,
     'Family event',
-    'Cebu City'
+    'Cebu City',
+    'c0200000-0000-4000-8000-000000000001'
   );
+
+  if api.request_booking_schedule_idempotent(
+    'c0100000-0000-4000-8000-000000000001', monday, monday + 2, '09:00', 1,
+    'Family event', 'Cebu City', 'c0200000-0000-4000-8000-000000000001'
+  ) <> created_booking_id
+    or (select count(*) from public.bookings where renter_id = auth.uid()) <> 1
+  then
+    raise exception 'repeated booking request operation was not idempotent';
+  end if;
 
   if not exists (
     select 1 from public.bookings as booking
