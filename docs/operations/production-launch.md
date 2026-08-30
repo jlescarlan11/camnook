@@ -29,7 +29,8 @@ dry-run/apply/history/read-only hosted manifest/advisors → protected smoke of
 the exact staged deployment → promote that candidate → public-alias smoke.
 Every mutation boundary rechecks the exact current `main` SHA and
 environment/project identity. A newer `main` SHA supersedes an older queued
-release before it can mutate the next environment or promote.
+release before it can stage a Production deployment, mutate the next database,
+or promote.
 
 A failed or indeterminate database command is followed by read-only migration
 history reconciliation and is never blindly retried. A failed or indeterminate

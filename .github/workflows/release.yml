@@ -141,6 +141,8 @@ jobs:
         id: deploy
         run: |
           set -euo pipefail
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
           prior_inspect="$(mktemp)"
           prior_api="$(mktemp)"
           candidate_result="$(mktemp)"

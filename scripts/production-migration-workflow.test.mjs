@@ -45,6 +45,11 @@ describe("immutable release workflow policy", () => {
   });
 
   it("stages an immutable unaliased candidate with always-on scheduling and meetup planning", () => {
+    const staging = workflow.slice(
+      position("name: Stage unaliased Production candidate"),
+      position("name: Link exact Production project"),
+    );
+
     expect(workflow).toContain(
       "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86",
     );
@@ -57,6 +62,15 @@ describe("immutable release workflow policy", () => {
     expect(workflow).not.toContain("HANDOFF_SCHEDULING_ENABLED");
     expect(workflow).toContain("unaliased");
     expect(vercelConfig.git.deploymentEnabled.main).toBe(false);
+    expect(staging).toContain(
+      'node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha"',
+    );
+    expect(staging.indexOf("release-gate-policy.mjs current-main")).toBeLessThan(
+      staging.indexOf("vercel pull"),
+    );
+    expect(staging.indexOf("release-gate-policy.mjs current-main")).toBeLessThan(
+      staging.indexOf("vercel deploy"),
+    );
   });
 
   it("runs Development before one sequential Production approval gate", () => {
