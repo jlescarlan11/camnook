@@ -71,6 +71,13 @@ describe("immutable release workflow policy", () => {
     expect(staging.indexOf("release-gate-policy.mjs current-main")).toBeLessThan(
       staging.indexOf("vercel deploy"),
     );
+    expect(staging.match(/release-gate-policy\.mjs current-main/g)).toHaveLength(2);
+    expect(staging.lastIndexOf("release-gate-policy.mjs current-main")).toBeGreaterThan(
+      staging.indexOf("vercel build --prod"),
+    );
+    expect(staging.lastIndexOf("release-gate-policy.mjs current-main")).toBeLessThan(
+      staging.indexOf("vercel deploy --prebuilt"),
+    );
   });
 
   it("runs Development before one sequential Production approval gate", () => {
@@ -112,6 +119,11 @@ describe("immutable release workflow policy", () => {
   });
 
   it("promotes only the exact candidate and restores the prior alias on smoke failure", () => {
+    const promotion = workflow.slice(
+      position("name: Promote candidate with reconciliation"),
+      position("name: Smoke promoted application or restore prior alias"),
+    );
+
     expect(position("name: Run Production security advisors")).toBeLessThan(
       position("name: Smoke staged candidate before promotion"),
     );
@@ -122,6 +134,12 @@ describe("immutable release workflow policy", () => {
       'vercel curl / --deployment "$CANDIDATE_ID" --token "$VERCEL_TOKEN"',
     );
     expect(workflow).toContain('candidate_status" != "200"');
+    expect(promotion.indexOf("release-gate-policy.mjs current-main")).toBeGreaterThan(
+      promotion.indexOf('test "$live_id" = "$PRIOR_DEPLOYMENT_ID"'),
+    );
+    expect(promotion.indexOf("release-gate-policy.mjs current-main")).toBeLessThan(
+      promotion.indexOf('vercel promote "$CANDIDATE_ID"'),
+    );
     expect(workflow).toContain('vercel promote "$CANDIDATE_ID"');
     expect(workflow).toContain('test "$live_id" = "$CANDIDATE_ID"');
     expect(workflow).toContain('vercel rollback "$PRIOR_DEPLOYMENT_ID"');

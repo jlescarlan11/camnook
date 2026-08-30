@@ -158,6 +158,8 @@ jobs:
             "$(jq -er .meta.githubCommitSha "$prior_api")" "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" live
 
           vercel build --prod --token "$VERCEL_TOKEN"
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
           vercel deploy --prebuilt --prod --skip-domain --yes --json \
             --token "$VERCEL_TOKEN" \
             --meta githubCommitSha="$RELEASE_SHA" \
@@ -280,6 +282,8 @@ jobs:
             exit 0
           fi
           test "$live_id" = "$PRIOR_DEPLOYMENT_ID"
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          node scripts/release-gate-policy.mjs current-main "$RELEASE_SHA" "$current_main_sha" >/dev/null
           set +e
           vercel promote "$CANDIDATE_ID" --yes --timeout=3m --token "$VERCEL_TOKEN" >"$promote_log" 2>&1
           promote_status=$?
