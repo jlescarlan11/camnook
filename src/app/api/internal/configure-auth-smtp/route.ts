@@ -35,6 +35,39 @@ function configurationSummary(config: Record<string, unknown>) {
   };
 }
 
+async function readVerifiedConfiguration(headers: Record<string, string>) {
+  const verified = await fetch(AUTH_CONFIG_URL, {
+    cache: "no-store",
+    headers,
+    method: "GET",
+    signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
+  });
+  if (!verified.ok) return null;
+
+  const config = (await verified.json()) as Record<string, unknown>;
+  const summary = configurationSummary(config);
+  return summary.customSmtpEnabled && summary.passwordMinimumLength === 15
+    ? summary
+    : null;
+}
+
+async function reconcileConfiguration(headers: Record<string, string>) {
+  try {
+    const summary = await readVerifiedConfiguration(headers);
+    return summary
+      ? NextResponse.json(summary)
+      : NextResponse.json(
+          { error: "configuration_not_confirmed" },
+          { status: 502 },
+        );
+  } catch {
+    return NextResponse.json(
+      { error: "configuration_not_confirmed" },
+      { status: 502 },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   const token = bearerToken(request);
   if (!token) {
@@ -47,8 +80,9 @@ export async function POST(request: Request) {
   }
 
   const headers = managementHeaders(token);
+  let updated: Response;
   try {
-    const updated = await fetch(AUTH_CONFIG_URL, {
+    updated = await fetch(AUTH_CONFIG_URL, {
       body: JSON.stringify({
         external_email_enabled: true,
         mailer_autoconfirm: false,
@@ -66,35 +100,22 @@ export async function POST(request: Request) {
       method: "PATCH",
       signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
     });
-    if (!updated.ok) {
-      const unauthorized = updated.status === 401 || updated.status === 403;
-      return NextResponse.json(
-        {
-          error: unauthorized
-            ? "unauthorized"
-            : "provider_rejected_configuration",
-        },
-        { status: unauthorized ? 401 : 502 },
-      );
-    }
-
-    const verified = await fetch(AUTH_CONFIG_URL, {
-      cache: "no-store",
-      headers,
-      method: "GET",
-      signal: AbortSignal.timeout(AUTH_CONFIG_REQUEST_TIMEOUT_MS),
-    });
-    if (!verified.ok) {
-      return NextResponse.json({ error: "configuration_not_confirmed" }, { status: 502 });
-    }
-
-    const config = (await verified.json()) as Record<string, unknown>;
-    const summary = configurationSummary(config);
-    if (!summary.customSmtpEnabled || summary.passwordMinimumLength !== 15) {
-      return NextResponse.json({ error: "configuration_not_confirmed" }, { status: 502 });
-    }
-    return NextResponse.json(summary);
   } catch {
-    return NextResponse.json({ error: "provider_unavailable" }, { status: 502 });
+    return reconcileConfiguration(headers);
   }
+
+  if (updated.status === 401 || updated.status === 403) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!updated.ok) {
+    if (updated.status === 429 || updated.status >= 500) {
+      return reconcileConfiguration(headers);
+    }
+    return NextResponse.json(
+      { error: "provider_rejected_configuration" },
+      { status: 502 },
+    );
+  }
+
+  return reconcileConfiguration(headers);
 }

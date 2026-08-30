@@ -4,6 +4,16 @@ import { POST } from "./route";
 
 const originalKey = process.env.RESEND_API_KEY;
 
+function configuredResponse() {
+  return Response.json({
+    password_min_length: 15,
+    smtp_admin_email: "auth@camnook.shop",
+    smtp_host: "smtp.resend.com",
+    smtp_port: "465",
+    smtp_user: "resend",
+  });
+}
+
 function request(token = "supabase-management-token-with-safe-length") {
   return new Request("https://camnook.test/api/internal/configure-auth-smtp", {
     headers: { authorization: `Bearer ${token}` },
@@ -37,15 +47,7 @@ describe("Production Auth SMTP configuration", () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
-      .mockResolvedValueOnce(
-        Response.json({
-          password_min_length: 15,
-          smtp_admin_email: "auth@camnook.shop",
-          smtp_host: "smtp.resend.com",
-          smtp_port: "465",
-          smtp_user: "resend",
-        }),
-      );
+      .mockResolvedValueOnce(configuredResponse());
     vi.stubGlobal("fetch", fetch);
 
     const response = await POST(request());
@@ -89,9 +91,9 @@ describe("Production Auth SMTP configuration", () => {
     await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
   });
 
-  it("does not verify after the provider rejects the configuration", async () => {
+  it("does not verify after a definitive provider rejection", async () => {
     const fetch = vi.fn().mockResolvedValue(
-      new Response('{"message":"private provider detail"}', { status: 500 }),
+      new Response('{"message":"private provider detail"}', { status: 400 }),
     );
     vi.stubGlobal("fetch", fetch);
 
@@ -104,17 +106,42 @@ describe("Production Auth SMTP configuration", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("fails closed when a bounded management request times out", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")),
+  it.each([
+    ["times out", new DOMException("timed out", "TimeoutError")],
+    ["returns a server error", new Response(null, { status: 500 })],
+    ["is rate limited", new Response(null, { status: 429 })],
+  ])("reconciles authoritative state when the PATCH %s", async (_name, failure) => {
+    const fetch = vi
+      .fn()
+      .mockImplementationOnce(() =>
+        failure instanceof Response ? Promise.resolve(failure) : Promise.reject(failure),
+      )
+      .mockResolvedValueOnce(configuredResponse());
+    vi.stubGlobal("fetch", fetch);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({ customSmtpEnabled: true }),
     );
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1]).toEqual(expect.objectContaining({ method: "GET" }));
+  });
+
+  it("fails closed when an indeterminate PATCH cannot be reconciled", async () => {
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"))
+      .mockRejectedValueOnce(new Error("read unavailable"));
+    vi.stubGlobal("fetch", fetch);
 
     const response = await POST(request());
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toEqual({
-      error: "provider_unavailable",
+      error: "configuration_not_confirmed",
     });
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });
