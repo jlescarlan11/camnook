@@ -174,6 +174,14 @@ describe("GeoapifyAdapter", () => {
               result_type: "house",
             },
             {
+              city: "Cebu City",
+              country_code: "ph",
+              formatted: "Ambiguous address, Cebu City",
+              lat: 10.3174,
+              lon: 123.9056,
+              place_id: "missing-result-type",
+            },
+            {
               city: "Singapore",
               country_code: "sg",
               formatted: "Public place, Singapore",

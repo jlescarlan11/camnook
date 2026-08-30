@@ -315,7 +315,7 @@ export class GeoapifyAdapter {
         result.country_code.toUpperCase() !== "PH" ||
         !city ||
         !address ||
-        ["building", "house", "residential", "street"].includes(resultType ?? "")
+        resultType !== "amenity"
       ) {
         return [];
       }
