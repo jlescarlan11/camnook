@@ -2,25 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import {
-  loadAdminCameraHandoffPolicy,
-  loadAdminCameraHandoffSummaries,
-} from "./handoff-data";
+import { loadAdminCameraHandoffPolicy } from "./handoff-data";
 
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
 
 function context(options?: { policy?: unknown; policyError?: unknown }) {
-  const rpc = vi.fn((name: string) => Promise.resolve({
-    data: name === "get_camera_handoff_summaries_admin"
-      ? [{
-          camera_id: CAMERA_ID,
-          camera_name: "Canon R50",
-          camera_status: "published",
-          city_label: "Cebu City",
-          enabled: true,
-          version: 2,
-        }]
-      : options?.policy,
+  const rpc = vi.fn(() => Promise.resolve({
+    data: options?.policy,
     error: options?.policyError ?? null,
   }));
   return {
@@ -92,27 +80,4 @@ describe("camera handoff admin data", () => {
     }).context, CAMERA_ID)).resolves.toEqual({ status: "forbidden" });
   });
 
-  it("summarizes configured and legacy cameras without private anchors", async () => {
-    const fixture = context();
-    const result = await loadAdminCameraHandoffSummaries(fixture.context);
-
-    expect(result).toEqual({
-      cameras: [
-        {
-          cameraId: CAMERA_ID,
-          cameraName: "Canon R50",
-          cameraStatus: "published",
-          cityLabel: "Cebu City",
-          enabled: true,
-          version: 2,
-        },
-      ],
-      status: "success",
-    });
-    expect(fixture.rpc).toHaveBeenCalledTimes(1);
-    expect(fixture.rpc).toHaveBeenCalledWith(
-      "get_camera_handoff_summaries_admin",
-    );
-    expect(JSON.stringify(result)).not.toMatch(/latitude|longitude|provider_city/);
-  });
 });

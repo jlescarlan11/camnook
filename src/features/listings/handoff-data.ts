@@ -90,21 +90,3 @@ export async function loadAdminCameraHandoffPolicy(
     status: "success",
   };
 }
-
-export async function loadAdminCameraHandoffSummaries(
-  context: AdminContext,
-): Promise<
-  | { cameras: AdminCameraHandoffSummary[]; status: "success" }
-  | { status: "error" }
-> {
-  const result = await context.supabase
-    .schema("api")
-    .rpc("get_camera_handoff_summaries_admin");
-  const parsed = z.array(adminCameraHandoffSummarySchema).safeParse(result.data);
-
-  if (result.error || !parsed.success) return { status: "error" };
-
-  const cameras = parsed.data.map(projectAdminCameraHandoffSummary);
-
-  return { cameras, status: "success" };
-}
