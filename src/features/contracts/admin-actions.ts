@@ -3,11 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import {
-  AdminAuthorizationRequiredError,
-  isAuthenticationError,
-  requireAdmin,
-} from "@/lib/auth/require-admin";
+import { isAuthenticationError } from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { stringFormValue } from "../bookings/actions/state";
 import { parseManilaBookingPeriod } from "../bookings/manila-time";
@@ -56,14 +53,11 @@ export async function supersedeContract(
     };
   }
 
-  let context: Awaited<ReturnType<typeof requireAdmin>>;
+  let context: Awaited<ReturnType<typeof requireUser>>;
   try {
-    context = await requireAdmin();
+    context = await requireUser();
   } catch (error) {
-    if (
-      isAuthenticationError(error) ||
-      error instanceof AdminAuthorizationRequiredError
-    ) {
+    if (isAuthenticationError(error)) {
       return { error: "unauthorized", status: "error" };
     }
     return { error: "unknown", status: "indeterminate" };

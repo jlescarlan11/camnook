@@ -263,6 +263,9 @@ The seven pure database resolution actions likewise authenticate once and leave
 administrator authorization to their transactional mutation RPC, removing the
 same redundant database round trip without moving any storage or provider work
 ahead of authorization.
+Contract supersession also delegates its sole administrator check to the
+transactional replacement RPC, so a valid replacement uses one database call
+while stale, availability-conflict, and indeterminate outcomes remain distinct.
 
 Profile saves and booking submissions enforce profile state inside their
 authoritative mutation RPCs, without a separate client-side profile lookup.

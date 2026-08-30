@@ -3,21 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/require-admin", () => {
-  class AdminAuthorizationRequiredError extends Error {}
   return {
-    AdminAuthorizationRequiredError,
     isAuthenticationError: (error: unknown) =>
       error instanceof Error && error.name === "AuthenticationRequiredError",
-    requireAdmin: vi.fn(),
   };
 });
+vi.mock("@/lib/auth/require-user", () => ({ requireUser: vi.fn() }));
 
 import { revalidatePath } from "next/cache";
 
-import {
-  AdminAuthorizationRequiredError,
-  requireAdmin,
-} from "@/lib/auth/require-admin";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { supersedeContract } from "./admin-actions";
 
@@ -33,9 +28,9 @@ function validForm() {
   return data;
 }
 
-function authorize(result: unknown) {
+function authenticate(result: unknown) {
   const rpc = vi.fn().mockResolvedValue(result);
-  vi.mocked(requireAdmin).mockResolvedValue({
+  vi.mocked(requireUser).mockResolvedValue({
     supabase: { schema: vi.fn(() => ({ rpc })) },
     user: { id: "admin" },
   } as never);
@@ -52,12 +47,12 @@ describe("supersedeContract", () => {
     await expect(
       supersedeContract({ status: "idle" }, form),
     ).resolves.toMatchObject({ error: "invalid_input", status: "error" });
-    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
-  it("rechecks administrator authorization inside the server action", async () => {
-    vi.mocked(requireAdmin).mockRejectedValue(
-      new AdminAuthorizationRequiredError(),
+  it("rejects an unauthenticated direct action before mutation", async () => {
+    vi.mocked(requireUser).mockRejectedValue(
+      Object.assign(new Error(), { name: "AuthenticationRequiredError" }),
     );
 
     await expect(
@@ -66,7 +61,7 @@ describe("supersedeContract", () => {
   });
 
   it("sends only the material selection and revalidates renter/admin views", async () => {
-    const rpc = authorize({ data: VERSION_ID, error: null });
+    const rpc = authenticate({ data: VERSION_ID, error: null });
 
     await expect(
       supersedeContract({ status: "idle" }, validForm()),
@@ -88,7 +83,7 @@ describe("supersedeContract", () => {
     ["23P01", "contract_availability_conflict", "availability", "stale"],
     ["40001", "contract_version_stale", "stale", "stale"],
   ])("constrains replacement failure %s/%s", async (code, message, error, status) => {
-    authorize({ data: null, error: { code, details: "private", message } });
+    authenticate({ data: null, error: { code, details: "private", message } });
 
     const result = await supersedeContract({ status: "idle" }, validForm());
 
@@ -97,7 +92,7 @@ describe("supersedeContract", () => {
   });
 
   it("treats a malformed success response as indeterminate and refreshes", async () => {
-    authorize({ data: null, error: null });
+    authenticate({ data: null, error: null });
 
     await expect(
       supersedeContract({ status: "idle" }, validForm()),
