@@ -23,7 +23,8 @@ or issue comments.
 
 The route at `/api/webhooks/resend/inbound`:
 
-1. reads the untouched request body;
+1. reads at most 256 KiB of the untouched request body, rejecting both declared
+   and streamed over-limit bodies with `413` before signature verification;
 2. verifies Resend's `svix-id`, `svix-timestamp`, and `svix-signature` headers;
 3. accepts only `email.received` events whose envelope addresses include exactly
    `privacy@camnook.shop`;
@@ -34,6 +35,11 @@ The route at `/api/webhooks/resend/inbound`:
    intentionally create a second message; and
 6. returns only generic status responses and never logs the sender, recipient,
    subject, body, attachment metadata, or provider IDs.
+
+Resend's `email.received` webhook contains metadata only; message bodies and
+attachment bytes are retrieved after verification through the Receiving APIs.
+The 256 KiB raw-body ceiling therefore bounds unauthenticated function memory
+without constraining the documented content-delivery path.
 
 Resend retains inbound messages according to the account's provider settings.
 The forwarding destination must be protected with MFA and monitored on every
@@ -59,7 +65,8 @@ system, and follow the approved incident/deletion process.
    `privacy@camnook.shop`. Confirm one copy reaches the monitored inbox and that
    a reply can be addressed to the original synthetic sender.
 7. Send Resend's webhook test event, then confirm an invalid-signature request
-   receives `401` and a valid duplicate does not produce duplicate forwarding.
+   receives `401`, an over-limit request receives `413`, and a valid duplicate
+   does not produce duplicate forwarding.
 
 If forwarding fails, disable Receiving or remove the inbound root MX record,
 then investigate without logging message data. Restoring the previous DNS state

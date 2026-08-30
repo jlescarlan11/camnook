@@ -137,6 +137,55 @@ describe("Resend inbound privacy email webhook", () => {
     expect(resendMocks.send).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized unauthenticated body before signature verification", async () => {
+    const response = await POST(
+      new Request("https://camnook.test/api/webhooks/resend/inbound", {
+        method: "POST",
+        body: "x".repeat(256 * 1024 + 1),
+        headers: {
+          "svix-id": "forged-delivery-id",
+          "svix-signature": "v1,forged-signature",
+          "svix-timestamp": "1786752000",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({ accepted: false });
+    expect(resendMocks.verify).not.toHaveBeenCalled();
+    expect(resendMocks.send).not.toHaveBeenCalled();
+  });
+
+  it("bounds a chunked body even without a content-length header", async () => {
+    const chunk = new Uint8Array(128 * 1024 + 1);
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(chunk);
+        controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+    const response = await POST(
+      new Request(
+        "https://camnook.test/api/webhooks/resend/inbound",
+        {
+          body,
+          duplex: "half",
+          headers: {
+            "svix-id": "forged-delivery-id",
+            "svix-signature": "v1,forged-signature",
+            "svix-timestamp": "1786752000",
+          },
+          method: "POST",
+        } as RequestInit,
+      ),
+    );
+
+    expect(response.status).toBe(413);
+    expect(resendMocks.verify).not.toHaveBeenCalled();
+    expect(resendMocks.send).not.toHaveBeenCalled();
+  });
+
   it("verifies the untouched request body and rejects an invalid signature", async () => {
     resendMocks.verify.mockImplementation(() => {
       throw new Error("invalid signature");

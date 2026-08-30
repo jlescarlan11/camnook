@@ -5,6 +5,8 @@ import { PRIVACY_EMAIL } from "@/features/privacy-email/constants";
 
 export const dynamic = "force-dynamic";
 
+const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
+
 const forwardingConfigSchema = z.object({
   apiKey: z.string().trim().min(1),
   destination: z.string().trim().pipe(z.email()),
@@ -39,6 +41,45 @@ function retryableForwardingFailure() {
   return Response.json({ accepted: false }, { status: 503 });
 }
 
+async function readBoundedWebhookBody(request: Request) {
+  const contentLength = request.headers.get("content-length");
+  if (
+    contentLength !== null &&
+    /^\d+$/.test(contentLength) &&
+    Number(contentLength) > MAX_WEBHOOK_BODY_BYTES
+  ) {
+    return null;
+  }
+
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    byteLength += value.byteLength;
+    if (byteLength > MAX_WEBHOOK_BODY_BYTES) {
+      try {
+        await reader.cancel();
+      } catch {
+        // The bounded rejection is still decisive if the client already closed.
+      }
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(body);
+}
+
 export async function POST(request: Request) {
   const config = getForwardingConfig();
 
@@ -54,7 +95,10 @@ export async function POST(request: Request) {
     return Response.json({ accepted: false }, { status: 401 });
   }
 
-  const rawPayload = await request.text();
+  const rawPayload = await readBoundedWebhookBody(request);
+  if (rawPayload === null) {
+    return Response.json({ accepted: false }, { status: 413 });
+  }
   const resend = new Resend(config.apiKey);
 
   let event;
