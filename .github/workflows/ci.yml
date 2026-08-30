@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_URL: https://ekmoiepalelqpmemvrkl.supabase.co
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
       SUPABASE_SERVICE_ROLE_KEY: sb_secret_ci_placeholder
       CRON_SECRET: ci-placeholder-not-used-outside-tests

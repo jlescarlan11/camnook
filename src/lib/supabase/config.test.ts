@@ -54,16 +54,16 @@ describe("Supabase configuration boundaries", () => {
   ])("rejects the unapproved privileged URL %s", (url) => {
     configure(url);
 
+    expect(() => getSupabasePublicConfig()).toThrow(
+      /Refusing (invalid Supabase URL|unapproved Supabase origin)/,
+    );
     expect(() => getSupabasePrivilegedConfig()).toThrow(
-      /Refusing (invalid privileged Supabase URL|unapproved privileged Supabase origin)/,
+      /Refusing (invalid Supabase URL|unapproved Supabase origin)/,
     );
   });
 
-  it("keeps browser-visible configuration generic and requires both values", () => {
-    configure("https://public-test-project.supabase.co");
-    expect(getSupabasePublicConfig().url).toBe(
-      "https://public-test-project.supabase.co",
-    );
+  it("requires both browser-visible values", () => {
+    configure("https://ekmoiepalelqpmemvrkl.supabase.co");
 
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     expect(() => getSupabasePublicConfig()).toThrow(
