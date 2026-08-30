@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 
-import { Resend } from "resend";
+import type { Resend } from "resend";
 import { z } from "zod";
 
 import { PRIVACY_EMAIL } from "@/features/privacy-email/constants";
+import { createPrivacyEmailResendClient } from "@/features/privacy-email/resend-client";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -195,7 +196,7 @@ export async function POST(request: Request) {
   if (rawPayload === null) {
     return Response.json({ accepted: false }, { status: 413 });
   }
-  const resend = new Resend(config.apiKey);
+  const resend = createPrivacyEmailResendClient(config.apiKey);
 
   let event;
 

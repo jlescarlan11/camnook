@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 const adminMocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 const resendMocks = vi.hoisted(() => ({
   getReceivedEmail: vi.fn(),

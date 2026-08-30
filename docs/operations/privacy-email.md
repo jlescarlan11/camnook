@@ -54,6 +54,11 @@ per-attachment retrieval; a message with only four attachments can otherwise
 exceed a five-request-per-second team limit once content retrieval and forwarding
 are included.
 
+All Receiving, attachment-list, and send calls for one webhook share a single
+30-second abort deadline. A stalled provider therefore returns a generic `503`
+for retry instead of consuming the full function lifetime; the durable claim and
+stable send idempotency key keep that retry from intentionally duplicating mail.
+
 The send idempotency key is provider-enforced for 24 hours. An unresolved ledger
 claim remains safely retryable for 20 hours, covering Resend's documented
 automatic retry schedule with margin. After that boundary the route makes no
