@@ -130,6 +130,52 @@ describe("due verification evidence cleanup", () => {
     );
   });
 
+  it("limits concurrent database finalization after a successful Storage batch", async () => {
+    const claimedItems = Array.from({ length: 25 }, (_, index) => {
+      const suffix = (index + 1).toString(16).padStart(12, "0");
+      const id = `39000000-0000-4000-8000-${suffix}`;
+
+      return {
+        id,
+        kind: "verification_document" as const,
+        object_path: `${OWNER_ID}/32000000-0000-4000-8000-000000000001/${id}.png`,
+        owner_user_id: OWNER_ID,
+      };
+    });
+    let activeFinalizations = 0;
+    let peakFinalizations = 0;
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "expire_due_verifications") {
+        return { data: 0, error: null };
+      }
+      if (name === "claim_verification_evidence_cleanup") {
+        return { data: claimedItems, error: null };
+      }
+      if (name === "finalize_due_verification_document_deletion") {
+        activeFinalizations += 1;
+        peakFinalizations = Math.max(peakFinalizations, activeFinalizations);
+        await Promise.resolve();
+        activeFinalizations -= 1;
+        return { data: { status: "deleted" }, error: null };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    const remove = vi.fn().mockResolvedValue({ data: [], error: null });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })),
+      storage: { from: vi.fn(() => ({ remove })) },
+    } as never);
+
+    await expect(cleanupDueVerificationEvidence()).resolves.toEqual({
+      claimed: 25,
+      cleaned: 25,
+      expired: 0,
+      failed: 0,
+    });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(peakFinalizations).toBe(10);
+  });
+
   it("fails closed before evidence cleanup when Manila-date expiry cannot be recorded", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,

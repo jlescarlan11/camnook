@@ -128,11 +128,11 @@ requester, and a system-actor audit entry.
 `Authorization: Bearer $CRON_SECRET`; missing or invalid authorization receives
 HTTP 401. Each run first expires latest verified records whose document date is
 before the current Asia/Manila date, then claims up to 1,000 due documents and 1,000
-expired/cleanup-pending intents, removes exact paths in bounded batches with the
-server-only Storage client, and calls a database absence-verifying finalizer for every item. Partial
-Storage or finalization failures return 503 and remain retryable on the next
-run. The JSON response and application logs contain counts only, never paths,
-digests, or owner IDs.
+expired/cleanup-pending intents, removes exact paths in Storage batches of at
+most 100, and calls a database absence-verifying finalizer for every item with
+at most 10 finalization requests in flight. Partial Storage or finalization
+failures return 503 and remain retryable on the next run. The JSON response and
+application logs contain counts only, never paths, digests, or owner IDs.
 
 Before a hosted rollout, configure both server-only secrets, apply the migration
 to Development, invoke the protected route once with synthetic due evidence,

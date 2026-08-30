@@ -16,6 +16,7 @@ const cleanupClaimSchema = z.array(
 );
 
 const CLEANUP_BATCH_SIZE = 100;
+const FINALIZE_CONCURRENCY = 10;
 const MAX_CLEANUP_ITEMS = 1000;
 
 export type VerificationCleanupSummary = {
@@ -59,33 +60,43 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
       continue;
     }
 
-    const results = await Promise.all(
-      batch.map((item) => {
-        if (item.kind === "upload_intent") {
+    for (
+      let finalizeIndex = 0;
+      finalizeIndex < batch.length;
+      finalizeIndex += FINALIZE_CONCURRENCY
+    ) {
+      const finalizeBatch = batch.slice(
+        finalizeIndex,
+        finalizeIndex + FINALIZE_CONCURRENCY,
+      );
+      const results = await Promise.all(
+        finalizeBatch.map((item) => {
+          if (item.kind === "upload_intent") {
+            return admin.schema("api").rpc(
+              "finalize_due_verification_upload_cleanup",
+              {
+                p_intent_id: item.id,
+                p_operation_id: randomUUID(),
+                p_owner_user_id: item.owner_user_id,
+              },
+            );
+          }
+
           return admin.schema("api").rpc(
-            "finalize_due_verification_upload_cleanup",
+            "finalize_due_verification_document_deletion",
             {
-              p_intent_id: item.id,
+              p_document_id: item.id,
               p_operation_id: randomUUID(),
               p_owner_user_id: item.owner_user_id,
             },
           );
-        }
+        }),
+      );
 
-        return admin.schema("api").rpc(
-          "finalize_due_verification_document_deletion",
-          {
-            p_document_id: item.id,
-            p_operation_id: randomUUID(),
-            p_owner_user_id: item.owner_user_id,
-          },
-        );
-      }),
-    );
-
-    for (const result of results) {
-      if (result.error) failed += 1;
-      else cleaned += 1;
+      for (const result of results) {
+        if (result.error) failed += 1;
+        else cleaned += 1;
+      }
     }
   }
 
