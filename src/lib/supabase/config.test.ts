@@ -33,6 +33,7 @@ describe("Supabase configuration boundaries", () => {
     "https://ekmoiepalelqpmemvrkl.supabase.co",
     "https://iegcixcevvkryfwfotqz.supabase.co",
     "http://127.0.0.1:54321",
+    "http://[::1]:54321",
     "http://localhost:54321",
   ])("allows the approved privileged origin %s", (url) => {
     configure(url);
@@ -51,6 +52,10 @@ describe("Supabase configuration boundaries", () => {
     "https://user:password@iegcixcevvkryfwfotqz.supabase.co",
     "https://iegcixcevvkryfwfotqz.supabase.co/rest/v1",
     "https://iegcixcevvkryfwfotqz.supabase.co?redirect=attacker",
+    "http://localhost:8000",
+    "https://localhost:54321",
+    "http://127.0.0.1:54322",
+    "http://[::1]:54322",
   ])("rejects the unapproved privileged URL %s", (url) => {
     configure(url);
 

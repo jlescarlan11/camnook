@@ -2,7 +2,11 @@ const APPROVED_HOSTED_SUPABASE_ORIGINS = new Set([
   "https://ekmoiepalelqpmemvrkl.supabase.co",
   "https://iegcixcevvkryfwfotqz.supabase.co",
 ]);
-const LOCAL_SUPABASE_HOSTS = new Set(["127.0.0.1", "[::1]", "localhost"]);
+const APPROVED_LOCAL_SUPABASE_ORIGINS = new Set([
+  "http://127.0.0.1:54321",
+  "http://[::1]:54321",
+  "http://localhost:54321",
+]);
 
 function jwtRole(value: string) {
   const parts = value.split(".");
@@ -43,9 +47,7 @@ function assertApprovedSupabaseUrl(value: string) {
     url.protocol === "https:" &&
     !url.port &&
     APPROVED_HOSTED_SUPABASE_ORIGINS.has(url.origin);
-  const isLocalOrigin =
-    (url.protocol === "http:" || url.protocol === "https:") &&
-    LOCAL_SUPABASE_HOSTS.has(url.hostname);
+  const isLocalOrigin = APPROVED_LOCAL_SUPABASE_ORIGINS.has(url.origin);
 
   if (!hasCanonicalShape || (!isApprovedHostedOrigin && !isLocalOrigin)) {
     throw new Error("Refusing unapproved Supabase origin");
