@@ -47,14 +47,51 @@ function output(result) {
   return `${result.stdout}${result.stderr}`;
 }
 
-async function waitForPath(path, timeoutMs = 10_000) {
+function signalProcessTree(rootPid, signal) {
+  const processes = spawnSync("ps", ["-axo", "pid=,ppid="], {
+    encoding: "utf8",
+  });
+  if (processes.status !== 0) {
+    throw new Error("unable to inspect hosted runner process tree");
+  }
+
+  const childrenByParent = new Map();
+  for (const line of processes.stdout.trim().split("\n")) {
+    const [pidText, parentPidText] = line.trim().split(/\s+/);
+    const pid = Number(pidText);
+    const parentPid = Number(parentPidText);
+    if (!Number.isInteger(pid) || !Number.isInteger(parentPid)) continue;
+    const children = childrenByParent.get(parentPid) ?? [];
+    children.push(pid);
+    childrenByParent.set(parentPid, children);
+  }
+
+  const descendants = [];
+  const collect = (parentPid) => {
+    for (const childPid of childrenByParent.get(parentPid) ?? []) {
+      collect(childPid);
+      descendants.push(childPid);
+    }
+  };
+  collect(rootPid);
+
+  for (const pid of [...descendants, rootPid]) {
+    try {
+      process.kill(pid, signal);
+    } catch (error) {
+      if (error.code !== "ESRCH") throw error;
+    }
+  }
+}
+
+function waitForPath(path, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
       readFileSync(path);
       return;
     } catch {
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
     }
   }
   throw new Error(`timed out waiting for ${path}`);
@@ -146,7 +183,6 @@ exit "$FAKE_CURL_EXIT"
   it("removes temporary files when the process is interrupted", { timeout: 15_000 }, async () => {
     const child = spawn("bash", [runner, "--target", "development", approvedTest], {
       cwd: repositoryRoot,
-      detached: true,
       env: {
         ...process.env,
         PATH: `${fakeBin}:${process.env.PATH}`,
@@ -166,21 +202,17 @@ exit "$FAKE_CURL_EXIT"
     });
 
     try {
-      await Promise.race([
-        waitForPath(invocationMarker),
-        closed.then(({ code, signal }) => {
-          throw new Error(`runner exited before curl started (code=${code}, signal=${signal})`);
-        }),
-      ]);
-      process.kill(-child.pid, "SIGTERM");
+      waitForPath(invocationMarker);
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(
+          `runner exited before curl started (code=${child.exitCode}, signal=${child.signalCode})`,
+        );
+      }
+      signalProcessTree(child.pid, "SIGTERM");
       await closed;
     } finally {
       if (child.exitCode === null && child.signalCode === null) {
-        try {
-          process.kill(-child.pid, "SIGKILL");
-        } catch (error) {
-          if (error.code !== "ESRCH") throw error;
-        }
+        signalProcessTree(child.pid, "SIGKILL");
         await closed;
       }
     }
