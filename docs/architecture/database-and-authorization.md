@@ -261,6 +261,9 @@ check instead of calling `api.is_admin` first and then rechecking inside the
 data function. Only the exact `42501` admin-authorization signal redirects to
 `/forbidden`; transport and schema failures remain fail-closed error states.
 This reduces valid admin-page database RPCs from two to one.
+Superseded standalone pickup and resolution loaders are not retained in the
+application layer; their projections are consumed only through the consolidated
+account and admin page contexts, preventing a second read path from drifting.
 Pure booking approval and rejection actions follow the same boundary: after
 authentication, their transactional mutation RPC performs the sole admin check,
 reducing valid decision requests from two database RPCs to one while preserving
