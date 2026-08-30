@@ -109,10 +109,7 @@ describe("due verification evidence cleanup", () => {
     });
     const remove = vi
       .fn()
-      .mockResolvedValueOnce({
-        data: null,
-        error: { message: "storage unavailable" },
-      })
+      .mockRejectedValueOnce(new Error("private storage detail"))
       .mockResolvedValue({ data: [], error: null });
     vi.mocked(createSupabaseAdminClient).mockReturnValue({
       schema: vi.fn(() => ({ rpc })),
@@ -409,6 +406,57 @@ describe("abandoned private upload cleanup", () => {
     expect(rpc).not.toHaveBeenCalledWith(
       "finalize_abandoned_private_upload_cleanup",
       expect.anything(),
+    );
+  });
+
+  it("continues with the other private bucket when Storage removal throws", async () => {
+    const paymentId = "61000000-0000-4000-8000-000000000005";
+    const conditionId = "81000000-0000-4000-8000-000000000005";
+    const rpc = vi.fn(async (name: string, input?: { p_intent_id?: string }) => {
+      if (name === "claim_abandoned_private_upload_cleanup") {
+        return {
+          data: [
+            {
+              bucket_id: "payment-proofs",
+              id: paymentId,
+              kind: "payment_proof_upload_intent",
+              object_path: `${paymentId}/proof.jpg`,
+            },
+            {
+              bucket_id: "condition-evidence",
+              id: conditionId,
+              kind: "condition_photo_upload_intent",
+              object_path: `booking/report/${conditionId}.png`,
+            },
+          ],
+          error: null,
+        };
+      }
+      if (name === "finalize_abandoned_private_upload_cleanup") {
+        return { data: { id: input?.p_intent_id, status: "cleaned" }, error: null };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    const paymentRemove = vi.fn().mockRejectedValue(new Error("private detail"));
+    const conditionRemove = vi.fn().mockResolvedValue({ data: [], error: null });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })),
+      storage: {
+        from: vi.fn((bucket: string) => ({
+          remove: bucket === "payment-proofs" ? paymentRemove : conditionRemove,
+        })),
+      },
+    } as never);
+
+    await expect(cleanupAbandonedPrivateUploads()).resolves.toEqual({
+      claimed: 2,
+      cleaned: 1,
+      failed: 1,
+    });
+    expect(conditionRemove).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith(
+      "finalize_abandoned_private_upload_cleanup",
+      expect.objectContaining({ p_intent_id: conditionId }),
     );
   });
 

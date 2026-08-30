@@ -73,7 +73,13 @@ export async function cleanupAbandonedPrivateUploads(): Promise<AbandonedUploadC
 
     for (let index = 0; index < bucketItems.length; index += CLEANUP_BATCH_SIZE) {
       const batch = bucketItems.slice(index, index + CLEANUP_BATCH_SIZE);
-      const removed = await bucket.remove(batch.map((item) => item.object_path));
+      let removed;
+      try {
+        removed = await bucket.remove(batch.map((item) => item.object_path));
+      } catch {
+        failed += batch.length;
+        continue;
+      }
 
       if (removed.error) {
         failed += batch.length;
@@ -149,7 +155,13 @@ export async function cleanupDueVerificationEvidence(): Promise<VerificationClea
 
   for (let index = 0; index < claimed.data.length; index += CLEANUP_BATCH_SIZE) {
     const batch = claimed.data.slice(index, index + CLEANUP_BATCH_SIZE);
-    const removed = await bucket.remove(batch.map((item) => item.object_path));
+    let removed;
+    try {
+      removed = await bucket.remove(batch.map((item) => item.object_path));
+    } catch {
+      failed += batch.length;
+      continue;
+    }
 
     if (removed.error) {
       failed += batch.length;
