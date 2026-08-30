@@ -100,7 +100,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install PostgreSQL 17
-        run: brew install postgresql@17
+        run: |
+          brew untap aws/tap
+          brew install postgresql@17
 
       - name: Run real-session concurrency tests
         run: bash supabase/tests/database/003_approval_concurrency.sh
