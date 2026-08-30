@@ -81,6 +81,9 @@ readiness badge as authority.
 - An interrupted object is claimed for exact cleanup before a new intent. The
   service role removes only that database-authorized unfinished target, then the
   database verifies absence and records cleanup.
+- If no administrator retries that report, the protected daily private-evidence
+  worker performs the same exact cleanup after the unfinished intent expires.
+  It never removes a finalized condition photo.
 - A renter may request a 60-second URL only through their owned booking. An
   admin must request the fixed `pickup_condition_review` purpose; the database
   writes the access audit before the server signs a 60-second URL.

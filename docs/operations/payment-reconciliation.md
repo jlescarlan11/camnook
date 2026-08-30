@@ -96,6 +96,10 @@ historical record.
 - A retry reconciles an existing exact no-overwrite object by downloading and
   hashing it before finalization. Missing, late, mismatched, or abandoned objects
   enter the controlled cleanup path.
+- If the renter never retries after an interrupted upload, the protected daily
+  private-evidence worker claims the expired unfinished intent, removes only its
+  exact `payment-proofs` object, and marks it cleaned only after the database
+  verifies absence. Finalized proofs are outside this automatic cleanup.
 - A corrected screenshot creates a new proof UUID and immutable
   `supersedes_id` chain. It never overwrites or deletes the earlier metadata.
 - If a 60-second review URL expires, request a new purpose-bound authorization.

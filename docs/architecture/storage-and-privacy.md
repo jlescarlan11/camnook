@@ -104,10 +104,13 @@ database authorization.
 The Storage `INSERT` policy requires an unexpired pending metadata row whose owner matches `(select auth.uid())`, bucket, exact object path, MIME, and byte size, and rechecks that the profile is active and the current policy/notice still match. `UPDATE`/upsert is denied. The retired government-ID flow additionally checked file signature, downloaded the stored object, and verified byte size and SHA-256 before database finalization. That application flow no longer exists; retained finalization rules document historical integrity only.
 
 Abandoned upload intents expire and may be cleaned without affecting domain
-history. A retry that finds an existing immutable payment-proof object first
-downloads and verifies the exact bytes before finalizing it, which recovers an
-interrupted response without overwrite. A database row that claims finalization
-without a matching object is invalid and surfaced by reconciliation.
+history. Payment-proof and condition-photo actions recover their own interrupted
+attempts; the protected daily worker also claims expired unfinished objects so
+bytes do not depend on a later user or administrator retry for deletion. A retry
+that finds an existing immutable payment-proof object first downloads and
+verifies the exact bytes before finalizing it, which recovers an interrupted
+response without overwrite. A database row that claims finalization without a
+matching object is invalid and surfaced by reconciliation.
 
 ## No-overwrite and correction policy
 
@@ -205,12 +208,18 @@ due deletion is durably claimed, a new hold cannot race byte removal; transient
 worker failures return the same claim on later runs until absence is verified.
 
 The CRON-secret-protected cleanup route first records Manila-date expiry for
-latest verified decisions, then claims up
-to 1,000 due documents and 1,000 abandoned intents, removes exact paths in bounded
-batches, returns counts only, and records system-actor audit events. The account
-flow remains available for renter-initiated deletion.
+latest verified decisions. It claims at most 50 due verification documents and
+50 abandoned verification intents, plus at most 100 oldest expired unfinished
+payment-proof/condition-photo intents across both kinds. It removes exact paths
+in bucket-specific batches, verifies absence before finalization, returns counts
+only, and records system-actor audit events. A failure in one cleanup domain does
+not prevent the other domain from running, and any partial failure returns 503
+for operational retry.
+
 Retention for contracts, payment proofs, condition evidence, and archived
-listing media remains a later policy decision.
+listing media remains a later policy decision. Automatic removal covers only
+expired, unfinalized upload attempts; it never deletes finalized payment or
+condition evidence.
 
 ## Privacy minimization
 

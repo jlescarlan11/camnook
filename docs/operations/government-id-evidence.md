@@ -124,15 +124,20 @@ the renter as requester; automatic retention uses source `retention`, a null
 requester, and a system-actor audit entry.
 
 `vercel.json` schedules `GET
-/api/internal/verification-evidence-cleanup` daily at 02:17 UTC. Vercel sends
+/api/internal/verification-evidence-cleanup` daily at 02:17 UTC. The historical
+route name is retained, but the job also cleans expired unfinished payment-proof
+and condition-photo uploads. Vercel sends
 `Authorization: Bearer $CRON_SECRET`; missing or invalid authorization receives
 HTTP 401. Each run first expires latest verified records whose document date is
-before the current Asia/Manila date, then claims up to 1,000 due documents and 1,000
-expired/cleanup-pending intents, removes exact paths in Storage batches of at
-most 100, and calls a database absence-verifying finalizer for every item with
-at most 10 finalization requests in flight. Partial Storage or finalization
-failures return 503 and remain retryable on the next run. The JSON response and
-application logs contain counts only, never paths, digests, or owner IDs.
+before the current Asia/Manila date, then claims at most 50 due verification
+documents and 50 expired/cleanup-pending verification intents. In parallel it
+claims at most 100 oldest expired unfinished payment-proof/condition-photo
+intents across both kinds. Exact paths are removed in bucket-specific Storage
+batches of at most 100, followed by database absence-verifying finalization with
+at most 10 requests in flight. Either cleanup domain still runs if the other
+throws. Partial Storage or finalization failures return 503 and remain retryable
+on the next run. The JSON response and application logs contain counts only,
+never paths, digests, or owner IDs.
 
 Before a hosted rollout, configure both server-only secrets, apply the migration
 to Development, invoke the protected route once with synthetic due evidence,
