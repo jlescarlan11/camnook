@@ -2,14 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/auth/require-admin", () => {
-  class AdminAuthorizationRequiredError extends Error {}
-  return {
-    AdminAuthorizationRequiredError,
-    isAuthenticationError: () => false,
-    requireAdmin: vi.fn(),
-  };
-});
 vi.mock("@/lib/auth/require-user", () => ({
   AuthenticationRequiredError: class AuthenticationRequiredError extends Error {},
   requireUser: vi.fn(),
@@ -17,7 +9,6 @@ vi.mock("@/lib/auth/require-user", () => ({
 
 import { revalidatePath } from "next/cache";
 
-import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   AuthenticationRequiredError,
   requireUser,
@@ -50,7 +41,7 @@ function form() {
 }
 
 function authorizeAdmin(rpc: ReturnType<typeof vi.fn>) {
-  vi.mocked(requireAdmin).mockResolvedValue({
+  vi.mocked(requireUser).mockResolvedValue({
     supabase: { schema: vi.fn(() => ({ rpc })) },
     user: { id: "admin" },
   } as never);
@@ -183,7 +174,7 @@ describe("resolution Server Actions", () => {
       error: "invalid",
       status: "error",
     });
-    expect(requireAdmin).not.toHaveBeenCalled();
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
   it("keeps cancellation financial effects zero and surfaces the unresolved paid policy", async () => {
@@ -209,6 +200,32 @@ describe("resolution Server Actions", () => {
       p_refund_liability_amount: 0,
       p_request_id: REQUEST_ID,
     });
+  });
+
+  it("denies an unauthenticated admin decision and maps the mutation admin guard", async () => {
+    const data = form();
+    data.set("decision", "decline");
+    data.set("reason", "The request is outside policy.");
+    data.set("requestId", REQUEST_ID);
+    vi.mocked(requireUser).mockRejectedValueOnce(
+      new AuthenticationRequiredError(),
+    );
+
+    await expect(decideCancellation({ status: "idle" }, data)).resolves.toEqual({
+      error: "unauthorized",
+      status: "error",
+    });
+
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "42501", message: "admin authorization required" },
+    });
+    authorizeAdmin(rpc);
+    await expect(decideCancellation({ status: "idle" }, data)).resolves.toEqual({
+      error: "unauthorized",
+      status: "error",
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it("submits an explicit manual issue amount and separate renter explanation", async () => {

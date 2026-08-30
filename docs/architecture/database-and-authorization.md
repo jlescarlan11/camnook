@@ -259,6 +259,10 @@ Pure booking approval and rejection actions follow the same boundary: after
 authentication, their transactional mutation RPC performs the sole admin check,
 reducing valid decision requests from two database RPCs to one while preserving
 indeterminate handling for interrupted outcomes.
+The seven pure database resolution actions likewise authenticate once and leave
+administrator authorization to their transactional mutation RPC, removing the
+same redundant database round trip without moving any storage or provider work
+ahead of authorization.
 
 Profile saves and booking submissions enforce profile state inside their
 authoritative mutation RPCs, without a separate client-side profile lookup.

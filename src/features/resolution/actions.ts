@@ -6,11 +6,6 @@ import { z } from "zod";
 import { stringFormValue } from "@/features/bookings/actions/state";
 import { parseManilaWallClock } from "@/features/bookings/manila-time";
 import {
-  AdminAuthorizationRequiredError,
-  isAuthenticationError,
-  requireAdmin,
-} from "@/lib/auth/require-admin";
-import {
   AuthenticationRequiredError,
   requireUser,
 } from "@/lib/auth/require-user";
@@ -49,7 +44,7 @@ export type ResolutionActionState = {
   status: "error" | "idle" | "success";
 };
 
-type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
+type AdminContext = Awaited<ReturnType<typeof requireUser>>;
 
 const idSchema = z.uuid();
 const reasonSchema = z.string().trim().min(2).max(1000);
@@ -69,13 +64,6 @@ function parseMoney(value: string, allowZero: boolean) {
   const amount = Number(value);
   if (!Number.isSafeInteger(Math.round(amount * 100))) return null;
   return amount > 0 || (allowZero && amount === 0) ? amount : null;
-}
-
-function isAdminAuthorizationDenial(error: unknown) {
-  return (
-    isAuthenticationError(error) ||
-    error instanceof AdminAuthorizationRequiredError
-  );
 }
 
 function mapResolutionError(error: { code?: string } | null) {
@@ -107,10 +95,10 @@ async function requireResolutionAdmin(): Promise<
     }
 > {
   try {
-    return { context: await requireAdmin() } as const;
+    return { context: await requireUser() } as const;
   } catch (error) {
     return {
-      error: isAdminAuthorizationDenial(error)
+      error: error instanceof AuthenticationRequiredError
         ? ("unauthorized" as const)
         : ("indeterminate" as const),
     } as const;
