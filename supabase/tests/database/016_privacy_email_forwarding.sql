@@ -1,5 +1,7 @@
 begin;
 
+select '1..1';
+
 set local role authenticated;
 set local "request.jwt.claim.role" = 'authenticated';
 
