@@ -1,7 +1,5 @@
 begin;
 
-select '1..1';
-
 do $$
 declare
   admin_count integer;
@@ -325,6 +323,9 @@ begin
 end;
 $$;
 
-select 'ok 1 - hosted calendar, handoff, and meetup boundaries are baseline-safe and atomic';
+select unnest(array[
+  '1..1',
+  'ok 1 - hosted calendar, handoff, and meetup boundaries are baseline-safe and atomic'
+]);
 
 rollback;

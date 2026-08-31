@@ -1,7 +1,5 @@
 begin;
 
-select '1..2';
-
 set local role authenticated;
 
 do $$
@@ -15,8 +13,6 @@ begin
 end;
 $$;
 
-select 'ok 1 - authenticated users cannot call the retired upload policy RPC';
-
 do $$
 begin
   begin
@@ -28,6 +24,10 @@ begin
 end;
 $$;
 
-select 'ok 2 - authenticated users cannot call the retired review queue RPC';
+select unnest(array[
+  '1..2',
+  'ok 1 - authenticated users cannot call the retired upload policy RPC',
+  'ok 2 - authenticated users cannot call the retired review queue RPC'
+]);
 
 rollback;
