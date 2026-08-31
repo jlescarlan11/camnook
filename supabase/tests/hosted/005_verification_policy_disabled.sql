@@ -1,7 +1,5 @@
 begin;
 
-select '1..1';
-
 do $$
 begin
   if not exists (
@@ -16,6 +14,9 @@ begin
 end;
 $$;
 
-select 'ok 1 - government-ID evidence policy is installed but disabled';
+select unnest(array[
+  '1..1',
+  'ok 1 - government-ID evidence policy is installed but disabled'
+]);
 
 rollback;
