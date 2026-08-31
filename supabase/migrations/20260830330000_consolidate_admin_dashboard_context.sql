@@ -1,6 +1,6 @@
 create function private.get_admin_dashboard_context(
-  p_period_start date,
-  p_period_end date
+  p_period_start date default null,
+  p_period_end date default null
 )
 returns jsonb
 language plpgsql
@@ -28,8 +28,8 @@ end;
 $$;
 
 create function api.get_admin_dashboard_context(
-  p_period_start date,
-  p_period_end date
+  p_period_start date default null,
+  p_period_end date default null
 )
 returns jsonb
 language sql

@@ -37,10 +37,12 @@ export async function loadAdminDashboardContext(
 ) {
   const result = await context.supabase.schema("api").rpc(
     "get_admin_dashboard_context",
-    {
-      p_period_end: period?.endDateExclusive ?? null,
-      p_period_start: period?.startDate ?? null,
-    },
+    period
+      ? {
+          p_period_end: period.endDateExclusive,
+          p_period_start: period.startDate,
+        }
+      : undefined,
   );
   const parsed = adminDashboardContextSchema.safeParse(result.data);
   if (isAdminAuthorizationError(result.error)) {

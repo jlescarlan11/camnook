@@ -73,6 +73,10 @@ describe("owner portfolio data loaders", () => {
     await expect(
       loadAdminDashboardContext(api.context, null),
     ).resolves.toEqual({ forbidden: true });
+    expect(api.rpc).toHaveBeenCalledWith(
+      "get_admin_dashboard_context",
+      undefined,
+    );
   });
 
   it("fails the whole snapshot closed on an unexpected sensitive field", async () => {

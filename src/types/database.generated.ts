@@ -415,8 +415,8 @@ export type Database = {
       }
       get_admin_dashboard_context: {
         Args: {
-          p_period_end: string | null
-          p_period_start: string | null
+          p_period_end?: string
+          p_period_start?: string
         }
         Returns: Json
       }
