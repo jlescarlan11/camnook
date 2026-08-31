@@ -259,7 +259,7 @@ jobs:
         run: |
           set -euo pipefail
           candidate_status="$(
-            vercel --token "$VERCEL_TOKEN" curl / --deployment "$CANDIDATE_ID" -- \
+            vercel curl / --deployment "$CANDIDATE_ID" -- \
               --silent --show-error --max-time 30 --output /dev/null \
               --write-out '%{http_code}'
           )"

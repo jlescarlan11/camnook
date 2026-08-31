@@ -131,7 +131,10 @@ describe("immutable release workflow policy", () => {
       position("name: Promote candidate with reconciliation"),
     );
     expect(workflow).toContain(
-      'vercel --token "$VERCEL_TOKEN" curl / --deployment "$CANDIDATE_ID"',
+      'vercel curl / --deployment "$CANDIDATE_ID" --',
+    );
+    expect(workflow).not.toContain(
+      'vercel --token "$VERCEL_TOKEN" curl',
     );
     expect(workflow).toContain('candidate_status" != "200"');
     expect(promotion.indexOf("release-gate-policy.mjs current-main")).toBeGreaterThan(
