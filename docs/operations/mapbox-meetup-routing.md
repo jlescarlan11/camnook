@@ -30,6 +30,13 @@ Authoritative sources to re-check before activation:
 - [Access tokens](https://docs.mapbox.com/accounts/guides/tokens/): create a
   dedicated server-side token with only the scopes required for Matrix access;
   do not reuse a browser, personal, or Production token in Development.
+- [Attribution](https://docs.mapbox.com/help/dive-deeper/attribution/): the
+  reviewed requirement applies logo and text attribution to maps that render
+  Mapbox styles, hosted data, or software. CamNook renders no Mapbox map, tile,
+  style, route geometry, or navigation result; it shows only derived advisory
+  duration labels and names Mapbox in the consent copy. No map attribution is
+  added under that reviewed boundary. Reconfirm this conclusion against the
+  approved account terms before activation.
 
 ## Request and privacy contract
 
