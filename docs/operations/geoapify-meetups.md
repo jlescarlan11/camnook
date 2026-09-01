@@ -48,9 +48,11 @@ server-only Vercel Development variables; never use a `NEXT_PUBLIC_` prefix:
 - `MEETUP_SEARCH_RADIUS_METERS`: 1000–20000; default 8000.
 
 Use `vercel env add <NAME> development` for secrets and settings. Do not paste
-values into tickets, commits, terminal transcripts, analytics, or chat. The
-currently installed local Vercel CLI is 59.1.3 while 59.3.0 is available; upgrade
-before provisioning to avoid compatibility drift.
+values into tickets, commits, terminal transcripts, analytics, or chat. Use the
+repository release path and a current authenticated Vercel CLI; the 2026-09-01
+inspection used CLI 59.10.0, while 59.11.0 was available. Upgrade before
+provisioning, then re-run `vercel env ls <environment>` and record names/scopes
+only, never values.
 
 ## Bounded Development check
 
@@ -72,8 +74,9 @@ opaque reference, or user identity.
 
 ## Quota, outage, and rotation
 
-Each recommendation costs one reverse-geocoding operation plus one Places
-operation for every configured category (each returns at most 20 results). Monitor the provider dashboard
+Each recommendation costs one reverse-geocoding operation and one Places operation
+for every configured reviewed category (each returns at most 20 results). Mapbox
+routing is budgeted separately; see `docs/operations/mapbox-meetup-routing.md`. Monitor the provider dashboard
 for daily credits, rate limits, abnormal failures, and plan cost. CamNook must fail
 closed on quota, timeout, network, malformed, unsupported, or empty responses;
 there is no static or fabricated fallback.

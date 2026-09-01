@@ -8,9 +8,14 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isCalendarDate, isHandoffTime } from "../../bookings/calendar";
 import { buildMeetupBinding } from "../binding";
 import { cityInputSchema } from "../city-input";
-import { getMeetupProviderConfig } from "../config";
+import {
+  getMeetupProviderConfig,
+  getMeetupRoutingConfig,
+  getMeetupRoutingPolicyVersion,
+} from "../config";
 import { claimGeoapifyProviderBudget } from "../provider-budget";
 import { GeoapifyAdapter, ProviderBoundaryError } from "../provider";
+import { claimMapboxRoutingBudget } from "../routing-budget";
 import { recommendPublicMeetup } from "../service";
 import { recordMeetupTelemetry } from "../telemetry";
 import type { SafeMeetupRecommendation } from "../types";
@@ -24,7 +29,7 @@ export type RecommendMeetupState = {
     | "invalid_schedule"
     | "provider_unavailable"
     | "schedule_changed";
-  recommendation?: SafeMeetupRecommendation;
+  recommendations?: SafeMeetupRecommendation[];
   status: "idle" | "error" | "success";
 };
 
@@ -70,7 +75,11 @@ export async function recommendMeetup(
   const context = await getAuthenticatedUser();
   if (!context) return { error: "authentication", status: "error" };
   const config = getMeetupProviderConfig();
-  if (!config) return { error: "configuration", status: "error" };
+  const routingConfig = getMeetupRoutingConfig();
+  const routingPolicyVersion = getMeetupRoutingPolicyVersion();
+  if (!config || !routingPolicyVersion) {
+    return { error: "configuration", status: "error" };
+  }
 
   let admin;
   try {
@@ -161,6 +170,7 @@ export async function recommendMeetup(
     policyVersion,
     renterId: context.user.id,
     returnDate,
+    routingPolicyVersion,
   });
   const result = await recommendPublicMeetup(
     {
@@ -175,9 +185,17 @@ export async function recommendMeetup(
       },
       renterCity,
     },
-    { adapter, config, recordTelemetry: recordMeetupTelemetry },
+    {
+      adapter,
+      config,
+      recordTelemetry: recordMeetupTelemetry,
+      reserveRoutingBudget: (elementCount) =>
+        claimMapboxRoutingBudget(context.user.id, elementCount),
+      routingConfig,
+      routingPolicyVersion,
+    },
   );
   return result.status === "available"
-    ? { recommendation: result.recommendation, status: "success" }
+    ? { recommendations: result.recommendations, status: "success" }
     : { error: "provider_unavailable", status: "error" };
 }

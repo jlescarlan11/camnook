@@ -98,6 +98,10 @@ handoff_policy_b_log="$test_dir/handoff-policy-b.log"
 handoff_policy_a_sql="$test_dir/handoff-policy-a.sql"
 handoff_policy_b_sql="$test_dir/handoff-policy-b.sql"
 handoff_policy_ready_file="$test_dir/handoff-policy-a-ready"
+mapbox_budget_a_log="$test_dir/mapbox-budget-a.log"
+mapbox_budget_b_log="$test_dir/mapbox-budget-b.log"
+mapbox_budget_a_sql="$test_dir/mapbox-budget-a.sql"
+mapbox_budget_b_sql="$test_dir/mapbox-budget-b.sql"
 session_a_pid=""
 accessory_approval_pid=""
 accessory_writer_pid=""
@@ -114,6 +118,8 @@ pickup_photo_create_pid=""
 pickup_photo_finalize_pid=""
 return_a_pid=""
 handoff_policy_a_pid=""
+mapbox_budget_a_pid=""
+mapbox_budget_b_pid=""
 
 cleanup() {
   set +e
@@ -134,7 +140,9 @@ cleanup() {
     "$pickup_photo_create_pid" \
     "$pickup_photo_finalize_pid" \
     "$return_a_pid" \
-    "$handoff_policy_a_pid"; do
+    "$handoff_policy_a_pid" \
+    "$mapbox_budget_a_pid" \
+    "$mapbox_budget_b_pid"; do
     if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
       kill "$child_pid" 2>/dev/null
       wait "$child_pid" 2>/dev/null
@@ -382,6 +390,11 @@ echo "running abandoned private upload cleanup invariants"
   "$database_url" \
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/017_abandoned_private_upload_cleanup.sql"
+
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/018_mapbox_routing_budget.sql"
 
 "$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
   -c 'create database camnook_hosted_compat template postgres' >/dev/null
@@ -2454,3 +2467,66 @@ $$;
 SQL
 
 echo "ok - competing handoff policy edits produce one coherent version winner"
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+delete from private.mapbox_routing_actor_windows;
+delete from private.mapbox_routing_rate_windows;
+delete from private.mapbox_routing_daily_windows;
+delete from private.mapbox_routing_monthly_windows;
+insert into private.mapbox_routing_rate_windows (window_started_at, element_count)
+values (date_trunc('minute', statement_timestamp()), 464);
+SQL
+
+cat >"$mapbox_budget_a_sql" <<'SQL'
+\set ON_ERROR_STOP on
+begin;
+set local role service_role;
+select api.claim_mapbox_routing_budget(
+  '20000000-0000-4000-8000-000000000002', 16
+);
+commit;
+SQL
+
+cat >"$mapbox_budget_b_sql" <<'SQL'
+\set ON_ERROR_STOP on
+begin;
+set local role service_role;
+select api.claim_mapbox_routing_budget(
+  '20000000-0000-4000-8000-000000000003', 16
+);
+commit;
+SQL
+
+"$postgres_bin/psql" -Atq "$database_url" -f "$mapbox_budget_a_sql" >"$mapbox_budget_a_log" 2>&1 &
+mapbox_budget_a_pid=$!
+"$postgres_bin/psql" -Atq "$database_url" -f "$mapbox_budget_b_sql" >"$mapbox_budget_b_log" 2>&1 &
+mapbox_budget_b_pid=$!
+wait "$mapbox_budget_a_pid"
+mapbox_budget_a_pid=""
+wait "$mapbox_budget_b_pid"
+mapbox_budget_b_pid=""
+
+if [[ "$(grep -hc '^t$' "$mapbox_budget_a_log" "$mapbox_budget_b_log" | awk '{ total += $1 } END { print total + 0 }')" -ne 1 ]] \
+  || [[ "$(grep -hc '^f$' "$mapbox_budget_a_log" "$mapbox_budget_b_log" | awk '{ total += $1 } END { print total + 0 }')" -ne 1 ]]; then
+  cat "$mapbox_budget_a_log" >&2
+  cat "$mapbox_budget_b_log" >&2
+  echo "concurrent Mapbox reservations did not produce one bounded winner" >&2
+  exit 1
+fi
+
+"$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 <<'SQL'
+do $$
+begin
+  if (select element_count from private.mapbox_routing_rate_windows
+      where window_started_at = date_trunc('minute', statement_timestamp())) <> 480
+    or (select coalesce(sum(element_count), 0) from private.mapbox_routing_actor_windows) <> 16
+    or (select coalesce(sum(element_count), 0) from private.mapbox_routing_daily_windows) <> 16
+    or (select coalesce(sum(element_count), 0) from private.mapbox_routing_monthly_windows) <> 16
+  then
+    raise exception 'concurrent Mapbox reservations exceeded a cap or left partial counters';
+  end if;
+end;
+$$;
+SQL
+
+echo "ok - concurrent Mapbox element reservations cannot exceed the rate cap"

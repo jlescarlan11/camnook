@@ -50,7 +50,7 @@ function fields(values: Record<string, string>) {
     data.set("operationId", "33333333-3333-4333-8333-333333333333");
   }
   if (!data.has("meetupConfirmed")) data.set("meetupConfirmed", "true");
-  if (!data.has("meetupReference")) data.set("meetupReference", "v1.test.reference");
+  if (!data.has("meetupReference")) data.set("meetupReference", "v2.test.reference");
   return data;
 }
 
@@ -527,6 +527,7 @@ describe("requestBooking", () => {
       policyVersion: 3,
       renterId: "user-1",
       returnDate: "2099-08-26",
+      routingPolicyVersion: "mapbox-matrix-v1",
     });
     const reference = mintRecommendationReference(
       {
@@ -541,6 +542,7 @@ describe("requestBooking", () => {
         renterCity: {
           label: "Mandaue City",
         },
+        routingPolicyVersion: "mapbox-matrix-v1",
       },
       process.env.MEETUP_RECOMMENDATION_SECRET,
     );
@@ -564,13 +566,24 @@ describe("requestBooking", () => {
     ).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
     expect(adminRpc).toHaveBeenCalledWith(
       "request_booking_schedule_with_meetup_idempotent",
-      expect.objectContaining({
+      {
         p_camera_id: CAMERA_ID,
+        p_expected_location: "Cebu City",
+        p_handoff_time: "09:00",
+        p_intended_use: "Family event",
+        p_operation_id: "33333333-3333-4333-8333-333333333333",
+        p_pickup_date: "2099-08-24",
+        p_policy_version: 3,
+        p_provider_config_version: "geoapify-v1",
         p_renter_city_label: "Mandaue City",
         p_renter_id: "user-1",
-        p_operation_id: "33333333-3333-4333-8333-333333333333",
+        p_return_date: "2099-08-26",
+        p_venue_address: "Cardinal Rosales Avenue, Cebu City",
+        p_venue_city: "Cebu City",
+        p_venue_latitude: 10.317,
+        p_venue_longitude: 123.905,
         p_venue_name: "Ayala Center Cebu",
-      }),
+      },
     );
     expect(JSON.stringify(adminRpc.mock.calls)).not.toContain("attacker override");
   });
@@ -614,6 +627,43 @@ describe("requestBooking", () => {
       ),
     ).resolves.toMatchObject({ error: "meetup_expired", status: "error" });
     expect(createSupabaseAdminClient).not.toHaveBeenCalled();
+
+    const staleRoutingReference = mintRecommendationReference(
+      {
+        address: "Cardinal Rosales Avenue, Cebu City",
+        binding: buildMeetupBinding({
+          cameraId: CAMERA_ID,
+          configVersion: "geoapify-v1",
+          handoffTime: "09:00",
+          pickupDate: "2099-08-24",
+          policyVersion: 3,
+          renterId: "user-1",
+          returnDate: "2099-08-26",
+          routingPolicyVersion: "mapbox-matrix-v1",
+        }),
+        city: "Cebu City",
+        configVersion: "geoapify-v1",
+        expiresAt: "2099-08-24T00:00:00.000Z",
+        latitude: 10.317,
+        longitude: 123.905,
+        name: "Ayala Center Cebu",
+        renterCity: { label: "Mandaue City" },
+        routingPolicyVersion: "mapbox-matrix-v1",
+      },
+      process.env.MEETUP_RECOMMENDATION_SECRET,
+    );
+    process.env.MEETUP_ROUTING_POLICY_VERSION = "mapbox-matrix-v2";
+    await expect(
+      requestBooking(
+        { status: "idle" },
+        fields({
+          ...common,
+          meetupConfirmed: "true",
+          meetupReference: staleRoutingReference,
+        }),
+      ),
+    ).resolves.toMatchObject({ error: "meetup_expired", status: "error" });
+    delete process.env.MEETUP_ROUTING_POLICY_VERSION;
   });
 
   it("preserves the complete schedule through unauthenticated OTP routing", async () => {
@@ -673,6 +723,7 @@ describe("requestBooking", () => {
           policyVersion: 3,
           renterId: "user-1",
           returnDate: "2099-08-26",
+          routingPolicyVersion: "mapbox-matrix-v1",
         }),
         city: "Cebu City",
         configVersion: "geoapify-v1",
@@ -681,6 +732,7 @@ describe("requestBooking", () => {
         longitude: 123.905,
         name: "Ayala Center Cebu",
         renterCity: { label: "Mandaue City" },
+        routingPolicyVersion: "mapbox-matrix-v1",
       },
       process.env.MEETUP_RECOMMENDATION_SECRET,
     );
@@ -753,6 +805,7 @@ describe("requestBooking", () => {
           policyVersion: 3,
           renterId: "user-1",
           returnDate: "2099-08-26",
+          routingPolicyVersion: "mapbox-matrix-v1",
         }),
         city: "Cebu City",
         configVersion: "geoapify-v1",
@@ -761,6 +814,7 @@ describe("requestBooking", () => {
         longitude: 123.905,
         name: "Ayala Center Cebu",
         renterCity: { label: "Mandaue City" },
+        routingPolicyVersion: "mapbox-matrix-v1",
       },
       process.env.MEETUP_RECOMMENDATION_SECRET,
     );

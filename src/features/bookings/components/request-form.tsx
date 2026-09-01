@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 
 import { requestBooking } from "@/features/bookings/actions/request-booking";
 import { initialRequestBookingActionState } from "@/features/bookings/form-state";
@@ -32,7 +32,11 @@ export function RequestForm({
   const [requestOperationId] = useState(() => crypto.randomUUID());
   const [expectedLocation, setExpectedLocation] = useState("");
   const [manualCity, setManualCity] = useState("");
+  const [selectedReference, setSelectedReference] = useState<string | null>(null);
   const [confirmedReference, setConfirmedReference] = useState<string | null>(null);
+  const [expiredRecommendationBatch, setExpiredRecommendationBatch] = useState<
+    string | null
+  >(null);
   const [locationStatus, setLocationStatus] = useState<
     "idle" | "locating" | "denied" | "unavailable"
   >("idle");
@@ -45,10 +49,31 @@ export function RequestForm({
     initialRequestBookingActionState,
   );
   const meetupRequired = Boolean(schedule);
-  const recommendation = recommendationState.recommendation;
+  const recommendations = recommendationState.recommendations ?? [];
+  const recommendationExpiry = recommendations[0]?.expiresAt ?? null;
+  const recommendationsExpired =
+    recommendationExpiry !== null &&
+    expiredRecommendationBatch === recommendationExpiry;
+  const selectedRecommendation = recommendations.find(
+    (recommendation) => recommendation.reference === selectedReference,
+  );
   const meetupConfirmed =
-    Boolean(recommendation?.reference) &&
-    confirmedReference === recommendation?.reference;
+    Boolean(selectedRecommendation?.reference) &&
+    confirmedReference === selectedRecommendation?.reference;
+
+  useEffect(() => {
+    if (!recommendationExpiry) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setExpiredRecommendationBatch(recommendationExpiry);
+      setSelectedReference(null);
+      setConfirmedReference(null);
+    }, Math.max(0, Date.parse(recommendationExpiry) - Date.now()));
+
+    return () => window.clearTimeout(timeout);
+  }, [recommendationExpiry]);
 
   function scheduleFields(formData: FormData) {
     formData.set("camera", camera);
@@ -62,6 +87,7 @@ export function RequestForm({
   }
 
   function useCurrentCity() {
+    setSelectedReference(null);
     setConfirmedReference(null);
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
@@ -85,10 +111,17 @@ export function RequestForm({
     );
   }
 
+  function recommendFromManualCity(formData: FormData) {
+    setSelectedReference(null);
+    setConfirmedReference(null);
+    startTransition(() => recommendationAction(formData));
+  }
+
   return (
     <div className="mt-6 space-y-6">
       {meetupRequired && schedule ? (
         <section
+          aria-busy={recommendationPending}
           aria-labelledby="meetup-heading"
           className="rounded-2xl border border-stone-200 bg-stone-50 p-5"
         >
@@ -96,9 +129,10 @@ export function RequestForm({
             Confirm a public meetup spot
           </h3>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            CamNook uses your current city—not your street address—to recommend
-            one public venue between you and the lender. Your precise position
-            is discarded after the city lookup.
+            If you choose location suggestions, CamNook sends your position
+            temporarily to Geoapify to confirm your city and to Mapbox to compare
+            routes. It is not saved with the booking. You can use the city-only
+            fallback instead; its route estimates are coarser.
           </p>
           <button
             className="mt-4 min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:opacity-60"
@@ -107,9 +141,18 @@ export function RequestForm({
             type="button"
           >
             {locationStatus === "locating" || recommendationPending
-              ? "Finding a public meetup…"
-              : "Use my current city"}
+              ? "Finding public meetup options…"
+              : "Allow location and suggest up to 3 places"}
           </button>
+          <span aria-live="polite" className="sr-only">
+            {recommendationPending
+              ? "Finding public meetup options."
+              : recommendationsExpired
+                ? "The meetup suggestions expired. Generate new suggestions."
+                : recommendations.length
+                  ? `${recommendations.length} public meetup options are ready.`
+                  : ""}
+          </span>
           {locationStatus === "denied" || locationStatus === "unavailable" ? (
             <p className="mt-3 text-sm text-amber-900" role="status">
               {locationStatus === "denied"
@@ -118,7 +161,7 @@ export function RequestForm({
             </p>
           ) : null}
 
-          <form action={recommendationAction} className="mt-5 border-t border-stone-200 pt-5">
+          <form action={recommendFromManualCity} className="mt-5 border-t border-stone-200 pt-5">
             <input name="camera" type="hidden" value={camera} />
             <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
             <input name="locationMode" type="hidden" value="manual" />
@@ -132,11 +175,13 @@ export function RequestForm({
               <input
                 autoComplete="address-level2"
                 className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 px-4 py-2"
+                disabled={locationStatus === "locating" || recommendationPending}
                 id="manualCity"
                 maxLength={80}
                 name="manualCity"
                 onChange={(event) => {
                   setManualCity(event.target.value);
+                  setSelectedReference(null);
                   setConfirmedReference(null);
                 }}
                 pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+"
@@ -146,10 +191,10 @@ export function RequestForm({
               />
               <button
                 className="min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60"
-                disabled={recommendationPending}
+                disabled={locationStatus === "locating" || recommendationPending}
                 type="submit"
               >
-                Recommend from city
+                Suggest up to 3 places from city
               </button>
             </div>
           </form>
@@ -168,18 +213,76 @@ export function RequestForm({
             </p>
           ) : null}
 
-          {recommendation ? (
-            <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-sm text-emerald-900">
-                Confirmed renter city: <strong>{recommendation.renterCity}</strong>
-              </p>
-              <h4 className="mt-2 font-semibold">{recommendation.name}</h4>
-              <p className="mt-1 break-words text-sm leading-6 text-stone-700">
-                {recommendation.address}
-              </p>
-              <p className="mt-2 text-xs text-stone-600">{recommendation.attribution}</p>
-              <p className="mt-1 text-xs text-stone-600">
-                This recommendation expires at {recommendation.expiresAt}.
+          {recommendations.length ? (
+            <div className="mt-5">
+              {recommendationsExpired ? (
+                <p
+                  className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+                  role="status"
+                >
+                  These meetup suggestions expired. Generate new suggestions before
+                  submitting.
+                </p>
+              ) : null}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
+                <p>
+                  Owner handoff origin: <strong>{recommendations[0].ownerCity}</strong>
+                </p>
+                <p>
+                  Your confirmed city: <strong>{recommendations[0].renterCity}</strong>
+                </p>
+              </div>
+              <fieldset className="mt-4 space-y-3">
+                <legend className="font-semibold">Choose a public meetup place</legend>
+                <p className="mt-1 text-xs leading-5 text-stone-600">
+                  {recommendations[0].routeMode === "balanced"
+                    ? "Ranked to balance advisory driving time for both people. "
+                    : "Routing is temporarily unavailable, so these options use Geoapify’s deterministic public-place ranking without travel-time claims. "}
+                  These are reviewed public venue categories, not live crowd or
+                  safety evidence. Meet during operating hours in a staffed,
+                  visible area.
+                </p>
+                {recommendations.map((recommendation, index) => (
+                  <label
+                    className="flex cursor-pointer gap-3 rounded-xl border border-stone-200 bg-white p-4 has-checked:border-stone-950 has-checked:ring-2 has-checked:ring-stone-200"
+                    key={recommendation.reference}
+                  >
+                    <input
+                      checked={selectedReference === recommendation.reference}
+                      className="mt-1 h-5 w-5"
+                      disabled={recommendationsExpired}
+                      name="meetupOption"
+                      onChange={() => {
+                        setSelectedReference(recommendation.reference);
+                        setConfirmedReference(null);
+                      }}
+                      type="radio"
+                      value={recommendation.reference}
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">
+                        {index + 1}. {recommendation.name}
+                      </span>
+                      <span className="mt-1 block break-words text-sm leading-6 text-stone-700">
+                        {recommendation.address}
+                      </span>
+                      {recommendation.renterTravelMinutes !== null &&
+                      recommendation.ownerTravelMinutes !== null ? (
+                        <span className="mt-2 block text-xs text-stone-600">
+                          {recommendation.routeEstimateApproximate ? "Approx. " : "About "}
+                          {recommendation.renterTravelMinutes} min from you · {recommendation.ownerTravelMinutes} min from owner
+                        </span>
+                      ) : (
+                        <span className="mt-2 block text-xs text-stone-600">
+                          Travel times unavailable; this option is not route-ranked.
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <p className="mt-3 text-xs text-stone-600">
+                {recommendations[0].attribution} · Suggestions expire at {recommendations[0].expiresAt}.
               </p>
             </div>
           ) : null}
@@ -209,7 +312,7 @@ export function RequestForm({
           <input
             name="meetupReference"
             type="hidden"
-            value={recommendation?.reference ?? ""}
+            value={selectedRecommendation?.reference ?? ""}
           />
         </>
       ) : null}
@@ -234,21 +337,21 @@ export function RequestForm({
           </p>
         ) : null}
       </div>
-      {meetupRequired && recommendation ? (
+      {meetupRequired && selectedRecommendation ? (
         <label className="flex min-h-11 items-start gap-3 rounded-xl border border-stone-200 p-4">
           <input
             checked={meetupConfirmed}
             className="mt-1 h-5 w-5"
             onChange={(event) =>
               setConfirmedReference(
-                event.target.checked ? recommendation.reference : null,
+                event.target.checked ? selectedRecommendation.reference : null,
               )
             }
             type="checkbox"
           />
           <span className="text-sm leading-6">
-            I confirm {recommendation.renterCity} as my city and reviewed
-            {` ${recommendation.name}`} as the planned pickup and return meetup
+            I confirm {selectedRecommendation.renterCity} as my city and reviewed
+            {` ${selectedRecommendation.name}`} as the planned pickup and return meetup
             spot.
           </span>
         </label>
@@ -311,7 +414,12 @@ export function RequestForm({
       ) : null}
       <button
         className="min-h-12 w-full rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-        disabled={pending || (meetupRequired && (!recommendation || !meetupConfirmed))}
+        disabled={
+          pending ||
+          recommendationPending ||
+          (meetupRequired && (!selectedRecommendation || !meetupConfirmed)) ||
+          recommendationsExpired
+        }
         type="submit"
       >
         {pending ? "Submitting request…" : "Submit booking request"}

@@ -50,6 +50,10 @@ describe("ScheduleQuoteForm", () => {
     expect(markup).toContain("9:00 AM");
     expect(markup).toContain("5:00 PM");
     expect(markup).toContain("Availability key");
+    expect(markup).toContain("cannot be a handoff endpoint");
+    expect(markup).toContain(
+      "Dimmed no-handoff days may remain inside a valid rental range.",
+    );
     expect(markup).toContain("does not reserve the camera");
     expect(markup).toContain('aria-label="Show next month"');
     expect(markup).toContain('aria-live="polite"');

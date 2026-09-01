@@ -8,7 +8,10 @@ import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { loginPath } from "@/lib/auth/routes";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildMeetupBinding } from "@/features/meetups/binding";
-import { getMeetupProviderConfig } from "@/features/meetups/config";
+import {
+  getMeetupProviderConfig,
+  getMeetupRoutingPolicyVersion,
+} from "@/features/meetups/config";
 import { readRecommendationReference } from "@/features/meetups/reference";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
@@ -148,7 +151,8 @@ export async function requestBooking(
   }
 
   const config = getMeetupProviderConfig();
-  if (!config) {
+  const routingPolicyVersion = getMeetupRoutingPolicyVersion();
+  if (!config || !routingPolicyVersion) {
     return { error: "request_failed", status: "error", values: preservedValues };
   }
   const binding = buildMeetupBinding({
@@ -159,13 +163,18 @@ export async function requestBooking(
     policyVersion: policyVersion!,
     renterId: context.user.id,
     returnDate: values.returnDate,
+    routingPolicyVersion,
   });
   const claims = readRecommendationReference(
     values.meetupReference,
     config.referenceSecret,
     { binding },
   );
-  if (!claims || claims.configVersion !== config.configVersion) {
+  if (
+    !claims ||
+    claims.configVersion !== config.configVersion ||
+    claims.routingPolicyVersion !== routingPolicyVersion
+  ) {
     return { error: "meetup_expired", status: "error", values: preservedValues };
   }
   let admin;

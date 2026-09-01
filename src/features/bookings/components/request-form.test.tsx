@@ -29,7 +29,10 @@ describe("RequestForm meetup planning", () => {
     );
 
     expect(getCurrentPosition).not.toHaveBeenCalled();
-    expect(markup).toContain("Use my current city");
+    expect(markup).toContain("Allow location and suggest up to 3 places");
+    expect(markup).toContain("Geoapify");
+    expect(markup).toContain("Mapbox");
+    expect(markup).toContain("not saved with the booking");
     expect(markup).toContain("City or municipality fallback");
     expect(markup).toContain('autoComplete="address-level2"');
     expect(markup).toContain('name="meetupReference"');

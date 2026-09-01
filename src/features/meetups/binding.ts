@@ -10,13 +10,14 @@ export type MeetupBindingInput = {
   policyVersion: number;
   renterId: string;
   returnDate: string;
+  routingPolicyVersion: string;
 };
 
 export function buildMeetupBinding(input: MeetupBindingInput) {
   return createHash("sha256")
     .update(
       JSON.stringify([
-        "camnook-meetup-v1",
+        "camnook-meetup-v2",
         input.renterId,
         input.cameraId,
         input.pickupDate,
@@ -24,6 +25,7 @@ export function buildMeetupBinding(input: MeetupBindingInput) {
         input.handoffTime,
         input.policyVersion,
         input.configVersion,
+        input.routingPolicyVersion,
       ]),
     )
     .digest("base64url");

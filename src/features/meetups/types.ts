@@ -21,10 +21,15 @@ export type SafeMeetupRecommendation = {
   latitude: number;
   longitude: number;
   name: string;
+  ownerCity: string;
+  ownerTravelMinutes: number | null;
+  routeEstimateApproximate: boolean;
+  routeMode: "balanced" | "geoapify_fallback";
   renterCity: string;
+  renterTravelMinutes: number | null;
   reference: string;
 };
 
 export type MeetupRecommendationResult =
-  | { recommendation: SafeMeetupRecommendation; status: "available" }
+  | { recommendations: SafeMeetupRecommendation[]; status: "available" }
   | { reason: MeetupUnavailableReason; status: "unavailable" };

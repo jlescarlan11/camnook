@@ -20,6 +20,7 @@ const claims = {
   renterCity: {
     label: "Cebu City",
   },
+  routingPolicyVersion: "mapbox-matrix-v1",
 };
 
 describe("recommendation references", () => {
@@ -57,7 +58,7 @@ describe("recommendation references", () => {
       }),
     ).toBeNull();
     expect(
-      readRecommendationReference("v1.invalid", secret, {
+      readRecommendationReference("v2.invalid", secret, {
         binding: claims.binding,
       }),
     ).toBeNull();

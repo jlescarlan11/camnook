@@ -4,11 +4,13 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/require-user", () => ({ getAuthenticatedUser: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: vi.fn() }));
 vi.mock("../provider-budget", () => ({ claimGeoapifyProviderBudget: vi.fn() }));
+vi.mock("../routing-budget", () => ({ claimMapboxRoutingBudget: vi.fn() }));
 
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { claimGeoapifyProviderBudget } from "../provider-budget";
+import { claimMapboxRoutingBudget } from "../routing-budget";
 import { recommendMeetup } from "./recommend-meetup";
 
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
@@ -53,10 +55,12 @@ describe("recommendMeetup", () => {
     process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
     process.env.MEETUP_RECOMMENDATION_SECRET =
       "server-only-meetup-reference-secret-value";
+    process.env.MAPBOX_ACCESS_TOKEN = "mapbox-server-token-value";
     vi.mocked(getAuthenticatedUser).mockResolvedValue({
       user: { id: "renter-1" },
     } as never);
     vi.mocked(claimGeoapifyProviderBudget).mockResolvedValue(true);
+    vi.mocked(claimMapboxRoutingBudget).mockResolvedValue(true);
     vi.mocked(createSupabaseAdminClient).mockReturnValue({
       schema: vi.fn(() => ({
         rpc: vi.fn().mockResolvedValue({
@@ -75,7 +79,7 @@ describe("recommendMeetup", () => {
     } as never);
   });
 
-  it("derives one safe recommendation without returning or logging the precise browser position", async () => {
+  it("derives safe route-balanced recommendations without returning or logging the precise browser position", async () => {
     const request = vi
       .fn()
       .mockResolvedValueOnce(
@@ -106,6 +110,12 @@ describe("recommendMeetup", () => {
             },
           ],
         }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ code: "Ok", durations: [[600], [720]] }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
       );
     vi.stubGlobal("fetch", request);
     const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -113,17 +123,29 @@ describe("recommendMeetup", () => {
     const result = await recommendMeetup({ status: "idle" }, validSchedule());
 
     expect(result).toMatchObject({
-      recommendation: {
-        address: "Cardinal Rosales Avenue, Cebu City",
-        name: "Ayala Center Cebu",
-        renterCity: "Mandaue City",
-        reference: expect.stringMatching(/^v1\./),
-      },
+      recommendations: [
+        {
+          address: "Cardinal Rosales Avenue, Cebu City",
+          name: "Ayala Center Cebu",
+          ownerCity: "Cebu City",
+          ownerTravelMinutes: 10,
+          renterCity: "Mandaue City",
+          renterTravelMinutes: 12,
+          routeMode: "balanced",
+          reference: expect.stringMatching(/^v2\./),
+        },
+      ],
       status: "success",
     });
     expect(JSON.stringify(result)).not.toMatch(/10\.30123456|123\.90123456|provider:ayala|provider:mandaue/);
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/10\.|123\.|Ayala|Mandaue|reference/);
     expect(String(request.mock.calls[0]?.[0])).not.toMatch(/10\.30123456|123\.90123456/);
+    expect(String(request.mock.calls[2]?.[0])).toContain(
+      "/directions-matrix/v1/mapbox/driving-traffic/",
+    );
+    expect(String(request.mock.calls[2]?.[0])).not.toMatch(/search|geocod/i);
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 2);
+    expect(claimMapboxRoutingBudget).toHaveBeenCalledWith("renter-1", 2);
   });
 
   it("accepts only provider-validated Philippine city-level manual fallback", async () => {

@@ -4,9 +4,9 @@ Status: implemented behind server-only configuration; not customer-active.
 
 ## Responsibility
 
-`src/features/meetups/` is the only layer allowed to consume Geoapify response
-shapes. It converts one short-lived renter browser position and one private,
-coarse lender city anchor into either one safe public-place recommendation or a
+`src/features/meetups/` is the only layer allowed to consume Geoapify or Mapbox
+response shapes. It converts one short-lived renter browser position and one private,
+coarse lender city anchor into up to three safe public-place recommendations or a
 constrained unavailable reason. It also powers the admin-only public-address
 search used to resolve a selected place to a city anchor. Calendar UI and
 booking persistence are separate consumers and do not call Geoapify directly.
@@ -18,23 +18,30 @@ The boundary is deliberately split into:
 - `provider.ts`: performs bounded no-store HTTPS JSON-RPC POST calls to
   Geoapify's EU MCP endpoint with header authentication, validates external JSON,
   and returns normalized city/place/address-suggestion values.
+- `routing-provider.ts`: performs one bounded, asymmetric, duration-only Mapbox
+  Matrix request from two origins to at most eight Geoapify venue coordinates.
+  It preserves `null` as unreachable and exposes no provider response shape.
+- `provider-budget.ts` and `routing-budget.ts`: reserve Geoapify calls and Mapbox
+  billable elements independently through service-role-only database functions.
 - `domain.ts`: calculates a spherical city midpoint, rejects unsafe or incomplete
   candidates, and ranks eligible venues deterministically.
 - `reference.ts`: encrypts the provider place identity, safe snapshot, expiry,
-  config version, and consumer binding with AES-256-GCM. The opaque reference is
+  provider/routing policy versions, and consumer binding with AES-256-GCM. The opaque reference is
   not a durable identifier and cannot be reused under another binding.
 - `service.ts`: orchestrates the flow and exposes only the safe result union from
   `types.ts`.
 
 ## Privacy boundary
 
-The exact renter coordinate is accepted only by `recommendPublicMeetup`, passed
-in an HTTPS POST body to a city-level reverse lookup, and not put in either an
-application or provider URL. It is not copied into returned city context,
+The exact renter coordinate is accepted only by `recommendPublicMeetup`. It is
+passed in an HTTPS POST body to Geoapify's city-level reverse lookup and in the
+server-only Mapbox Matrix URL required by that provider. No Mapbox URL is ever
+logged, returned, persisted, or exposed to the browser. The coordinate is not
+copied into returned city context,
 telemetry, storage, cookies, URLs controlled by CamNook, or errors. Geoapify must
-receive that coordinate to perform the lookup. Its normalized city result uses a
-city centroid; subsequent midpoint and POI searches do not reuse the browser
-position.
+receive that coordinate to perform the lookup; Mapbox receives it only for the
+transient route comparison. Geoapify's normalized city centroid drives midpoint
+and POI search. Manual-city routing uses that centroid and is labeled approximate.
 
 The lender anchor remains private database data. Public listing DTOs expose its
 city label and schedule but not its provider ID or coordinates. The admin address
@@ -48,9 +55,10 @@ public address/city, coordinates rounded to three decimals, attribution, config
 version, expiry, and encrypted reference. Provider IDs remain encrypted at the
 server boundary.
 
-Telemetry is a closed shape: status category, coarse fast/slow bucket, and result
-count. It cannot carry coordinates, addresses, names, user IDs, provider payloads,
-secrets, or tokens.
+Telemetry is a closed aggregate shape: status category, coarse fast/slow bucket,
+result/candidate count, reserved element count, profile/policy version, and routing
+fallback class. It cannot carry coordinates, addresses, names, user IDs, provider
+payloads, routes, secrets, tokens, or constructed URLs.
 
 ## Deterministic selection
 
@@ -65,13 +73,21 @@ Each configured category is sent as a separate bounded provider tool call becaus
 the provider's POST interface accepts one category per call. Eligible candidates
 are then ordered by CamNook-calculated center distance, configured
 category priority, normalized name, normalized address, and provider identity.
-With the same normalized inputs, provider fixture, and config version, the same
-venue wins.
+The first eight distinct eligible candidates are compared with one Mapbox
+`driving-traffic` matrix from the renter and owner origins. CamNook returns at most
+three reachable venues by lowest maximum individual travel time, then lowest
+combined travel time, then the existing deterministic Geoapify order. If routing
+configuration, budget, or provider output is unavailable—or every pair is
+unreachable—the same eligible shortlist produces up to three deterministic
+Geoapify-ranked options with no travel-time claim. Geoapify failure remains hard
+unavailable and never fabricates a venue.
 
 ## Failure contract
 
-Timeout, quota, network/HTTP failure, malformed output, unsupported country/city,
-empty provider output, no eligible venue, invalid input, or missing configuration
-returns an unavailable category without raw provider content. The service never
-fabricates a venue. Expired, tampered, malformed, or incorrectly bound opaque
-references fail closed.
+Geoapify timeout, quota, network/HTTP failure, malformed output, unsupported
+country/city, empty output, no eligible venue, invalid input, or missing Geoapify
+configuration returns an unavailable category without raw provider content.
+Mapbox failures remove route claims while preserving eligible Geoapify options.
+Expired, tampered, cross-actor/camera/schedule, or policy-version-mismatched opaque
+references fail closed. Only the selected reference can become the one immutable
+Geoapify booking snapshot; alternatives and route estimates are discarded.

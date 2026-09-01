@@ -1,13 +1,20 @@
 import "server-only";
 
-import type { MeetupProviderConfig } from "./config";
 import {
+  meetupRoutingConfigSchema,
+  type MeetupProviderConfig,
+  type MeetupRoutingConfig,
+} from "./config";
+import {
+  calculateSearchCenter,
   coarseCoordinate,
   coordinateSchema,
-  calculateSearchCenter,
   rankEligiblePlaces,
+  rankPlacesByBalancedTravel,
   type Coordinate,
   type NormalizedCity,
+  type PlaceTravelTime,
+  type ProviderPlace,
 } from "./domain";
 import {
   GeoapifyAdapter,
@@ -15,14 +22,39 @@ import {
   type ProviderFailureCode,
 } from "./provider";
 import { mintRecommendationReference } from "./reference";
+import {
+  MapboxMatrixAdapter,
+  RoutingBoundaryError,
+  type RoutingBoundaryErrorCode,
+} from "./routing-provider";
 import type {
   MeetupRecommendationResult,
   MeetupUnavailableReason,
 } from "./types";
 
+export type RoutingTelemetryStatus =
+  | "authentication"
+  | "budget_denied"
+  | "configuration"
+  | "invalid_request"
+  | "malformed"
+  | "network"
+  | "partial"
+  | "quota"
+  | "success"
+  | "timeout"
+  | "unavailable"
+  | "unreachable";
+
 export type MeetupProviderTelemetry = {
+  candidateCount?: number;
   durationBucket: "fast" | "slow";
+  elementCount?: number;
+  fallbackEligible?: boolean;
+  profile?: "driving-traffic";
   resultCount: number;
+  routingPolicyVersion?: string;
+  routingStatus?: RoutingTelemetryStatus;
   status: "available" | MeetupUnavailableReason;
 };
 
@@ -38,6 +70,10 @@ type RecommendOptions = {
   config: MeetupProviderConfig | null;
   now?: Date;
   recordTelemetry?: (event: MeetupProviderTelemetry) => void;
+  reserveRoutingBudget?: (elementCount: number) => Promise<boolean>;
+  routingAdapter?: Pick<MapboxMatrixAdapter, "calculateTravelTimes">;
+  routingConfig: MeetupRoutingConfig | null;
+  routingPolicyVersion: string;
 };
 
 const PROVIDER_REASON_MAP: Record<ProviderFailureCode, MeetupUnavailableReason> = {
@@ -48,6 +84,77 @@ const PROVIDER_REASON_MAP: Record<ProviderFailureCode, MeetupUnavailableReason> 
   timeout: "timeout",
   unsupported_city: "unsupported_city",
 };
+
+const ROUTING_STATUS_MAP: Record<RoutingBoundaryErrorCode, RoutingTelemetryStatus> = {
+  authentication: "authentication",
+  invalid_request: "invalid_request",
+  malformed: "malformed",
+  network: "network",
+  quota: "quota",
+  timeout: "timeout",
+  unavailable: "unavailable",
+};
+
+type RankedPlace = {
+  place: ProviderPlace;
+  travel: { ownerSeconds: number; renterSeconds: number } | null;
+};
+
+async function routeCandidates(
+  candidates: ProviderPlace[],
+  input: RecommendInput,
+  options: RecommendOptions,
+): Promise<{
+  elementCount: number;
+  ranked: RankedPlace[];
+  routingStatus: RoutingTelemetryStatus;
+}> {
+  const fallback = candidates.slice(0, 3).map((place) => ({ place, travel: null }));
+  const routingConfig = meetupRoutingConfigSchema.safeParse(options.routingConfig);
+  if (!routingConfig.success) {
+    return { elementCount: 0, ranked: fallback, routingStatus: "configuration" };
+  }
+  const bounded = candidates.slice(0, routingConfig.data.maxCandidates);
+  const elementCount = bounded.length * 2;
+  if (
+    !options.reserveRoutingBudget ||
+    !(await options.reserveRoutingBudget(elementCount))
+  ) {
+    return { elementCount, ranked: fallback, routingStatus: "budget_denied" };
+  }
+
+  const adapter =
+    options.routingAdapter ?? new MapboxMatrixAdapter(routingConfig.data);
+  try {
+    const travelTimes = await adapter.calculateTravelTimes({
+      ownerOrigin: input.lenderCity,
+      renterOrigin: input.currentPosition ?? input.renterCity!,
+      targets: bounded,
+    });
+    const ranked = rankPlacesByBalancedTravel(bounded, travelTimes);
+    if (!ranked.length) {
+      return { elementCount, ranked: fallback, routingStatus: "unreachable" };
+    }
+    const partial = travelTimes.some(
+      (travel: PlaceTravelTime) =>
+        travel.ownerSeconds === null || travel.renterSeconds === null,
+    );
+    return {
+      elementCount,
+      ranked: ranked.slice(0, 3),
+      routingStatus: partial ? "partial" : "success",
+    };
+  } catch (error) {
+    return {
+      elementCount,
+      ranked: fallback,
+      routingStatus:
+        error instanceof RoutingBoundaryError
+          ? ROUTING_STATUS_MAP[error.code]
+          : "malformed",
+    };
+  }
+}
 
 export async function recommendPublicMeetup(
   input: RecommendInput,
@@ -62,6 +169,7 @@ export async function recommendPublicMeetup(
     });
     return { reason: "configuration", status: "unavailable" };
   }
+  const config = options.config;
   const position = input.currentPosition
     ? coordinateSchema.safeParse(input.currentPosition)
     : null;
@@ -76,79 +184,92 @@ export async function recommendPublicMeetup(
 
   const adapter =
     options.adapter ??
-    new GeoapifyAdapter({
-      apiKey: options.config.apiKey,
-      timeoutMs: options.config.timeoutMs,
-    });
-
+    new GeoapifyAdapter({ apiKey: config.apiKey, timeoutMs: config.timeoutMs });
   let resultCount = 0;
   try {
-    // The exact browser coordinate is intentionally not copied into any durable
-    // state or output. Only the city-level provider result survives this call.
     const renterCity = input.renterCity
       ? input.renterCity
       : await adapter.reverseGeocodeCity(position!.success ? position!.data : input.lenderCity);
     const searchCenter = calculateSearchCenter(renterCity, input.lenderCity);
     const candidates = await adapter.searchPublicPlaces({
-      allowedCategories: options.config.allowedCategories,
+      allowedCategories: config.allowedCategories,
       center: searchCenter,
-      radiusMeters: options.config.searchRadiusMeters,
+      radiusMeters: config.searchRadiusMeters,
     });
     resultCount = candidates.length;
-    const winner = rankEligiblePlaces(
+    const eligible = rankEligiblePlaces(
       candidates,
       searchCenter,
-      options.config.allowedCategories,
-    )[0];
-    if (!winner) throw new ProviderBoundaryError("empty");
+      config.allowedCategories,
+    ).slice(0, 8);
+    if (!eligible.length) throw new ProviderBoundaryError("empty");
 
+    const routed = await routeCandidates(eligible, input, options);
     const now = options.now ?? new Date();
     const expiresAt = new Date(now.getTime() + 15 * 60 * 1_000).toISOString();
-    const safeLatitude = coarseCoordinate(winner.latitude);
-    const safeLongitude = coarseCoordinate(winner.longitude);
-    const reference = mintRecommendationReference(
-      {
-        address: winner.address,
-        binding: input.binding,
-        city: winner.city,
-        configVersion: options.config.configVersion,
-        expiresAt,
-        latitude: safeLatitude,
-        longitude: safeLongitude,
-        name: winner.name,
-        renterCity: {
-          label: renterCity.label,
+    const routeMode: "balanced" | "geoapify_fallback" =
+      routed.routingStatus === "success" || routed.routingStatus === "partial"
+        ? "balanced"
+        : "geoapify_fallback";
+    const recommendations = routed.ranked.map(({ place, travel }) => {
+      const latitude = coarseCoordinate(place.latitude);
+      const longitude = coarseCoordinate(place.longitude);
+      const reference = mintRecommendationReference(
+        {
+          address: place.address,
+          binding: input.binding,
+          city: place.city,
+          configVersion: config.configVersion,
+          expiresAt,
+          latitude,
+          longitude,
+          name: place.name,
+          renterCity: { label: renterCity.label },
+          routingPolicyVersion: options.routingPolicyVersion,
         },
-      },
-      options.config.referenceSecret,
-    );
+        config.referenceSecret,
+      );
+      return {
+        address: place.address,
+        attribution: "© OpenStreetMap contributors · Powered by Geoapify" as const,
+        city: place.city,
+        configVersion: config.configVersion,
+        expiresAt,
+        latitude,
+        longitude,
+        name: place.name,
+        ownerCity: input.lenderCity.label,
+        ownerTravelMinutes: travel
+          ? Math.max(1, Math.ceil(travel.ownerSeconds / 60))
+          : null,
+        routeEstimateApproximate: Boolean(input.renterCity && travel),
+        routeMode,
+        renterCity: renterCity.label,
+        renterTravelMinutes: travel
+          ? Math.max(1, Math.ceil(travel.renterSeconds / 60))
+          : null,
+        reference,
+      };
+    });
     options.recordTelemetry?.({
-      durationBucket: Date.now() - startedAt < options.config.timeoutMs ? "fast" : "slow",
+      candidateCount: eligible.length,
+      durationBucket: Date.now() - startedAt < config.timeoutMs ? "fast" : "slow",
+      elementCount: routed.elementCount,
+      fallbackEligible: eligible.length > 0,
+      profile: options.routingConfig?.profile,
       resultCount,
+      routingPolicyVersion: options.routingPolicyVersion,
+      routingStatus: routed.routingStatus,
       status: "available",
     });
-    return {
-      recommendation: {
-        address: winner.address,
-        attribution: "© OpenStreetMap contributors · Powered by Geoapify",
-        city: winner.city,
-        configVersion: options.config.configVersion,
-        expiresAt,
-        latitude: safeLatitude,
-        longitude: safeLongitude,
-        name: winner.name,
-        renterCity: renterCity.label,
-        reference,
-      },
-      status: "available",
-    };
+    return { recommendations, status: "available" };
   } catch (error) {
     const reason =
       error instanceof ProviderBoundaryError
         ? PROVIDER_REASON_MAP[error.code]
         : "malformed";
     options.recordTelemetry?.({
-      durationBucket: Date.now() - startedAt < options.config.timeoutMs ? "fast" : "slow",
+      durationBucket: Date.now() - startedAt < config.timeoutMs ? "fast" : "slow",
       resultCount,
       status: reason,
     });

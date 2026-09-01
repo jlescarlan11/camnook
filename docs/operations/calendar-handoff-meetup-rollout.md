@@ -42,20 +42,23 @@ snapshot-backed bookings remain readable.
 
 ## Development and protected Preview
 
-An authorized CamNook representative must first accept Geoapify terms and create
-a dedicated Development project/key. Configure all server-only values in
-`docs/operations/geoapify-meetups.md`, verify the server-only provider values, and run
-`pnpm meetup:check:development`. A missing key, quota, timeout, malformed result,
-or zero eligible venue is a safe `NO_GO`; do not substitute fixture evidence.
+An authorized CamNook representative must accept both provider reviews and create
+dedicated Development credentials. Configure the server-only values in
+`docs/operations/geoapify-meetups.md` and
+`docs/operations/mapbox-meetup-routing.md`, then run both bounded Development
+checks. Missing credentials or Geoapify coverage is `NO_GO`; a Mapbox failure is
+`NO_GO` for route-ranked activation even though the application safely renders
+Geoapify-only options without time claims.
 
 After disabled migrations and code are on the exact protected Preview SHA:
 
 1. Create non-customer owner/renter test identities and one Development-only
    camera policy using an approved lender city, weekday, and PHT slot.
-2. Enable meetup planning only in the protected Preview environment.
+2. Verify the built-in fail-closed behavior on the protected Preview candidate;
+   do not add a release flag or manual enable toggle.
 3. Verify guest calendar sanitization; PHT dates in PHT and non-PHT browsers;
-   explicit geolocation; denial/timeout fallback to city/municipality only; one
-   public recommendation; visible city/venue confirmation; sign-in return; and
+   explicit geolocation; denial/timeout fallback to city/municipality only; up to
+   three public options; exactly-one selection and confirmation; sign-in return; and
    atomic `FOR_REVIEW` creation.
 4. Reload renter/admin detail, approve, and verify the exact saved schedule and
    venue in the contract, pickup, and return contexts. Exercise stale policy,
@@ -64,25 +67,25 @@ After disabled migrations and code are on the exact protected Preview SHA:
 5. Review keyboard/focus/status announcements at mobile and desktop widths.
    Inspect client bundles, network records, rows, audit facts, and redacted logs
    for forbidden location/provider/identity data.
-6. Disable both Preview flags and prove new feature admission stops while the
-   created records remain readable. Revoke test sessions; retain immutable
-   booking/history evidence according to the existing release contract.
+6. Rehearse rollback by removing provider admission configuration and prove new
+   recommendation-dependent requests stop while created records remain readable.
+   Revoke test sessions; retain immutable booking/history evidence.
 
 ## Production readiness and activation
 
 Handoff scheduling is enabled by releases from `main`, but each listing remains
 fail-closed until the owner saves an enabled policy with a public city label,
 private coarse city anchor, allowed weekdays, and approved Asia/Manila handoff
-times. Meetup planning remains disabled until a dedicated Production provider
-key, independent recommendation secret, reviewed category/config version,
-quota/cost alerting, rotation owner, and outage response are configured. Verify
+times. Meetup admission remains fail-closed until dedicated Production Geoapify
+and Mapbox credentials, the independent recommendation secret, reviewed provider
+and routing policy versions, quota/cost alerting, rotation owners, and outage
+responses are configured. Verify
 provider health, runtime/database monitoring, and rollback control without
 recording sensitive values.
 
-Every provider-bound action first reserves its exact outbound call count in the
-database: a renter recommendation reserves one city lookup plus one call for
-each reviewed category (two to five calls); an owner city or address suggestion
-reserves one call. The reservation is fail-closed at five shared calls per
+Every Geoapify-bound action first reserves its exact outbound call count: a renter
+recommendation reserves one city lookup plus one request per reviewed category;
+an owner city or address suggestion reserves one call. The reservation is fail-closed at five shared calls per
 second, ten calls per actor per fifteen-minute window, and 3,000 calls per UTC
 day; only short-lived aggregate counters are retained. Only server actions using
 the service client may reserve budget; direct authenticated callers and inactive
@@ -90,10 +93,13 @@ profiles are denied. This is intentionally below no known provider plan
 guarantee: at the 2026-08-30 review, Geoapify's Free plan documented five
 requests per second and 3,000 credits per day, with ordinary geocoding and
 Places calls consuming one credit each. Reconfirm the active plan, quota, and
-current pricing before changing either bound.
+current pricing before changing either bound. A separate private Mapbox budget
+reserves exactly `2 × candidate count` elements before routing and caps each call
+at 16 elements, each actor at 128 per 15 minutes, the application at 480 per
+minute, 8,000 per UTC day, and 50,000 per UTC month.
 
 Activation order is coherent and reversible: verify the approved listing
-calendar/slot, then enable meetup planning and run
+calendar/slot and complete provider configuration, then run
 one authorized non-customer smoke. Require one booking and one immutable meetup
 snapshot, the same contract/pickup/return read-back, owner/cross-account access
 checks, and zero unexplained application/provider/privacy events during the
@@ -126,9 +132,11 @@ Release run `32558869428` passed the Development and Production migration,
 hosted-manifest, security-advisor, candidate, promotion, and public-smoke gates
 for SHA `5976173337e33a247b330e253d25435fee870c16`. Production currently reports the
 Canon EOS R50 policy as not configured and disabled. The machine record remains
-`NO_GO` for meetup planning because of:
+`NO_GO` for the final hybrid meetup release because of:
 
-- missing authorized Development Geoapify credential and bounded check;
+- missing authorized Development/Preview Geoapify configuration and bounded check;
+- missing Mapbox account/privacy approval, server-only credentials in every
+  target environment, and bounded Cebu-area routing check;
 - missing owner-approved hosted camera policy and rollback rehearsal;
 - missing verified Production provider/config/monitoring controls;
 - missing protected Preview meetup story; and

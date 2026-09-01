@@ -10,6 +10,7 @@
     "launch:verify": "node scripts/production-launch-readiness.mjs",
     "launch:require-go": "node scripts/production-launch-readiness.mjs --require-go",
     "meetup:check:development": "RUN_MEETUP_PROVIDER_DEVELOPMENT_CHECK=1 TZ=UTC vitest run src/features/meetups/provider.development.test.ts",
+    "meetup:routing:check:development": "RUN_MEETUP_ROUTING_DEVELOPMENT_CHECK=1 TZ=UTC vitest run src/features/meetups/routing-provider.development.test.ts",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
