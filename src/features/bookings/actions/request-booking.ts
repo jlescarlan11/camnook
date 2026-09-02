@@ -50,6 +50,17 @@ const bookingFieldsSchema = z.object({
   intendedUse: z.string().trim().min(2).max(1000),
 });
 
+function reportBookingRequestRpcFailure(
+  error: { code?: string; message?: string } | null,
+  data: unknown,
+) {
+  console.error("[booking] request RPC failed", {
+    code: error?.code ?? null,
+    message: error?.message ?? null,
+    responseType: data === null ? "null" : typeof data,
+  });
+}
+
 export async function requestBooking(
   _state: RequestBookingActionState,
   formData: FormData,
@@ -204,6 +215,7 @@ export async function requestBooking(
   const { data, error } = result;
 
   if (error || typeof data !== "string" || !z.uuid().safeParse(data).success) {
+    reportBookingRequestRpcFailure(error, data);
     return {
       error:
         error?.code === "42501" && error.message === "booking_profile_required"
