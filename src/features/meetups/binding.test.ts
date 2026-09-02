@@ -12,6 +12,7 @@ const input = {
   policyVersion: 3,
   renterId: "22222222-2222-4222-8222-222222222222",
   returnDate: "2099-08-26",
+  routingPolicyVersion: "mapbox-matrix-v1",
 };
 
 describe("meetup recommendation binding", () => {
@@ -27,6 +28,7 @@ describe("meetup recommendation binding", () => {
       { policyVersion: 4 },
       { renterId: "44444444-4444-4444-8444-444444444444" },
       { returnDate: "2099-08-27" },
+      { routingPolicyVersion: "mapbox-matrix-v2" },
     ]) {
       expect(buildMeetupBinding({ ...input, ...changed })).not.toBe(original);
     }

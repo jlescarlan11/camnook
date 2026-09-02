@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { getMeetupProviderConfig } from "./config";
+import {
+  getMeetupProviderConfig,
+  getMeetupRoutingConfig,
+} from "./config";
 
 const names = [
   "GEOAPIFY_API_KEY",
@@ -11,6 +14,12 @@ const names = [
   "MEETUP_PROVIDER_TIMEOUT_MS",
   "MEETUP_RECOMMENDATION_SECRET",
   "MEETUP_SEARCH_RADIUS_METERS",
+  "MAPBOX_ACCESS_TOKEN",
+  "MEETUP_ROUTING_MAX_CANDIDATES",
+  "MEETUP_ROUTING_MAX_ELEMENTS",
+  "MEETUP_ROUTING_POLICY_VERSION",
+  "MEETUP_ROUTING_PROFILE",
+  "MEETUP_ROUTING_TIMEOUT_MS",
 ] as const;
 const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
 
@@ -50,5 +59,24 @@ describe("meetup provider configuration", () => {
       searchRadiusMeters: 8000,
       timeoutMs: 4000,
     });
+  });
+
+  it("accepts only the bounded driving-traffic routing contract", () => {
+    process.env.MAPBOX_ACCESS_TOKEN = "mapbox-server-token-value";
+    expect(getMeetupRoutingConfig()).toEqual({
+      accessToken: "mapbox-server-token-value",
+      maxCandidates: 8,
+      maxElements: 16,
+      profile: "driving-traffic",
+      routingPolicyVersion: "mapbox-matrix-v1",
+      timeoutMs: 4000,
+    });
+
+    process.env.MEETUP_ROUTING_PROFILE = "driving";
+    expect(getMeetupRoutingConfig()).toBeNull();
+    process.env.MEETUP_ROUTING_PROFILE = "driving-traffic";
+    process.env.MEETUP_ROUTING_MAX_CANDIDATES = "8";
+    process.env.MEETUP_ROUTING_MAX_ELEMENTS = "15";
+    expect(getMeetupRoutingConfig()).toBeNull();
   });
 });

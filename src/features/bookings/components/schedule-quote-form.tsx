@@ -229,7 +229,7 @@ export function ScheduleQuoteForm({
             {!handoffTime
               ? "Choose a handoff time before selecting dates."
               : pickupDate && !returnDate
-                ? "Pickup selected. Choose a later return date."
+                ? "Pickup selected. Choose a later return handoff date. Dimmed no-handoff days can stay inside the rental."
                 : "Choose pickup, then return. Selecting again starts a new range."}
           </p>
 
@@ -293,6 +293,10 @@ export function ScheduleQuoteForm({
                   ? "selected pickup"
                   : selectedReturn
                     ? "selected return"
+                    : inRange && status.reason === "no_handoff"
+                      ? "included rental day, no lender handoff"
+                      : inRange
+                        ? "included rental day"
                     : status.reason === "no_handoff"
                       ? "no lender handoff"
                       : status.reason === "unavailable"
@@ -341,8 +345,8 @@ export function ScheduleQuoteForm({
 
         <div className="text-xs leading-5 text-stone-600">
           <h3 className="font-semibold text-stone-800">Availability key</h3>
-          <p className="mt-1">Dark: selected · Amber: selected range · Dimmed: closed, unavailable, or no handoff endpoint.</p>
-          <p>No-handoff weekdays may remain inside a valid range.</p>
+          <p className="mt-1">Dark: pickup or return · Amber: included rental days · Dimmed: cannot be a handoff endpoint.</p>
+          <p>Dimmed no-handoff days may remain inside a valid rental range.</p>
         </div>
 
         {overlap ? (

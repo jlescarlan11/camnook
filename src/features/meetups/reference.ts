@@ -20,6 +20,7 @@ const claimsSchema = z.object({
   renterCity: z.object({
     label: z.string().trim().min(1).max(120),
   }),
+  routingPolicyVersion: z.string().trim().min(1).max(64),
 });
 
 export type RecommendationReferenceClaims = z.infer<typeof claimsSchema>;
@@ -45,7 +46,7 @@ export function mintRecommendationReference(
     cipher.final(),
   ]);
   return [
-    "v1",
+    "v2",
     initializationVector.toString("base64url"),
     encrypted.toString("base64url"),
     cipher.getAuthTag().toString("base64url"),
@@ -61,7 +62,7 @@ export function readRecommendationReference(
     if (reference.length > 4_096) return null;
     const [version, iv, encrypted, authenticationTag, extra] =
       reference.split(".");
-    if (version !== "v1" || !iv || !encrypted || !authenticationTag || extra) {
+    if (version !== "v2" || !iv || !encrypted || !authenticationTag || extra) {
       return null;
     }
     const decipher = createDecipheriv(

@@ -132,6 +132,10 @@ export type Database = {
         Args: { p_actor_user_id: string; p_request_count: number }
         Returns: boolean
       }
+      claim_mapbox_routing_budget: {
+        Args: { p_actor_user_id: string; p_element_count: number }
+        Returns: boolean
+      }
       claim_privacy_email_forward: {
         Args: {
           p_email_sha256_hex: string

@@ -102,4 +102,45 @@ describe("booking calendar", () => {
       }).reason,
     ).toBe("available");
   });
+
+  it("allows a rental range whose interior days have no lender handoff", () => {
+    const endpointInput = {
+      allowedWeekdays: [1, 2, 3],
+      availability: [],
+      now: new Date("2026-09-01T00:00:00Z"),
+      time: "10:00",
+    };
+
+    expect(
+      endpointStatus({
+        ...endpointInput,
+        date: "2026-09-02",
+        role: "pickup",
+      }),
+    ).toEqual({ disabled: false, reason: "available" });
+    expect(
+      endpointStatus({
+        ...endpointInput,
+        date: "2026-09-07",
+        role: "return",
+        selectedPickup: "2026-09-02",
+      }),
+    ).toEqual({ disabled: false, reason: "available" });
+    expect(
+      endpointStatus({
+        ...endpointInput,
+        date: "2026-09-03",
+        role: "return",
+        selectedPickup: "2026-09-02",
+      }).reason,
+    ).toBe("no_handoff");
+    expect(
+      periodOverlapsAvailability(
+        "2026-09-02",
+        "2026-09-07",
+        "10:00",
+        [],
+      ),
+    ).toBe(false);
+  });
 });

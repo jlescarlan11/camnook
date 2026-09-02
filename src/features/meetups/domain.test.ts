@@ -4,6 +4,7 @@ import {
   calculateSearchCenter,
   coarseCoordinate,
   rankEligiblePlaces,
+  rankPlacesByBalancedTravel,
   type ProviderPlace,
 } from "./domain";
 
@@ -107,5 +108,38 @@ describe("meetup recommendation domain", () => {
   it("rounds client-safe venue coordinates to three decimals", () => {
     expect(coarseCoordinate(10.3157123)).toBe(10.316);
     expect(coarseCoordinate(123.8854123)).toBe(123.885);
+  });
+
+  it("deduplicates provider identities and equivalent normalized venues", () => {
+    const ranked = rankEligiblePlaces(
+      [
+        place(),
+        place({ name: " Ayala   Center Cebu " }),
+        place({ providerPlaceId: "duplicate-id" }),
+      ],
+      center,
+      ["commercial.shopping_mall"],
+    );
+    expect(ranked).toHaveLength(1);
+  });
+
+  it("balances the worse trip, then total trip, then deterministic venue order", () => {
+    const candidates = [
+      place({ name: "A", providerPlaceId: "a" }),
+      place({ name: "B", providerPlaceId: "b" }),
+      place({ name: "C", providerPlaceId: "c" }),
+      place({ name: "D", providerPlaceId: "d" }),
+    ];
+    const ranked = rankPlacesByBalancedTravel(candidates, [
+      { ownerSeconds: 600, renterSeconds: 600 },
+      { ownerSeconds: 300, renterSeconds: 780 },
+      { ownerSeconds: 720, renterSeconds: 720 },
+      { ownerSeconds: null, renterSeconds: 100 },
+    ]);
+    expect(ranked.map(({ place: candidate }) => candidate.name)).toEqual([
+      "A",
+      "C",
+      "B",
+    ]);
   });
 });

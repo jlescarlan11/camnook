@@ -27,6 +27,11 @@ export type ProviderPlace = Coordinate & {
   providerPlaceId: string;
 };
 
+export type PlaceTravelTime = {
+  ownerSeconds: number | null;
+  renterSeconds: number | null;
+};
+
 const FORBIDDEN_CATEGORY_PREFIXES = [
   "accommodation",
   "building.residential",
@@ -121,6 +126,17 @@ export function rankEligiblePlaces(
       city: normalizedText(place.city),
       name: normalizedText(place.name),
     }))
+    .filter(
+      (place, index, normalized) =>
+        normalized.findIndex(
+          (candidate) =>
+            candidate.providerPlaceId === place.providerPlaceId ||
+            (candidate.latitude === place.latitude &&
+              candidate.longitude === place.longitude &&
+              candidate.name === place.name &&
+              candidate.address === place.address),
+        ) === index,
+    )
     .sort((first, second) => {
       const distanceDifference =
         distanceMeters(first, searchCenter) -
@@ -143,6 +159,42 @@ export function rankEligiblePlaces(
         first.name.localeCompare(second.name, "en") ||
         first.address.localeCompare(second.address, "en") ||
         first.providerPlaceId.localeCompare(second.providerPlaceId, "en")
+      );
+    });
+}
+
+export function rankPlacesByBalancedTravel(
+  places: ProviderPlace[],
+  travelTimes: PlaceTravelTime[],
+) {
+  if (places.length !== travelTimes.length) return [];
+  return places
+    .map((place, index) => ({ place, travel: travelTimes[index], tieIndex: index }))
+    .filter(
+      (candidate): candidate is {
+        place: ProviderPlace;
+        travel: { ownerSeconds: number; renterSeconds: number };
+        tieIndex: number;
+      } =>
+        candidate.travel?.ownerSeconds !== null &&
+        candidate.travel?.ownerSeconds !== undefined &&
+        candidate.travel?.renterSeconds !== null &&
+        candidate.travel?.renterSeconds !== undefined,
+    )
+    .sort((first, second) => {
+      const firstMaximum = Math.max(
+        first.travel.ownerSeconds,
+        first.travel.renterSeconds,
+      );
+      const secondMaximum = Math.max(
+        second.travel.ownerSeconds,
+        second.travel.renterSeconds,
+      );
+      return (
+        firstMaximum - secondMaximum ||
+        first.travel.ownerSeconds + first.travel.renterSeconds -
+          (second.travel.ownerSeconds + second.travel.renterSeconds) ||
+        first.tieIndex - second.tieIndex
       );
     });
 }

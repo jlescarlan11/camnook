@@ -21,7 +21,22 @@ const schema = z.object({
   timeoutMs: z.number().int().min(500).max(10_000),
 });
 
+export const meetupRoutingConfigSchema = z
+  .object({
+    accessToken: z.string().trim().min(16).max(512),
+    maxCandidates: z.number().int().min(1).max(8),
+    maxElements: z.number().int().min(2).max(16),
+    profile: z.literal("driving-traffic"),
+    routingPolicyVersion: z.string().trim().min(1).max(64),
+    timeoutMs: z.number().int().min(500).max(10_000),
+  })
+  .refine(
+    (config) => config.maxElements === config.maxCandidates * 2,
+    "Mapbox element bound must equal two origins times the candidate bound.",
+  );
+
 export type MeetupProviderConfig = z.infer<typeof schema>;
+export type MeetupRoutingConfig = z.infer<typeof meetupRoutingConfigSchema>;
 
 function numberFromEnvironment(value: string | undefined, fallback: number) {
   if (!value?.trim()) return fallback;
@@ -42,6 +57,31 @@ export function getMeetupProviderConfig(): MeetupProviderConfig | null {
       8_000,
     ),
     timeoutMs: numberFromEnvironment(process.env.MEETUP_PROVIDER_TIMEOUT_MS, 4_000),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+export function getMeetupRoutingPolicyVersion() {
+  const parsed = z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .safeParse(process.env.MEETUP_ROUTING_POLICY_VERSION ?? "mapbox-matrix-v1");
+  return parsed.success ? parsed.data : null;
+}
+
+export function getMeetupRoutingConfig(): MeetupRoutingConfig | null {
+  const parsed = meetupRoutingConfigSchema.safeParse({
+    accessToken: process.env.MAPBOX_ACCESS_TOKEN,
+    maxCandidates: numberFromEnvironment(
+      process.env.MEETUP_ROUTING_MAX_CANDIDATES,
+      8,
+    ),
+    maxElements: numberFromEnvironment(process.env.MEETUP_ROUTING_MAX_ELEMENTS, 16),
+    profile: process.env.MEETUP_ROUTING_PROFILE ?? "driving-traffic",
+    routingPolicyVersion: getMeetupRoutingPolicyVersion(),
+    timeoutMs: numberFromEnvironment(process.env.MEETUP_ROUTING_TIMEOUT_MS, 4_000),
   });
   return parsed.success ? parsed.data : null;
 }
