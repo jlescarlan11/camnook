@@ -339,7 +339,10 @@ export function ScheduleQuoteForm({
               label="Handoff time"
               value={handoffTime ? `${formatHandoffTime(handoffTime)} PHT` : "Not selected"}
             />
-            <QuoteValue label="Meetup city" value={activePolicy.cityLabel} />
+            <QuoteValue
+              label="Meetup area"
+              value={`${activePolicy.cityLabel} (${activePolicy.approximationLevel === "barangay_centroid" ? "barangay-level approximation" : activePolicy.approximationLevel === "precise" ? "precise origin kept private" : "city-level approximation"})`}
+            />
           </dl>
         </div>
 

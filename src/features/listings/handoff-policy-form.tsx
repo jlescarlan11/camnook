@@ -9,6 +9,8 @@ import {
   useState,
 } from "react";
 
+import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
+
 import {
   saveCameraHandoffPolicy,
   suggestHandoffAddress,
@@ -68,6 +70,16 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
     cityLabel: string;
     reference: string;
   } | null>(null);
+  const [originPrecision, setOriginPrecision] = useState<"barangay_centroid" | "city_centroid" | "precise">(
+    policy.canonicalAnchor?.precision ?? "city_centroid",
+  );
+  const [canonicalAreaType, setCanonicalAreaType] = useState<"barangay" | "city" | "municipality" | null>(() => {
+    const type = policy.canonicalAnchor?.areaPath.at(-1)?.type;
+    return type === "barangay" || type === "city" || type === "municipality" ? type : null;
+  });
+  const [canonicalSelectionChanged, setCanonicalSelectionChanged] = useState(false);
+  const [preciseOrigin, setPreciseOrigin] = useState<{ accuracy: number; latitude: number; longitude: number } | null>(null);
+  const [originLocationStatus, setOriginLocationStatus] = useState<LocationStatus>("idle");
   const version =
     saveState.status === "success" && saveState.version !== undefined
       ? saveState.version
@@ -91,7 +103,15 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
   const selectedReference =
     selectedAddress?.reference ??
     (suggestionConfirmed ? suggestion?.reference ?? "" : "");
-  const canSave = Boolean(savedCity || selectedReference);
+  const canonicalPrecisionMatches = Boolean(
+    canonicalAreaType && (
+      originPrecision === "precise"
+      || (originPrecision === "barangay_centroid" && canonicalAreaType === "barangay")
+      || (originPrecision === "city_centroid" && (canonicalAreaType === "city" || canonicalAreaType === "municipality"))
+    ),
+  );
+  const canonicalReady = canonicalSelectionChanged && canonicalPrecisionMatches && (originPrecision !== "precise" || Boolean(preciseOrigin));
+  const canSave = Boolean(savedCity || selectedReference || canonicalReady);
 
   const requestAddressSuggestions = useCallback(() => {
     const query = addressQuery.trim();
@@ -426,6 +446,59 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
           type="hidden"
           value={selectedReference}
         />
+
+        <section className="rounded-2xl border border-stone-200 p-5">
+          <h2 className="text-lg font-semibold">Private routing origin</h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            This starts comparisons to public meetup venues. Choose an operational handoff area, not a home address. Exact coordinates remain private.
+          </p>
+          <div className="mt-4">
+            <PsgcAreaSelector
+              initialPath={policy.canonicalAnchor?.areaPath}
+              name={canonicalSelectionChanged ? "psgcAreaCode" : "preservedPsgcAreaCode"}
+              onSelectionChange={(selection) => {
+                setCanonicalSelectionChanged(true);
+                setCanonicalAreaType(
+                  selection?.type === "barangay" || selection?.type === "city" || selection?.type === "municipality"
+                    ? selection.type
+                    : null,
+                );
+                setPreciseOrigin(null);
+              }}
+            />
+          </div>
+          <fieldset className="mt-4 space-y-2">
+            <legend className="text-sm font-medium">Origin precision</legend>
+            {(["city_centroid", "barangay_centroid", "precise"] as const).map((precision) => (
+              <label className="flex min-h-11 items-center gap-3 rounded-xl border border-stone-200 px-3 py-2" key={precision}>
+                <input checked={originPrecision === precision} name={canonicalSelectionChanged && canonicalAreaType ? "originPrecision" : undefined} onChange={() => { setCanonicalSelectionChanged(true); setOriginPrecision(precision); setPreciseOrigin(null); }} type="radio" value={precision} />
+                {precision === "precise" ? "Private device position" : precision === "barangay_centroid" ? "Barangay centroid" : "City or municipality centroid"}
+              </label>
+            ))}
+          </fieldset>
+          {originPrecision === "precise" ? (
+            <div className="mt-4 rounded-xl bg-stone-50 p-4">
+              <button className="min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold" onClick={() => {
+                if (!navigator.geolocation) { setOriginLocationStatus("unavailable"); return; }
+                setOriginLocationStatus("locating");
+                navigator.geolocation.getCurrentPosition((position) => {
+                  if (position.coords.accuracy > 1000) { setOriginLocationStatus("unavailable"); return; }
+                  setPreciseOrigin({ accuracy: position.coords.accuracy, latitude: position.coords.latitude, longitude: position.coords.longitude });
+                  setOriginLocationStatus("idle");
+                }, (error) => setOriginLocationStatus(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable"), { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+              }} type="button">{originLocationStatus === "locating" ? "Getting private position…" : "Use device position"}</button>
+              <input name="originLatitude" type="hidden" value={preciseOrigin?.latitude ?? ""} />
+              <input name="originLongitude" type="hidden" value={preciseOrigin?.longitude ?? ""} />
+              <input name="originAccuracy" type="hidden" value={preciseOrigin?.accuracy ?? ""} />
+              <label className="mt-3 flex items-start gap-3 text-sm leading-6">
+                <input className="mt-1" name="preciseOriginConsent" required type="checkbox" />
+                Save this private point for this camera until I replace the origin.
+              </label>
+              {originLocationStatus === "denied" || originLocationStatus === "unavailable" ? <p className="mt-2 text-sm text-amber-900" role="status">The precise position is unavailable or not accurate enough. Choose a canonical centroid instead; your area selection is preserved.</p> : null}
+            </div>
+          ) : null}
+          {policy.canonicalAnchor ? <p className="mt-3 text-sm text-stone-600">Saved: {policy.canonicalAnchor.areaName} · {policy.canonicalAnchor.precision.replaceAll("_", " ")}.</p> : <p className="mt-3 text-sm text-amber-900">Legacy city-only origin: {policy.cityLabel || "not configured"}. It remains operational and approximate until this form is upgraded.</p>}
+        </section>
 
         <fieldset className="rounded-2xl border border-stone-200 p-5">
           <legend className="px-2 text-lg font-semibold">

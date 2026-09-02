@@ -7,12 +7,22 @@ export type PublicHandoffPolicy = {
   enabled: boolean;
   timezone: typeof MANILA_TIMEZONE;
   version: number;
+  approximationLevel?: "legacy_city" | "city_centroid" | "barangay_centroid" | "precise";
+  psgcAreaCode?: string | null;
+  psgcRelease?: string | null;
 };
 
 export type AdminHandoffPolicy = PublicHandoffPolicy & {
   cameraId: string;
   cameraName: string;
   cameraStatus: "archived" | "draft" | "published";
+  canonicalAnchor?: null | {
+    areaCode: string;
+    areaName: string;
+    areaPath: Array<{ code: string; name: string; type: "region" | "province" | "city" | "municipality" | "submunicipality" | "barangay" }>;
+    precision: "city_centroid" | "barangay_centroid" | "precise";
+    release: string;
+  };
 };
 
 export type AdminCameraHandoffSummary = {

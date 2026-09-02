@@ -29,6 +29,20 @@ export type Database = {
         Args: { p_camera_id: string }
         Returns: Json
       }
+      get_camera_handoff_policy_admin_v2: {
+        Args: { p_camera_id: string }
+        Returns: Json
+      }
+      get_my_meetup_origin: { Args: never; Returns: Json }
+      get_my_meetup_origin_for_routing: { Args: never; Returns: Json }
+      list_psgc_area_choices: {
+        Args: { p_parent_code?: string | null }
+        Returns: Json
+      }
+      resolve_psgc_area: {
+        Args: { p_area_code: string; p_release_key: string }
+        Returns: Json
+      }
       authorize_condition_photo_access: {
         Args: {
           p_operation_id: string
@@ -581,6 +595,44 @@ export type Database = {
         }
         Returns: number
       }
+      replace_camera_handoff_policy_v2: {
+        Args: {
+          p_accuracy_meters: number | null
+          p_allowed_weekdays: number[]
+          p_approved_times: string[]
+          p_area_code: string
+          p_camera_id: string
+          p_captured_at: string
+          p_consent_version: string | null
+          p_enabled: boolean
+          p_expected_version: number
+          p_latitude: number
+          p_longitude: number
+          p_precision: string
+          p_provenance_version: string
+          p_provider_reference: string | null
+          p_release_key: string
+          p_source: string
+        }
+        Returns: number
+      }
+      replace_my_meetup_origin: {
+        Args: {
+          p_accuracy_meters: number | null
+          p_area_code: string
+          p_captured_at: string
+          p_consent_version: string | null
+          p_latitude: number
+          p_longitude: number
+          p_precision: string
+          p_provenance_version: string
+          p_provider_reference: string | null
+          p_release_key: string
+          p_source: string
+        }
+        Returns: string
+      }
+      remove_my_meetup_origin: { Args: never; Returns: boolean }
       record_refund: {
         Args: {
           p_amount: number
@@ -1262,25 +1314,34 @@ export type Database = {
       camera_handoff_policies: {
         Row: {
           allowed_weekdays: number[]
+          approximation_level: string
           camera_id: string
           city_label: string
           enabled: boolean
+          psgc_area_code: string | null
+          psgc_release_key: string | null
           timezone: string
           version: number
         }
         Insert: {
           allowed_weekdays?: number[]
+          approximation_level?: string
           camera_id: string
           city_label: string
           enabled?: boolean
+          psgc_area_code?: string | null
+          psgc_release_key?: string | null
           timezone?: string
           version?: number
         }
         Update: {
           allowed_weekdays?: number[]
+          approximation_level?: string
           camera_id?: string
           city_label?: string
           enabled?: boolean
+          psgc_area_code?: string | null
+          psgc_release_key?: string | null
           timezone?: string
           version?: number
         }
@@ -2516,10 +2577,13 @@ export type Database = {
       public_camera_handoff_policies: {
         Row: {
           allowed_weekdays: number[] | null
+          approximation_level: string | null
           approved_times: string[] | null
           camera_id: string | null
           city_label: string | null
           enabled: boolean | null
+          psgc_area_code: string | null
+          psgc_release_key: string | null
           timezone: string | null
           version: number | null
         }

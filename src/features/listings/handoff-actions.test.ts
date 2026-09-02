@@ -88,6 +88,7 @@ function authorize(options?: {
   anchor?: Record<string, unknown>;
   anchorError?: unknown;
   replace?: { data: unknown; error: unknown };
+  resolvedArea?: Record<string, unknown>;
 }) {
   const anchor = {
     city_label: "Cebu City",
@@ -102,6 +103,8 @@ function authorize(options?: {
     Promise.resolve(
       name === "get_camera_handoff_policy_admin"
         ? { data: anchor, error: options?.anchorError ?? null }
+        : name === "resolve_psgc_area"
+          ? { data: options?.resolvedArea ?? null, error: null }
         : (options?.replace ?? { data: 3, error: null }),
     ),
   );
@@ -462,6 +465,66 @@ describe("camera handoff city and policy actions", () => {
       }),
     );
     expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
+  it("derives a canonical barangay centroid server-side without requiring a legacy city anchor", async () => {
+    const api = authorize({
+      anchor: {
+        city_label: null,
+        country_code: null,
+        latitude: null,
+        longitude: null,
+        provider_city_id: null,
+      },
+      resolvedArea: {
+        active: true,
+        code: "0722170010",
+        current: true,
+        name: "Lahug",
+        path: [
+          { code: "0700000000", name: "Central Visayas", type: "region" },
+          { code: "0722000000", name: "Cebu", type: "province" },
+          { code: "0722170000", name: "City of Cebu", type: "city" },
+          { code: "0722170010", name: "Lahug", type: "barangay" },
+        ],
+        release: "2026-q2",
+        type: "barangay",
+      },
+    });
+    const request = vi.fn().mockResolvedValue(mcp({
+      results: [{
+        country_code: "ph",
+        formatted: "Lahug, Cebu City, Cebu, Philippines",
+        lat: 10.3341,
+        lon: 123.9056,
+        place_id: "provider:barangay:lahug",
+      }],
+    }));
+    vi.stubGlobal("fetch", request);
+    const data = validSaveFields();
+    data.set("psgcRelease", "2026-q2");
+    data.set("psgcAreaCode", "0722170010");
+    data.set("originPrecision", "barangay_centroid");
+
+    await expect(saveCameraHandoffPolicy({ status: "idle" }, data)).resolves.toEqual({
+      cityLabel: "Lahug",
+      status: "success",
+      version: 3,
+    });
+    expect(api.rpc).not.toHaveBeenCalledWith("get_camera_handoff_policy_admin", expect.anything());
+    expect(api.rpc).toHaveBeenCalledWith("replace_camera_handoff_policy_v2", expect.objectContaining({
+      p_area_code: "0722170010",
+      p_latitude: 10.3341,
+      p_longitude: 123.9056,
+      p_precision: "barangay_centroid",
+      p_provider_reference: "provider:barangay:lahug",
+      p_release_key: "2026-q2",
+      p_source: "provider_centroid",
+    }));
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0]?.[1]?.body).toContain(
+      "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",
+    );
   });
 
   it("lets the policy RPC reject a revoked admin without a separate admin lookup", async () => {

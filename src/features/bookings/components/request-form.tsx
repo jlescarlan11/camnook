@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
 import { requestBooking } from "@/features/bookings/actions/request-booking";
 import { initialRequestBookingActionState } from "@/features/bookings/form-state";
@@ -9,6 +9,7 @@ import {
   recommendMeetup,
   type RecommendMeetupState,
 } from "@/features/meetups/actions/recommend-meetup";
+import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
 export function RequestForm({
   camera,
@@ -16,6 +17,7 @@ export function RequestForm({
   returnValue,
   returnHref,
   schedule,
+  savedOrigin,
 }: {
   camera: string;
   pickup: string;
@@ -27,6 +29,7 @@ export function RequestForm({
     policyVersion: string;
     returnDate: string;
   };
+  savedOrigin?: null | { areaName: string; precision: string; valid: boolean };
 }) {
   const [intendedUse, setIntendedUse] = useState("");
   const [requestOperationId] = useState(() => crypto.randomUUID());
@@ -34,6 +37,8 @@ export function RequestForm({
   const [manualCity, setManualCity] = useState("");
   const [selectedReference, setSelectedReference] = useState<string | null>(null);
   const [confirmedReference, setConfirmedReference] = useState<string | null>(null);
+  const [expandedRecommendationBatch, setExpandedRecommendationBatch] = useState<string | null>(null);
+  const firstAdditionalOptionRef = useRef<HTMLInputElement>(null);
   const [expiredRecommendationBatch, setExpiredRecommendationBatch] = useState<
     string | null
   >(null);
@@ -54,6 +59,11 @@ export function RequestForm({
   const recommendationsExpired =
     recommendationExpiry !== null &&
     expiredRecommendationBatch === recommendationExpiry;
+  const recommendationsExpanded = Boolean(recommendationExpiry) && expandedRecommendationBatch === recommendationExpiry;
+  const visibleRecommendations = recommendationsExpanded
+    ? recommendations
+    : recommendations.slice(0, 3);
+  const hiddenRecommendationCount = Math.max(0, recommendations.length - 3);
   const selectedRecommendation = recommendations.find(
     (recommendation) => recommendation.reference === selectedReference,
   );
@@ -70,6 +80,7 @@ export function RequestForm({
       setExpiredRecommendationBatch(recommendationExpiry);
       setSelectedReference(null);
       setConfirmedReference(null);
+      setExpandedRecommendationBatch(null);
     }, Math.max(0, Date.parse(recommendationExpiry) - Date.now()));
 
     return () => window.clearTimeout(timeout);
@@ -89,6 +100,7 @@ export function RequestForm({
   function useCurrentCity() {
     setSelectedReference(null);
     setConfirmedReference(null);
+    setExpandedRecommendationBatch(null);
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
       return;
@@ -114,6 +126,17 @@ export function RequestForm({
   function recommendFromManualCity(formData: FormData) {
     setSelectedReference(null);
     setConfirmedReference(null);
+    setExpandedRecommendationBatch(null);
+    startTransition(() => recommendationAction(formData));
+  }
+
+  function recommendFromSavedOrigin() {
+    if (!schedule || !savedOrigin?.valid) return;
+    setSelectedReference(null);
+    setConfirmedReference(null);
+    setExpandedRecommendationBatch(null);
+    const formData = scheduleFields(new FormData());
+    formData.set("locationMode", "saved");
     startTransition(() => recommendationAction(formData));
   }
 
@@ -134,6 +157,13 @@ export function RequestForm({
             routes. It is not saved with the booking. You can use the city-only
             fallback instead; its route estimates are coarser.
           </p>
+          {savedOrigin ? (
+            <div className={`mt-4 rounded-xl border p-4 ${savedOrigin.valid ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+              <p className="font-semibold">Saved default: {savedOrigin.areaName}</p>
+              <p className="mt-1 text-sm text-stone-700">{savedOrigin.precision.replaceAll("_", " ")}. {savedOrigin.valid ? "Confirm it before recommendations are requested." : "This PSGC reference needs review and cannot be used."}</p>
+              {savedOrigin.valid ? <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} onClick={recommendFromSavedOrigin} type="button">Use this location</button> : null}
+            </div>
+          ) : null}
           <button
             className="mt-4 min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:opacity-60"
             disabled={locationStatus === "locating" || recommendationPending}
@@ -142,7 +172,7 @@ export function RequestForm({
           >
             {locationStatus === "locating" || recommendationPending
               ? "Finding public meetup options…"
-              : "Allow location and suggest up to 3 places"}
+              : "Allow location and suggest up to 5 places"}
           </button>
           <span aria-live="polite" className="sr-only">
             {recommendationPending
@@ -183,6 +213,7 @@ export function RequestForm({
                   setManualCity(event.target.value);
                   setSelectedReference(null);
                   setConfirmedReference(null);
+                  setExpandedRecommendationBatch(null);
                 }}
                 pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+"
                 placeholder="e.g. Mandaue City"
@@ -194,9 +225,25 @@ export function RequestForm({
                 disabled={locationStatus === "locating" || recommendationPending}
                 type="submit"
               >
-                Suggest up to 3 places from city
+                Suggest up to 5 places from city
               </button>
             </div>
+          </form>
+
+          <form action={recommendFromManualCity} className="mt-5 border-t border-stone-200 pt-5">
+            <input name="camera" type="hidden" value={camera} />
+            <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
+            <input name="locationMode" type="hidden" value="canonical" />
+            <input name="pickupDate" type="hidden" value={schedule.pickupDate} />
+            <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
+            <input name="returnDate" type="hidden" value={schedule.returnDate} />
+            <PsgcAreaSelector onSelectionChange={() => {
+              setSelectedReference(null);
+              setConfirmedReference(null);
+              setExpandedRecommendationBatch(null);
+            }} />
+            <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} type="submit">Use this area once</button>
+            <p className="mt-2 text-xs leading-5 text-stone-600">This one-time area does not replace your account default.</p>
           </form>
 
           {recommendationState.error ? (
@@ -242,7 +289,8 @@ export function RequestForm({
                   safety evidence. Meet during operating hours in a staffed,
                   visible area.
                 </p>
-                {recommendations.map((recommendation, index) => (
+                <div className="space-y-3" id="additional-meetup-options">
+                {visibleRecommendations.map((recommendation, index) => (
                   <label
                     className="flex cursor-pointer gap-3 rounded-xl border border-stone-200 bg-white p-4 has-checked:border-stone-950 has-checked:ring-2 has-checked:ring-stone-200"
                     key={recommendation.reference}
@@ -256,12 +304,13 @@ export function RequestForm({
                         setSelectedReference(recommendation.reference);
                         setConfirmedReference(null);
                       }}
+                      ref={index === 3 ? firstAdditionalOptionRef : undefined}
                       type="radio"
                       value={recommendation.reference}
                     />
                     <span className="min-w-0">
                       <span className="block font-semibold">
-                        {index + 1}. {recommendation.name}
+                        {recommendation.name}
                       </span>
                       <span className="mt-1 block break-words text-sm leading-6 text-stone-700">
                         {recommendation.address}
@@ -280,6 +329,21 @@ export function RequestForm({
                     </span>
                   </label>
                 ))}
+                </div>
+                {hiddenRecommendationCount > 0 && !recommendationsExpanded ? (
+                  <button
+                    aria-controls="additional-meetup-options"
+                    aria-expanded="false"
+                    className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold"
+                    onClick={() => {
+                      setExpandedRecommendationBatch(recommendationExpiry);
+                      window.requestAnimationFrame(() => firstAdditionalOptionRef.current?.focus());
+                    }}
+                    type="button"
+                  >
+                    Show {hiddenRecommendationCount} more
+                  </button>
+                ) : null}
               </fieldset>
               <p className="mt-3 text-xs text-stone-600">
                 {recommendations[0].attribution} · Suggestions expire at {recommendations[0].expiresAt}.

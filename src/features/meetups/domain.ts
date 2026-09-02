@@ -19,6 +19,10 @@ export type ProviderAddressSuggestion = Coordinate & {
   providerAddressId: string;
 };
 
+export type ProviderAreaCentroid = Coordinate & {
+  providerReference: string;
+};
+
 export type ProviderPlace = Coordinate & {
   address: string;
   categories: string[];
@@ -71,6 +75,22 @@ export function calculateSearchCenter(
   };
 }
 
+export function buildDiscoverySeeds(
+  ownerOrigin: Coordinate,
+  renterOrigin: Coordinate,
+): Coordinate[] {
+  const values = [
+    coordinateSchema.parse(ownerOrigin),
+    coordinateSchema.parse(renterOrigin),
+    calculateSearchCenter(ownerOrigin, renterOrigin),
+  ];
+  const unique = new Map<string, Coordinate>();
+  for (const value of values) {
+    unique.set(`${value.latitude.toFixed(6)}:${value.longitude.toFixed(6)}`, value);
+  }
+  return [...unique.values()];
+}
+
 function distanceMeters(first: Coordinate, second: Coordinate) {
   const earthRadius = 6_371_000;
   const deltaLatitude = toRadians(second.latitude - first.latitude);
@@ -93,6 +113,7 @@ export function rankEligiblePlaces(
   places: ProviderPlace[],
   searchCenter: Coordinate,
   allowedCategories: readonly string[],
+  quality?: { discoverySeeds: readonly Coordinate[]; radiusMeters: number },
 ): ProviderPlace[] {
   const allowlist = new Set(allowedCategories);
   const categoryPriority = new Map(
@@ -106,6 +127,17 @@ export function rankEligiblePlaces(
         !place.address.trim() ||
         !place.city.trim() ||
         !place.providerPlaceId.trim()
+      ) {
+        return false;
+      }
+      if (/^(?:[a-z]?\d+[a-z]?|route\s+\d+|road\s+\d+|unnamed(?:\s+(?:building|place|road))?)$/iu.test(place.name.trim())) {
+        return false;
+      }
+      if (
+        quality &&
+        !quality.discoverySeeds.some(
+          (seed) => distanceMeters(place, seed) <= quality.radiusMeters,
+        )
       ) {
         return false;
       }

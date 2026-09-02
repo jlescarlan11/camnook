@@ -96,8 +96,11 @@ describe("public catalog data", () => {
           handoffPolicy: {
             allowedWeekdays: [1, 3, 5],
             approvedTimes: ["09:00", "17:00"],
+            approximationLevel: "legacy_city",
             cityLabel: "Cebu City",
             enabled: true,
+            psgcAreaCode: null,
+            psgcRelease: null,
             timezone: "Asia/Manila",
             version: 2,
           },

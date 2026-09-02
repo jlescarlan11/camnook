@@ -74,8 +74,12 @@ opaque reference, or user identity.
 
 ## Quota, outage, and rotation
 
-Each recommendation costs one reverse-geocoding operation and one Places operation
-for every configured reviewed category (each returns at most 20 results). Mapbox
+Each current-position recommendation costs one reverse-geocoding operation plus
+one Places operation per unique discovery seed and configured reviewed category
+(each returns at most 20 results). Saved, canonical, and manual origins skip the
+reverse lookup. A canonical centroid save or one-time canonical lookup consumes
+one additional geocoding operation before discovery. The action calculates and
+reserves the exact call count before any provider request. Mapbox
 routing is budgeted separately; see `docs/operations/mapbox-meetup-routing.md`. Monitor the provider dashboard
 for daily credits, rate limits, abnormal failures, and plan cost. CamNook must fail
 closed on quota, timeout, network, malformed, unsupported, or empty responses;
@@ -115,8 +119,10 @@ tampered, replayed, cross-camera, cross-user, stale-version, and configuration-
 mismatched confirmations before the atomic policy RPC. A manual Philippine
 city/municipality lookup produces the same confirmation contract.
 
-For a previously configured policy, schedule-only changes re-read the private
-city anchor from the authorized database RPC rather than round-tripping private
-anchor fields through the browser. A legacy camera without an anchor must confirm
-a city before its policy can be saved. Provider or configuration failure never
-erases or replaces an existing handoff policy.
+Canonical camera city/barangay centroids consume one bounded geocoding call on
+save after resolving the active PSGC path. For a previously configured legacy
+policy, schedule-only changes re-read the private city anchor from the authorized
+database RPC rather than round-tripping private anchor fields through the
+browser. A camera can instead establish a canonical origin without a legacy
+anchor. Provider or configuration failure never erases or replaces an existing
+handoff policy or canonical origin.

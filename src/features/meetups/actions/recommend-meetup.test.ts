@@ -98,6 +98,32 @@ describe("recommendMeetup", () => {
       )
       .mockResolvedValueOnce(
         mcp({
+          results: [{
+            categories: ["commercial.shopping_mall"],
+            city: "Cebu City",
+            formatted: "Cardinal Rosales Avenue, Cebu City",
+            lat: 10.3172,
+            lon: 123.9054,
+            name: "Ayala Center Cebu",
+            place_id: "provider:ayala",
+          }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mcp({
+          results: [{
+            categories: ["commercial.shopping_mall"],
+            city: "Cebu City",
+            formatted: "Cardinal Rosales Avenue, Cebu City",
+            lat: 10.3172,
+            lon: 123.9054,
+            name: "Ayala Center Cebu",
+            place_id: "provider:ayala",
+          }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mcp({
           results: [
             {
               categories: ["commercial.shopping_mall"],
@@ -140,11 +166,11 @@ describe("recommendMeetup", () => {
     expect(JSON.stringify(result)).not.toMatch(/10\.30123456|123\.90123456|provider:ayala|provider:mandaue/);
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/10\.|123\.|Ayala|Mandaue|reference/);
     expect(String(request.mock.calls[0]?.[0])).not.toMatch(/10\.30123456|123\.90123456/);
-    expect(String(request.mock.calls[2]?.[0])).toContain(
+    expect(String(request.mock.calls[4]?.[0])).toContain(
       "/directions-matrix/v1/mapbox/driving-traffic/",
     );
-    expect(String(request.mock.calls[2]?.[0])).not.toMatch(/search|geocod/i);
-    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 2);
+    expect(String(request.mock.calls[4]?.[0])).not.toMatch(/search|geocod/i);
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 4);
     expect(claimMapboxRoutingBudget).toHaveBeenCalledWith("renter-1", 2);
   });
 
@@ -214,5 +240,60 @@ describe("recommendMeetup", () => {
       ),
     ).resolves.toEqual({ error: "provider_unavailable", status: "error" });
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("uses a canonical area once without mutating the renter default", async () => {
+    const actorRpc = vi.fn().mockResolvedValue({
+      data: {
+        active: true,
+        code: "0722170010",
+        current: true,
+        name: "Lahug",
+        path: [
+          { name: "Central Visayas" },
+          { name: "Cebu" },
+          { name: "City of Cebu" },
+          { name: "Lahug" },
+        ],
+        release: "2026-q2",
+        type: "barangay",
+      },
+      error: null,
+    });
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({
+      supabase: { schema: vi.fn(() => ({ rpc: actorRpc })) },
+      user: { id: "renter-1" },
+    } as never);
+    vi.mocked(claimGeoapifyProviderBudget)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const request = vi.fn().mockResolvedValue(mcp({
+      results: [{
+        country_code: "ph",
+        formatted: "Lahug, Cebu City, Cebu, Philippines",
+        lat: 10.3341,
+        lon: 123.9056,
+        place_id: "provider:barangay:lahug",
+      }],
+    }));
+    vi.stubGlobal("fetch", request);
+
+    await expect(recommendMeetup(
+      { status: "idle" },
+      validSchedule({
+        locationMode: "canonical",
+        psgcAreaCode: "0722170010",
+        psgcRelease: "2026-q2",
+      }),
+    )).resolves.toEqual({ error: "provider_unavailable", status: "error" });
+    expect(actorRpc).toHaveBeenCalledTimes(1);
+    expect(actorRpc).toHaveBeenCalledWith("resolve_psgc_area", {
+      p_area_code: "0722170010",
+      p_release_key: "2026-q2",
+    });
+    expect(JSON.stringify(actorRpc.mock.calls)).not.toContain("replace_my_meetup_origin");
+    expect(request.mock.calls[0]?.[1]?.body).toContain(
+      "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",
+    );
   });
 });

@@ -7,6 +7,7 @@ import type {
   Coordinate,
   NormalizedCity,
   ProviderAddressSuggestion,
+  ProviderAreaCentroid,
   ProviderPlace,
 } from "./domain";
 
@@ -346,6 +347,26 @@ export class GeoapifyAdapter {
       }
     }
     return [...unique.values()];
+  }
+
+  async geocodeAreaCentroid(query: string): Promise<ProviderAreaCentroid> {
+    const payload = await this.requestTool("geocode_address", {
+      country_codes: ["ph"],
+      lang: "en",
+      limit: 5,
+      query,
+    });
+    const parsed = addressSearchResponseSchema.safeParse(payload);
+    if (!parsed.success) throw new ProviderBoundaryError("malformed");
+    const result = parsed.data.results.find((candidate) =>
+      candidate.country_code.toUpperCase() === "PH" && Boolean(candidate.place_id),
+    );
+    if (!result?.place_id) throw new ProviderBoundaryError("unsupported_city");
+    return {
+      latitude: result.lat,
+      longitude: result.lon,
+      providerReference: result.place_id,
+    };
   }
 
   async searchPublicPlaces(input: {

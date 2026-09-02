@@ -7,6 +7,7 @@ import { ScheduleQuoteForm } from "./schedule-quote-form";
 
 const policy = {
   allowedWeekdays: [1, 2, 3, 4, 5],
+  approximationLevel: "barangay_centroid" as const,
   approvedTimes: ["09:00", "17:00"],
   cityLabel: "Cebu City",
   enabled: true,
@@ -55,6 +56,8 @@ describe("ScheduleQuoteForm", () => {
       "Dimmed no-handoff days may remain inside a valid rental range.",
     );
     expect(markup).toContain("does not reserve the camera");
+    expect(markup).toContain("Meetup area");
+    expect(markup).toContain("barangay-level approximation");
     expect(markup).toContain('aria-label="Show next month"');
     expect(markup).toContain('aria-live="polite"');
     expect(markup).not.toContain('type="datetime-local"');

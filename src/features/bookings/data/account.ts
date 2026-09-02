@@ -91,6 +91,16 @@ const accountOverviewSchema = z.object({
   is_admin: z.boolean(),
   profile: safeProfileSchema.nullable(),
 }).strict();
+const meetupOriginSchema = z.object({
+  active: z.boolean(),
+  area_code: z.string().regex(/^\d{10}$/),
+  area_name: z.string().min(1).max(160),
+  area_type: z.string(),
+  current: z.boolean(),
+  path: z.array(z.unknown()),
+  precision: z.enum(["city_centroid", "barangay_centroid", "precise"]),
+  release: z.string().regex(/^\d{4}-q[1-4]$/),
+}).strict().nullable();
 
 export function projectBooking(
   row: SafeBookingRow,
@@ -140,11 +150,13 @@ export function projectBooking(
 }
 
 export async function loadAccountOverview(context: UserContext) {
-  const result = await context.supabase
-    .schema("api")
-    .rpc("get_my_account_overview");
+  const [result, originResult] = await Promise.all([
+    context.supabase.schema("api").rpc("get_my_account_overview"),
+    context.supabase.schema("api").rpc("get_my_meetup_origin"),
+  ]);
   const parsed = accountOverviewSchema.safeParse(result.data);
-  if (result.error || !parsed.success) return { status: "error" } as const;
+  const origin = meetupOriginSchema.safeParse(originResult.data);
+  if (result.error || !parsed.success || originResult.error || !origin.success) return { status: "error" } as const;
 
   if (parsed.data.bookings.some(
     ({ booking, meetup }) => booking.meetup_snapshot_required && !meetup,
@@ -168,6 +180,11 @@ export async function loadAccountOverview(context: UserContext) {
         }
       : null,
     isAdmin: parsed.data.is_admin,
+    meetupOrigin: origin.data ? {
+      areaName: origin.data.area_name,
+      precision: origin.data.precision,
+      valid: origin.data.active && origin.data.current,
+    } : null,
     status: "success" as const,
   };
 }

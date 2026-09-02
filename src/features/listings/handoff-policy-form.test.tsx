@@ -76,6 +76,40 @@ describe("HandoffPolicyForm", () => {
     vi.unstubAllGlobals();
   });
 
+  it("keeps an existing precise anchor server-side for schedule-only saves", () => {
+    const markup = renderToStaticMarkup(
+      <HandoffPolicyForm
+        policy={{
+          allowedWeekdays: [1],
+          approvedTimes: ["09:00"],
+          cameraId: "11111111-1111-4111-8111-111111111111",
+          cameraName: "Canonical Camera",
+          cameraStatus: "published",
+          canonicalAnchor: {
+            areaCode: "0730600041",
+            areaName: "Lahug",
+            areaPath: [
+              { code: "0700000000", name: "Central Visayas", type: "region" },
+              { code: "0730600000", name: "City of Cebu", type: "city" },
+              { code: "0730600041", name: "Lahug", type: "barangay" },
+            ],
+            precision: "precise",
+            release: "2026-q2",
+          },
+          cityLabel: "Lahug",
+          enabled: true,
+          timezone: "Asia/Manila",
+          version: 2,
+        }}
+      />,
+    );
+
+    expect(markup).toContain('name="preservedPsgcAreaCode"');
+    expect(markup).not.toContain('name="psgcAreaCode"');
+    expect(markup).not.toContain('name="originPrecision"');
+    expect(markup).toContain("Save handoff policy");
+  });
+
   it("allows a previously searched address to be searched again after editing", () => {
     expect(resetAddressLookupRequest("Ayala Center Cebu", "Cebu IT Park")).toBe(
       "",

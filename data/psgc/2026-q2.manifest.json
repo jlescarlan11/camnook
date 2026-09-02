@@ -1,0 +1,16 @@
+{
+  "release": "2026-q2",
+  "effectiveOn": "2026-06-30",
+  "sourceTitle": "Philippine Standard Geographic Code as of 30 June 2026",
+  "sourceUrl": "https://psa.gov.ph/system/files/scd/PSGC-2Q-2026-Publication-Datafile.xlsx",
+  "sourceSha256": "31892bc2bdde3ea0682562d9412b5bab4d45a0be5e5a5b4f6c9d7714b94bca5d",
+  "dataFile": "2026-q2.csv",
+  "normalizedSha256": "a410729f81248f315975e8dfa70ab7671fa19a6643c1c147a08c469efdb30d5e",
+  "counts": {
+    "barangays": 42010,
+    "localities": 1642,
+    "provinces": 82,
+    "regions": 18,
+    "submunicipalities": 14
+  }
+}

@@ -15,6 +15,7 @@ import { cityInputSchema } from "../meetups/city-input";
 import { coarseCoordinate } from "../meetups/domain";
 import { GeoapifyAdapter, ProviderBoundaryError } from "../meetups/provider";
 import { claimGeoapifyProviderBudget } from "../meetups/provider-budget";
+import { psgcAreaTypeSchema } from "../locations/types";
 import {
   mintHandoffCityReference,
   readHandoffCityReference,
@@ -90,6 +91,21 @@ const adminPolicyAnchorSchema = z.object({
   longitude: z.coerce.number().finite().min(-180).max(180).nullable(),
   provider_city_id: z.string().trim().min(2).max(240).nullable(),
   version: z.coerce.number().int().nonnegative(),
+  canonical_anchor: z.unknown().nullable().optional(),
+});
+
+const resolvedPsgcAreaSchema = z.object({
+  active: z.boolean(),
+  code: z.string().regex(/^\d{10}$/),
+  current: z.boolean(),
+  name: z.string().trim().min(1).max(160),
+  path: z.array(z.object({
+    code: z.string().regex(/^\d{10}$/),
+    name: z.string().trim().min(1).max(160),
+    type: psgcAreaTypeSchema,
+  })),
+  release: z.string().regex(/^\d{4}-q[1-4]$/),
+  type: psgcAreaTypeSchema,
 });
 
 const numericInput = (minimum: number, maximum: number) =>
@@ -415,6 +431,10 @@ export async function saveCameraHandoffPolicy(
     };
   }
 
+  const psgcRelease = value(formData, "psgcRelease");
+  const psgcAreaCode = value(formData, "psgcAreaCode");
+  const originPrecision = value(formData, "originPrecision");
+  const hasCanonicalInput = Boolean(psgcAreaCode || originPrecision);
   const reference = value(formData, "cityReference");
   let cityAnchor:
     | {
@@ -425,7 +445,7 @@ export async function saveCameraHandoffPolicy(
         providerCityId: string;
       }
     | undefined;
-  if (reference) {
+  if (!hasCanonicalInput && reference) {
     const config = getMeetupProviderConfig();
     if (!config) {
       return {
@@ -448,7 +468,7 @@ export async function saveCameraHandoffPolicy(
       };
     }
     cityAnchor = claims.city;
-  } else {
+  } else if (!hasCanonicalInput) {
     const current = await loadCurrentAnchor(context, base.data.cameraId);
     if (current.status === "unauthorized") {
       return { error: "unauthorized", status: "error" };
@@ -486,10 +506,112 @@ export async function saveCameraHandoffPolicy(
       ReturnType<typeof context.supabase.schema>["rpc"]
     >
   >;
+  let savedCityLabel: string;
   try {
-    outcome = await context.supabase
-      .schema("api")
-      .rpc("replace_camera_handoff_policy", {
+    if (hasCanonicalInput) {
+      const canonical = z.object({
+        areaCode: z.string().regex(/^\d{10}$/),
+        release: z.string().regex(/^\d{4}-q[1-4]$/),
+        precision: z.enum(["city_centroid", "barangay_centroid", "precise"]),
+      }).safeParse({
+        areaCode: psgcAreaCode,
+        release: psgcRelease,
+        precision: originPrecision,
+      });
+      if (!canonical.success) {
+        return { error: "invalid_input", fieldErrors: { city: "Select a valid canonical area and origin precision." }, status: "error" };
+      }
+
+      const resolved = await context.supabase.schema("api").rpc("resolve_psgc_area", {
+        p_area_code: canonical.data.areaCode,
+        p_release_key: canonical.data.release,
+      });
+      const area = resolvedPsgcAreaSchema.safeParse(resolved.data);
+      const precisionMatchesArea = area.success && (
+        canonical.data.precision === "precise"
+        || (canonical.data.precision === "barangay_centroid" && area.data.type === "barangay")
+        || (canonical.data.precision === "city_centroid" && ["city", "municipality"].includes(area.data.type))
+      );
+      if (resolved.error || !area.success || !area.data.active || !area.data.current || !precisionMatchesArea) {
+        return { error: "invalid_input", fieldErrors: { city: "Select a current canonical area that matches the origin precision." }, status: "error" };
+      }
+      savedCityLabel = area.data.name;
+
+      let origin: {
+        accuracy: number | null;
+        consent: string | null;
+        latitude: number;
+        longitude: number;
+        providerReference: string | null;
+      };
+      if (canonical.data.precision === "precise") {
+        const precise = z.object({
+          accuracy: z.coerce.number().positive().max(1000),
+          consent: z.literal("on"),
+          latitude: z.coerce.number().min(4).max(22),
+          longitude: z.coerce.number().min(116).max(127),
+        }).safeParse({
+          accuracy: value(formData, "originAccuracy"),
+          consent: value(formData, "preciseOriginConsent"),
+          latitude: value(formData, "originLatitude"),
+          longitude: value(formData, "originLongitude"),
+        });
+        if (!precise.success) {
+          return { error: "invalid_input", fieldErrors: { city: "Capture an accurate position and explicitly consent before saving a precise origin." }, status: "error" };
+        }
+        origin = {
+          accuracy: precise.data.accuracy,
+          consent: "camera-origin-consent-v1",
+          latitude: precise.data.latitude,
+          longitude: precise.data.longitude,
+          providerReference: null,
+        };
+      } else {
+        const config = getMeetupProviderConfig();
+        if (!config || !(await claimGeoapifyProviderBudget(context.user.id, 1))) {
+          return { error: "save_failed", status: "error" };
+        }
+        try {
+          const centroid = await new GeoapifyAdapter({ apiKey: config.apiKey, timeoutMs: config.timeoutMs })
+            .geocodeAreaCentroid(`${area.data.path.map((part) => part.name).join(", ")}, Philippines`);
+          origin = {
+            accuracy: null,
+            consent: null,
+            latitude: centroid.latitude,
+            longitude: centroid.longitude,
+            providerReference: centroid.providerReference,
+          };
+        } catch {
+          return { error: "save_failed", status: "error" };
+        }
+      }
+
+      outcome = await context.supabase.schema("api").rpc("replace_camera_handoff_policy_v2", {
+        p_accuracy_meters: origin.accuracy,
+        p_allowed_weekdays: weekdays,
+        p_approved_times: approvedTimes,
+        p_area_code: canonical.data.areaCode,
+        p_camera_id: base.data.cameraId,
+        p_captured_at: new Date().toISOString(),
+        p_consent_version: origin.consent,
+        p_enabled: enabled,
+        p_expected_version: base.data.expectedVersion,
+        p_latitude: origin.latitude,
+        p_longitude: origin.longitude,
+        p_precision: canonical.data.precision,
+        p_provenance_version: "camera-handoff-origin-v1",
+        p_provider_reference: origin.providerReference,
+        p_release_key: canonical.data.release,
+        p_source: canonical.data.precision === "precise" ? "device_gps" : "provider_centroid",
+      });
+    } else {
+      if (!cityAnchor) {
+        return { error: "invalid_input", fieldErrors: { city: "Confirm a handoff city before saving." }, status: "error" };
+      }
+      savedCityLabel = cityAnchor.label;
+      outcome = await context.supabase
+        .schema("api")
+        .rpc("replace_camera_handoff_policy", {
         p_allowed_weekdays: weekdays,
         p_approved_times: approvedTimes,
         p_camera_id: base.data.cameraId,
@@ -501,6 +623,7 @@ export async function saveCameraHandoffPolicy(
         p_longitude: cityAnchor.longitude,
         p_provider_city_id: cityAnchor.providerCityId,
       });
+    }
   } catch {
     return { error: "save_failed", status: "error" };
   }
@@ -526,5 +649,5 @@ export async function saveCameraHandoffPolicy(
   revalidatePath(`/admin/cameras/${base.data.cameraId}/handoff`);
   revalidatePath("/");
 
-  return { cityLabel: cityAnchor.label, status: "success", version };
+  return { cityLabel: savedCityLabel, status: "success", version };
 }

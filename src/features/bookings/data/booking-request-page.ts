@@ -39,6 +39,16 @@ const contextSchema = z.object({
     total_due: z.number().nonnegative(),
   }).strict(),
 }).strict();
+const meetupOriginSchema = z.object({
+  active: z.boolean(),
+  area_code: z.string().regex(/^\d{10}$/),
+  area_name: z.string().min(1).max(160),
+  area_type: z.string(),
+  current: z.boolean(),
+  path: z.array(z.unknown()),
+  precision: z.enum(["city_centroid", "barangay_centroid", "precise"]),
+  release: z.string().regex(/^\d{4}-q[1-4]$/),
+}).strict().nullable();
 
 export async function loadBookingRequestPageContext(
   context: UserContext,
@@ -58,20 +68,23 @@ export async function loadBookingRequestPageContext(
     return { status: "error" } as const;
   }
 
-  const result = await context.supabase.schema("api").rpc(
-    "get_booking_request_page_context",
-    {
+  const [result, originResult] = await Promise.all([
+    context.supabase.schema("api").rpc("get_booking_request_page_context", {
       p_camera_id: camera.data,
       p_handoff_time: values.handoffTime,
       p_pickup_date: values.pickupDate,
       p_policy_version: policyVersion,
       p_return_date: values.returnDate,
-    },
-  );
+    }),
+    context.supabase.schema("api").rpc("get_my_meetup_origin"),
+  ]);
   const parsed = contextSchema.safeParse(result.data);
+  const origin = meetupOriginSchema.safeParse(originResult.data);
   if (
     result.error ||
+    originResult.error ||
     !parsed.success ||
+    !origin.success ||
     parsed.data.camera.id !== camera.data ||
     parsed.data.quote.camera_id !== camera.data
   ) {
@@ -88,6 +101,11 @@ export async function loadBookingRequestPageContext(
           phone: data.profile.phone,
         }
       : null,
+    meetupOrigin: origin.data ? {
+      areaName: origin.data.area_name,
+      precision: origin.data.precision,
+      valid: origin.data.active && origin.data.current,
+    } : null,
     quote: {
       billableDays: data.quote.billable_days,
       cameraId: data.quote.camera_id,

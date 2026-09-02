@@ -33,7 +33,10 @@ const baseRow: SafeBookingRow = {
 
 describe("renter booking projection", () => {
   it("loads the account overview through one owner-scoped snapshot RPC", async () => {
-    const rpc = vi.fn().mockResolvedValue({
+    const rpc = vi.fn().mockImplementation((name: string) => Promise.resolve(name === "get_my_meetup_origin" ? {
+      data: null,
+      error: null,
+    } : {
       data: {
         bookings: [{
           booking: baseRow,
@@ -48,7 +51,7 @@ describe("renter booking projection", () => {
         },
       },
       error: null,
-    });
+    }));
     const context = {
       supabase: { schema: vi.fn(() => ({ rpc })) },
       user: { id: "user-1" },
@@ -60,8 +63,9 @@ describe("renter booking projection", () => {
       profile: { accountStatus: "active", legalName: "Maria Santos" },
       status: "success",
     });
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledTimes(2);
     expect(rpc).toHaveBeenCalledWith("get_my_account_overview");
+    expect(rpc).toHaveBeenCalledWith("get_my_meetup_origin");
   });
 
   it("rejects unexpected private fields in the account snapshot", async () => {

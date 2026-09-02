@@ -6,6 +6,7 @@ import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { MeetupOriginForm } from "@/features/locations/meetup-origin-form";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,12 @@ export default async function AccountPage() {
             <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="profile-heading">
               <h2 className="text-2xl font-semibold" id="profile-heading">Profile</h2>
               <AccountProfile profile={account.profile} />
+            </section>
+
+            <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="meetup-origin-heading">
+              <h2 className="text-2xl font-semibold" id="meetup-origin-heading">Default meetup origin</h2>
+              <p className="mt-2 leading-7 text-stone-600">Save one private canonical area to reduce repeat entry. CamNook will still ask you to confirm or change it before any provider request.</p>
+              <MeetupOriginForm origin={account.meetupOrigin} />
             </section>
 
             <section className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950" aria-labelledby="pickup-id-heading">
