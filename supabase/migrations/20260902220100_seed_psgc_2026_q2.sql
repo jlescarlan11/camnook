@@ -43952,6 +43952,8 @@ set local role service_role;
 
 select private.activate_psgc_release('2026-q2');
 
-reset role;
+-- Restore the hosted migration role before the CLI records history.
+
+set local role postgres;
 
 commit;

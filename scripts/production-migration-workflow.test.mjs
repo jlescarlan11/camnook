@@ -17,6 +17,25 @@ const prePushHook = readFileSync(
   new URL("../.githooks/pre-push", import.meta.url),
   "utf8",
 );
+const psgcGenerator = readFileSync(
+  new URL("./psgc-reference.mjs", import.meta.url),
+  "utf8",
+);
+const psgcSeedMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260902220100_seed_psgc_2026_q2.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const psgcRecovery = readFileSync(
+  new URL("./reconcile-development-psgc-seed.sh", import.meta.url),
+  "utf8",
+);
+const psgcRecoveryVerification = readFileSync(
+  new URL("./verify-development-psgc-seed-recovery.sql", import.meta.url),
+  "utf8",
+);
 
 function position(text) {
   const index = workflow.indexOf(text);
@@ -25,6 +44,38 @@ function position(text) {
 }
 
 describe("immutable release workflow policy", () => {
+  it("preserves the hosted migration role after PSGC activation", () => {
+    expect(psgcGenerator).toContain("statements.push('set local role postgres;')");
+    expect(psgcGenerator).not.toContain("statements.push('reset role;')");
+    expect(psgcSeedMigration).toContain("set local role postgres;");
+    expect(psgcSeedMigration).not.toContain("reset role;");
+  });
+
+  it("repairs only the verified interrupted Development PSGC seed history", () => {
+    const development = workflow.slice(position("  development:"));
+
+    expect(development).toContain(
+      "Reconcile interrupted Development PSGC seed history",
+    );
+    expect(development).toContain(
+      "bash scripts/reconcile-development-psgc-seed.sh",
+    );
+    expect(psgcRecovery).toContain('expected_project_id="ekmoiepalelqpmemvrkl"');
+    expect(psgcRecovery).toContain('seed_version="20260902220100"');
+    expect(psgcRecovery).toContain(
+      "supabase db query --linked --file scripts/verify-development-psgc-seed-recovery.sql",
+    );
+    expect(psgcRecovery).toContain(
+      'supabase migration repair --linked --status applied --yes "$seed_version"',
+    );
+    expect(psgcRecoveryVerification).toContain(
+      "perform private.validate_psgc_release('2026-q2')",
+    );
+    expect(psgcRecoveryVerification).toContain(
+      "where version > '20260902220100'",
+    );
+  });
+
   it("admits only successful automatic main-push CI or a guarded emergency retry", () => {
     expect(workflow).toContain("workflows: [CI]");
     expect(workflow).toContain("branches: [main]");

@@ -126,6 +126,10 @@ for (let index = 0; index < rows.length; index += 500) {
 }
 statements.push('set local role service_role;');
 statements.push(`select private.activate_psgc_release(${quote(manifest.release)});`);
-statements.push('reset role;');
+// Hosted migrations run through a temporary login role that assumes `postgres`.
+// RESET ROLE would return to that unprivileged login before the CLI records the
+// migration, so restore the migration role explicitly inside this transaction.
+statements.push('-- Restore the hosted migration role before the CLI records history.');
+statements.push('set local role postgres;');
 statements.push('commit;');
 process.stdout.write(statements.join('\n\n') + '\n');

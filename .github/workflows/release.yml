@@ -356,6 +356,9 @@ jobs:
           test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
           supabase link --project-ref "$SUPABASE_PROJECT_ID" --yes
 
+      - name: Reconcile interrupted Development PSGC seed history
+        run: bash scripts/reconcile-development-psgc-seed.sh
+
       - name: Preview pending Development migrations
         run: |
           test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
