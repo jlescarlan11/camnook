@@ -52,7 +52,7 @@ export async function saveMeetupOrigin(
     p_release_key: input.data.release,
   });
   const parsed = resolvedSchema.safeParse(resolution.data);
-  if (resolution.error || !parsed.success || !parsed.data.active || !parsed.data.current || !["city", "municipality", "barangay"].includes(parsed.data.type)) {
+  if (resolution.error || !parsed.success || !parsed.data.active || !parsed.data.current || parsed.data.type !== "barangay") {
     return { error: "invalid", status: "error" };
   }
 
@@ -81,7 +81,7 @@ export async function saveMeetupOrigin(
       consent_version: null,
       latitude: centroid.latitude,
       longitude: centroid.longitude,
-      precision: parsed.data.type === "barangay" ? "barangay_centroid" : "city_centroid",
+      precision: "barangay_centroid",
       provenance_version: "renter-default-origin-v1",
       provider_reference: centroid.providerReference,
       release_key: parsed.data.release,

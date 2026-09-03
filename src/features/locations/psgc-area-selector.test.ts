@@ -20,9 +20,9 @@ describe("PSGC cascade labels", () => {
     expect(gate.isCurrent(first)).toBe(false);
   });
 
-  it("makes the independent-city branch explicit when a region has mixed children", () => {
+  it("keeps province separate when a region has independent cities", () => {
     expect(psgcLevelLabel(1, [choice("province"), choice("city")])).toBe(
-      "Province or independent city",
+      "Province",
     );
   });
 

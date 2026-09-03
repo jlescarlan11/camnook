@@ -27,8 +27,9 @@ supersession records without rewriting existing anchors.
 ## Private anchor model
 
 `private.location_anchors` is the only durable coordinate store for canonical
-camera and renter origins. Each active row belongs to exactly one camera or one
-renter and records:
+camera and renter origins. New address selections must end at a barangay and
+use its server-derived centroid. Each active row belongs to exactly one camera
+or one renter and records:
 
 - the PSGC release and area code;
 - declared precision (`city_centroid`, `barangay_centroid`, or `precise`);
@@ -44,11 +45,10 @@ coordinates and their private provider, accuracy, consent, and provenance data;
 the path-free audit event remains. A failed validation or write leaves the
 previous anchor unchanged. Removal is an explicit separate operation.
 
-City and barangay centroids are obtained through the bounded server-only
-Geoapify boundary after the selected current PSGC path is resolved. Precise
-camera origins require a browser device-position request initiated by the admin,
-accuracy no worse than 1,000 metres, Philippine coordinate bounds, and explicit
-consent. Precise renter defaults are not currently offered.
+Barangay centroids are obtained through the bounded server-only Geoapify
+boundary after the selected current PSGC path is resolved. The schema retains
+city-centroid and precise values only so existing anchors remain readable;
+neither option is offered for a new or replacement address.
 
 ## Projection and authorization rules
 

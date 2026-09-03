@@ -183,7 +183,7 @@ export async function recommendMeetup(
         name: z.string().min(1),
         type: z.enum(["region", "province", "city", "municipality", "submunicipality", "barangay"]),
       })), release: z.string(),
-      type: z.enum(["city", "municipality", "barangay"]),
+      type: z.literal("barangay"),
     }).safeParse(resolution.data);
     if (resolution.error || !canonical.success) return { error: "invalid_location", status: "error" };
     providerLookupCount = 1;

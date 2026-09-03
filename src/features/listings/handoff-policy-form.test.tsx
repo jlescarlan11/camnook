@@ -46,6 +46,8 @@ describe("HandoffPolicyForm", () => {
     expect(markup).not.toContain('name="providerCityId"');
     expect(markup).not.toContain('name="latitude"');
     expect(markup).not.toContain('name="longitude"');
+    expect(markup).not.toContain("Origin precision");
+    expect(markup).not.toContain("Private device position");
   });
 
   it("does not request browser location while rendering a legacy policy", () => {
@@ -109,6 +111,8 @@ describe("HandoffPolicyForm", () => {
     expect(markup).toContain('name="preservedPsgcAreaCode"');
     expect(markup).not.toContain('name="psgcAreaCode"');
     expect(markup).not.toContain('name="originPrecision"');
+    expect(markup).not.toContain("Origin precision");
+    expect(markup).not.toContain("Use device position");
     expect(markup).toContain("Save handoff policy");
   });
 

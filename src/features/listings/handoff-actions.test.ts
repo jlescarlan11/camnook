@@ -540,7 +540,6 @@ describe("camera handoff city and policy actions", () => {
     const data = validSaveFields();
     data.set("psgcRelease", "2026-q2");
     data.set("psgcAreaCode", "0722170010");
-    data.set("originPrecision", "barangay_centroid");
 
     await expect(saveCameraHandoffPolicy({ status: "idle" }, data)).resolves.toEqual({
       cityLabel: "Lahug",
@@ -563,6 +562,36 @@ describe("camera handoff city and policy actions", () => {
     expect(request.mock.calls[0]?.[1]?.body).toContain(
       "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",
     );
+  });
+
+  it("rejects a city-level canonical origin before geocoding", async () => {
+    const api = authorize({
+      resolvedArea: {
+        active: true,
+        code: "0730600000",
+        current: true,
+        name: "City of Cebu",
+        path: [
+          { code: "0700000000", name: "Central Visayas", type: "region" },
+          { code: "0730600000", name: "City of Cebu", type: "city" },
+        ],
+        release: "2026-q2",
+        type: "city",
+      },
+    });
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    const data = validSaveFields();
+    data.set("psgcRelease", "2026-q2");
+    data.set("psgcAreaCode", "0730600000");
+
+    await expect(saveCameraHandoffPolicy({ status: "idle" }, data)).resolves.toMatchObject({
+      error: "invalid_input",
+      fieldErrors: { city: "Select a current barangay." },
+      status: "error",
+    });
+    expect(request).not.toHaveBeenCalled();
+    expect(api.rpc).not.toHaveBeenCalledWith("replace_camera_handoff_policy_v3", expect.anything());
   });
 
   it("lets the policy RPC reject a revoked admin without a separate admin lookup", async () => {
