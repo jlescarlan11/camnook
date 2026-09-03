@@ -7,6 +7,7 @@ import type {
   Coordinate,
   NormalizedCity,
   ProviderAddressSuggestion,
+  ProviderAreaCentroid,
   ProviderPlace,
 } from "./domain";
 
@@ -100,12 +101,16 @@ const addressSearchResponseSchema = z.object({
       city: providerCityPartSchema.optional(),
       country_code: z.string().trim().length(2),
       county: providerCityPartSchema.optional(),
+      district: providerCityPartSchema.optional(),
       formatted: providerAddressPartSchema.optional(),
       lat: z.number().finite().min(-90).max(90),
       lon: z.number().finite().min(-180).max(180),
       municipality: providerCityPartSchema.optional(),
       place_id: providerCityIdSchema.optional(),
       result_type: z.string().trim().min(1).max(64).optional(),
+      state: providerCityPartSchema.optional(),
+      suburb: providerCityPartSchema.optional(),
+      village: providerCityPartSchema.optional(),
     }),
   ).max(5),
 });
@@ -348,6 +353,65 @@ export class GeoapifyAdapter {
     return [...unique.values()];
   }
 
+  async geocodeAreaCentroid(input: {
+    expectedAreaNames: readonly string[];
+    query: string;
+  }): Promise<ProviderAreaCentroid> {
+    const payload = await this.requestTool("geocode_address", {
+      country_codes: ["ph"],
+      lang: "en",
+      limit: 5,
+      query: input.query,
+    });
+    const parsed = addressSearchResponseSchema.safeParse(payload);
+    if (!parsed.success) throw new ProviderBoundaryError("malformed");
+    const expectedNames = [...new Set(input.expectedAreaNames.map(normalizedAreaName))];
+    const allowedResultTypes = new Set([
+      "administrative",
+      "city",
+      "county",
+      "district",
+      "locality",
+      "municipality",
+      "state",
+      "suburb",
+      "village",
+    ]);
+    const result = parsed.data.results.find((candidate) => {
+      const resultType = candidate.result_type?.toLowerCase();
+      if (
+        candidate.country_code.toUpperCase() !== "PH" ||
+        !candidate.place_id ||
+        !candidate.formatted ||
+        !resultType ||
+        !allowedResultTypes.has(resultType)
+      ) {
+        return false;
+      }
+      const providerAreas = [
+        candidate.city,
+        candidate.municipality,
+        candidate.county,
+        candidate.district,
+        candidate.state,
+        candidate.suburb,
+        candidate.village,
+        ...candidate.formatted.split(","),
+      ]
+        .filter((value): value is string => Boolean(value))
+        .map(normalizedAreaName);
+      return expectedNames.length > 0 && expectedNames.every((expected) =>
+        providerAreas.some((providerArea) => providerArea === expected),
+      );
+    });
+    if (!result?.place_id) throw new ProviderBoundaryError("unsupported_city");
+    return {
+      latitude: result.lat,
+      longitude: result.lon,
+      providerReference: result.place_id,
+    };
+  }
+
   async searchPublicPlaces(input: {
     allowedCategories: readonly string[];
     center: Coordinate;
@@ -393,4 +457,16 @@ export class GeoapifyAdapter {
     }
     return [...unique.values()];
   }
+}
+
+function normalizedAreaName(value: string) {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase("en")
+    .replace(/^city of\s+/u, "")
+    .replace(/\s+city$/u, "")
+    .replace(/^municipality of\s+/u, "")
+    .replace(/\s+municipality$/u, "")
+    .trim()
+    .replace(/\s+/g, " ");
 }

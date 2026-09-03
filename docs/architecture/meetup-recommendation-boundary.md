@@ -1,12 +1,12 @@
 # Meetup recommendation boundary
 
-Status: implemented behind server-only configuration; not customer-active.
+Status: implemented as an always-on, fail-closed server boundary.
 
 ## Responsibility
 
 `src/features/meetups/` is the only layer allowed to consume Geoapify or Mapbox
-response shapes. It converts one short-lived renter browser position and one private,
-coarse lender city anchor into up to three safe public-place recommendations or a
+response shapes. It converts a confirmed renter origin and a private lender
+origin into up to five safe public-place recommendations or a
 constrained unavailable reason. It also powers the admin-only public-address
 search used to resolve a selected place to a city anchor. Calendar UI and
 booking persistence are separate consumers and do not call Geoapify directly.
@@ -33,7 +33,7 @@ The boundary is deliberately split into:
 
 ## Privacy boundary
 
-The exact renter coordinate is accepted only by `recommendPublicMeetup`. It is
+An exact renter coordinate is accepted only by `recommendPublicMeetup`. It is
 passed in an HTTPS POST body to Geoapify's city-level reverse lookup and in the
 server-only Mapbox Matrix URL required by that provider. No Mapbox URL is ever
 logged, returned, persisted, or exposed to the browser. The coordinate is not
@@ -43,8 +43,8 @@ receive that coordinate to perform the lookup; Mapbox receives it only for the
 transient route comparison. Geoapify's normalized city centroid drives midpoint
 and POI search. Manual-city routing uses that centroid and is labeled approximate.
 
-The lender anchor remains private database data. Public listing DTOs expose its
-city label and schedule but not its provider ID or coordinates. The admin address
+Saved renter and lender anchors remain private database data. Public listing DTOs expose the
+lender's area label, approximation level, and schedule but not provider IDs or coordinates. The admin address
 search may display a provider-formatted public place address, but the selected
 value uses that single response's city label and coordinates rounded to three
 decimals before it is encrypted into the save reference. The exact address is not
@@ -56,18 +56,23 @@ version, expiry, and encrypted reference. Provider IDs remain encrypted at the
 server boundary.
 
 Telemetry is a closed aggregate shape: status category, coarse fast/slow bucket,
-result/candidate count, reserved element count, profile/policy version, and routing
-fallback class. It cannot carry coordinates, addresses, names, user IDs, provider
-payloads, routes, secrets, tokens, or constructed URLs.
+seed/provider-request/raw/quality-rejection/candidate counts, provider-budget
+outcome, reserved element count, profile/policy version, and routing fallback
+class. It cannot carry coordinates, addresses, names, user IDs, provider payloads,
+routes, secrets, tokens, or constructed URLs.
 
 ## Deterministic selection
 
-The search center is the spherical midpoint of the normalized renter and lender
-city centroids. Geoapify is queried with a bounded circle and proximity bias, but
-CamNook does not trust provider ordering. Candidates must have a name, public
+Discovery uses up to three deterministic seeds: lender origin, renter origin,
+and their spherical midpoint. Duplicate seeds collapse before budget reservation
+and provider calls. CamNook merges results by provider identity and category,
+then evaluates them around the midpoint; it does not trust provider ordering.
+Candidates must have a meaningful name, public
 formatted address, city, provider identity, and at least one exact configured
 allowlist category. Accommodation, residential-building, and populated-place
 categories are rejected even if a record also carries an allowed category.
+Identifier-like names such as unit numbers or route numbers and records outside
+every configured seed radius are also rejected.
 
 Each configured category is sent as a separate bounded provider tool call because
 the provider's POST interface accepts one category per call. Eligible candidates
@@ -75,12 +80,15 @@ are then ordered by CamNook-calculated center distance, configured
 category priority, normalized name, normalized address, and provider identity.
 The first eight distinct eligible candidates are compared with one Mapbox
 `driving-traffic` matrix from the renter and owner origins. CamNook returns at most
-three reachable venues by lowest maximum individual travel time, then lowest
+five reachable venues by lowest maximum individual travel time, then lowest
 combined travel time, then the existing deterministic Geoapify order. If routing
 configuration, budget, or provider output is unavailable—or every pair is
-unreachable—the same eligible shortlist produces up to three deterministic
+unreachable—the same eligible shortlist produces up to five deterministic
 Geoapify-ranked options with no travel-time claim. Geoapify failure remains hard
 unavailable and never fabricates a venue.
+
+Checkout initially renders only the first three choices. A semantic button
+reveals choices four and five when present; no ordinal “best” claim is shown.
 
 ## Failure contract
 

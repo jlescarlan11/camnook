@@ -396,6 +396,12 @@ echo "running abandoned private upload cleanup invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/018_mapbox_routing_budget.sql"
 
+echo "running PSGC and private location-origin invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/019_psgc_location_origins.sql"
+
 "$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
   -c 'create database camnook_hosted_compat template postgres' >/dev/null
 

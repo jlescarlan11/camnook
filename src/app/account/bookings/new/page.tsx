@@ -50,6 +50,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
   const camera = requestContext.status === "success" ? requestContext.camera : undefined;
   const quote = requestContext.status === "success" ? requestContext.quote : undefined;
   const profile = requestContext.status === "success" ? requestContext.profile : undefined;
+  const meetupOrigin = requestContext.status === "success" ? requestContext.meetupOrigin : null;
   const ready = camera && quote;
 
   return (
@@ -105,6 +106,8 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
                 <p className="mt-2 text-sm leading-6 text-stone-600">Submitting creates a <strong>FOR_REVIEW</strong> request. It does not place an availability hold.</p>
                 <RequestForm
                   camera={values.camera}
+                  key={query}
+                  savedOrigin={meetupOrigin}
                   pickup={values.pickup}
                   returnHref={`/cameras/${camera.slug}`}
                   returnValue={values.return}

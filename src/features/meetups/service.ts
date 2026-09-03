@@ -7,6 +7,7 @@ import {
 } from "./config";
 import {
   calculateSearchCenter,
+  buildDiscoverySeeds,
   coarseCoordinate,
   coordinateSchema,
   rankEligiblePlaces,
@@ -51,10 +52,14 @@ export type MeetupProviderTelemetry = {
   durationBucket: "fast" | "slow";
   elementCount?: number;
   fallbackEligible?: boolean;
+  providerBudgetStatus?: "denied" | "reserved";
+  providerRequestCount?: number;
+  qualityRejectedCount?: number;
   profile?: "driving-traffic";
   resultCount: number;
   routingPolicyVersion?: string;
   routingStatus?: RoutingTelemetryStatus;
+  seedCount?: number;
   status: "available" | MeetupUnavailableReason;
 };
 
@@ -62,6 +67,7 @@ type RecommendInput = {
   binding: string;
   currentPosition?: Coordinate;
   lenderCity: NormalizedCity;
+  providerLookupCount?: number;
   renterCity?: NormalizedCity;
 };
 
@@ -109,7 +115,7 @@ async function routeCandidates(
   ranked: RankedPlace[];
   routingStatus: RoutingTelemetryStatus;
 }> {
-  const fallback = candidates.slice(0, 3).map((place) => ({ place, travel: null }));
+  const fallback = candidates.slice(0, 5).map((place) => ({ place, travel: null }));
   const routingConfig = meetupRoutingConfigSchema.safeParse(options.routingConfig);
   if (!routingConfig.success) {
     return { elementCount: 0, ranked: fallback, routingStatus: "configuration" };
@@ -141,7 +147,7 @@ async function routeCandidates(
     );
     return {
       elementCount,
-      ranked: ranked.slice(0, 3),
+      ranked: ranked.slice(0, 5),
       routingStatus: partial ? "partial" : "success",
     };
   } catch (error) {
@@ -190,18 +196,39 @@ export async function recommendPublicMeetup(
     const renterCity = input.renterCity
       ? input.renterCity
       : await adapter.reverseGeocodeCity(position!.success ? position!.data : input.lenderCity);
-    const searchCenter = calculateSearchCenter(renterCity, input.lenderCity);
-    const candidates = await adapter.searchPublicPlaces({
-      allowedCategories: config.allowedCategories,
-      center: searchCenter,
-      radiusMeters: config.searchRadiusMeters,
-    });
-    resultCount = candidates.length;
-    const eligible = rankEligiblePlaces(
-      candidates,
+    const discoveryRenterOrigin = position?.success ? position.data : renterCity;
+    const searchCenter = calculateSearchCenter(discoveryRenterOrigin, input.lenderCity);
+    const discoverySeeds = buildDiscoverySeeds(
+      input.lenderCity,
+      discoveryRenterOrigin,
+    );
+    const seedResults = await Promise.all(discoverySeeds.map((center) =>
+      adapter.searchPublicPlaces({
+        allowedCategories: config.allowedCategories,
+        center,
+        radiusMeters: config.searchRadiusMeters,
+      }),
+    ));
+    resultCount = seedResults.reduce((count, places) => count + places.length, 0);
+    const merged = new Map<string, ProviderPlace>();
+    for (const place of seedResults.flat()) {
+      const current = merged.get(place.providerPlaceId);
+      merged.set(place.providerPlaceId, current ? {
+        ...current,
+        categories: [...new Set([...current.categories, ...place.categories])],
+      } : place);
+    }
+    const qualityEligible = rankEligiblePlaces(
+      [...merged.values()],
       searchCenter,
       config.allowedCategories,
-    ).slice(0, 8);
+      {
+        allowedLocalities: [input.lenderCity.label, renterCity.label],
+        discoverySeeds,
+        radiusMeters: config.searchRadiusMeters,
+      },
+    );
+    const eligible = qualityEligible.slice(0, 8);
     if (!eligible.length) throw new ProviderBoundaryError("empty");
 
     const routed = await routeCandidates(eligible, input, options);
@@ -256,10 +283,16 @@ export async function recommendPublicMeetup(
       durationBucket: Date.now() - startedAt < config.timeoutMs ? "fast" : "slow",
       elementCount: routed.elementCount,
       fallbackEligible: eligible.length > 0,
+      providerBudgetStatus: "reserved",
+      providerRequestCount:
+        discoverySeeds.length * config.allowedCategories.length
+        + (input.providerLookupCount ?? 0),
       profile: options.routingConfig?.profile,
+      qualityRejectedCount: merged.size - qualityEligible.length,
       resultCount,
       routingPolicyVersion: options.routingPolicyVersion,
       routingStatus: routed.routingStatus,
+      seedCount: discoverySeeds.length,
       status: "available",
     });
     return { recommendations, status: "available" };

@@ -14,7 +14,9 @@ const values = {
 };
 
 function bookingRequestClient(data: unknown, error: unknown = null) {
-  const rpc = vi.fn().mockResolvedValue({ data, error });
+  const rpc = vi.fn().mockImplementation((name: string) => Promise.resolve(
+    name === "get_my_meetup_origin" ? { data: null, error: null } : { data, error },
+  ));
   return {
     context: {
       supabase: { schema: vi.fn(() => ({ rpc })) },
@@ -62,6 +64,7 @@ describe("booking request page context", () => {
         name: "Fujifilm X-T5",
         slug: "fujifilm-x-t5",
       },
+      meetupOrigin: null,
       profile: {
         accountStatus: "active",
         legalName: "Maria Santos",
@@ -80,7 +83,7 @@ describe("booking request page context", () => {
       },
       status: "success",
     });
-    expect(fixture.rpc).toHaveBeenCalledTimes(1);
+    expect(fixture.rpc).toHaveBeenCalledTimes(2);
     expect(fixture.rpc).toHaveBeenCalledWith(
       "get_booking_request_page_context",
       {
@@ -91,6 +94,7 @@ describe("booking request page context", () => {
         p_return_date: "2099-09-09",
       },
     );
+    expect(fixture.rpc).toHaveBeenCalledWith("get_my_meetup_origin");
   });
 
   it("rejects malformed URL state without a database request", async () => {

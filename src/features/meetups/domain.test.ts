@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateSearchCenter,
+  buildDiscoverySeeds,
   coarseCoordinate,
   rankEligiblePlaces,
   rankPlacesByBalancedTravel,
@@ -47,6 +48,32 @@ describe("meetup recommendation domain", () => {
     ).toEqual({ latitude: 10.001493, longitude: -180 });
   });
 
+  it("builds deterministic owner, renter, and midpoint discovery seeds", () => {
+    expect(buildDiscoverySeeds(
+      { latitude: 10.3157, longitude: 123.8854 },
+      { latitude: 10.3236, longitude: 123.9222 },
+    )).toEqual([
+      { latitude: 10.3157, longitude: 123.8854 },
+      { latitude: 10.3236, longitude: 123.9222 },
+      calculateSearchCenter(
+        { latitude: 10.3157, longitude: 123.8854 },
+        { latitude: 10.3236, longitude: 123.9222 },
+      ),
+    ]);
+  });
+
+  it.each([
+    ["Cebu–Mandaue", { latitude: 10.3157, longitude: 123.8854 }, { latitude: 10.3236, longitude: 123.9222 }],
+    ["Cebu–Lapu-Lapu bridge", { latitude: 10.3157, longitude: 123.8854 }, { latitude: 10.3103, longitude: 123.9494 }],
+    ["Cebu–Talisay", { latitude: 10.3157, longitude: 123.8854 }, { latitude: 10.2447, longitude: 123.8494 }],
+  ])("retains both origin neighborhoods for %s even when the midpoint is unsuitable", (_label, owner, renter) => {
+    const seeds = buildDiscoverySeeds(owner, renter);
+    expect(seeds).toHaveLength(3);
+    expect(seeds[0]).toEqual(owner);
+    expect(seeds[1]).toEqual(renter);
+    expect(seeds[2]).toEqual(calculateSearchCenter(owner, renter));
+  });
+
   it("rejects incomplete, private, residential, and non-allowlisted results", () => {
     const ranked = rankEligiblePlaces(
       [
@@ -58,6 +85,45 @@ describe("meetup recommendation domain", () => {
       ],
       center,
       ["commercial.shopping_mall"],
+    );
+
+    expect(ranked.map((candidate) => candidate.providerPlaceId)).toEqual([
+      "place-ayala",
+    ]);
+  });
+
+  it("rejects generic route-number names and coordinates outside every reviewed seed radius", () => {
+    const ranked = rankEligiblePlaces(
+      [
+        place(),
+        place({ name: "17B", providerPlaceId: "route-number" }),
+        place({ name: "Unnamed Road", providerPlaceId: "unnamed-road" }),
+        place({ latitude: 14.5995, longitude: 120.9842, providerPlaceId: "wrong-area" }),
+      ],
+      center,
+      ["commercial.shopping_mall"],
+      { discoverySeeds: [center], radiusMeters: 20_000 },
+    );
+    expect(ranked.map((candidate) => candidate.providerPlaceId)).toEqual(["place-ayala"]);
+  });
+
+  it("rejects a near-coordinate venue whose administrative locality is incompatible", () => {
+    const ranked = rankEligiblePlaces(
+      [
+        place(),
+        place({
+          address: "Nearby provider record",
+          city: "Manila",
+          providerPlaceId: "nearby-wrong-locality",
+        }),
+      ],
+      center,
+      ["commercial.shopping_mall"],
+      {
+        allowedLocalities: ["City of Cebu", "Mandaue City"],
+        discoverySeeds: [center],
+        radiusMeters: 20_000,
+      },
     );
 
     expect(ranked.map((candidate) => candidate.providerPlaceId)).toEqual([

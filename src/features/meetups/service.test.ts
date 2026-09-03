@@ -33,6 +33,7 @@ const input = {
     longitude: 123.8854,
     providerCityId: "city-cebu",
   },
+  providerLookupCount: 1,
 };
 
 function places(count = 1) {
@@ -94,13 +95,14 @@ describe("recommendPublicMeetup", () => {
     expect(provider.reverseGeocodeCity).not.toHaveBeenCalled();
   });
 
-  it("returns three independently bound options in balanced route order", async () => {
-    const configured = options(4);
+  it("returns up to five independently bound options in balanced route order", async () => {
+    const configured = options(5);
     configured.routingAdapter.calculateTravelTimes.mockResolvedValue([
       { ownerSeconds: 600, renterSeconds: 600 },
       { ownerSeconds: 300, renterSeconds: 780 },
       { ownerSeconds: 720, renterSeconds: 720 },
       { ownerSeconds: 60, renterSeconds: 1200 },
+      { ownerSeconds: 840, renterSeconds: 840 },
     ]);
     const recordTelemetry = vi.fn();
     const result = await recommendPublicMeetup(input, {
@@ -111,8 +113,8 @@ describe("recommendPublicMeetup", () => {
 
     expect(result.status).toBe("available");
     if (result.status === "available") {
-      expect(result.recommendations.map((item) => item.name)).toEqual(["A", "C", "B"]);
-      expect(new Set(result.recommendations.map((item) => item.reference)).size).toBe(3);
+      expect(result.recommendations.map((item) => item.name)).toEqual(["A", "C", "B", "E", "D"]);
+      expect(new Set(result.recommendations.map((item) => item.reference)).size).toBe(5);
       expect(result.recommendations[0]).toMatchObject({
         ownerCity: "Cebu City",
         ownerTravelMinutes: 10,
@@ -123,12 +125,15 @@ describe("recommendPublicMeetup", () => {
       });
       expect(result.recommendations[0].reference).toMatch(/^v2\./);
     }
-    expect(configured.reserveRoutingBudget).toHaveBeenCalledWith(8);
+    expect(configured.reserveRoutingBudget).toHaveBeenCalledWith(10);
     expect(recordTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({
-        candidateCount: 4,
-        elementCount: 8,
+        candidateCount: 5,
+        elementCount: 10,
+        providerBudgetStatus: "reserved",
+        providerRequestCount: 4,
         routingStatus: "success",
+        seedCount: 3,
         status: "available",
       }),
     );
@@ -169,7 +174,7 @@ describe("recommendPublicMeetup", () => {
     });
     expect(result.status).toBe("available");
     if (result.status === "available") {
-      expect(result.recommendations).toHaveLength(3);
+      expect(result.recommendations).toHaveLength(4);
       expect(result.recommendations[0]).toMatchObject({
         ownerTravelMinutes: null,
         renterTravelMinutes: null,
@@ -240,6 +245,57 @@ describe("recommendPublicMeetup", () => {
       expect(result.recommendations[0].routeEstimateApproximate).toBe(true);
     }
     expect(configured.adapter.reverseGeocodeCity).not.toHaveBeenCalled();
+  });
+
+  it("discovers around distinct owner, renter, and midpoint seeds before deduplicating", async () => {
+    const configured = options();
+    const recordTelemetry = vi.fn();
+    const renterCity = {
+      countryCode: "PH" as const,
+      label: "Lapu-Lapu City",
+      latitude: 10.3103,
+      longitude: 123.9494,
+      providerCityId: "city-lapu-lapu",
+    };
+
+    const result = await recommendPublicMeetup(
+      { binding: input.binding, lenderCity: input.lenderCity, renterCity },
+      { ...configured, recordTelemetry },
+    );
+
+    expect(result.status).toBe("available");
+    expect(configured.adapter.searchPublicPlaces).toHaveBeenCalledTimes(3);
+    expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).toEqual([
+      { latitude: input.lenderCity.latitude, longitude: input.lenderCity.longitude },
+      { latitude: renterCity.latitude, longitude: renterCity.longitude },
+      expect.not.objectContaining({ latitude: renterCity.latitude, longitude: renterCity.longitude }),
+    ]);
+    expect(recordTelemetry).toHaveBeenCalledWith(expect.objectContaining({
+      providerRequestCount: 3,
+      resultCount: 3,
+      seedCount: 3,
+    }));
+  });
+
+  it("uses the confirmed device coordinate as the renter discovery seed", async () => {
+    const configured = options();
+    configured.adapter.reverseGeocodeCity.mockResolvedValue({
+      countryCode: "PH",
+      label: "Cebu City",
+      latitude: 11.0,
+      longitude: 124.0,
+      providerCityId: "city-centroid-outside-radius",
+    });
+
+    await recommendPublicMeetup(input, configured);
+
+    expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).toContainEqual(
+      input.currentPosition,
+    );
+    expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).not.toContainEqual({
+      latitude: 11.0,
+      longitude: 124.0,
+    });
   });
 
   it("does not call providers for invalid coordinates", async () => {

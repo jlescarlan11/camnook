@@ -71,6 +71,46 @@ describe("camera handoff admin data", () => {
     ).resolves.toEqual({ status: "missing" });
   });
 
+  it("preserves canonical release validity for the admin review state", async () => {
+    const fixture = context({
+      policy: {
+        allowed_weekdays: [1],
+        approved_times: ["09:00"],
+        camera_id: CAMERA_ID,
+        camera_name: "Canon R50",
+        camera_status: "published",
+        canonical_anchor: {
+          active: true,
+          area_code: "0730600041",
+          area_name: "Lahug",
+          area_path: [
+            { code: "0700000000", name: "Central Visayas", type: "region" },
+            { code: "0730600000", name: "City of Cebu", type: "city" },
+            { code: "0730600041", name: "Lahug", type: "barangay" },
+          ],
+          current: false,
+          precision: "barangay_centroid",
+          release: "2026-q2",
+        },
+        city_label: "Lahug",
+        country_code: "PH",
+        enabled: true,
+        latitude: "10.33300",
+        longitude: "123.89700",
+        provider_city_id: "provider:lahug",
+        timezone: "Asia/Manila",
+        version: 2,
+      },
+    });
+
+    await expect(loadAdminCameraHandoffPolicy(fixture.context, CAMERA_ID)).resolves.toMatchObject({
+      policy: {
+        canonicalAnchor: { active: true, current: false },
+      },
+      status: "success",
+    });
+  });
+
   it("preserves the database admin denial for the page redirect", async () => {
     await expect(loadAdminCameraHandoffPolicy(context({
       policyError: {

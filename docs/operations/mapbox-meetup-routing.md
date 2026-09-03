@@ -111,7 +111,7 @@ or user identity.
 Missing/invalid config, budget denial, timeout, 401/403, 422, 429, 5xx, network
 failure, oversized/malformed output, partial `null`, or all-unreachable output
 never creates a route estimate. If Geoapify still has eligible venues, the renter
-receives up to three deterministically Geoapify-ranked options with explicit
+receives up to five deterministically Geoapify-ranked options with explicit
 no-time copy. Geoapify failure still blocks booking; Mapbox never fabricates
 authority.
 

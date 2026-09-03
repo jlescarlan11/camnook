@@ -57,7 +57,7 @@ vi.mock("react", async (importOriginal) => {
 
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { RequestForm } from "./request-form";
+import { recommendationBatchKey, RequestForm } from "./request-form";
 
 const schedule = {
   handoffTime: "09:00",
@@ -85,6 +85,14 @@ describe("RequestForm rendered meetup options", () => {
       recommendation.routeEstimateApproximate = false;
       recommendation.routeMode = "balanced";
     });
+  });
+
+  it("identifies the complete recommendation batch for origin invalidation", () => {
+    const current = recommendationBatchKey(recommendationState.recommendations);
+    expect(current).toContain("v2.first-opaque-reference");
+    expect(recommendationBatchKey([{ reference: "v2.new-reference" }])).not.toBe(
+      current,
+    );
   });
 
   it("renders labeled single-choice options, advisory times, and public-place limits", () => {
@@ -117,5 +125,23 @@ describe("RequestForm rendered meetup options", () => {
     expect(markup).toContain("without travel-time claims");
     expect(markup.match(/Travel times unavailable; this option is not route-ranked\./g)).toHaveLength(2);
     expect(markup).not.toContain("min from you");
+  });
+
+  it("renders only three of five cards before an accessible reveal control", () => {
+    const original = [...recommendationState.recommendations];
+    for (let index = 3; index <= 5; index += 1) {
+      recommendationState.recommendations.push({
+        ...original[0],
+        name: `Venue ${index}`,
+        reference: `v2.opaque-reference-${index}`,
+      });
+    }
+    const markup = renderForm();
+    expect(markup.match(/type="radio"/g)).toHaveLength(3);
+    expect(markup).toContain('aria-controls="additional-meetup-options"');
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain("Show 2 more");
+    expect(markup).not.toContain("Venue 4");
+    recommendationState.recommendations.splice(0, recommendationState.recommendations.length, ...original);
   });
 });

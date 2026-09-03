@@ -29,6 +29,19 @@ const adminPolicySchema = z.object({
   provider_city_id: z.string().nullable(),
   timezone: z.literal(MANILA_TIMEZONE),
   version: z.coerce.number().int().nonnegative(),
+  canonical_anchor: z.object({
+    active: z.boolean(),
+    area_code: z.string().regex(/^\d{10}$/),
+    area_name: z.string().min(1).max(160),
+    area_path: z.array(z.object({
+      code: z.string().regex(/^\d{10}$/),
+      name: z.string().min(1).max(160),
+      type: z.enum(["region", "province", "city", "municipality", "submunicipality", "barangay"]),
+    })),
+    current: z.boolean(),
+    precision: z.enum(["city_centroid", "barangay_centroid", "precise"]),
+    release: z.string().regex(/^\d{4}-q[1-4]$/),
+  }).nullable().optional(),
 });
 
 export const adminCameraHandoffSummarySchema = z.object({
@@ -66,7 +79,7 @@ export async function loadAdminCameraHandoffPolicy(
 
   const { data, error } = await context.supabase
     .schema("api")
-    .rpc("get_camera_handoff_policy_admin", { p_camera_id: cameraId });
+    .rpc("get_camera_handoff_policy_admin_v2", { p_camera_id: cameraId });
 
   if (isAdminAuthorizationError(error)) return { status: "forbidden" };
   if (error?.code === "P0002") return { status: "missing" };
@@ -82,6 +95,17 @@ export async function loadAdminCameraHandoffPolicy(
       cameraId: parsed.data.camera_id,
       cameraName: parsed.data.camera_name,
       cameraStatus: parsed.data.camera_status,
+      ...(parsed.data.canonical_anchor === undefined ? {} : {
+        canonicalAnchor: parsed.data.canonical_anchor ? {
+          active: parsed.data.canonical_anchor.active,
+          areaCode: parsed.data.canonical_anchor.area_code,
+          areaName: parsed.data.canonical_anchor.area_name,
+          areaPath: parsed.data.canonical_anchor.area_path,
+          current: parsed.data.canonical_anchor.current,
+          precision: parsed.data.canonical_anchor.precision,
+          release: parsed.data.canonical_anchor.release,
+        } : null,
+      }),
       cityLabel: parsed.data.city_label ?? "",
       enabled: parsed.data.enabled,
       timezone: parsed.data.timezone,
