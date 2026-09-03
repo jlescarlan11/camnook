@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import type { PsgcChoice } from "./types";
 
 type Selection = { code: string; name: string; type: PsgcChoice["type"] };
 const EMPTY_PATH: Selection[] = [];
+
+export function createLatestRequestGate() {
+  let latest = 0;
+  return {
+    begin() {
+      latest += 1;
+      return latest;
+    },
+    isCurrent(request: number) {
+      return request === latest;
+    },
+  };
+}
 
 export function psgcLevelLabel(index: number, choices: PsgcChoice[]) {
   if (index === 0) return "Region";
@@ -27,6 +40,8 @@ export function PsgcAreaSelector({
   onSelectionChange?: (selection: Selection | null, release: string | null) => void;
 }) {
   const id = useId();
+  const activeRequest = useRef<AbortController | null>(null);
+  const requestGate = useRef(createLatestRequestGate());
   const [levels, setLevels] = useState<Array<{ choices: PsgcChoice[]; selected: string }>>([]);
   const [release, setRelease] = useState<string | null>(null);
   const [status, setStatus] = useState<"error" | "loading" | "ready">("loading");
@@ -62,33 +77,51 @@ export function PsgcAreaSelector({
   }, [initialPath]);
 
   async function select(levelIndex: number, code: string) {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    const request = requestGate.current.begin();
     const current = levels[levelIndex];
     const selected = current?.choices.find((choice) => choice.code === code) ?? null;
     const next = levels.slice(0, levelIndex + 1);
     next[levelIndex] = { ...current, selected: code };
     setLevels(next);
     onSelectionChange?.(selected ? { code: selected.code, name: selected.name, type: selected.type } : null, release);
-    if (!selected?.has_children) return;
+    if (!selected?.has_children) {
+      setStatus("ready");
+      return;
+    }
     setStatus("loading");
     try {
-      const response = await fetch(`/api/locations/psgc?parent=${selected.code}`, { cache: "no-store" });
+      const response = await fetch(`/api/locations/psgc?parent=${selected.code}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!response.ok) throw new Error("reference unavailable");
       const payload = await response.json() as { choices: PsgcChoice[]; release: string };
+      if (!requestGate.current.isCurrent(request)) return;
       setLevels([...next, { choices: payload.choices, selected: "" }]);
       setRelease(payload.release);
       setStatus("ready");
-    } catch {
-      setStatus("error");
+    } catch (error) {
+      if (
+        requestGate.current.isCurrent(request) &&
+        !(error instanceof DOMException && error.name === "AbortError")
+      ) {
+        setStatus("error");
+      }
     }
   }
 
-  const selectedCode = [...levels].reverse().find((level) => level.selected)?.selected ?? "";
+  const selectedCode = status === "ready"
+    ? [...levels].reverse().find((level) => level.selected)?.selected ?? ""
+    : "";
 
   return (
     <fieldset aria-describedby={`${id}-status`} className="space-y-3">
       <legend className="text-sm font-medium">Philippine administrative area</legend>
       <input name={name} type="hidden" value={selectedCode} />
-      <input name="psgcRelease" type="hidden" value={release ?? ""} />
+      <input name="psgcRelease" type="hidden" value={status === "ready" ? release ?? "" : ""} />
       {levels.map((level, index) => (
         <label className="block" key={`${index}-${level.choices[0]?.type ?? "area"}`}>
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -96,6 +129,7 @@ export function PsgcAreaSelector({
           </span>
           <select
             className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2"
+            disabled={status === "loading"}
             onChange={(event) => void select(index, event.target.value)}
             value={level.selected}
           >

@@ -57,12 +57,24 @@ begin
     raise exception 'Central Visayas did not expose its independent city child';
   end if;
 
-  version := api.replace_camera_handoff_policy_v2(
-    'f1910000-0000-4000-8000-000000000001', 0, '2026-q2', '0730600041',
-    'precise', 'device_gps', 10.33300, 123.89700, null, 25,
-    'camera-origin-consent-v1', 'camera-handoff-origin-v1', statement_timestamp(),
-    array[1, 3, 5]::smallint[], array['09:00', '17:00']::time[], true
-  );
+  version := api.replace_camera_handoff_policy_v3(jsonb_build_object(
+    'camera_id', 'f1910000-0000-4000-8000-000000000001',
+    'expected_version', 0,
+    'release_key', '2026-q2',
+    'area_code', '0730600041',
+    'precision', 'precise',
+    'source', 'device_gps',
+    'latitude', 10.33300,
+    'longitude', 123.89700,
+    'provider_reference', null,
+    'accuracy_meters', 25,
+    'consent_version', 'camera-origin-consent-v1',
+    'provenance_version', 'camera-handoff-origin-v1',
+    'captured_at', statement_timestamp(),
+    'allowed_weekdays', jsonb_build_array(1, 3, 5),
+    'approved_times', jsonb_build_array('09:00', '17:00'),
+    'enabled', true
+  ));
   if version <> 1 then raise exception 'canonical camera policy version mismatch'; end if;
 
   if api.get_camera_handoff_policy_admin_v2('f1910000-0000-4000-8000-000000000001') #>> '{canonical_anchor,area_code}' <> '0730600041' then
@@ -77,6 +89,20 @@ begin
   if version <> 2
     or api.get_camera_handoff_policy_admin_v2('f1910000-0000-4000-8000-000000000001') #>> '{canonical_anchor,precision}' <> 'precise'
   then raise exception 'schedule-only save changed the canonical private origin'; end if;
+
+  begin
+    perform api.replace_camera_handoff_policy(
+      'f1910000-0000-4000-8000-000000000001', 2, 'Mandaue City',
+      'provider:mandaue', 'PH', 10.32360, 123.92220,
+      array[2, 4]::smallint[], array['10:00']::time[], true
+    );
+    raise exception 'legacy replacement diverged from canonical camera metadata';
+  exception when sqlstate '22023' then null;
+  end;
+
+  if api.get_camera_handoff_policy_admin_v2('f1910000-0000-4000-8000-000000000001') ->> 'city_label' <> 'Lahug'
+    or api.get_camera_handoff_policy_admin_v2('f1910000-0000-4000-8000-000000000001') #>> '{canonical_anchor,area_code}' <> '0730600041'
+  then raise exception 'rejected legacy replacement changed canonical camera state'; end if;
 
   begin
     perform api.replace_camera_handoff_policy_v2(
@@ -104,11 +130,19 @@ declare
   anchor_id uuid;
   origin jsonb;
 begin
-  anchor_id := api.replace_my_meetup_origin(
-    '2026-q2', '0730600041', 'barangay_centroid', 'provider_centroid',
-    10.33300, 123.89700, 'provider:lahug-centroid', null, null,
-    'renter-default-origin-v1', statement_timestamp()
-  );
+  anchor_id := api.replace_my_meetup_origin_v2(jsonb_build_object(
+    'release_key', '2026-q2',
+    'area_code', '0730600041',
+    'precision', 'barangay_centroid',
+    'source', 'provider_centroid',
+    'latitude', 10.33300,
+    'longitude', 123.89700,
+    'provider_reference', 'provider:lahug-centroid',
+    'accuracy_meters', null,
+    'consent_version', null,
+    'provenance_version', 'renter-default-origin-v1',
+    'captured_at', statement_timestamp()
+  ));
   if anchor_id is null then raise exception 'renter origin id missing'; end if;
   origin := api.get_my_meetup_origin();
   if origin ->> 'area_code' <> '0730600041'
@@ -246,6 +280,46 @@ begin
   then raise exception 'failed refresh changed the authoritative release'; end if;
 end;
 $$;
+
+do $$
+begin
+  if exists (select 1 from private.location_anchors where removed_at is not null) then
+    raise exception 'retired location anchor retained exact private coordinates';
+  end if;
+end;
+$$;
+
+update private.psgc_releases set active = false where release_key = '2026-q2';
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = 'f1900000-0000-4000-8000-000000000001';
+do $$
+begin
+  if api.get_camera_handoff_policy_admin_v2(
+    'f1910000-0000-4000-8000-000000000001'
+  ) #>> '{canonical_anchor,current}' <> 'false' then
+    raise exception 'stale canonical camera origin was not surfaced for review';
+  end if;
+end;
+$$;
+
+reset role;
+set local role service_role;
+do $$
+begin
+  begin
+    perform api.get_meetup_recommendation_context(
+      'f1910000-0000-4000-8000-000000000001',
+      '2099-08-25', '2099-08-27', '10:00', 2
+    );
+    raise exception 'stale canonical camera origin remained route-capable';
+  exception when sqlstate '22023' then null;
+  end;
+end;
+$$;
+
+reset role;
+update private.psgc_releases set active = true where release_key = '2026-q2';
 
 select 'ok 1 - PSGC hierarchy, private anchors, actor boundaries, atomic writes, legacy-safe projection, and failed refresh recovery';
 

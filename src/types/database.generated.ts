@@ -36,7 +36,7 @@ export type Database = {
       get_my_meetup_origin: { Args: never; Returns: Json }
       get_my_meetup_origin_for_routing: { Args: never; Returns: Json }
       list_psgc_area_choices: {
-        Args: { p_parent_code?: string | null }
+        Args: { p_parent_code?: string }
         Returns: Json
       }
       resolve_psgc_area: {
@@ -616,6 +616,10 @@ export type Database = {
         }
         Returns: number
       }
+      replace_camera_handoff_policy_v3: {
+        Args: { p_input: Json }
+        Returns: number
+      }
       replace_my_meetup_origin: {
         Args: {
           p_accuracy_meters: number | null
@@ -630,6 +634,10 @@ export type Database = {
           p_release_key: string
           p_source: string
         }
+        Returns: string
+      }
+      replace_my_meetup_origin_v2: {
+        Args: { p_input: Json }
         Returns: string
       }
       remove_my_meetup_origin: { Args: never; Returns: boolean }

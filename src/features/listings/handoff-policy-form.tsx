@@ -497,7 +497,15 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
               {originLocationStatus === "denied" || originLocationStatus === "unavailable" ? <p className="mt-2 text-sm text-amber-900" role="status">The precise position is unavailable or not accurate enough. Choose a canonical centroid instead; your area selection is preserved.</p> : null}
             </div>
           ) : null}
-          {policy.canonicalAnchor ? <p className="mt-3 text-sm text-stone-600">Saved: {policy.canonicalAnchor.areaName} · {policy.canonicalAnchor.precision.replaceAll("_", " ")}.</p> : <p className="mt-3 text-sm text-amber-900">Legacy city-only origin: {policy.cityLabel || "not configured"}. It remains operational and approximate until this form is upgraded.</p>}
+          {policy.canonicalAnchor ? (
+            policy.canonicalAnchor.active && policy.canonicalAnchor.current ? (
+              <p className="mt-3 text-sm text-stone-600">Saved: {policy.canonicalAnchor.areaName} · {policy.canonicalAnchor.precision.replaceAll("_", " ")}.</p>
+            ) : (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+                Saved origin: {policy.canonicalAnchor.areaName}. Its PSGC reference is no longer current, so meetup recommendations are blocked until you select and save a current area.
+              </p>
+            )
+          ) : <p className="mt-3 text-sm text-amber-900">Legacy city-only origin: {policy.cityLabel || "not configured"}. It remains operational and approximate until this form is upgraded.</p>}
         </section>
 
         <fieldset className="rounded-2xl border border-stone-200 p-5">

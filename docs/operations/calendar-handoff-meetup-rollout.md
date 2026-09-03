@@ -85,9 +85,10 @@ recording sensitive values.
 
 Every Geoapify-bound action first reserves its exact outbound call count: a
 current-position renter recommendation reserves one city lookup plus one request
-per unique discovery seed and reviewed category; saved/manual origins omit the
-city lookup, and canonical area centroid resolution reserves its additional
-geocoding call;
+per unique discovery seed and reviewed category; saved origins omit the city
+lookup, while manual and canonical modes reserve their city/centroid lookup plus
+the maximum bounded three-seed discovery plan in one operation before the first
+provider call;
 an owner city or address suggestion reserves one call. The reservation is fail-closed at five shared calls per
 second, ten calls per actor per fifteen-minute window, and 3,000 calls per UTC
 day; only short-lived aggregate counters are retained. Only server actions using

@@ -81,6 +81,7 @@ describe("renter meetup-origin actions", () => {
         lat: 10.3341,
         lon: 123.9056,
         place_id: "provider:barangay:lahug",
+        result_type: "suburb",
       }],
     }));
     vi.stubGlobal("fetch", request);
@@ -92,18 +93,20 @@ describe("renter meetup-origin actions", () => {
     expect(request.mock.calls[0]?.[1]?.body).toContain(
       "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",
     );
-    expect(rpc).toHaveBeenCalledWith("replace_my_meetup_origin", {
-      p_accuracy_meters: null,
-      p_area_code: "0722170010",
-      p_captured_at: expect.any(String),
-      p_consent_version: null,
-      p_latitude: 10.3341,
-      p_longitude: 123.9056,
-      p_precision: "barangay_centroid",
-      p_provenance_version: "renter-default-origin-v1",
-      p_provider_reference: "provider:barangay:lahug",
-      p_release_key: "2026-q2",
-      p_source: "provider_centroid",
+    expect(rpc).toHaveBeenCalledWith("replace_my_meetup_origin_v2", {
+      p_input: expect.objectContaining({
+        accuracy_meters: null,
+        area_code: "0722170010",
+        captured_at: expect.any(String),
+        consent_version: null,
+        latitude: 10.3341,
+        longitude: 123.9056,
+        precision: "barangay_centroid",
+        provenance_version: "renter-default-origin-v1",
+        provider_reference: "provider:barangay:lahug",
+        release_key: "2026-q2",
+        source: "provider_centroid",
+      }),
     });
     expect(revalidatePath).toHaveBeenCalledWith("/account");
   });

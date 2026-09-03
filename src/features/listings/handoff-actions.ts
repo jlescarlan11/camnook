@@ -91,7 +91,10 @@ const adminPolicyAnchorSchema = z.object({
   longitude: z.coerce.number().finite().min(-180).max(180).nullable(),
   provider_city_id: z.string().trim().min(2).max(240).nullable(),
   version: z.coerce.number().int().nonnegative(),
-  canonical_anchor: z.unknown().nullable().optional(),
+  canonical_anchor: z.object({
+    active: z.boolean(),
+    current: z.boolean(),
+  }).passthrough().nullable().optional(),
 });
 
 const resolvedPsgcAreaSchema = z.object({
@@ -131,7 +134,7 @@ async function loadCurrentAnchor(
   try {
     const result = await context.supabase
       .schema("api")
-      .rpc("get_camera_handoff_policy_admin", { p_camera_id: cameraId });
+      .rpc("get_camera_handoff_policy_admin_v2", { p_camera_id: cameraId });
     const parsed = adminPolicyAnchorSchema.safeParse(result.data);
     if (isAdminAuthorizationError(result.error)) {
       return { status: "unauthorized" };
@@ -467,6 +470,25 @@ export async function saveCameraHandoffPolicy(
         status: "error",
       };
     }
+    const current = await loadCurrentAnchor(context, base.data.cameraId);
+    if (current.status === "unauthorized") {
+      return { error: "unauthorized", status: "error" };
+    }
+    if (current.status === "error") {
+      return { error: "save_failed", status: "error" };
+    }
+    if (current.data.version !== base.data.expectedVersion) {
+      return { error: "stale", status: "error" };
+    }
+    if (current.data.canonical_anchor) {
+      return {
+        error: "invalid_input",
+        fieldErrors: {
+          city: "Change a canonical camera origin through the private routing origin controls.",
+        },
+        status: "error",
+      };
+    }
     cityAnchor = claims.city;
   } else if (!hasCanonicalInput) {
     const current = await loadCurrentAnchor(context, base.data.cameraId);
@@ -573,7 +595,12 @@ export async function saveCameraHandoffPolicy(
         }
         try {
           const centroid = await new GeoapifyAdapter({ apiKey: config.apiKey, timeoutMs: config.timeoutMs })
-            .geocodeAreaCentroid(`${area.data.path.map((part) => part.name).join(", ")}, Philippines`);
+            .geocodeAreaCentroid({
+              expectedAreaNames: area.data.path
+                .filter((part) => part.type !== "region")
+                .map((part) => part.name),
+              query: `${area.data.path.map((part) => part.name).join(", ")}, Philippines`,
+            });
           origin = {
             accuracy: null,
             consent: null,
@@ -586,23 +613,25 @@ export async function saveCameraHandoffPolicy(
         }
       }
 
-      outcome = await context.supabase.schema("api").rpc("replace_camera_handoff_policy_v2", {
-        p_accuracy_meters: origin.accuracy,
-        p_allowed_weekdays: weekdays,
-        p_approved_times: approvedTimes,
-        p_area_code: canonical.data.areaCode,
-        p_camera_id: base.data.cameraId,
-        p_captured_at: new Date().toISOString(),
-        p_consent_version: origin.consent,
-        p_enabled: enabled,
-        p_expected_version: base.data.expectedVersion,
-        p_latitude: origin.latitude,
-        p_longitude: origin.longitude,
-        p_precision: canonical.data.precision,
-        p_provenance_version: "camera-handoff-origin-v1",
-        p_provider_reference: origin.providerReference,
-        p_release_key: canonical.data.release,
-        p_source: canonical.data.precision === "precise" ? "device_gps" : "provider_centroid",
+      outcome = await context.supabase.schema("api").rpc("replace_camera_handoff_policy_v3", {
+        p_input: {
+          accuracy_meters: origin.accuracy,
+          allowed_weekdays: weekdays,
+          approved_times: approvedTimes,
+          area_code: canonical.data.areaCode,
+          camera_id: base.data.cameraId,
+          captured_at: new Date().toISOString(),
+          consent_version: origin.consent,
+          enabled,
+          expected_version: base.data.expectedVersion,
+          latitude: origin.latitude,
+          longitude: origin.longitude,
+          precision: canonical.data.precision,
+          provenance_version: "camera-handoff-origin-v1",
+          provider_reference: origin.providerReference,
+          release_key: canonical.data.release,
+          source: canonical.data.precision === "precise" ? "device_gps" : "provider_centroid",
+        },
       });
     } else {
       if (!cityAnchor) {

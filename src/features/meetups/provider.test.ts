@@ -215,6 +215,73 @@ describe("GeoapifyAdapter", () => {
     expect(String(request.mock.calls[0]?.[0])).not.toContain("secret-key");
   });
 
+  it("accepts only an administrative centroid matching the resolved PSGC path", async () => {
+    const request = vi.fn().mockResolvedValue(
+      response(mcp({
+        results: [
+          {
+            city: "Manila",
+            country_code: "ph",
+            formatted: "Lahug, Cebu City, Cebu, Philippines",
+            lat: 10.3341,
+            lon: 123.9056,
+            place_id: "mismatched-city",
+            result_type: "street",
+          },
+          {
+            city: "Cebu City",
+            country_code: "ph",
+            county: "Cebu",
+            formatted: "Lahug, Cebu City, Cebu, Philippines",
+            lat: 10.3341,
+            lon: 123.9056,
+            place_id: "barangay-lahug",
+            result_type: "suburb",
+            suburb: "Lahug",
+          },
+        ],
+      })),
+    );
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: request,
+      timeoutMs: 100,
+    });
+
+    await expect(adapter.geocodeAreaCentroid({
+      expectedAreaNames: ["Cebu", "City of Cebu", "Lahug"],
+      query: "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",
+    })).resolves.toEqual({
+      latitude: 10.3341,
+      longitude: 123.9056,
+      providerReference: "barangay-lahug",
+    });
+  });
+
+  it("rejects a provider centroid for a different administrative path", async () => {
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: vi.fn().mockResolvedValue(response(mcp({
+        results: [{
+          city: "Manila",
+          country_code: "ph",
+          formatted: "Ermita, Manila, Philippines",
+          lat: 10.3341,
+          lon: 123.9056,
+          place_id: "wrong-area",
+          result_type: "suburb",
+          suburb: "Ermita",
+        }],
+      }))),
+      timeoutMs: 100,
+    });
+
+    await expect(adapter.geocodeAreaCentroid({
+      expectedAreaNames: ["Cebu", "City of Cebu", "Lahug"],
+      query: "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",
+    })).rejects.toEqual(new ProviderBoundaryError("unsupported_city"));
+  });
+
   it.each([
     [429, "quota"],
     [500, "network"],

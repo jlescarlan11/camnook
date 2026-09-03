@@ -57,7 +57,7 @@ vi.mock("react", async (importOriginal) => {
 
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { RequestForm } from "./request-form";
+import { recommendationBatchKey, RequestForm } from "./request-form";
 
 const schedule = {
   handoffTime: "09:00",
@@ -85,6 +85,14 @@ describe("RequestForm rendered meetup options", () => {
       recommendation.routeEstimateApproximate = false;
       recommendation.routeMode = "balanced";
     });
+  });
+
+  it("identifies the complete recommendation batch for origin invalidation", () => {
+    const current = recommendationBatchKey(recommendationState.recommendations);
+    expect(current).toContain("v2.first-opaque-reference");
+    expect(recommendationBatchKey([{ reference: "v2.new-reference" }])).not.toBe(
+      current,
+    );
   });
 
   it("renders labeled single-choice options, advisory times, and public-place limits", () => {

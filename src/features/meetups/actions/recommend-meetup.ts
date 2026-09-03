@@ -112,14 +112,21 @@ export async function recommendMeetup(
   let renterCity;
   let currentPosition;
   let manualCity;
+  let providerBudgetReserved = false;
+  let providerLookupCount = 0;
   const adapter = new GeoapifyAdapter({
     apiKey: config.apiKey,
     timeoutMs: config.timeoutMs,
   });
+  const ownerOrigin = {
+    latitude: parsedContext.data.latitude,
+    longitude: parsedContext.data.longitude,
+  };
   if (mode === "manual") {
     const city = cityInputSchema.safeParse(value(formData, "manualCity"));
     if (!city.success) return { error: "invalid_city", status: "error" };
     manualCity = city.data;
+    providerLookupCount = 1;
   } else if (mode === "current") {
     const location = z
       .object({
@@ -139,6 +146,7 @@ export async function recommendMeetup(
       latitude: location.data.latitude,
       longitude: location.data.longitude,
     };
+    providerLookupCount = 1;
   } else if (mode === "saved") {
     const saved = await context.supabase.schema("api").rpc("get_my_meetup_origin_for_routing");
     const parsedSaved = z.object({
@@ -171,16 +179,33 @@ export async function recommendMeetup(
     });
     const canonical = z.object({
       active: z.literal(true), code: z.string(), current: z.literal(true), name: z.string().min(1),
-      path: z.array(z.object({ name: z.string().min(1) })), release: z.string(),
+      path: z.array(z.object({
+        name: z.string().min(1),
+        type: z.enum(["region", "province", "city", "municipality", "submunicipality", "barangay"]),
+      })), release: z.string(),
       type: z.enum(["city", "municipality", "barangay"]),
     }).safeParse(resolution.data);
     if (resolution.error || !canonical.success) return { error: "invalid_location", status: "error" };
-    if (!(await claimGeoapifyProviderBudget(context.user.id, 1))) {
-      recordMeetupTelemetry({ durationBucket: "fast", providerBudgetStatus: "denied", providerRequestCount: 1, resultCount: 0, status: "quota" });
+    providerLookupCount = 1;
+    const completeRequestCount = 1 + 3 * config.allowedCategories.length;
+    if (!(await claimGeoapifyProviderBudget(context.user.id, completeRequestCount))) {
+      recordMeetupTelemetry({
+        durationBucket: "fast",
+        providerBudgetStatus: "denied",
+        providerRequestCount: completeRequestCount,
+        resultCount: 0,
+        status: "quota",
+      });
       return { error: "provider_unavailable", status: "error" };
     }
+    providerBudgetReserved = true;
     try {
-      const centroid = await adapter.geocodeAreaCentroid(`${canonical.data.path.map((area) => area.name).join(", ")}, Philippines`);
+      const centroid = await adapter.geocodeAreaCentroid({
+        expectedAreaNames: canonical.data.path
+          .filter((area) => area.type !== "region")
+          .map((area) => area.name),
+        query: `${canonical.data.path.map((area) => area.name).join(", ")}, Philippines`,
+      });
       renterCity = {
         countryCode: "PH" as const,
         label: canonical.data.name,
@@ -193,8 +218,23 @@ export async function recommendMeetup(
     }
   }
 
-  if (manualCity && !(await claimGeoapifyProviderBudget(context.user.id, 1))) {
-    recordMeetupTelemetry({ durationBucket: "fast", providerBudgetStatus: "denied", providerRequestCount: 1, resultCount: 0, status: "quota" });
+  const knownRenterOrigin = currentPosition ?? renterCity;
+  const providerRequestCount = knownRenterOrigin
+    ? buildDiscoverySeeds(ownerOrigin, knownRenterOrigin).length *
+        config.allowedCategories.length +
+      (currentPosition ? 1 : 0)
+    : 1 + 3 * config.allowedCategories.length;
+  if (
+    !providerBudgetReserved &&
+    !(await claimGeoapifyProviderBudget(context.user.id, providerRequestCount))
+  ) {
+    recordMeetupTelemetry({
+      durationBucket: "fast",
+      providerBudgetStatus: "denied",
+      providerRequestCount,
+      resultCount: 0,
+      status: "quota",
+    });
     return { error: "provider_unavailable", status: "error" };
   }
 
@@ -211,20 +251,6 @@ export async function recommendMeetup(
         status: "error",
       };
     }
-  }
-
-  const ownerOrigin = {
-    latitude: parsedContext.data.latitude,
-    longitude: parsedContext.data.longitude,
-  };
-  const renterOrigin = currentPosition ?? renterCity!;
-  const discoveryRequestCount =
-    buildDiscoverySeeds(ownerOrigin, renterOrigin).length *
-      config.allowedCategories.length +
-    (currentPosition ? 1 : 0);
-  if (!(await claimGeoapifyProviderBudget(context.user.id, discoveryRequestCount))) {
-    recordMeetupTelemetry({ durationBucket: "fast", providerBudgetStatus: "denied", providerRequestCount: discoveryRequestCount, resultCount: 0, status: "quota" });
-    return { error: "provider_unavailable", status: "error" };
   }
 
   const binding = buildMeetupBinding({
@@ -247,6 +273,7 @@ export async function recommendMeetup(
         ...ownerOrigin,
         providerCityId: parsedContext.data.provider_city_id,
       },
+      providerLookupCount,
       renterCity,
     },
     {

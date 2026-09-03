@@ -67,6 +67,7 @@ type RecommendInput = {
   binding: string;
   currentPosition?: Coordinate;
   lenderCity: NormalizedCity;
+  providerLookupCount?: number;
   renterCity?: NormalizedCity;
 };
 
@@ -195,8 +196,12 @@ export async function recommendPublicMeetup(
     const renterCity = input.renterCity
       ? input.renterCity
       : await adapter.reverseGeocodeCity(position!.success ? position!.data : input.lenderCity);
-    const searchCenter = calculateSearchCenter(renterCity, input.lenderCity);
-    const discoverySeeds = buildDiscoverySeeds(input.lenderCity, renterCity);
+    const discoveryRenterOrigin = position?.success ? position.data : renterCity;
+    const searchCenter = calculateSearchCenter(discoveryRenterOrigin, input.lenderCity);
+    const discoverySeeds = buildDiscoverySeeds(
+      input.lenderCity,
+      discoveryRenterOrigin,
+    );
     const seedResults = await Promise.all(discoverySeeds.map((center) =>
       adapter.searchPublicPlaces({
         allowedCategories: config.allowedCategories,
@@ -217,7 +222,11 @@ export async function recommendPublicMeetup(
       [...merged.values()],
       searchCenter,
       config.allowedCategories,
-      { discoverySeeds, radiusMeters: config.searchRadiusMeters },
+      {
+        allowedLocalities: [input.lenderCity.label, renterCity.label],
+        discoverySeeds,
+        radiusMeters: config.searchRadiusMeters,
+      },
     );
     const eligible = qualityEligible.slice(0, 8);
     if (!eligible.length) throw new ProviderBoundaryError("empty");
@@ -277,7 +286,7 @@ export async function recommendPublicMeetup(
       providerBudgetStatus: "reserved",
       providerRequestCount:
         discoverySeeds.length * config.allowedCategories.length
-        + (input.currentPosition ? 1 : 0),
+        + (input.providerLookupCount ?? 0),
       profile: options.routingConfig?.profile,
       qualityRejectedCount: merged.size - qualityEligible.length,
       resultCount,

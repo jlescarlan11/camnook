@@ -250,10 +250,10 @@ describe("recommendMeetup", () => {
         current: true,
         name: "Lahug",
         path: [
-          { name: "Central Visayas" },
-          { name: "Cebu" },
-          { name: "City of Cebu" },
-          { name: "Lahug" },
+          { name: "Central Visayas", type: "region" },
+          { name: "Cebu", type: "province" },
+          { name: "City of Cebu", type: "city" },
+          { name: "Lahug", type: "barangay" },
         ],
         release: "2026-q2",
         type: "barangay",
@@ -264,18 +264,8 @@ describe("recommendMeetup", () => {
       supabase: { schema: vi.fn(() => ({ rpc: actorRpc })) },
       user: { id: "renter-1" },
     } as never);
-    vi.mocked(claimGeoapifyProviderBudget)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
-    const request = vi.fn().mockResolvedValue(mcp({
-      results: [{
-        country_code: "ph",
-        formatted: "Lahug, Cebu City, Cebu, Philippines",
-        lat: 10.3341,
-        lon: 123.9056,
-        place_id: "provider:barangay:lahug",
-      }],
-    }));
+    vi.mocked(claimGeoapifyProviderBudget).mockResolvedValue(false);
+    const request = vi.fn();
     vi.stubGlobal("fetch", request);
 
     await expect(recommendMeetup(
@@ -292,8 +282,7 @@ describe("recommendMeetup", () => {
       p_release_key: "2026-q2",
     });
     expect(JSON.stringify(actorRpc.mock.calls)).not.toContain("replace_my_meetup_origin");
-    expect(request.mock.calls[0]?.[1]?.body).toContain(
-      "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",
-    );
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 4);
+    expect(request).not.toHaveBeenCalled();
   });
 });

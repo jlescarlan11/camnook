@@ -11,6 +11,12 @@ import {
 } from "@/features/meetups/actions/recommend-meetup";
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
+export function recommendationBatchKey(
+  recommendations: readonly { reference: string }[],
+) {
+  return recommendations.map((recommendation) => recommendation.reference).join("\u001f");
+}
+
 export function RequestForm({
   camera,
   pickup,
@@ -38,6 +44,7 @@ export function RequestForm({
   const [selectedReference, setSelectedReference] = useState<string | null>(null);
   const [confirmedReference, setConfirmedReference] = useState<string | null>(null);
   const [expandedRecommendationBatch, setExpandedRecommendationBatch] = useState<string | null>(null);
+  const [invalidatedRecommendationBatch, setInvalidatedRecommendationBatch] = useState<string | null>(null);
   const firstAdditionalOptionRef = useRef<HTMLInputElement>(null);
   const [expiredRecommendationBatch, setExpiredRecommendationBatch] = useState<
     string | null
@@ -54,7 +61,13 @@ export function RequestForm({
     initialRequestBookingActionState,
   );
   const meetupRequired = Boolean(schedule);
-  const recommendations = recommendationState.recommendations ?? [];
+  const receivedRecommendations = recommendationState.recommendations ?? [];
+  const receivedRecommendationBatch = recommendationBatchKey(receivedRecommendations);
+  const recommendations =
+    receivedRecommendationBatch &&
+    receivedRecommendationBatch !== invalidatedRecommendationBatch
+      ? receivedRecommendations
+      : [];
   const recommendationExpiry = recommendations[0]?.expiresAt ?? null;
   const recommendationsExpired =
     recommendationExpiry !== null &&
@@ -97,10 +110,15 @@ export function RequestForm({
     return formData;
   }
 
-  function useCurrentCity() {
+  function invalidateRecommendations() {
+    setInvalidatedRecommendationBatch(receivedRecommendationBatch || null);
     setSelectedReference(null);
     setConfirmedReference(null);
     setExpandedRecommendationBatch(null);
+  }
+
+  function useCurrentCity() {
+    invalidateRecommendations();
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
       return;
@@ -124,17 +142,13 @@ export function RequestForm({
   }
 
   function recommendFromManualCity(formData: FormData) {
-    setSelectedReference(null);
-    setConfirmedReference(null);
-    setExpandedRecommendationBatch(null);
+    invalidateRecommendations();
     startTransition(() => recommendationAction(formData));
   }
 
   function recommendFromSavedOrigin() {
     if (!schedule || !savedOrigin?.valid) return;
-    setSelectedReference(null);
-    setConfirmedReference(null);
-    setExpandedRecommendationBatch(null);
+    invalidateRecommendations();
     const formData = scheduleFields(new FormData());
     formData.set("locationMode", "saved");
     startTransition(() => recommendationAction(formData));
@@ -211,9 +225,7 @@ export function RequestForm({
                 name="manualCity"
                 onChange={(event) => {
                   setManualCity(event.target.value);
-                  setSelectedReference(null);
-                  setConfirmedReference(null);
-                  setExpandedRecommendationBatch(null);
+                  invalidateRecommendations();
                 }}
                 pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+"
                 placeholder="e.g. Mandaue City"
@@ -238,9 +250,7 @@ export function RequestForm({
             <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
             <input name="returnDate" type="hidden" value={schedule.returnDate} />
             <PsgcAreaSelector onSelectionChange={() => {
-              setSelectedReference(null);
-              setConfirmedReference(null);
-              setExpandedRecommendationBatch(null);
+              invalidateRecommendations();
             }} />
             <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} type="submit">Use this area once</button>
             <p className="mt-2 text-xs leading-5 text-stone-600">This one-time area does not replace your account default.</p>

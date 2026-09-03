@@ -101,7 +101,7 @@ function authorize(options?: {
   };
   const rpc = vi.fn((name: string) =>
     Promise.resolve(
-      name === "get_camera_handoff_policy_admin"
+      name === "get_camera_handoff_policy_admin_v2"
         ? { data: anchor, error: options?.anchorError ?? null }
         : name === "resolve_psgc_area"
           ? { data: options?.resolvedArea ?? null, error: null }
@@ -214,7 +214,7 @@ describe("camera handoff city and policy actions", () => {
     expect(String(request.mock.calls[0]?.[0])).not.toMatch(
       /10\.30123456|123\.90123456/,
     );
-    expect(api.rpc).toHaveBeenCalledWith("get_camera_handoff_policy_admin", {
+    expect(api.rpc).toHaveBeenCalledWith("get_camera_handoff_policy_admin_v2", {
       p_camera_id: CAMERA_ID,
     });
     expect(api.rpc).not.toHaveBeenCalledWith(
@@ -467,6 +467,41 @@ describe("camera handoff city and policy actions", () => {
     expect(requireAdmin).not.toHaveBeenCalled();
   });
 
+  it("rejects a legacy city replacement when the camera already has a canonical origin", async () => {
+    const api = authorize({
+      anchor: { canonical_anchor: { active: true, current: true } },
+    });
+    const request = vi.fn().mockResolvedValue(
+      mcp({
+        results: [{
+          city: "Mandaue City",
+          country_code: "ph",
+          lat: 10.3236,
+          lon: 123.9222,
+          place_id: "provider:mandaue",
+          result_type: "city",
+        }],
+      }),
+    );
+    vi.stubGlobal("fetch", request);
+    const suggestion = await suggestHandoffCity(
+      { status: "idle" },
+      suggestionFields(),
+    );
+    const data = validSaveFields();
+    data.set("cityReference", suggestion.suggestion!.reference);
+
+    await expect(saveCameraHandoffPolicy({ status: "idle" }, data)).resolves.toMatchObject({
+      error: "invalid_input",
+      fieldErrors: { city: expect.stringContaining("canonical") },
+      status: "error",
+    });
+    expect(api.rpc).not.toHaveBeenCalledWith(
+      "replace_camera_handoff_policy",
+      expect.anything(),
+    );
+  });
+
   it("derives a canonical barangay centroid server-side without requiring a legacy city anchor", async () => {
     const api = authorize({
       anchor: {
@@ -498,6 +533,7 @@ describe("camera handoff city and policy actions", () => {
         lat: 10.3341,
         lon: 123.9056,
         place_id: "provider:barangay:lahug",
+        result_type: "suburb",
       }],
     }));
     vi.stubGlobal("fetch", request);
@@ -512,15 +548,17 @@ describe("camera handoff city and policy actions", () => {
       version: 3,
     });
     expect(api.rpc).not.toHaveBeenCalledWith("get_camera_handoff_policy_admin", expect.anything());
-    expect(api.rpc).toHaveBeenCalledWith("replace_camera_handoff_policy_v2", expect.objectContaining({
-      p_area_code: "0722170010",
-      p_latitude: 10.3341,
-      p_longitude: 123.9056,
-      p_precision: "barangay_centroid",
-      p_provider_reference: "provider:barangay:lahug",
-      p_release_key: "2026-q2",
-      p_source: "provider_centroid",
-    }));
+    expect(api.rpc).toHaveBeenCalledWith("replace_camera_handoff_policy_v3", {
+      p_input: expect.objectContaining({
+        area_code: "0722170010",
+        latitude: 10.3341,
+        longitude: 123.9056,
+        precision: "barangay_centroid",
+        provider_reference: "provider:barangay:lahug",
+        release_key: "2026-q2",
+        source: "provider_centroid",
+      }),
+    });
     expect(request).toHaveBeenCalledTimes(1);
     expect(request.mock.calls[0]?.[1]?.body).toContain(
       "Central Visayas, Cebu, City of Cebu, Lahug, Philippines",

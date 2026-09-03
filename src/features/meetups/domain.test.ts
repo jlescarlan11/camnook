@@ -107,6 +107,30 @@ describe("meetup recommendation domain", () => {
     expect(ranked.map((candidate) => candidate.providerPlaceId)).toEqual(["place-ayala"]);
   });
 
+  it("rejects a near-coordinate venue whose administrative locality is incompatible", () => {
+    const ranked = rankEligiblePlaces(
+      [
+        place(),
+        place({
+          address: "Nearby provider record",
+          city: "Manila",
+          providerPlaceId: "nearby-wrong-locality",
+        }),
+      ],
+      center,
+      ["commercial.shopping_mall"],
+      {
+        allowedLocalities: ["City of Cebu", "Mandaue City"],
+        discoverySeeds: [center],
+        radiusMeters: 20_000,
+      },
+    );
+
+    expect(ranked.map((candidate) => candidate.providerPlaceId)).toEqual([
+      "place-ayala",
+    ]);
+  });
+
   it("ranks by calculated distance, configured category order, then stable text", () => {
     const equalCoordinate = { latitude: 10.32, longitude: 123.89 };
     const ranked = rankEligiblePlaces(

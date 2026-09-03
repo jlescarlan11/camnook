@@ -17,9 +17,11 @@ export type AdminHandoffPolicy = PublicHandoffPolicy & {
   cameraName: string;
   cameraStatus: "archived" | "draft" | "published";
   canonicalAnchor?: null | {
+    active: boolean;
     areaCode: string;
     areaName: string;
     areaPath: Array<{ code: string; name: string; type: "region" | "province" | "city" | "municipality" | "submunicipality" | "barangay" }>;
+    current: boolean;
     precision: "city_centroid" | "barangay_centroid" | "precise";
     release: string;
   };

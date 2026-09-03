@@ -38,9 +38,11 @@ renter and records:
 
 Camera policy updates replace the public schedule/coarse area projection and the
 private anchor in one database transaction under optimistic version control.
-Renter default replacement similarly retires the previous active anchor and
-inserts the new one atomically. A failed validation or write leaves the previous
-anchor unchanged. Removal is an explicit separate operation.
+Renter default replacement similarly deletes the previous private anchor and
+inserts the new one atomically. Replacement and removal erase the retired exact
+coordinates and their private provider, accuracy, consent, and provenance data;
+the path-free audit event remains. A failed validation or write leaves the
+previous anchor unchanged. Removal is an explicit separate operation.
 
 City and barangay centroids are obtained through the bounded server-only
 Geoapify boundary after the selected current PSGC path is resolved. Precise
@@ -64,6 +66,8 @@ role access to private tables are denied. Admin camera reads return the canonica
 path and declared precision but application data loaders deliberately omit exact
 coordinates from browser state.
 
-Legacy camera city anchors continue to work and are labeled `legacy_city` until
+Canonical camera anchors route only while their stored release and area remain
+active; an obsolete anchor is shown to administrators for review and fails
+recommendation generation closed. Legacy camera city anchors continue to work and are labeled `legacy_city` until
 an admin deliberately saves a canonical origin. No background migration guesses
 a PSGC code or changes a user's origin.

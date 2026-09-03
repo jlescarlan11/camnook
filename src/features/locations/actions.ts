@@ -63,23 +63,30 @@ export async function saveMeetupOrigin(
   let centroid;
   try {
     centroid = await new GeoapifyAdapter({ apiKey: config.apiKey, timeoutMs: config.timeoutMs })
-      .geocodeAreaCentroid(`${parsed.data.path.map((area) => area.name).join(", ")}, Philippines`);
+      .geocodeAreaCentroid({
+        expectedAreaNames: parsed.data.path
+          .filter((area) => area.type !== "region")
+          .map((area) => area.name),
+        query: `${parsed.data.path.map((area) => area.name).join(", ")}, Philippines`,
+      });
   } catch {
     return { error: "provider", status: "error" };
   }
 
-  const saved = await context.supabase.schema("api").rpc("replace_my_meetup_origin", {
-    p_accuracy_meters: null,
-    p_area_code: parsed.data.code,
-    p_captured_at: new Date().toISOString(),
-    p_consent_version: null,
-    p_latitude: centroid.latitude,
-    p_longitude: centroid.longitude,
-    p_precision: parsed.data.type === "barangay" ? "barangay_centroid" : "city_centroid",
-    p_provenance_version: "renter-default-origin-v1",
-    p_provider_reference: centroid.providerReference,
-    p_release_key: parsed.data.release,
-    p_source: "provider_centroid",
+  const saved = await context.supabase.schema("api").rpc("replace_my_meetup_origin_v2", {
+    p_input: {
+      accuracy_meters: null,
+      area_code: parsed.data.code,
+      captured_at: new Date().toISOString(),
+      consent_version: null,
+      latitude: centroid.latitude,
+      longitude: centroid.longitude,
+      precision: parsed.data.type === "barangay" ? "barangay_centroid" : "city_centroid",
+      provenance_version: "renter-default-origin-v1",
+      provider_reference: centroid.providerReference,
+      release_key: parsed.data.release,
+      source: "provider_centroid",
+    },
   });
   if (saved.error) return { error: saved.error.code === "42501" ? "unauthorized" : "save", status: "error" };
   revalidatePath("/account");

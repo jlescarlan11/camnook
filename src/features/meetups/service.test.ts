@@ -33,6 +33,7 @@ const input = {
     longitude: 123.8854,
     providerCityId: "city-cebu",
   },
+  providerLookupCount: 1,
 };
 
 function places(count = 1) {
@@ -130,9 +131,9 @@ describe("recommendPublicMeetup", () => {
         candidateCount: 5,
         elementCount: 10,
         providerBudgetStatus: "reserved",
-        providerRequestCount: 2,
+        providerRequestCount: 4,
         routingStatus: "success",
-        seedCount: 1,
+        seedCount: 3,
         status: "available",
       }),
     );
@@ -274,6 +275,27 @@ describe("recommendPublicMeetup", () => {
       resultCount: 3,
       seedCount: 3,
     }));
+  });
+
+  it("uses the confirmed device coordinate as the renter discovery seed", async () => {
+    const configured = options();
+    configured.adapter.reverseGeocodeCity.mockResolvedValue({
+      countryCode: "PH",
+      label: "Cebu City",
+      latitude: 11.0,
+      longitude: 124.0,
+      providerCityId: "city-centroid-outside-radius",
+    });
+
+    await recommendPublicMeetup(input, configured);
+
+    expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).toContainEqual(
+      input.currentPosition,
+    );
+    expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).not.toContainEqual({
+      latitude: 11.0,
+      longitude: 124.0,
+    });
   });
 
   it("does not call providers for invalid coordinates", async () => {

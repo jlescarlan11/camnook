@@ -86,6 +86,7 @@ describe("HandoffPolicyForm", () => {
           cameraName: "Canonical Camera",
           cameraStatus: "published",
           canonicalAnchor: {
+            active: true,
             areaCode: "0730600041",
             areaName: "Lahug",
             areaPath: [
@@ -93,6 +94,7 @@ describe("HandoffPolicyForm", () => {
               { code: "0730600000", name: "City of Cebu", type: "city" },
               { code: "0730600041", name: "Lahug", type: "barangay" },
             ],
+            current: true,
             precision: "precise",
             release: "2026-q2",
           },

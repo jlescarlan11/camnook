@@ -109,11 +109,25 @@ function normalizedText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function normalizedLocality(value: string) {
+  return normalizedText(value)
+    .normalize("NFKC")
+    .toLocaleLowerCase("en")
+    .replace(/^city of\s+/u, "")
+    .replace(/\s+city$/u, "")
+    .replace(/^municipality of\s+/u, "")
+    .replace(/\s+municipality$/u, "");
+}
+
 export function rankEligiblePlaces(
   places: ProviderPlace[],
   searchCenter: Coordinate,
   allowedCategories: readonly string[],
-  quality?: { discoverySeeds: readonly Coordinate[]; radiusMeters: number },
+  quality?: {
+    allowedLocalities?: readonly string[];
+    discoverySeeds: readonly Coordinate[];
+    radiusMeters: number;
+  },
 ): ProviderPlace[] {
   const allowlist = new Set(allowedCategories);
   const categoryPriority = new Map(
@@ -137,6 +151,14 @@ export function rankEligiblePlaces(
         quality &&
         !quality.discoverySeeds.some(
           (seed) => distanceMeters(place, seed) <= quality.radiusMeters,
+        )
+      ) {
+        return false;
+      }
+      if (
+        quality?.allowedLocalities?.length &&
+        !quality.allowedLocalities.some(
+          (locality) => normalizedLocality(locality) === normalizedLocality(place.city),
         )
       ) {
         return false;

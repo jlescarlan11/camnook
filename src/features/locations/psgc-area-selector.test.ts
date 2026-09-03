@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { psgcLevelLabel } from "./psgc-area-selector";
+import { createLatestRequestGate, psgcLevelLabel } from "./psgc-area-selector";
 
 const choice = (type: "barangay" | "city" | "municipality" | "province") => ({
   city_class: type === "city" ? "HUC" as const : null,
@@ -11,6 +11,15 @@ const choice = (type: "barangay" | "city" | "municipality" | "province") => ({
 });
 
 describe("PSGC cascade labels", () => {
+  it("rejects a superseded cascade response that completes last", () => {
+    const gate = createLatestRequestGate();
+    const first = gate.begin();
+    const second = gate.begin();
+
+    expect(gate.isCurrent(second)).toBe(true);
+    expect(gate.isCurrent(first)).toBe(false);
+  });
+
   it("makes the independent-city branch explicit when a region has mixed children", () => {
     expect(psgcLevelLabel(1, [choice("province"), choice("city")])).toBe(
       "Province or independent city",

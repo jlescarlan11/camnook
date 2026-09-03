@@ -30,6 +30,7 @@ const adminPolicySchema = z.object({
   timezone: z.literal(MANILA_TIMEZONE),
   version: z.coerce.number().int().nonnegative(),
   canonical_anchor: z.object({
+    active: z.boolean(),
     area_code: z.string().regex(/^\d{10}$/),
     area_name: z.string().min(1).max(160),
     area_path: z.array(z.object({
@@ -37,6 +38,7 @@ const adminPolicySchema = z.object({
       name: z.string().min(1).max(160),
       type: z.enum(["region", "province", "city", "municipality", "submunicipality", "barangay"]),
     })),
+    current: z.boolean(),
     precision: z.enum(["city_centroid", "barangay_centroid", "precise"]),
     release: z.string().regex(/^\d{4}-q[1-4]$/),
   }).nullable().optional(),
@@ -95,9 +97,11 @@ export async function loadAdminCameraHandoffPolicy(
       cameraStatus: parsed.data.camera_status,
       ...(parsed.data.canonical_anchor === undefined ? {} : {
         canonicalAnchor: parsed.data.canonical_anchor ? {
+          active: parsed.data.canonical_anchor.active,
           areaCode: parsed.data.canonical_anchor.area_code,
           areaName: parsed.data.canonical_anchor.area_name,
           areaPath: parsed.data.canonical_anchor.area_path,
+          current: parsed.data.canonical_anchor.current,
           precision: parsed.data.canonical_anchor.precision,
           release: parsed.data.canonical_anchor.release,
         } : null,

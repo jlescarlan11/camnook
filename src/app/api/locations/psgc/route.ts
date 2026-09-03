@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   }
 
   const result = await context.supabase.schema("api").rpc("list_psgc_area_choices", {
-    p_parent_code: query.data.parent,
+    p_parent_code: query.data.parent ?? undefined,
   });
   const parsed = psgcChoicesSchema.safeParse(result.data);
   if (result.error || !parsed.success) {
