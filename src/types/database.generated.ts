@@ -442,6 +442,10 @@ export type Database = {
         Args: { p_camera_id: string }
         Returns: Json
       }
+      get_contract_template_configuration_admin: {
+        Args: never
+        Returns: Json
+      }
       get_admin_payment_review_context: {
         Args: { p_payment_id: string }
         Returns: Json
@@ -467,6 +471,15 @@ export type Database = {
       }
       get_payment_review_detail: {
         Args: { p_payment_id: string }
+        Returns: Json
+      }
+      publish_contract_template: {
+        Args: {
+          p_expected_active_id: string | null
+          p_operation_id: string
+          p_terms: Json
+          p_version: string
+        }
         Returns: Json
       }
       get_payment_review_queue: { Args: never; Returns: Json }
