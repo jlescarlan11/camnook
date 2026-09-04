@@ -220,7 +220,7 @@ begin
     order by 1
   ) <> array[
     'accessories', 'availability', 'daily_rate', 'description',
-    'handoff_policy', 'id', 'name', 'photos', 'published_at',
+    'handoff_policy', 'id', 'name', 'photos', 'published_at', 'requestable',
     'security_deposit', 'slug'
   ]::text[]
     or camera::text like '%PRIVATE-SERIAL%'

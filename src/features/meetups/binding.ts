@@ -30,3 +30,21 @@ export function buildMeetupBinding(input: MeetupBindingInput) {
     )
     .digest("base64url");
 }
+
+export function buildCanonicalAreaBinding(
+  input: Omit<MeetupBindingInput, "configVersion" | "routingPolicyVersion">,
+) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        "camnook-canonical-meetup-area-v1",
+        input.renterId,
+        input.cameraId,
+        input.pickupDate,
+        input.returnDate,
+        input.handoffTime,
+        input.policyVersion,
+      ]),
+    )
+    .digest("base64url");
+}

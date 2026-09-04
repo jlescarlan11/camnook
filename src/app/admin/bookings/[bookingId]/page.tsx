@@ -171,11 +171,15 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                 <h2 className="text-xl font-semibold" id="admin-meetup-heading">Planned pickup and return meetup</h2>
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <DetailValue label="Renter city" value={result.booking.meetup.renterCity} />
-                  <DetailValue label="Public venue" value={result.booking.meetup.name} />
-                  <DetailValue label="Venue address" value={result.booking.meetup.address} />
-                  <DetailValue label="Venue city" value={result.booking.meetup.city} />
+                  {result.booking.meetup.kind === "public_venue" ? <>
+                    <DetailValue label="Public venue" value={result.booking.meetup.name} />
+                    <DetailValue label="Venue address" value={result.booking.meetup.address} />
+                    <DetailValue label="Venue city" value={result.booking.meetup.city} />
+                  </> : (
+                    <DetailValue label="Venue status" value="Exact public venue pending owner confirmation" />
+                  )}
                 </dl>
-                <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p>
+                {result.booking.meetup.kind === "public_venue" ? <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p> : null}
               </section>
             ) : null}
 
@@ -250,7 +254,10 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                   {result.booking.readiness.reasons.length > 0 ? (
                     <ul className="mt-4 list-disc space-y-2 pl-6 text-sm text-red-900">
                       {result.booking.readiness.reasons.map((reason) => (
-                        <li key={reason}>{readinessMessages[reason]}</li>
+                        <li key={reason}>
+                          {readinessMessages[reason]}{" "}
+                          {reason === "template_invalid" || reason === "template_unavailable" ? <Link className="font-semibold underline" href={`/admin/settings#contracts`}>Fix contract template</Link> : reason === "camera_unavailable" ? <Link className="font-semibold underline" href="/admin/settings#handoffs">Fix camera handoff policy</Link> : reason === "quote_unavailable" ? <Link className="font-semibold underline" href={`/admin/bookings/${result.booking.id}`}>Retry readiness check</Link> : null}
+                        </li>
                       ))}
                     </ul>
                   ) : null}

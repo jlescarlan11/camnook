@@ -18,6 +18,7 @@ import {
   loadCatalog,
   loadPublicCamera,
   publicCatalogPresentation,
+  publicServiceAreaPresentation,
 } from "./catalog";
 
 const CAMERA_ID = "11111111-1111-4111-8111-111111111111";
@@ -53,6 +54,7 @@ function cameraSnapshot(altText: string | null = "Front of camera") {
       object_path: "published/camera-1/front.jpg",
     }],
     published_at: "2026-08-13T00:00:00Z",
+    requestable: true,
     security_deposit: 5000,
     slug: "fujifilm-x-t5",
   };
@@ -110,6 +112,7 @@ describe("public catalog data", () => {
             alt: "Front of camera",
             url: "https://project.supabase.co/storage/v1/object/public/camera-listings/published/camera-1/front.jpg",
           }],
+          requestable: true,
           securityDeposit: 5000,
           slug: "fujifilm-x-t5",
         },
@@ -153,6 +156,19 @@ describe("public catalog data", () => {
       showRequestControl: false,
     });
     expect(JSON.stringify(result)).not.toContain("private relation");
+  });
+
+  it("derives truthful single, mixed, and unavailable service-area copy", async () => {
+    const fixture = catalogClient([cameraSnapshot()]);
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(fixture.client);
+    const loaded = await loadCatalog();
+    if (loaded.status !== "success") throw new Error("fixture failed");
+    expect(publicServiceAreaPresentation(loaded.cameras)).toContain("Cebu City");
+    expect(publicServiceAreaPresentation([...loaded.cameras, {
+      ...loaded.cameras[0], id: "22222222-2222-4222-8222-222222222222",
+      handoffPolicy: { ...loaded.cameras[0].handoffPolicy!, cityLabel: "Davao City" },
+    }])).toContain("multiple Philippine service areas");
+    expect(publicServiceAreaPresentation([{ ...loaded.cameras[0], requestable: false }])).not.toMatch(/Cebu|Metro Manila/);
   });
 
   it("fails closed if the public snapshot unexpectedly contains private fields", async () => {

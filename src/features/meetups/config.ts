@@ -21,6 +21,8 @@ const schema = z.object({
   timeoutMs: z.number().int().min(500).max(10_000),
 });
 
+const referenceSecretSchema = z.string().min(32);
+
 export const meetupRoutingConfigSchema = z
   .object({
     accessToken: z.string().trim().min(16).max(512),
@@ -51,13 +53,20 @@ export function getMeetupProviderConfig(): MeetupProviderConfig | null {
     allowedCategories: categories,
     apiKey: process.env.GEOAPIFY_API_KEY,
     configVersion: process.env.MEETUP_PROVIDER_CONFIG_VERSION ?? "geoapify-v1",
-    referenceSecret: process.env.MEETUP_RECOMMENDATION_SECRET,
+    referenceSecret: getMeetupReferenceSecret(),
     searchRadiusMeters: numberFromEnvironment(
       process.env.MEETUP_SEARCH_RADIUS_METERS,
       8_000,
     ),
     timeoutMs: numberFromEnvironment(process.env.MEETUP_PROVIDER_TIMEOUT_MS, 4_000),
   });
+  return parsed.success ? parsed.data : null;
+}
+
+export function getMeetupReferenceSecret() {
+  const parsed = referenceSecretSchema.safeParse(
+    process.env.MEETUP_RECOMMENDATION_SECRET,
+  );
   return parsed.success ? parsed.data : null;
 }
 

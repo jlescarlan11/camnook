@@ -30,6 +30,19 @@ export type SafeMeetupRecommendation = {
   reference: string;
 };
 
+export type SafeCanonicalMeetupArea = {
+  areaCode: string;
+  areaLabel: string;
+  expiresAt: string;
+  path: Array<{
+    code: string;
+    name: string;
+    type: "region" | "province" | "city" | "municipality" | "submunicipality" | "barangay";
+  }>;
+  reference: string;
+  release: string;
+};
+
 export type MeetupRecommendationResult =
   | { recommendations: SafeMeetupRecommendation[]; status: "available" }
   | { reason: MeetupUnavailableReason; status: "unavailable" };

@@ -29,7 +29,9 @@ describe("RequestForm meetup planning", () => {
     );
 
     expect(getCurrentPosition).not.toHaveBeenCalled();
-    expect(markup).toContain("Allow location and suggest up to 5 places");
+    expect(markup).toContain("Use my location to suggest places");
+    expect(markup).toContain("Where should we meet?");
+    expect(markup).toContain("your area is enough to submit");
     expect(markup).toContain("Geoapify");
     expect(markup).toContain("Mapbox");
     expect(markup).toContain("not saved with the booking");

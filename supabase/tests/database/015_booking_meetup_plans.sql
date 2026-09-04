@@ -34,6 +34,20 @@ insert into public.camera_handoff_policies (
 insert into public.camera_handoff_slots (camera_id, local_time)
 values ('d0100000-0000-4000-8000-000000000001', '09:00');
 
+update public.camera_handoff_policies set
+  psgc_release_key = '2026-q2', psgc_area_code = '0730600041',
+  approximation_level = 'barangay_centroid'
+where camera_id = 'd0100000-0000-4000-8000-000000000001';
+insert into private.location_anchors (
+  camera_id, release_key, area_code, precision, source, latitude, longitude,
+  provider_reference, provenance_version, captured_at, updated_by
+) values (
+  'd0100000-0000-4000-8000-000000000001', '2026-q2', '0730600041',
+  'barangay_centroid', 'provider_centroid', 10.333, 123.897,
+  'provider:meetup-lahug', 'meetup-test-v1', statement_timestamp(),
+  'd0000000-0000-4000-8000-000000000001'
+);
+
 insert into private.camera_lender_city_anchors (
   camera_id, provider_city_id, country_code, latitude, longitude, updated_by
 ) values (
@@ -59,12 +73,23 @@ insert into public.contract_templates (
   statement_timestamp(), 'd0000000-0000-4000-8000-000000000001'
 );
 
+update private.gcash_payment_configuration set enabled = true,
+  recipient_name = 'Meetup Owner', recipient_account = '09171234567',
+  updated_by = 'd0000000-0000-4000-8000-000000000001';
+
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'd0000000-0000-4000-8000-000000000002';
 set local "request.jwt.claim.role" = 'authenticated';
 
 do $$
 begin
+  if has_function_privilege(
+    'authenticated',
+    'api.request_booking_schedule_with_meetup_v2_idempotent(uuid,uuid,date,date,time without time zone,bigint,text,text,jsonb,uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated role can execute the canonical meetup request';
+  end if;
   if has_function_privilege(
     'authenticated',
     'api.request_booking_schedule_with_meetup(uuid,uuid,date,date,time without time zone,bigint,text,text,text,text,text,text,numeric,numeric,text)',
@@ -281,6 +306,97 @@ begin
     or (select snapshot_schema_version from public.contract_versions where contract_versions.booking_id = target_id) <> 2
   then
     raise exception 'contract did not contain the immutable meetup snapshot: %', snapshot;
+  end if;
+end;
+$$;
+
+reset role;
+
+set local role service_role;
+set local "request.jwt.claim.role" = 'service_role';
+
+do $$
+declare
+  created_id uuid;
+  retried_id uuid;
+  plan jsonb := jsonb_build_object(
+    'kind', 'canonical_area',
+    'area_code', '0730600041',
+    'area_label', 'Lahug',
+    'area_release', '2026-q2',
+    'renter_city_label', 'Lahug'
+  );
+begin
+  created_id := api.request_booking_schedule_with_meetup_v2_idempotent(
+    'd0000000-0000-4000-8000-000000000002',
+    'd0100000-0000-4000-8000-000000000001',
+    current_date + 12, current_date + 14, '09:00', 1,
+    'Canonical fallback', 'Cebu shoot', plan,
+    'd0400000-0000-4000-8000-000000000020'
+  );
+  retried_id := api.request_booking_schedule_with_meetup_v2_idempotent(
+    'd0000000-0000-4000-8000-000000000002',
+    'd0100000-0000-4000-8000-000000000001',
+    current_date + 12, current_date + 14, '09:00', 1,
+    'Canonical fallback', 'Cebu shoot', plan,
+    'd0400000-0000-4000-8000-000000000020'
+  );
+  if retried_id <> created_id then
+    raise exception 'canonical retry created a second booking';
+  end if;
+  perform set_config('camnook.test_canonical_booking_id', created_id::text, true);
+
+  begin
+    perform api.request_booking_schedule_with_meetup_v2_idempotent(
+      'd0000000-0000-4000-8000-000000000002',
+      'd0100000-0000-4000-8000-000000000001',
+      current_date + 16, current_date + 18, '09:00', 1,
+      'Invalid canonical fallback', 'Cebu shoot',
+      plan || jsonb_build_object('area_label', 'Tampered'),
+      'd0400000-0000-4000-8000-000000000021'
+    );
+    raise exception 'tampered canonical area was accepted';
+  exception when sqlstate '22023' then null;
+  end;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  target_id uuid := current_setting('camnook.test_canonical_booking_id')::uuid;
+begin
+  if (select count(*) from public.bookings where id = target_id and state = 'FOR_REVIEW') <> 1
+    or (select count(*) from public.booking_meetup_plans where booking_id = target_id and plan_kind = 'canonical_area' and area_code = '0730600041' and venue_name is null) <> 1
+    or (select count(*) from private.audit_logs where entity_id = target_id and action = 'request_booking' and outcome = 'success') <> 1
+  then
+    raise exception 'canonical booking aggregate was not committed exactly once';
+  end if;
+end;
+$$;
+
+set local role authenticated;
+set local "request.jwt.claim.role" = 'authenticated';
+set local "request.jwt.claim.sub" = 'd0000000-0000-4000-8000-000000000001';
+
+select api.approve_booking(current_setting('camnook.test_canonical_booking_id')::uuid);
+
+do $$
+declare
+  target_id uuid := current_setting('camnook.test_canonical_booking_id')::uuid;
+  snapshot jsonb;
+begin
+  select version.snapshot into snapshot
+  from public.contract_versions as version
+  where version.booking_id = target_id and version.status = 'issued';
+  if snapshot #>> '{meetup,kind}' <> 'canonical_area'
+    or snapshot #>> '{meetup,area_code}' <> '0730600041'
+    or snapshot #>> '{meetup,area_label}' <> 'Lahug'
+    or snapshot #>> '{meetup,venue_status}' <> 'pending_owner_confirmation'
+    or (select snapshot_schema_version from public.contract_versions where booking_id = target_id) <> 3
+  then
+    raise exception 'contract did not contain the canonical meetup snapshot: %', snapshot;
   end if;
 end;
 $$;

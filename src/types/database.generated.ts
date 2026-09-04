@@ -438,6 +438,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_camera_operational_readiness_admin: {
+        Args: { p_camera_id: string }
+        Returns: Json
+      }
       get_admin_payment_review_context: {
         Args: { p_payment_id: string }
         Returns: Json
@@ -801,6 +805,21 @@ export type Database = {
           p_venue_latitude: number
           p_venue_longitude: number
           p_venue_name: string
+        }
+        Returns: string
+      }
+      request_booking_schedule_with_meetup_v2_idempotent: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_handoff_time: string
+          p_intended_use: string
+          p_meetup_plan: Json
+          p_operation_id: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_renter_id: string
+          p_return_date: string
         }
         Returns: string
       }
@@ -1223,43 +1242,55 @@ export type Database = {
       }
       booking_meetup_plans: {
         Row: {
-          attribution: string
+          area_code: string | null
+          area_label: string | null
+          area_release: string | null
+          attribution: string | null
           booking_id: string
           created_at: string
-          provider: string
-          provider_config_version: string
+          plan_kind: string
+          provider: string | null
+          provider_config_version: string | null
           renter_city_label: string
-          venue_address: string
-          venue_city: string
-          venue_latitude: number
-          venue_longitude: number
-          venue_name: string
+          venue_address: string | null
+          venue_city: string | null
+          venue_latitude: number | null
+          venue_longitude: number | null
+          venue_name: string | null
         }
         Insert: {
-          attribution: string
+          area_code?: string | null
+          area_label?: string | null
+          area_release?: string | null
+          attribution?: string | null
           booking_id: string
           created_at?: string
-          provider: string
-          provider_config_version: string
+          plan_kind?: string
+          provider?: string | null
+          provider_config_version?: string | null
           renter_city_label: string
-          venue_address: string
-          venue_city: string
-          venue_latitude: number
-          venue_longitude: number
-          venue_name: string
+          venue_address?: string | null
+          venue_city?: string | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
+          venue_name?: string | null
         }
         Update: {
-          attribution?: string
+          area_code?: string | null
+          area_label?: string | null
+          area_release?: string | null
+          attribution?: string | null
           booking_id?: string
           created_at?: string
-          provider?: string
-          provider_config_version?: string
+          plan_kind?: string
+          provider?: string | null
+          provider_config_version?: string | null
           renter_city_label?: string
-          venue_address?: string
-          venue_city?: string
-          venue_latitude?: number
-          venue_longitude?: number
-          venue_name?: string
+          venue_address?: string | null
+          venue_city?: string | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
+          venue_name?: string | null
         }
         Relationships: [
           {

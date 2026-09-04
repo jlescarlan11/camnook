@@ -62,4 +62,16 @@ describe("ScheduleQuoteForm", () => {
     expect(markup).toContain('aria-live="polite"');
     expect(markup).not.toContain('type="datetime-local"');
   });
+
+  it("selects the sole approved handoff time without losing it", () => {
+    const markup = renderToStaticMarkup(<ScheduleQuoteForm
+      availability={[]}
+      cameraId="11111111-1111-4111-8111-111111111111"
+      cameraName="Canon R50"
+      policy={{ ...policy, approvedTimes: ["09:00"] }}
+    />);
+    expect(markup).toContain('<option value="09:00" selected="">9:00 AM</option>');
+    expect(markup).toContain('name="handoffTime"');
+    expect(markup).toContain("Refresh quote");
+  });
 });

@@ -6,6 +6,7 @@ import { SiteHeader } from "@/features/bookings/components/site-header";
 import {
   loadCatalog,
   publicCatalogPresentation,
+  publicServiceAreaPresentation,
 } from "@/features/bookings/data/catalog";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,9 @@ export default async function Home() {
         <section className="border-b border-stone-200 bg-stone-950 px-5 py-14 text-white sm:px-8 sm:py-20">
           <div className="mx-auto max-w-6xl">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-400">
-              Owner-operated in Metro Manila
+              {presentation.kind === "ready"
+                ? publicServiceAreaPresentation(presentation.cameras)
+                : "Owner-operated camera rentals in the Philippines"}
             </p>
             <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight sm:text-6xl">
               Real cameras, clear estimates, careful handoffs.
@@ -76,6 +79,9 @@ export default async function Home() {
                         <dd className="mt-1 font-semibold">{phpFormatter.format(camera.securityDeposit)}</dd>
                       </div>
                     </dl>
+                    <p className="mt-4 text-sm text-stone-700">
+                      Service area: {camera.handoffPolicy?.cityLabel ?? "Currently unavailable"}
+                    </p>
                     <Link
                       className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-stone-950 px-5 py-3 font-medium text-white hover:bg-stone-800 focus:outline-none focus:ring-4 focus:ring-amber-100 sm:w-auto"
                       href={`/cameras/${camera.slug}`}

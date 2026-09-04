@@ -15,6 +15,7 @@ export type PublicCamera = {
   handoffPolicy: PublicHandoffPolicy | null;
   name: string;
   photos: { alt: string; url: string }[];
+  requestable: boolean;
   securityDeposit: number;
   slug: string;
 };
@@ -53,6 +54,7 @@ const publicCameraSnapshotSchema = z.object({
     object_path: z.string().min(1),
   }).strict()),
   published_at: z.string().min(1),
+  requestable: z.boolean(),
   security_deposit: z.number().nonnegative(),
   slug: z.string().min(1),
 }).strict();
@@ -140,9 +142,19 @@ function projectPublicCamera(
       const alt = photo.alt_text?.trim() || cameraName;
       return photoUrl ? [{ alt, url: photoUrl }] : [];
     }),
+    requestable: camera.requestable,
     securityDeposit: camera.security_deposit,
     slug: camera.slug,
   };
+}
+
+export function publicServiceAreaPresentation(cameras: PublicCamera[]) {
+  const labels = [...new Map(cameras
+    .filter((camera) => camera.requestable && camera.handoffPolicy?.enabled)
+    .map((camera) => [camera.handoffPolicy!.cityLabel.trim().toLocaleLowerCase("en-PH"), camera.handoffPolicy!.cityLabel] as const)).values()];
+  if (labels.length === 1) return `Owner-operated in ${labels[0]}`;
+  if (labels.length > 1) return "Owner-operated across multiple Philippine service areas";
+  return "Owner-operated camera rentals in the Philippines";
 }
 
 export async function loadPublicCamera(slug: string) {

@@ -7,12 +7,19 @@ import { z } from "zod";
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { loginPath } from "@/lib/auth/routes";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { buildMeetupBinding } from "@/features/meetups/binding";
+import {
+  buildCanonicalAreaBinding,
+  buildMeetupBinding,
+} from "@/features/meetups/binding";
 import {
   getMeetupProviderConfig,
+  getMeetupReferenceSecret,
   getMeetupRoutingPolicyVersion,
 } from "@/features/meetups/config";
-import { readRecommendationReference } from "@/features/meetups/reference";
+import {
+  readCanonicalAreaReference,
+  readRecommendationReference,
+} from "@/features/meetups/reference";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
 import { stringFormValue, type ActionStatus } from "./state";
@@ -142,7 +149,7 @@ export async function requestBooking(
   ) {
     return {
       error: "meetup_required",
-      fieldErrors: { meetupReference: "Confirm the current public meetup recommendation." },
+      fieldErrors: { meetupReference: "Confirm the current meetup area or public venue." },
       status: "error",
       values: preservedValues,
     };
@@ -161,32 +168,75 @@ export async function requestBooking(
     redirect(loginPath(`/account/bookings/new?${query.toString()}`));
   }
 
-  const config = getMeetupProviderConfig();
+  const referenceSecret = getMeetupReferenceSecret();
   const routingPolicyVersion = getMeetupRoutingPolicyVersion();
-  if (!config || !routingPolicyVersion) {
+  if (!referenceSecret || !routingPolicyVersion) {
     return { error: "request_failed", status: "error", values: preservedValues };
   }
-  const binding = buildMeetupBinding({
-    cameraId: fields.data.camera,
-    configVersion: config.configVersion,
-    handoffTime: values.handoffTime,
-    pickupDate: values.pickupDate,
-    policyVersion: policyVersion!,
-    renterId: context.user.id,
-    returnDate: values.returnDate,
-    routingPolicyVersion,
-  });
-  const claims = readRecommendationReference(
-    values.meetupReference,
-    config.referenceSecret,
-    { binding },
-  );
-  if (
-    !claims ||
-    claims.configVersion !== config.configVersion ||
-    claims.routingPolicyVersion !== routingPolicyVersion
-  ) {
-    return { error: "meetup_expired", status: "error", values: preservedValues };
+  let meetupPlan: Record<string, string | number>;
+  if (values.meetupReference.startsWith("v3.")) {
+    const claims = readCanonicalAreaReference(
+      values.meetupReference,
+      referenceSecret,
+      {
+        binding: buildCanonicalAreaBinding({
+          cameraId: fields.data.camera,
+          handoffTime: values.handoffTime,
+          pickupDate: values.pickupDate,
+          policyVersion: policyVersion!,
+          renterId: context.user.id,
+          returnDate: values.returnDate,
+        }),
+      },
+    );
+    if (!claims) {
+      return { error: "meetup_expired", status: "error", values: preservedValues };
+    }
+    meetupPlan = {
+      area_code: claims.areaCode,
+      area_label: claims.areaLabel,
+      area_release: claims.release,
+      kind: "canonical_area",
+      renter_city_label: claims.areaLabel,
+    };
+  } else {
+    const config = getMeetupProviderConfig();
+    if (!config) {
+      return { error: "request_failed", status: "error", values: preservedValues };
+    }
+    const binding = buildMeetupBinding({
+      cameraId: fields.data.camera,
+      configVersion: config.configVersion,
+      handoffTime: values.handoffTime,
+      pickupDate: values.pickupDate,
+      policyVersion: policyVersion!,
+      renterId: context.user.id,
+      returnDate: values.returnDate,
+      routingPolicyVersion,
+    });
+    const claims = readRecommendationReference(
+      values.meetupReference,
+      config.referenceSecret,
+      { binding },
+    );
+    if (
+      !claims ||
+      claims.configVersion !== config.configVersion ||
+      claims.routingPolicyVersion !== routingPolicyVersion
+    ) {
+      return { error: "meetup_expired", status: "error", values: preservedValues };
+    }
+    meetupPlan = {
+      kind: "public_venue",
+      provider: "geoapify",
+      provider_config_version: claims.configVersion,
+      renter_city_label: claims.renterCity.label,
+      venue_address: claims.address,
+      venue_city: claims.city,
+      venue_latitude: claims.latitude,
+      venue_longitude: claims.longitude,
+      venue_name: claims.name,
+    };
   }
   let admin;
   try {
@@ -194,22 +244,16 @@ export async function requestBooking(
   } catch {
     return { error: "request_failed", status: "error", values: preservedValues };
   }
-  const result = await admin.schema("api").rpc("request_booking_schedule_with_meetup_idempotent", {
+  const result = await admin.schema("api").rpc("request_booking_schedule_with_meetup_v2_idempotent", {
     p_camera_id: fields.data.camera,
     p_expected_location: fields.data.expectedLocation,
     p_handoff_time: values.handoffTime,
     p_intended_use: fields.data.intendedUse,
     p_pickup_date: values.pickupDate,
     p_policy_version: policyVersion!,
-    p_provider_config_version: claims.configVersion,
-    p_renter_city_label: claims.renterCity.label,
+    p_meetup_plan: meetupPlan,
     p_renter_id: context.user.id,
     p_return_date: values.returnDate,
-    p_venue_address: claims.address,
-    p_venue_city: claims.city,
-    p_venue_latitude: claims.latitude,
-    p_venue_longitude: claims.longitude,
-    p_venue_name: claims.name,
     p_operation_id: operationId.data,
   });
   const { data, error } = result;
@@ -226,9 +270,11 @@ export async function requestBooking(
               ? "request_limit"
               : error?.code === "40001"
                 ? "schedule_changed"
-                : error?.code === "23P01"
+                : error?.code === "23P01" || error?.code === "55000"
                   ? "unavailable"
-                  : error?.code === "23514"
+                  : error?.code === "23514" ||
+                      (error?.code === "22023" &&
+                        error.message === "meetup_request_invalid")
                     ? "meetup_required"
                     : "request_failed",
       status: "error",

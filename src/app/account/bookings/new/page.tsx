@@ -103,7 +103,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
             ) : (
               <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="request-heading">
                 <h2 className="text-2xl font-semibold" id="request-heading">Booking request</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Submitting creates a <strong>FOR_REVIEW</strong> request. It does not place an availability hold.</p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Submitting creates a request <strong>awaiting owner review</strong>. The owner aims to review it within 12 hours; it does not place an availability hold or guarantee approval.</p>
                 <RequestForm
                   camera={values.camera}
                   key={query}

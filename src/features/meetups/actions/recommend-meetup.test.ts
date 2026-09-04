@@ -250,10 +250,10 @@ describe("recommendMeetup", () => {
         current: true,
         name: "Lahug",
         path: [
-          { name: "Central Visayas", type: "region" },
-          { name: "Cebu", type: "province" },
-          { name: "City of Cebu", type: "city" },
-          { name: "Lahug", type: "barangay" },
+          { code: "0700000000", name: "Central Visayas", type: "region" },
+          { code: "0722000000", name: "Cebu", type: "province" },
+          { code: "0722170000", name: "City of Cebu", type: "city" },
+          { code: "0722170010", name: "Lahug", type: "barangay" },
         ],
         release: "2026-q2",
         type: "barangay",
@@ -275,7 +275,16 @@ describe("recommendMeetup", () => {
         psgcAreaCode: "0722170010",
         psgcRelease: "2026-q2",
       }),
-    )).resolves.toEqual({ error: "provider_unavailable", status: "error" });
+    )).resolves.toMatchObject({
+      canonicalArea: {
+        areaCode: "0722170010",
+        areaLabel: "Lahug",
+        reference: expect.stringMatching(/^v3\./),
+        release: "2026-q2",
+      },
+      status: "success",
+      warning: "provider_unavailable",
+    });
     expect(actorRpc).toHaveBeenCalledTimes(1);
     expect(actorRpc).toHaveBeenCalledWith("resolve_psgc_area", {
       p_area_code: "0722170010",

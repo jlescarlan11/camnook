@@ -13,8 +13,11 @@ import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
 export function recommendationBatchKey(
   recommendations: readonly { reference: string }[],
+  canonicalArea?: { reference: string },
 ) {
-  return recommendations.map((recommendation) => recommendation.reference).join("\u001f");
+  return [...recommendations.map((recommendation) => recommendation.reference), canonicalArea?.reference]
+    .filter(Boolean)
+    .join("\u001f");
 }
 
 export function RequestForm({
@@ -62,13 +65,23 @@ export function RequestForm({
   );
   const meetupRequired = Boolean(schedule);
   const receivedRecommendations = recommendationState.recommendations ?? [];
-  const receivedRecommendationBatch = recommendationBatchKey(receivedRecommendations);
+  const receivedCanonicalArea = recommendationState.canonicalArea;
+  const receivedRecommendationBatch = recommendationBatchKey(
+    receivedRecommendations,
+    receivedCanonicalArea,
+  );
   const recommendations =
     receivedRecommendationBatch &&
     receivedRecommendationBatch !== invalidatedRecommendationBatch
       ? receivedRecommendations
       : [];
-  const recommendationExpiry = recommendations[0]?.expiresAt ?? null;
+  const canonicalArea =
+    receivedRecommendationBatch &&
+    receivedRecommendationBatch !== invalidatedRecommendationBatch
+      ? receivedCanonicalArea
+      : undefined;
+  const recommendationExpiry =
+    recommendations[0]?.expiresAt ?? canonicalArea?.expiresAt ?? null;
   const recommendationsExpired =
     recommendationExpiry !== null &&
     expiredRecommendationBatch === recommendationExpiry;
@@ -80,9 +93,13 @@ export function RequestForm({
   const selectedRecommendation = recommendations.find(
     (recommendation) => recommendation.reference === selectedReference,
   );
+  const selectedCanonicalArea =
+    canonicalArea?.reference === selectedReference ? canonicalArea : undefined;
+  const selectedMeetupReference =
+    selectedRecommendation?.reference ?? selectedCanonicalArea?.reference;
   const meetupConfirmed =
-    Boolean(selectedRecommendation?.reference) &&
-    confirmedReference === selectedRecommendation?.reference;
+    Boolean(selectedMeetupReference) &&
+    confirmedReference === selectedMeetupReference;
 
   useEffect(() => {
     if (!recommendationExpiry) {
@@ -163,13 +180,13 @@ export function RequestForm({
           className="rounded-2xl border border-stone-200 bg-stone-50 p-5"
         >
           <h3 className="text-lg font-semibold" id="meetup-heading">
-            Confirm a public meetup spot
+            Where should we meet?
           </h3>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            If you choose location suggestions, CamNook sends your position
-            temporarily to Geoapify to confirm your city and to Mapbox to compare
-            routes. It is not saved with the booking. You can use the city-only
-            fallback instead; its route estimates are coarser.
+            Confirm your saved area or choose another Philippine area. Public
+            venue suggestions are optional; if they are unavailable, your area
+            is enough to submit and the owner will confirm a staffed public
+            venue before handoff.
           </p>
           {savedOrigin ? (
             <div className={`mt-4 rounded-xl border p-4 ${savedOrigin.valid ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
@@ -178,16 +195,24 @@ export function RequestForm({
               {savedOrigin.valid ? <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} onClick={recommendFromSavedOrigin} type="button">Use this location</button> : null}
             </div>
           ) : null}
-          <button
-            className="mt-4 min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:opacity-60"
-            disabled={locationStatus === "locating" || recommendationPending}
-            onClick={useCurrentCity}
-            type="button"
-          >
-            {locationStatus === "locating" || recommendationPending
-              ? "Finding public meetup options…"
-              : "Allow location and suggest up to 5 places"}
-          </button>
+          <details className="mt-4 rounded-xl border border-stone-200 bg-white p-4">
+            <summary className="min-h-11 cursor-pointer font-semibold">
+              Find a specific public venue
+            </summary>
+            <p className="mt-2 text-sm leading-6 text-stone-600">
+              With your permission, CamNook temporarily sends your position to
+              Geoapify and Mapbox. It is not saved with the booking.
+            </p>
+            <button
+              className="mt-3 min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:opacity-60"
+              disabled={locationStatus === "locating" || recommendationPending}
+              onClick={useCurrentCity}
+              type="button"
+            >
+              {locationStatus === "locating" || recommendationPending
+                ? "Finding public meetup options…"
+                : "Use my location to suggest places"}
+            </button>
           <span aria-live="polite" className="sr-only">
             {recommendationPending
               ? "Finding public meetup options."
@@ -197,15 +222,15 @@ export function RequestForm({
                   ? `${recommendations.length} public meetup options are ready.`
                   : ""}
           </span>
-          {locationStatus === "denied" || locationStatus === "unavailable" ? (
+            {locationStatus === "denied" || locationStatus === "unavailable" ? (
             <p className="mt-3 text-sm text-amber-900" role="status">
               {locationStatus === "denied"
                 ? "Location permission was denied. Enter your city or municipality below."
                 : "Your current city could not be detected. Enter it below instead."}
             </p>
-          ) : null}
+            ) : null}
 
-          <form action={recommendFromManualCity} className="mt-5 border-t border-stone-200 pt-5">
+            <form action={recommendFromManualCity} className="mt-5 border-t border-stone-200 pt-5">
             <input name="camera" type="hidden" value={camera} />
             <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
             <input name="locationMode" type="hidden" value="manual" />
@@ -240,21 +265,27 @@ export function RequestForm({
                 Suggest up to 5 places from city
               </button>
             </div>
-          </form>
+            </form>
+          </details>
 
-          <form action={recommendFromManualCity} className="mt-5 border-t border-stone-200 pt-5">
+          <details className="mt-4 rounded-xl border border-stone-200 bg-white p-4" open={!savedOrigin}>
+            <summary className="min-h-11 cursor-pointer font-semibold">
+              Choose a Philippine area manually
+            </summary>
+          <form action={recommendFromManualCity} className="mt-3">
             <input name="camera" type="hidden" value={camera} />
             <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
             <input name="locationMode" type="hidden" value="canonical" />
             <input name="pickupDate" type="hidden" value={schedule.pickupDate} />
             <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
             <input name="returnDate" type="hidden" value={schedule.returnDate} />
-            <PsgcAreaSelector onSelectionChange={() => {
+            <PsgcAreaSelector initialPath={canonicalArea?.path} onSelectionChange={() => {
               invalidateRecommendations();
             }} />
-            <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} type="submit">Use this area once</button>
+            <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} type="submit">Confirm this area</button>
             <p className="mt-2 text-xs leading-5 text-stone-600">This one-time area does not replace your account default.</p>
           </form>
+          </details>
 
           {recommendationState.error ? (
             <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
@@ -266,8 +297,39 @@ export function RequestForm({
                     ? "The schedule changed or became unavailable. Return to the listing and choose again."
                     : recommendationState.error === "authentication"
                       ? "Your session expired. Sign in again before requesting a meetup."
-                      : "A public meetup recommendation is unavailable right now. Retry before submitting."}
+                      : "A public venue could not be suggested. Choose or confirm a Philippine area instead."}
             </p>
+          ) : null}
+
+          {recommendationState.warning === "provider_unavailable" && canonicalArea ? (
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+              Public venue suggestions are unavailable right now. Your selected
+              area is still usable; the owner will confirm the venue before handoff.
+            </p>
+          ) : null}
+
+          {canonicalArea ? (
+            <label className="mt-5 flex cursor-pointer gap-3 rounded-xl border border-stone-200 bg-white p-4 has-checked:border-stone-950 has-checked:ring-2 has-checked:ring-stone-200">
+              <input
+                checked={selectedReference === canonicalArea.reference}
+                className="mt-1 h-5 w-5"
+                disabled={recommendationsExpired}
+                name="meetupOption"
+                onChange={() => {
+                  setSelectedReference(canonicalArea.reference);
+                  setConfirmedReference(null);
+                }}
+                type="radio"
+                value={canonicalArea.reference}
+              />
+              <span className="min-w-0 text-sm leading-6">
+                <span className="block font-semibold">Use {canonicalArea.areaLabel}</span>
+                <span className="block text-stone-700">
+                  Public venue pending owner confirmation. No residential address
+                  or device coordinates will be stored.
+                </span>
+              </span>
+            </label>
           ) : null}
 
           {recommendations.length ? (
@@ -386,7 +448,7 @@ export function RequestForm({
           <input
             name="meetupReference"
             type="hidden"
-            value={selectedRecommendation?.reference ?? ""}
+            value={selectedMeetupReference ?? ""}
           />
         </>
       ) : null}
@@ -411,22 +473,22 @@ export function RequestForm({
           </p>
         ) : null}
       </div>
-      {meetupRequired && selectedRecommendation ? (
+      {meetupRequired && (selectedRecommendation || selectedCanonicalArea) ? (
         <label className="flex min-h-11 items-start gap-3 rounded-xl border border-stone-200 p-4">
           <input
             checked={meetupConfirmed}
             className="mt-1 h-5 w-5"
             onChange={(event) =>
               setConfirmedReference(
-                event.target.checked ? selectedRecommendation.reference : null,
+                event.target.checked ? selectedMeetupReference ?? null : null,
               )
             }
             type="checkbox"
           />
           <span className="text-sm leading-6">
-            I confirm {selectedRecommendation.renterCity} as my city and reviewed
-            {` ${selectedRecommendation.name}`} as the planned pickup and return meetup
-            spot.
+            {selectedRecommendation
+              ? `I confirm ${selectedRecommendation.renterCity} as my city and reviewed ${selectedRecommendation.name} as the planned pickup and return meetup spot.`
+              : `I confirm ${selectedCanonicalArea?.areaLabel} as my meetup area. I understand the owner must confirm the public venue before handoff.`}
           </span>
         </label>
       ) : null}
@@ -469,7 +531,7 @@ export function RequestForm({
                       : state.error === "meetup_expired"
                         ? "The meetup recommendation expired or no longer matches this request. Generate and confirm a new recommendation."
                         : state.error === "meetup_required"
-                          ? "Generate, review, and confirm the public meetup spot before submitting."
+                        ? "Choose and confirm a meetup area or public venue before submitting."
                   : "Correct the highlighted fields and try again."}
           </p>
           {state.error === "request_failed" ? (
@@ -491,7 +553,7 @@ export function RequestForm({
         disabled={
           pending ||
           recommendationPending ||
-          (meetupRequired && (!selectedRecommendation || !meetupConfirmed)) ||
+          (meetupRequired && (!selectedMeetupReference || !meetupConfirmed)) ||
           recommendationsExpired
         }
         type="submit"

@@ -565,7 +565,7 @@ describe("requestBooking", () => {
       ),
     ).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
     expect(adminRpc).toHaveBeenCalledWith(
-      "request_booking_schedule_with_meetup_idempotent",
+      "request_booking_schedule_with_meetup_v2_idempotent",
       {
         p_camera_id: CAMERA_ID,
         p_expected_location: "Cebu City",
@@ -574,15 +574,19 @@ describe("requestBooking", () => {
         p_operation_id: "33333333-3333-4333-8333-333333333333",
         p_pickup_date: "2099-08-24",
         p_policy_version: 3,
-        p_provider_config_version: "geoapify-v1",
-        p_renter_city_label: "Mandaue City",
+        p_meetup_plan: {
+          kind: "public_venue",
+          provider: "geoapify",
+          provider_config_version: "geoapify-v1",
+          renter_city_label: "Mandaue City",
+          venue_address: "Cardinal Rosales Avenue, Cebu City",
+          venue_city: "Cebu City",
+          venue_latitude: 10.317,
+          venue_longitude: 123.905,
+          venue_name: "Ayala Center Cebu",
+        },
         p_renter_id: "user-1",
         p_return_date: "2099-08-26",
-        p_venue_address: "Cardinal Rosales Avenue, Cebu City",
-        p_venue_city: "Cebu City",
-        p_venue_latitude: 10.317,
-        p_venue_longitude: 123.905,
-        p_venue_name: "Ayala Center Cebu",
       },
     );
     expect(JSON.stringify(adminRpc.mock.calls)).not.toContain("attacker override");
