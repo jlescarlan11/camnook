@@ -46,10 +46,9 @@ describe("ScheduleQuoteForm", () => {
       />,
     );
 
-    expect(markup).toContain("Choose rental dates");
-    expect(markup).toContain("Handoff time — Asia/Manila");
-    expect(markup).toContain("9:00 AM");
-    expect(markup).toContain("5:00 PM");
+    expect(markup).toContain("Choose your schedule");
+    expect(markup).toContain("Choose handoff time");
+    expect(markup).toContain("Choose dates first");
     expect(markup).toContain("Availability key");
     expect(markup).toContain("cannot be a handoff endpoint");
     expect(markup).toContain(
@@ -70,8 +69,7 @@ describe("ScheduleQuoteForm", () => {
       cameraName="Canon R50"
       policy={{ ...policy, approvedTimes: ["09:00"] }}
     />);
-    expect(markup).toContain('<option value="09:00" selected="">9:00 AM</option>');
     expect(markup).toContain('name="handoffTime"');
-    expect(markup).toContain("Refresh quote");
+    expect(markup).not.toContain("Refresh quote");
   });
 });

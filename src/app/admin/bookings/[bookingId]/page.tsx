@@ -117,7 +117,14 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
             </Link>
           </section>
         ) : (
-          <article className="mt-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
+          <>
+          <section className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">What you need to do now</p>
+            <h1 className="mt-2 text-2xl font-semibold">{result.booking.state === "FOR_REVIEW" ? "Review this request" : ownerActionTitle(result.booking.state)}</h1>
+            <p className="mt-2 leading-7 text-amber-950">{result.booking.state === "FOR_REVIEW" ? "Check the renter, schedule, and availability, then accept or decline." : "Only the actions relevant to this booking’s current stage are available below."}</p>
+            <a className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white" href="#current-owner-action">{result.booking.state === "FOR_REVIEW" ? "Review request" : "View current action"}</a>
+          </section>
+          <article className="mt-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" id="current-owner-action">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">
@@ -168,9 +175,9 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
 
             {result.booking.meetup ? (
               <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="admin-meetup-heading">
-                <h2 className="text-xl font-semibold" id="admin-meetup-heading">Planned pickup and return meetup</h2>
+                <h2 className="text-xl font-semibold" id="admin-meetup-heading">Meetup preference</h2>
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <DetailValue label="Renter city" value={result.booking.meetup.renterCity} />
+                  <DetailValue label="Preferred meetup area" value={result.booking.meetup.renterCity} />
                   {result.booking.meetup.kind === "public_venue" ? <>
                     <DetailValue label="Public venue" value={result.booking.meetup.name} />
                     <DetailValue label="Venue address" value={result.booking.meetup.address} />
@@ -497,10 +504,20 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               launch.
             </section>
           </article>
+          </>
         )}
       </main>
     </div>
   );
+}
+
+function ownerActionTitle(state: string) {
+  if (state === "CONTRACT_PENDING") return "Waiting for renter signature";
+  if (state === "TO_PAY" || state === "PAYMENT_REVIEW") return "Review payment";
+  if (state === "CONFIRMED") return "Prepare camera handoff";
+  if (state === "ACTIVE") return "Prepare for return";
+  if (state === "RETURN_REVIEW" || state === "ISSUE_REVIEW") return "Complete return review";
+  return "No action required";
 }
 
 function DetailValue({ label, value }: { label: string; value: string }) {

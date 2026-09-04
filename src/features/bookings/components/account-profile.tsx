@@ -13,7 +13,7 @@ export function AccountProfile({ profile }: AccountProfileProps) {
     return (
       <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950">
         <p>
-          Complete your legal name and phone now so your account is ready when
+          Add your name and phone now so your account is ready when
           you choose a camera.
         </p>
         <ProfileForm successMessage="Profile saved. Your account is ready for booking requests." />
@@ -23,7 +23,7 @@ export function AccountProfile({ profile }: AccountProfileProps) {
 
   return (
     <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-      <SummaryValue label="Legal name" value={profile.legalName} />
+      <SummaryValue label="Name" value={profile.legalName} />
       <SummaryValue label="Phone" value={profile.phone} />
       <SummaryValue label="Account status" value={profile.accountStatus} />
     </dl>

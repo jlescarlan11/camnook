@@ -7,7 +7,6 @@ import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
-import { MeetupOriginForm } from "@/features/locations/meetup-origin-form";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -57,12 +56,6 @@ export default async function AccountPage() {
               <AccountProfile profile={account.profile} />
             </section>
 
-            <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="meetup-origin-heading">
-              <h2 className="text-2xl font-semibold" id="meetup-origin-heading">Default meetup origin</h2>
-              <p className="mt-2 leading-7 text-stone-600">Save one private canonical area to reduce repeat entry. CamNook will still ask you to confirm or change it before any provider request.</p>
-              <MeetupOriginForm origin={account.meetupOrigin} />
-            </section>
-
             <section className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950" aria-labelledby="pickup-id-heading">
               <h2 className="text-xl font-semibold" id="pickup-id-heading">Identity check happens at pickup</h2>
               <p className="mt-2 leading-7">You do not need to upload an ID to request or receive approval for a booking. The named renter must bring one original current government ID and appear in person at pickup. CamNook records only that the ID was checked and matched—never its image, number, type, or expiry.</p>
@@ -96,7 +89,7 @@ export default async function AccountPage() {
                       {presentCustomerBookingStatus(booking.state, booking.requestedAt).target ? <p className="mt-1 text-xs text-stone-500">{presentCustomerBookingStatus(booking.state, booking.requestedAt).target}</p> : null}
                       {booking.meetup ? (
                         <p className="mt-2 text-sm text-stone-700">
-                          Meetup: {booking.meetup.kind === "public_venue" ? (
+                          Preferred meetup area: {booking.meetup.kind === "public_venue" ? (
                             <><strong>{booking.meetup.name}</strong> — {booking.meetup.address}</>
                           ) : (
                             <><strong>{booking.meetup.areaLabel}</strong> — exact public venue pending owner confirmation</>

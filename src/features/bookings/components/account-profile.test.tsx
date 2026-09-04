@@ -9,7 +9,7 @@ describe("account profile onboarding", () => {
   it("renders profile completion directly on an empty renter account", () => {
     const markup = renderToStaticMarkup(<AccountProfile profile={null} />);
 
-    expect(markup).toContain("Complete your legal name and phone now");
+    expect(markup).toContain("Add your name and phone now");
     expect(markup).toContain('name="legalName"');
     expect(markup).toContain('name="phone"');
     expect(markup).toContain("Save profile");

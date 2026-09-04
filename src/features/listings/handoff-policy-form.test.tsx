@@ -25,13 +25,13 @@ describe("HandoffPolicyForm", () => {
       />,
     );
 
-    expect(markup).toContain("Private routing origin");
-    expect(markup).toContain("Legacy city-only origin: Cebu City");
+    expect(markup).toContain("Pickup area");
+    expect(markup).toContain("Saved area: Cebu City");
     expect(markup).not.toContain("Legacy routing city");
     expect(markup).not.toContain("Public place or address");
-    expect(markup).toContain("Philippine-time handoffs");
+    expect(markup).toContain("Available days and times");
     expect(markup).toContain("Asia/Manila (UTC+08:00)");
-    expect(markup).toContain("Save handoff policy");
+    expect(markup).toContain("Save availability");
     expect(markup).toContain('name="expectedVersion" value="2"');
     expect(markup).toContain('name="weekdays"');
     expect(markup).not.toContain('autoComplete="address-level2"');
@@ -40,7 +40,7 @@ describe("HandoffPolicyForm", () => {
     expect(markup).not.toContain('name="longitude"');
     expect(markup).not.toContain("Origin precision");
     expect(markup).not.toContain("Private device position");
-    expect(markup).toMatch(/disabled="" type="submit">Save handoff policy/);
+    expect(markup).toMatch(/disabled="" type="submit">Save availability/);
   });
 
   it("requires a private routing origin when no location is configured", () => {
@@ -64,10 +64,10 @@ describe("HandoffPolicyForm", () => {
     );
 
     expect(getCurrentPosition).not.toHaveBeenCalled();
-    expect(markup).toContain("Legacy city-only origin: not configured");
+    expect(markup).toContain("Pickup area");
     expect(markup).not.toContain('name="cityReference"');
     expect(markup).toContain('disabled=""');
-    expect(markup).toMatch(/Save handoff policy<\/button>/);
+    expect(markup).toMatch(/Save availability<\/button>/);
     vi.unstubAllGlobals();
   });
 
@@ -108,7 +108,7 @@ describe("HandoffPolicyForm", () => {
     expect(markup).not.toContain("Use device position");
     expect(markup).not.toContain("Legacy routing city");
     expect(markup).not.toContain("Public place or address");
-    expect(markup).toContain("Save handoff policy");
+    expect(markup).toContain("Save availability");
   });
 
 });

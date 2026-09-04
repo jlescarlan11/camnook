@@ -69,6 +69,14 @@ export function ScheduleQuoteForm({
   const formRef = useRef<HTMLFormElement>(null);
   const lastAutoQuoteKey = useRef("");
   const autoQuoteKey = `${cameraId}|${policy?.version ?? 0}|${pickupDate}|${returnDate}|${handoffTime}`;
+  const validHandoffTimes = useMemo(() => {
+    if (!policy || !pickupDate || !returnDate) return [];
+    return policy.approvedTimes.filter((time) => {
+      const pickup = endpointStatus({ allowedWeekdays: policy.allowedWeekdays, availability, date: pickupDate, role: "pickup", time });
+      const returning = endpointStatus({ allowedWeekdays: policy.allowedWeekdays, availability, date: returnDate, role: "return", selectedPickup: pickupDate, time });
+      return !pickup.disabled && !returning.disabled && !periodOverlapsAvailability(pickupDate, returnDate, time, availability);
+    });
+  }, [availability, pickupDate, policy, returnDate]);
 
   useEffect(() => {
     if (!pickupDate || !returnDate || !handoffTime || pending || lastAutoQuoteKey.current === autoQuoteKey) return;
@@ -181,17 +189,16 @@ export function ScheduleQuoteForm({
       setPickupDate(date);
       setReturnDate("");
     }
+    setHandoffTime("");
     markEdited();
   }
 
   return (
     <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-      <h2 className="text-2xl font-semibold tracking-tight">Choose rental dates</h2>
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Step 2 of 4</p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight">Choose your schedule</h2>
       <p className="mt-2 text-sm leading-6 text-stone-600">
-        Choose pickup and return dates. If more than one lender-approved handoff
-        time is available, choose one before the quote refreshes.
-        The same Philippine time applies to both endpoints. A quote or request
-        does not reserve the camera.
+        Choose dates first, then one of the handoff times available for that range. Your total updates automatically. A quote does not reserve the camera.
       </p>
 
       <form action={formAction} className="mt-6 space-y-6" ref={formRef}>
@@ -201,46 +208,8 @@ export function ScheduleQuoteForm({
         <input name="policyVersion" type="hidden" value={activePolicy.version} />
         <input name="returnDate" type="hidden" value={returnDate} />
 
-        <div>
-          <label className="block text-sm font-medium" htmlFor="handoff-time">
-            Handoff time — Asia/Manila
-          </label>
-          <select
-            aria-describedby={
-              state.fieldErrors?.handoffTime
-                ? "handoff-time-error"
-                : "handoff-time-help"
-            }
-            aria-invalid={Boolean(state.fieldErrors?.handoffTime)}
-            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100"
-            id="handoff-time"
-            name="handoffTime"
-            onChange={(event) => {
-              setHandoffTime(event.target.value);
-              markEdited();
-            }}
-            required
-            value={handoffTime}
-          >
-            <option value="">Choose an approved time</option>
-            {activePolicy.approvedTimes.map((time) => (
-              <option key={time} value={time}>
-                {formatHandoffTime(time)}
-              </option>
-            ))}
-          </select>
-          <p className="mt-2 text-xs leading-5 text-stone-500" id="handoff-time-help">
-            Times never shift with your device timezone.
-          </p>
-          {state.fieldErrors?.handoffTime ? (
-            <p className="mt-2 text-sm text-red-700" id="handoff-time-error" role="alert">
-              {state.fieldErrors.handoffTime}
-            </p>
-          ) : null}
-        </div>
-
         <fieldset aria-describedby="calendar-help overlap-error">
-          <legend className="text-sm font-semibold">Rental date range</legend>
+          <legend className="text-base font-semibold">1. Choose dates</legend>
           <p className="mt-1 text-xs leading-5 text-stone-500" id="calendar-help">
             {!handoffTime
               ? "Choose pickup and return dates, then select a handoff time."
@@ -346,6 +315,24 @@ export function ScheduleQuoteForm({
           </div>
         </fieldset>
 
+        <div>
+          <label className="block text-base font-semibold" htmlFor="handoff-time">2. Choose handoff time</label>
+          <select
+            aria-describedby="handoff-time-help"
+            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100 disabled:bg-stone-100"
+            disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0}
+            id="handoff-time"
+            name="handoffTime"
+            onChange={(event) => { setHandoffTime(event.target.value); markEdited(); }}
+            required
+            value={handoffTime}
+          >
+            <option value="">{pickupDate && returnDate ? "Choose a time" : "Choose dates first"}</option>
+            {validHandoffTimes.map((time) => <option key={time} value={time}>{formatHandoffTime(time)}</option>)}
+          </select>
+          <p className="mt-2 text-xs leading-5 text-stone-500" id="handoff-time-help">Only times valid for both pickup and return are shown.</p>
+        </div>
+
         <div className="rounded-xl bg-stone-50 p-4 text-sm">
           <h3 className="font-semibold">Selected schedule</h3>
           <dl className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -375,11 +362,13 @@ export function ScheduleQuoteForm({
         ) : null}
 
         <button
-          className="min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-hidden="true"
+          className="sr-only"
+          tabIndex={-1}
           disabled={!complete || presentation.disableQuoteSubmit}
           type="submit"
         >
-          {pending ? "Refreshing quote…" : state.status === "error" ? "Retry quote" : "Refresh quote"}
+          Calculate quote
         </button>
       </form>
 
@@ -395,27 +384,21 @@ export function ScheduleQuoteForm({
 
       {presentation.quote ? (
         <section aria-labelledby="schedule-quote-heading" className="mt-6 border-t border-stone-200 pt-6">
-          <h3 className="text-xl font-semibold" id="schedule-quote-heading">
-            Estimated rental
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
-            This estimate does not reserve inventory. The current handoff policy
-            and availability are checked again when you submit the request.
-          </p>
+          <h3 className="text-xl font-semibold" id="schedule-quote-heading">Your total</h3>
           <dl className="mt-5 grid gap-3 sm:grid-cols-2">
             <QuoteValue label="Pickup" value={formatManilaDateTime(presentation.quote.pickupAt)} />
             <QuoteValue label="Return" value={formatManilaDateTime(presentation.quote.returnAt)} />
             <QuoteValue label="Billable days" value={String(presentation.quote.billableDays)} />
-            <QuoteValue label="Rental amount" value={phpFormatter.format(presentation.quote.rentalAmount)} />
-            <QuoteValue label="Security deposit" value={phpFormatter.format(presentation.quote.securityDeposit)} />
-            <QuoteValue label="Total due" value={phpFormatter.format(presentation.quote.totalDue)} />
+            <QuoteValue label="Rental subtotal" value={phpFormatter.format(presentation.quote.rentalAmount)} />
+            <QuoteValue label="Deposit" value={phpFormatter.format(presentation.quote.securityDeposit)} />
+            <QuoteValue label="Total" value={phpFormatter.format(presentation.quote.totalDue)} />
           </dl>
           {presentation.canContinue ? (
             <Link
               className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 transition hover:bg-amber-400 focus:outline-none focus:ring-4 focus:ring-amber-200"
               href={`/account/bookings/new?${requestQuery}`}
             >
-              Continue to request
+              Continue
             </Link>
           ) : null}
         </section>

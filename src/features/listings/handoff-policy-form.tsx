@@ -46,11 +46,10 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
           aria-describedby={saveState.fieldErrors?.city ? "origin-error" : undefined}
           className="rounded-2xl border border-stone-200 p-5"
         >
-          <h2 className="text-lg font-semibold">Private routing origin</h2>
+          <h2 className="text-lg font-semibold">Pickup area</h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            Choose the barangay where this camera is normally handed off. CamNook
-            uses its center to compare nearby public meetup venues; no street or
-            home address is stored.
+            Choose the general area where you can hand off this camera. No street
+            or home address is stored.
           </p>
           <div className="mt-4">
             <PsgcAreaSelector
@@ -67,16 +66,16 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
               <p className="mt-3 text-sm text-stone-600">Saved area: {policy.canonicalAnchor.areaName}.</p>
             ) : (
               <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
-                Saved origin: {policy.canonicalAnchor.areaName}. Its PSGC reference is no longer current, so meetup recommendations are blocked until you select and save a current area.
+                Saved area: {policy.canonicalAnchor.areaName}. Choose the area again before making this camera available.
               </p>
             )
-          ) : <p className="mt-3 text-sm text-amber-900">Legacy city-only origin: {policy.cityLabel || "not configured"}. Select a barangay and save to replace it.</p>}
+          ) : policy.cityLabel ? <p className="mt-3 text-sm text-stone-600">Saved area: {policy.cityLabel}.</p> : null}
           <FieldError id="origin-error" message={saveState.fieldErrors?.city} />
         </section>
 
         <fieldset className="rounded-2xl border border-stone-200 p-5">
           <legend className="px-2 text-lg font-semibold">
-            Philippine-time handoffs
+            Available days and times
           </legend>
           <p className="text-sm text-stone-600">
             Timezone: Asia/Manila (UTC+08:00)
@@ -106,7 +105,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
             className="mt-5 block text-sm font-medium"
             htmlFor="approvedTimes"
           >
-            Approved handoff times
+            Handoff times
           </label>
           <textarea
             aria-describedby={
@@ -138,10 +137,9 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
               type="checkbox"
             />
             <span>
-              <span className="block font-medium">Enable this handoff policy</span>
+              <span className="block font-medium">Make these times available to renters</span>
               <span className="mt-1 block text-sm text-stone-600">
-                Enabled schedules can be published to renters after the dependent
-                calendar feature is activated.
+                Renters can choose only these days and times.
               </span>
             </span>
           </label>
@@ -154,11 +152,11 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
             role={saveState.status === "success" ? "status" : "alert"}
           >
             {saveState.status === "success"
-              ? `Handoff policy version ${saveState.version} saved for ${saveState.cityLabel}. Reloaded views will use this authoritative version.`
+              ? `Availability saved for ${saveState.cityLabel}.`
               : saveState.error === "stale"
                 ? "Another save changed this policy. Reload before applying your changes."
                 : saveState.error === "unauthorized"
-                  ? "Your administrator authorization could not be verified."
+                  ? "Your owner access could not be verified."
                   : saveState.error === "invalid_input"
                     ? "Correct the highlighted fields and try again."
                     : "The policy could not be saved. No partial settings were applied."}
@@ -170,7 +168,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
           disabled={savePending || !canSave}
           type="submit"
         >
-          {savePending ? "Saving policy…" : "Save handoff policy"}
+        {savePending ? "Saving availability…" : "Save availability"}
         </button>
       </form>
     </div>

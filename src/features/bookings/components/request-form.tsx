@@ -1,585 +1,127 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState, type ReactNode } from "react";
 
 import { requestBooking } from "@/features/bookings/actions/request-booking";
 import { initialRequestBookingActionState } from "@/features/bookings/form-state";
-import {
-  recommendMeetup,
-  type RecommendMeetupState,
-} from "@/features/meetups/actions/recommend-meetup";
-import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
-export function recommendationBatchKey(
-  recommendations: readonly { reference: string }[],
-  canonicalArea?: { reference: string },
-) {
-  return [...recommendations.map((recommendation) => recommendation.reference), canonicalArea?.reference]
-    .filter(Boolean)
-    .join("\u001f");
-}
+type Schedule = { handoffTime: string; pickupDate: string; policyVersion: string; returnDate: string };
+type ReviewSummary = {
+  cameraName: string;
+  dates: string;
+  handoffTime: string;
+  rentalAmount: string;
+  securityDeposit: string;
+  totalDue: string;
+};
 
 export function RequestForm({
   camera,
-  pickup,
-  returnValue,
+  profile,
   returnHref,
   schedule,
-  savedOrigin,
+  summary,
 }: {
   camera: string;
-  pickup: string;
-  returnValue: string;
+  profile?: null | { legalName: string; phone: string };
   returnHref?: string;
-  schedule?: {
-    handoffTime: string;
-    pickupDate: string;
-    policyVersion: string;
-    returnDate: string;
-  };
-  savedOrigin?: null | { areaName: string; precision: string; valid: boolean };
+  schedule: Schedule;
+  summary: ReviewSummary;
 }) {
-  const [intendedUse, setIntendedUse] = useState("");
-  const [requestOperationId] = useState(() => crypto.randomUUID());
-  const [expectedLocation, setExpectedLocation] = useState("");
-  const [manualCity, setManualCity] = useState("");
-  const [selectedReference, setSelectedReference] = useState<string | null>(null);
-  const [confirmedReference, setConfirmedReference] = useState<string | null>(null);
-  const [expandedRecommendationBatch, setExpandedRecommendationBatch] = useState<string | null>(null);
-  const [invalidatedRecommendationBatch, setInvalidatedRecommendationBatch] = useState<string | null>(null);
-  const firstAdditionalOptionRef = useRef<HTMLInputElement>(null);
-  const [expiredRecommendationBatch, setExpiredRecommendationBatch] = useState<
-    string | null
-  >(null);
-  const [locationStatus, setLocationStatus] = useState<
-    "idle" | "locating" | "denied" | "unavailable"
-  >("idle");
-  const [recommendationState, recommendationAction, recommendationPending] =
-    useActionState<RecommendMeetupState, FormData>(recommendMeetup, {
-      status: "idle",
-    });
-  const [state, formAction, pending] = useActionState(
-    requestBooking,
-    initialRequestBookingActionState,
-  );
-  const meetupRequired = Boolean(schedule);
-  const receivedRecommendations = recommendationState.recommendations ?? [];
-  const receivedCanonicalArea = recommendationState.canonicalArea;
-  const receivedRecommendationBatch = recommendationBatchKey(
-    receivedRecommendations,
-    receivedCanonicalArea,
-  );
-  const recommendations =
-    receivedRecommendationBatch &&
-    receivedRecommendationBatch !== invalidatedRecommendationBatch
-      ? receivedRecommendations
-      : [];
-  const canonicalArea =
-    receivedRecommendationBatch &&
-    receivedRecommendationBatch !== invalidatedRecommendationBatch
-      ? receivedCanonicalArea
-      : undefined;
-  const recommendationExpiry =
-    recommendations[0]?.expiresAt ?? canonicalArea?.expiresAt ?? null;
-  const recommendationsExpired =
-    recommendationExpiry !== null &&
-    expiredRecommendationBatch === recommendationExpiry;
-  const recommendationsExpanded = Boolean(recommendationExpiry) && expandedRecommendationBatch === recommendationExpiry;
-  const visibleRecommendations = recommendationsExpanded
-    ? recommendations
-    : recommendations.slice(0, 3);
-  const hiddenRecommendationCount = Math.max(0, recommendations.length - 3);
-  const selectedRecommendation = recommendations.find(
-    (recommendation) => recommendation.reference === selectedReference,
-  );
-  const selectedCanonicalArea =
-    canonicalArea?.reference === selectedReference ? canonicalArea : undefined;
-  const selectedMeetupReference =
-    selectedRecommendation?.reference ?? selectedCanonicalArea?.reference;
-  const meetupConfirmed =
-    Boolean(selectedMeetupReference) &&
-    confirmedReference === selectedMeetupReference;
+  const [state, formAction, pending] = useActionState(requestBooking, initialRequestBookingActionState);
+  const [reviewing, setReviewing] = useState(false);
+  const [operationId] = useState(() => crypto.randomUUID());
+  const [values, setValues] = useState({
+    expectedLocation: state.values?.expectedLocation ?? "",
+    intendedUse: state.values?.intendedUse ?? "",
+    legalName: state.values?.legalName ?? profile?.legalName ?? "",
+    phone: state.values?.phone ?? profile?.phone ?? "",
+    preferredMeetupArea: state.values?.preferredMeetupArea ?? "",
+  });
+  const formRef = useRef<HTMLFormElement>(null);
 
-  useEffect(() => {
-    if (!recommendationExpiry) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setExpiredRecommendationBatch(recommendationExpiry);
-      setSelectedReference(null);
-      setConfirmedReference(null);
-      setExpandedRecommendationBatch(null);
-    }, Math.max(0, Date.parse(recommendationExpiry) - Date.now()));
-
-    return () => window.clearTimeout(timeout);
-  }, [recommendationExpiry]);
-
-  function scheduleFields(formData: FormData) {
-    formData.set("camera", camera);
-    if (schedule) {
-      formData.set("handoffTime", schedule.handoffTime);
-      formData.set("pickupDate", schedule.pickupDate);
-      formData.set("policyVersion", schedule.policyVersion);
-      formData.set("returnDate", schedule.returnDate);
-    }
-    return formData;
-  }
-
-  function invalidateRecommendations() {
-    setInvalidatedRecommendationBatch(receivedRecommendationBatch || null);
-    setSelectedReference(null);
-    setConfirmedReference(null);
-    setExpandedRecommendationBatch(null);
-  }
-
-  function useCurrentCity() {
-    invalidateRecommendations();
-    if (!navigator.geolocation) {
-      setLocationStatus("unavailable");
-      return;
-    }
-    setLocationStatus("locating");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const formData = scheduleFields(new FormData());
-        formData.set("locationMode", "current");
-        formData.set("accuracy", String(position.coords.accuracy));
-        formData.set("latitude", String(position.coords.latitude));
-        formData.set("longitude", String(position.coords.longitude));
-        setLocationStatus("idle");
-        startTransition(() => recommendationAction(formData));
-      },
-      (error) => {
-        setLocationStatus(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable");
-      },
-      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
-    );
-  }
-
-  function recommendFromManualCity(formData: FormData) {
-    invalidateRecommendations();
-    startTransition(() => recommendationAction(formData));
-  }
-
-  function recommendFromSavedOrigin() {
-    if (!schedule || !savedOrigin?.valid) return;
-    invalidateRecommendations();
-    const formData = scheduleFields(new FormData());
-    formData.set("locationMode", "saved");
-    startTransition(() => recommendationAction(formData));
+  function update(name: keyof typeof values, value: string) {
+    setValues((current) => ({ ...current, [name]: value }));
   }
 
   return (
-    <div className="mt-6 space-y-6">
-      {meetupRequired && schedule ? (
-        <section
-          aria-busy={recommendationPending}
-          aria-labelledby="meetup-heading"
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-5"
-        >
-          <h3 className="text-lg font-semibold" id="meetup-heading">
-            Where should we meet?
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
-            Confirm your saved area or choose another Philippine area. Public
-            venue suggestions are optional; if they are unavailable, your area
-            is enough to submit and the owner will confirm a staffed public
-            venue before handoff.
-          </p>
-          {savedOrigin ? (
-            <div className={`mt-4 rounded-xl border p-4 ${savedOrigin.valid ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
-              <p className="font-semibold">Saved default: {savedOrigin.areaName}</p>
-              <p className="mt-1 text-sm text-stone-700">{savedOrigin.precision.replaceAll("_", " ")}. {savedOrigin.valid ? "Confirm it before recommendations are requested." : "This PSGC reference needs review and cannot be used."}</p>
-              {savedOrigin.valid ? <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} onClick={recommendFromSavedOrigin} type="button">Use this location</button> : null}
-            </div>
-          ) : null}
-          <details className="mt-4 rounded-xl border border-stone-200 bg-white p-4">
-            <summary className="min-h-11 cursor-pointer font-semibold">
-              Find a specific public venue
-            </summary>
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              With your permission, CamNook temporarily sends your position to
-              Geoapify and Mapbox. It is not saved with the booking.
-            </p>
-            <button
-              className="mt-3 min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:opacity-60"
-              disabled={locationStatus === "locating" || recommendationPending}
-              onClick={useCurrentCity}
-              type="button"
-            >
-              {locationStatus === "locating" || recommendationPending
-                ? "Finding public meetup options…"
-                : "Use my location to suggest places"}
-            </button>
-          <span aria-live="polite" className="sr-only">
-            {recommendationPending
-              ? "Finding public meetup options."
-              : recommendationsExpired
-                ? "The meetup suggestions expired. Generate new suggestions."
-                : recommendations.length
-                  ? `${recommendations.length} public meetup options are ready.`
-                  : ""}
-          </span>
-            {locationStatus === "denied" || locationStatus === "unavailable" ? (
-            <p className="mt-3 text-sm text-amber-900" role="status">
-              {locationStatus === "denied"
-                ? "Location permission was denied. Enter your city or municipality below."
-                : "Your current city could not be detected. Enter it below instead."}
-            </p>
-            ) : null}
-
-            <form action={recommendFromManualCity} className="mt-5 border-t border-stone-200 pt-5">
-            <input name="camera" type="hidden" value={camera} />
-            <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
-            <input name="locationMode" type="hidden" value="manual" />
-            <input name="pickupDate" type="hidden" value={schedule.pickupDate} />
-            <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
-            <input name="returnDate" type="hidden" value={schedule.returnDate} />
-            <label className="block text-sm font-medium" htmlFor="manualCity">
-              City or municipality fallback
-            </label>
-            <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-              <input
-                autoComplete="address-level2"
-                className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 px-4 py-2"
-                disabled={locationStatus === "locating" || recommendationPending}
-                id="manualCity"
-                maxLength={80}
-                name="manualCity"
-                onChange={(event) => {
-                  setManualCity(event.target.value);
-                  invalidateRecommendations();
-                }}
-                pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+"
-                placeholder="e.g. Mandaue City"
-                required
-                value={manualCity}
-              />
-              <button
-                className="min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60"
-                disabled={locationStatus === "locating" || recommendationPending}
-                type="submit"
-              >
-                Suggest up to 5 places from city
-              </button>
-            </div>
-            </form>
-          </details>
-
-          <details className="mt-4 rounded-xl border border-stone-200 bg-white p-4" open={!savedOrigin}>
-            <summary className="min-h-11 cursor-pointer font-semibold">
-              Choose a Philippine area manually
-            </summary>
-          <form action={recommendFromManualCity} className="mt-3">
-            <input name="camera" type="hidden" value={camera} />
-            <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
-            <input name="locationMode" type="hidden" value="canonical" />
-            <input name="pickupDate" type="hidden" value={schedule.pickupDate} />
-            <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
-            <input name="returnDate" type="hidden" value={schedule.returnDate} />
-            <PsgcAreaSelector initialPath={canonicalArea?.path} onSelectionChange={() => {
-              invalidateRecommendations();
-            }} />
-            <button className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={recommendationPending} type="submit">Confirm this area</button>
-            <p className="mt-2 text-xs leading-5 text-stone-600">This one-time area does not replace your account default.</p>
-          </form>
-          </details>
-
-          {recommendationState.error ? (
-            <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-              {recommendationState.error === "invalid_city"
-                ? "Enter a valid Philippine city or municipality, not a street or residential address."
-                : recommendationState.error === "invalid_location"
-                  ? "The detected position was not accurate enough to identify a city. Use the city fallback."
-                  : recommendationState.error === "schedule_changed"
-                    ? "The schedule changed or became unavailable. Return to the listing and choose again."
-                    : recommendationState.error === "authentication"
-                      ? "Your session expired. Sign in again before requesting a meetup."
-                      : recommendationState.error === "configuration"
-                        ? "Public venue suggestions are not configured right now. Choose or confirm a Philippine area instead."
-                        : recommendationState.error === "rate_limited"
-                          ? "Place suggestions are busy right now. Wait a moment, then try again, or confirm a Philippine area instead."
-                          : recommendationState.error === "no_eligible_places"
-                            ? "No reviewed public venues were found for this area. Choose or confirm a Philippine area instead."
-                            : "The place provider could not be reached. Try again, or choose a Philippine area instead."}
-            </p>
-          ) : null}
-
-          {recommendationState.warning && canonicalArea ? (
-            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
-              {recommendationState.warning === "configuration"
-                ? "Public venue suggestions are not configured right now."
-                : recommendationState.warning === "rate_limited"
-                  ? "Place suggestions are busy right now. You can retry shortly."
-                  : recommendationState.warning === "no_eligible_places"
-                    ? "No reviewed public venues were found for this area."
-                    : "The place provider could not be reached right now."}{" "}
-              Your selected area is still usable; the owner will confirm the venue
-              before handoff.
-            </p>
-          ) : null}
-
-          {canonicalArea ? (
-            <label className="mt-5 flex cursor-pointer gap-3 rounded-xl border border-stone-200 bg-white p-4 has-checked:border-stone-950 has-checked:ring-2 has-checked:ring-stone-200">
-              <input
-                checked={selectedReference === canonicalArea.reference}
-                className="mt-1 h-5 w-5"
-                disabled={recommendationsExpired}
-                name="meetupOption"
-                onChange={() => {
-                  setSelectedReference(canonicalArea.reference);
-                  setConfirmedReference(null);
-                }}
-                type="radio"
-                value={canonicalArea.reference}
-              />
-              <span className="min-w-0 text-sm leading-6">
-                <span className="block font-semibold">Use {canonicalArea.areaLabel}</span>
-                <span className="block text-stone-700">
-                  Public venue pending owner confirmation. No residential address
-                  or device coordinates will be stored.
-                </span>
-              </span>
-            </label>
-          ) : null}
-
-          {recommendations.length ? (
-            <div className="mt-5">
-              {recommendationsExpired ? (
-                <p
-                  className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
-                  role="status"
-                >
-                  These meetup suggestions expired. Generate new suggestions before
-                  submitting.
-                </p>
-              ) : null}
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
-                <p>
-                  Owner handoff origin: <strong>{recommendations[0].ownerCity}</strong>
-                </p>
-                <p>
-                  Your confirmed city: <strong>{recommendations[0].renterCity}</strong>
-                </p>
-              </div>
-              <fieldset className="mt-4 space-y-3">
-                <legend className="font-semibold">Choose a public meetup place</legend>
-                <p className="mt-1 text-xs leading-5 text-stone-600">
-                  {recommendations[0].routeMode === "balanced"
-                    ? "Ranked to balance advisory driving time for both people. "
-                    : "Routing is temporarily unavailable, so these options use Geoapify’s deterministic public-place ranking without travel-time claims. "}
-                  Suggestions favor familiar, busy public venue types such as
-                  malls, fast-food restaurants, universities, and police stations.
-                  Crowd levels and safety are not verified live, so meet during
-                  operating hours in a staffed, visible area.
-                </p>
-                <div className="space-y-3" id="additional-meetup-options">
-                {visibleRecommendations.map((recommendation, index) => (
-                  <label
-                    className="flex cursor-pointer gap-3 rounded-xl border border-stone-200 bg-white p-4 has-checked:border-stone-950 has-checked:ring-2 has-checked:ring-stone-200"
-                    key={recommendation.reference}
-                  >
-                    <input
-                      checked={selectedReference === recommendation.reference}
-                      className="mt-1 h-5 w-5"
-                      disabled={recommendationsExpired}
-                      name="meetupOption"
-                      onChange={() => {
-                        setSelectedReference(recommendation.reference);
-                        setConfirmedReference(null);
-                      }}
-                      ref={index === 3 ? firstAdditionalOptionRef : undefined}
-                      type="radio"
-                      value={recommendation.reference}
-                    />
-                    <span className="min-w-0">
-                      <span className="block font-semibold">
-                        {recommendation.name}
-                      </span>
-                      <span className="mt-1 block break-words text-sm leading-6 text-stone-700">
-                        {recommendation.address}
-                      </span>
-                      {recommendation.renterTravelMinutes !== null &&
-                      recommendation.ownerTravelMinutes !== null ? (
-                        <span className="mt-2 block text-xs text-stone-600">
-                          {recommendation.routeEstimateApproximate ? "Approx. " : "About "}
-                          {recommendation.renterTravelMinutes} min from you · {recommendation.ownerTravelMinutes} min from owner
-                        </span>
-                      ) : (
-                        <span className="mt-2 block text-xs text-stone-600">
-                          Travel times unavailable; this option is not route-ranked.
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                ))}
-                </div>
-                {hiddenRecommendationCount > 0 && !recommendationsExpanded ? (
-                  <button
-                    aria-controls="additional-meetup-options"
-                    aria-expanded="false"
-                    className="mt-3 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold"
-                    onClick={() => {
-                      setExpandedRecommendationBatch(recommendationExpiry);
-                      window.requestAnimationFrame(() => firstAdditionalOptionRef.current?.focus());
-                    }}
-                    type="button"
-                  >
-                    Show {hiddenRecommendationCount} more
-                  </button>
-                ) : null}
-              </fieldset>
-              <p className="mt-3 text-xs text-stone-600">
-                {recommendations[0].attribution} · Suggestions expire at {recommendations[0].expiresAt}.
-              </p>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
-      <form action={formAction} className="space-y-5">
-      <input name="operationId" type="hidden" value={requestOperationId} />
+    <form action={formAction} className="space-y-6" ref={formRef}>
+      <input name="operationId" type="hidden" value={operationId} />
       <input name="camera" type="hidden" value={camera} />
-      <input name="pickup" type="hidden" value={pickup} />
-      <input name="return" type="hidden" value={returnValue} />
-      {schedule ? (
-        <>
-          <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
-          <input name="pickupDate" type="hidden" value={schedule.pickupDate} />
-          <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
-          <input name="returnDate" type="hidden" value={schedule.returnDate} />
-        </>
-      ) : null}
-      {meetupRequired ? (
-        <>
-          <input
-            name="meetupConfirmed"
-            type="hidden"
-            value={meetupConfirmed ? "true" : "false"}
-          />
-          <input
-            name="meetupReference"
-            type="hidden"
-            value={selectedMeetupReference ?? ""}
-          />
-        </>
-      ) : null}
-      <div>
-        <label className="block text-sm font-medium" htmlFor="intendedUse">
-          Intended use
-        </label>
-        <textarea
-          aria-describedby={state.fieldErrors?.intendedUse ? "intended-use-error" : undefined}
-          aria-invalid={Boolean(state.fieldErrors?.intendedUse)}
-          className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100"
-          id="intendedUse"
-          maxLength={1000}
-          name="intendedUse"
-          onChange={(event) => setIntendedUse(event.target.value)}
-          required
-          value={intendedUse}
-        />
-        {state.fieldErrors?.intendedUse ? (
-          <p className="mt-2 text-sm text-red-700" id="intended-use-error" role="alert">
-            {state.fieldErrors.intendedUse}
+      <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
+      <input name="pickupDate" type="hidden" value={schedule.pickupDate} />
+      <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
+      <input name="returnDate" type="hidden" value={schedule.returnDate} />
+
+      {!reviewing ? (
+        <section aria-labelledby="details-heading">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Step 3 of 4</p>
+          <h2 className="mt-2 text-2xl font-semibold" id="details-heading">Your details</h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            We’ll save your name and phone for next time. The exact public meetup location is arranged only after approval.
           </p>
-        ) : null}
-      </div>
-      {meetupRequired && (selectedRecommendation || selectedCanonicalArea) ? (
-        <label className="flex min-h-11 items-start gap-3 rounded-xl border border-stone-200 p-4">
-          <input
-            checked={meetupConfirmed}
-            className="mt-1 h-5 w-5"
-            onChange={(event) =>
-              setConfirmedReference(
-                event.target.checked ? selectedMeetupReference ?? null : null,
-              )
-            }
-            type="checkbox"
-          />
-          <span className="text-sm leading-6">
-            {selectedRecommendation
-              ? `I confirm ${selectedRecommendation.renterCity} as my city and reviewed ${selectedRecommendation.name} as the planned pickup and return meetup spot.`
-              : `I confirm ${selectedCanonicalArea?.areaLabel} as my meetup area. I understand the owner must confirm the public venue before handoff.`}
-          </span>
-        </label>
-      ) : null}
-      <div>
-        <label className="block text-sm font-medium" htmlFor="expectedLocation">
-          Expected shooting location
-        </label>
-        <input
-          aria-describedby={state.fieldErrors?.expectedLocation ? "expected-location-error" : undefined}
-          aria-invalid={Boolean(state.fieldErrors?.expectedLocation)}
-          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100"
-          id="expectedLocation"
-          maxLength={500}
-          name="expectedLocation"
-          onChange={(event) => setExpectedLocation(event.target.value)}
-          required
-          value={expectedLocation}
-        />
-        {state.fieldErrors?.expectedLocation ? (
-          <p className="mt-2 text-sm text-red-700" id="expected-location-error" role="alert">
-            {state.fieldErrors.expectedLocation}
-          </p>
-        ) : null}
-      </div>
-      {state.error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800" role="alert">
-          <p>
-            {state.error === "profile_required"
-              ? "Complete your profile before submitting this request."
-              : state.error === "suspended"
-                ? "This account is suspended and cannot submit requests. Contact CamNook for help."
-                : state.error === "request_failed"
-                  ? "We couldn’t confirm the request response. Check your account for a persisted request before retrying."
-                  : state.error === "request_limit"
-                    ? "You already have 10 requests awaiting review. Wait for CamNook to decide one before submitting another."
-                  : state.error === "schedule_changed"
-                    ? "The lender’s handoff schedule changed. Return to the listing and choose again."
-                    : state.error === "unavailable"
-                      ? "Those dates are no longer available. Return to the listing and choose another range."
-                      : state.error === "meetup_expired"
-                        ? "The meetup recommendation expired or no longer matches this request. Generate and confirm a new recommendation."
-                        : state.error === "meetup_required"
-                        ? "Choose and confirm a meetup area or public venue before submitting."
-                  : "Correct the highlighted fields and try again."}
-          </p>
-          {state.error === "request_failed" ? (
-            <Link className="mt-2 inline-block font-semibold underline" href="/account">
-              Check your account
-            </Link>
-          ) : state.error === "schedule_changed" || state.error === "unavailable" ? (
-            <Link
-              className="mt-2 inline-block font-semibold underline"
-              href={returnHref ?? "/"}
-            >
-              Choose a new schedule
-            </Link>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            <Field label="Name" error={state.fieldErrors?.legalName}>
+              <input autoComplete="name" className={inputClass} maxLength={160} name="legalName" onChange={(event) => update("legalName", event.target.value)} required value={values.legalName} />
+            </Field>
+            <Field label="Phone" error={state.fieldErrors?.phone}>
+              <input autoComplete="tel" className={inputClass} maxLength={32} minLength={7} name="phone" onChange={(event) => update("phone", event.target.value)} required type="tel" value={values.phone} />
+            </Field>
+          </div>
+          <div className="mt-5 space-y-5">
+            <Field label="Preferred meetup area" error={state.fieldErrors?.preferredMeetupArea} help="We’ll arrange the exact public meetup location after your request is approved.">
+              <input autoComplete="address-level2" className={inputClass} maxLength={160} name="preferredMeetupArea" onChange={(event) => update("preferredMeetupArea", event.target.value)} placeholder="e.g. IT Park, Cebu City" required value={values.preferredMeetupArea} />
+            </Field>
+            <Field label="Purpose" error={state.fieldErrors?.intendedUse}>
+              <textarea className={`${inputClass} min-h-28`} maxLength={1000} name="intendedUse" onChange={(event) => update("intendedUse", event.target.value)} placeholder="Tell the owner what you plan to shoot" required value={values.intendedUse} />
+            </Field>
+            <Field label="Shooting city" error={state.fieldErrors?.expectedLocation}>
+              <input autoComplete="address-level2" className={inputClass} maxLength={500} name="expectedLocation" onChange={(event) => update("expectedLocation", event.target.value)} placeholder="e.g. Cebu City" required value={values.expectedLocation} />
+            </Field>
+          </div>
+          <button className="mt-7 min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white" onClick={() => {
+            if (formRef.current?.reportValidity()) setReviewing(true);
+          }} type="button">Continue to review</button>
+        </section>
+      ) : (
+        <section aria-labelledby="review-heading">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Step 4 of 4</p>
+          <h2 className="mt-2 text-2xl font-semibold" id="review-heading">Review &amp; request</h2>
+          <dl className="mt-6 grid gap-3 sm:grid-cols-2">
+            <ReviewValue label="Camera" value={summary.cameraName} />
+            <ReviewValue label="Dates" value={summary.dates} />
+            <ReviewValue label="Handoff time" value={summary.handoffTime} />
+            <ReviewValue label="Rental subtotal" value={summary.rentalAmount} />
+            <ReviewValue label="Deposit" value={summary.securityDeposit} />
+            <ReviewValue label="Total" value={summary.totalDue} />
+            <ReviewValue label="Preferred meetup area" value={values.preferredMeetupArea} />
+            <ReviewValue label="Name" value={values.legalName} />
+            <ReviewValue label="Phone" value={values.phone} />
+            <ReviewValue label="Purpose" value={values.intendedUse} />
+            <ReviewValue label="Shooting city" value={values.expectedLocation} />
+          </dl>
+          <button className="mt-6 min-h-11 font-semibold text-amber-900 underline" onClick={() => setReviewing(false)} type="button">Edit your details</button>
+          {state.error ? (
+            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800" role="alert">
+              {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? "We couldn’t confirm the request. Check your bookings before retrying." : "Check your details and try again."}
+            </div>
           ) : null}
-        </div>
-      ) : null}
-      <button
-        className="min-h-12 w-full rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-        disabled={
-          pending ||
-          recommendationPending ||
-          (meetupRequired && (!selectedMeetupReference || !meetupConfirmed)) ||
-          recommendationsExpired
-        }
-        type="submit"
-      >
-        {pending ? "Submitting request…" : "Submit booking request"}
-      </button>
-      {pending ? (
-        <span className="sr-only" role="status">
-          Submitting your booking request.
-        </span>
-      ) : null}
-      </form>
-    </div>
+          <button className="mt-6 min-h-12 w-full rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 disabled:opacity-60" disabled={pending} type="submit">
+            {pending ? "Requesting rental…" : "Request rental"}
+          </button>
+        </section>
+      )}
+    </form>
   );
+}
+
+const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100";
+
+function Field({ children, error, help, label }: { children: ReactNode; error?: string; help?: string; label: string }) {
+  return <label className="block text-sm font-medium">{label}{children}{help ? <span className="mt-2 block text-xs font-normal leading-5 text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" role="alert">{error}</span> : null}</label>;
+}
+
+function ReviewValue({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl bg-stone-50 p-4"><dt className="text-sm text-stone-500">{label}</dt><dd className="mt-1 break-words font-semibold">{value}</dd></div>;
 }

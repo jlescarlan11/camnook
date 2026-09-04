@@ -21,7 +21,7 @@ export function ProfileForm({
     <form action={formAction} className="mt-6 space-y-5">
       <div>
         <label className="block text-sm font-medium" htmlFor="legalName">
-          Full legal name
+          Name
         </label>
         <input
           aria-describedby={state.fieldErrors?.legalName ? "legal-name-error" : undefined}

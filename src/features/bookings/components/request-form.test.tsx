@@ -12,35 +12,31 @@ const schedule = {
   returnDate: "2099-08-26",
 };
 
-describe("RequestForm meetup planning", () => {
-  it("does not request browser location on render and blocks submission before confirmation", () => {
-    const getCurrentPosition = vi.fn();
-    vi.stubGlobal("navigator", {
-      geolocation: { getCurrentPosition },
-    });
-
+describe("RequestForm", () => {
+  it("collects only renter details needed for review and defers exact meetup selection", () => {
     const markup = renderToStaticMarkup(
       <RequestForm
         camera="11111111-1111-4111-8111-111111111111"
-        pickup=""
-        returnValue=""
         schedule={schedule}
+        summary={{
+          cameraName: "Canon R50",
+          dates: "Aug 24 – Aug 26",
+          handoffTime: "9:00 AM PHT",
+          rentalAmount: "₱1,500",
+          securityDeposit: "₱3,000",
+          totalDue: "₱4,500",
+        }}
       />,
     );
-
-    expect(getCurrentPosition).not.toHaveBeenCalled();
-    expect(markup).toContain("Use my location to suggest places");
-    expect(markup).toContain("Where should we meet?");
-    expect(markup).toContain("your area is enough to submit");
-    expect(markup).toContain("Geoapify");
-    expect(markup).toContain("Mapbox");
-    expect(markup).toContain("not saved with the booking");
-    expect(markup).toContain("City or municipality fallback");
+    expect(markup).toContain("Your details");
+    expect(markup).toContain("Preferred meetup area");
+    expect(markup).toContain("exact public meetup location");
     expect(markup).toContain('autoComplete="address-level2"');
-    expect(markup).toContain('name="meetupReference"');
-    expect(markup).toMatch(/Submit booking request<\/button>/);
+    expect(markup).toContain('name="legalName"');
+    expect(markup).toContain('name="phone"');
+    expect(markup).toContain("Continue to review");
     expect(markup).not.toContain('name="latitude"');
     expect(markup).not.toContain('name="longitude"');
-    vi.unstubAllGlobals();
+    expect(markup).not.toContain("Geoapify");
   });
 });

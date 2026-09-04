@@ -20,6 +20,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_owner_cameras: { Args: never; Returns: Json }
+      save_camera_draft: { Args: { p_input: Json }; Returns: string }
+      unpublish_camera: { Args: { p_camera_id: string }; Returns: boolean }
+      request_booking_with_preference_idempotent: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_handoff_time: string
+          p_intended_use: string
+          p_operation_id: string
+          p_pickup_date: string
+          p_policy_version: number
+          p_preferred_meetup_area: string
+          p_renter_id: string
+          p_return_date: string
+        }
+        Returns: string
+      }
       claim_abandoned_private_upload_cleanup: {
         Args: { p_limit: number; p_operation_id: string }
         Returns: Json

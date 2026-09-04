@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { ProfileForm } from "@/features/bookings/components/profile-form";
 import { RequestForm } from "@/features/bookings/components/request-form";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadBookingRequestPageContext } from "@/features/bookings/data/booking-request-page";
+import { formatHandoffTime } from "@/features/bookings/calendar";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { requirePageUser } from "@/lib/auth/require-user";
 
@@ -50,7 +50,6 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
   const camera = requestContext.status === "success" ? requestContext.camera : undefined;
   const quote = requestContext.status === "success" ? requestContext.quote : undefined;
   const profile = requestContext.status === "success" ? requestContext.profile : undefined;
-  const meetupOrigin = requestContext.status === "success" ? requestContext.meetupOrigin : null;
   const ready = camera && quote;
 
   return (
@@ -60,10 +59,12 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
         <Link className="inline-flex min-h-11 items-center font-medium text-amber-900 underline decoration-amber-300 underline-offset-4" href={camera ? `/cameras/${camera.slug}` : "/"}>
           ← Back to camera
         </Link>
-        <h1 className="mt-5 text-4xl font-semibold tracking-tight">Request this rental</h1>
+        <ol aria-label="Booking progress" className="mt-5 flex flex-wrap gap-2 text-sm text-stone-600">
+          <li>✓ Browse</li><li aria-hidden="true">→</li><li>✓ Schedule</li><li aria-hidden="true">→</li><li className="font-semibold text-stone-950">Your details</li><li aria-hidden="true">→</li><li>Review &amp; request</li>
+        </ol>
+        <h1 className="mt-5 text-4xl font-semibold tracking-tight">Request {camera?.name ?? "this camera"}</h1>
         <p className="mt-3 max-w-2xl leading-7 text-stone-600">
-          Review the freshly quoted period, complete your renter profile if
-          needed, then submit one real request for review.
+          Add only the details the owner needs to review your request.
         </p>
 
         {!ready ? (
@@ -74,56 +75,38 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
           </section>
         ) : (
           <>
-            <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="fresh-quote-heading">
-              <h2 className="text-2xl font-semibold" id="fresh-quote-heading">Fresh authoritative estimate</h2>
-              <p className="mt-2 text-sm leading-6 text-stone-600">{camera.name}. This estimate does not reserve inventory; approval remains subject to availability. The named renter shows an original ID in person at pickup.</p>
+            <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="schedule-summary-heading">
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Schedule selected</p><h2 className="mt-2 text-2xl font-semibold" id="schedule-summary-heading">{camera.name}</h2></div><Link className="font-semibold text-amber-900 underline" href={`/cameras/${camera.slug}`}>Change</Link></div>
               <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-                <ReviewValue label="Pickup (Asia/Manila)" value={formatManilaDateTime(quote.pickupAt)} />
-                <ReviewValue label="Return (Asia/Manila)" value={formatManilaDateTime(quote.returnAt)} />
-                <ReviewValue label="Billable days" value={String(quote.billableDays)} />
-                <ReviewValue label="Daily rate" value={phpFormatter.format(quote.dailyRate)} />
-                <ReviewValue label="Rental amount" value={phpFormatter.format(quote.rentalAmount)} />
-                <ReviewValue label="Security deposit" value={phpFormatter.format(quote.securityDeposit)} />
-                <ReviewValue label="Total due" value={phpFormatter.format(quote.totalDue)} />
-                <ReviewValue label="Currency" value={quote.currency} />
+                <ReviewValue label="Pickup" value={formatManilaDateTime(quote.pickupAt)} />
+                <ReviewValue label="Return" value={formatManilaDateTime(quote.returnAt)} />
+                <ReviewValue label="Rental subtotal" value={phpFormatter.format(quote.rentalAmount)} />
+                <ReviewValue label="Deposit" value={phpFormatter.format(quote.securityDeposit)} />
+                <ReviewValue label="Total" value={phpFormatter.format(quote.totalDue)} />
               </dl>
             </section>
 
-            {!profile ? (
-              <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="profile-prerequisite-heading">
-                <h2 className="text-2xl font-semibold" id="profile-prerequisite-heading">Complete your profile first</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Your legal name and phone are required before a booking request can be submitted.</p>
-                <ProfileForm />
-              </section>
-            ) : profile.accountStatus === "suspended" ? (
+            {profile?.accountStatus === "suspended" ? (
               <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
                 <h2 className="text-xl font-semibold">Requests are unavailable</h2>
                 <p className="mt-2 leading-7">This account is suspended and cannot submit requests. Contact CamNook for help.</p>
               </section>
             ) : (
-              <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="request-heading">
-                <h2 className="text-2xl font-semibold" id="request-heading">Booking request</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Submitting creates a request <strong>awaiting owner review</strong>. The owner aims to review it within 12 hours; it does not place an availability hold or guarantee approval.</p>
+              <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
                 <RequestForm
                   camera={values.camera}
                   key={query}
-                  savedOrigin={meetupOrigin}
-                  pickup={values.pickup}
+                  profile={profile}
                   returnHref={`/cameras/${camera.slug}`}
-                  returnValue={values.return}
-                  schedule={
-                    values.pickupDate ||
-                    values.returnDate ||
-                    values.handoffTime ||
-                    values.policyVersion
-                      ? {
-                          handoffTime: values.handoffTime,
-                          pickupDate: values.pickupDate,
-                          policyVersion: values.policyVersion,
-                          returnDate: values.returnDate,
-                        }
-                      : undefined
-                  }
+                  schedule={{ handoffTime: values.handoffTime, pickupDate: values.pickupDate, policyVersion: values.policyVersion, returnDate: values.returnDate }}
+                  summary={{
+                    cameraName: camera.name,
+                    dates: `${formatManilaDateTime(quote.pickupAt)} – ${formatManilaDateTime(quote.returnAt)}`,
+                    handoffTime: `${formatHandoffTime(values.handoffTime)} PHT`,
+                    rentalAmount: phpFormatter.format(quote.rentalAmount),
+                    securityDeposit: phpFormatter.format(quote.securityDeposit),
+                    totalDue: phpFormatter.format(quote.totalDue),
+                  }}
                 />
               </section>
             )}

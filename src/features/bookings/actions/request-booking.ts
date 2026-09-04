@@ -7,19 +7,6 @@ import { z } from "zod";
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { loginPath } from "@/lib/auth/routes";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import {
-  buildCanonicalAreaBinding,
-  buildMeetupBinding,
-} from "@/features/meetups/binding";
-import {
-  getMeetupProviderConfig,
-  getMeetupReferenceSecret,
-  getMeetupRoutingPolicyVersion,
-} from "@/features/meetups/config";
-import {
-  readCanonicalAreaReference,
-  readRecommendationReference,
-} from "@/features/meetups/reference";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
 import { stringFormValue, type ActionStatus } from "./state";
@@ -27,8 +14,6 @@ import { stringFormValue, type ActionStatus } from "./state";
 export type RequestBookingActionState = {
   error?:
     | "invalid_input"
-    | "meetup_expired"
-    | "meetup_required"
     | "profile_required"
     | "request_limit"
     | "request_failed"
@@ -38,6 +23,9 @@ export type RequestBookingActionState = {
   fieldErrors?: {
     camera?: string;
     expectedLocation?: string;
+    legalName?: string;
+    phone?: string;
+    preferredMeetupArea?: string;
     intendedUse?: string;
     handoffTime?: string;
     pickup?: string;
@@ -45,16 +33,24 @@ export type RequestBookingActionState = {
     policyVersion?: string;
     return?: string;
     returnDate?: string;
-    meetupReference?: string;
   };
   status: ActionStatus;
-  values?: { expectedLocation: string; intendedUse: string };
+  values?: {
+    expectedLocation: string;
+    intendedUse: string;
+    legalName: string;
+    phone: string;
+    preferredMeetupArea: string;
+  };
 };
 
 const bookingFieldsSchema = z.object({
   camera: z.uuid(),
   expectedLocation: z.string().trim().min(2).max(500),
   intendedUse: z.string().trim().min(2).max(1000),
+  legalName: z.string().trim().min(2).max(160),
+  phone: z.string().trim().min(7).max(32),
+  preferredMeetupArea: z.string().trim().min(2).max(160),
 });
 
 function reportBookingRequestRpcFailure(
@@ -76,14 +72,15 @@ export async function requestBooking(
     camera: stringFormValue(formData, "camera"),
     expectedLocation: stringFormValue(formData, "expectedLocation"),
     intendedUse: stringFormValue(formData, "intendedUse"),
+    legalName: stringFormValue(formData, "legalName"),
+    phone: stringFormValue(formData, "phone"),
+    preferredMeetupArea: stringFormValue(formData, "preferredMeetupArea"),
     pickup: stringFormValue(formData, "pickup"),
     pickupDate: stringFormValue(formData, "pickupDate"),
     handoffTime: stringFormValue(formData, "handoffTime"),
     policyVersion: stringFormValue(formData, "policyVersion"),
     return: stringFormValue(formData, "return"),
     returnDate: stringFormValue(formData, "returnDate"),
-    meetupConfirmed: stringFormValue(formData, "meetupConfirmed"),
-    meetupReference: stringFormValue(formData, "meetupReference"),
     operationId: stringFormValue(formData, "operationId"),
   };
   const usesSchedule = [
@@ -98,6 +95,9 @@ export async function requestBooking(
   const preservedValues = {
     expectedLocation: values.expectedLocation,
     intendedUse: values.intendedUse,
+    legalName: values.legalName,
+    phone: values.phone,
+    preferredMeetupArea: values.preferredMeetupArea,
   };
   if (!fields.success) {
     const flattened = z.flattenError(fields.error).fieldErrors;
@@ -109,6 +109,11 @@ export async function requestBooking(
     if (flattened.intendedUse) {
       fieldErrors.intendedUse =
         "Describe the intended use (2–1000 characters).";
+    }
+    if (flattened.legalName) fieldErrors.legalName = "Enter your name.";
+    if (flattened.phone) fieldErrors.phone = "Enter a valid phone number.";
+    if (flattened.preferredMeetupArea) {
+      fieldErrors.preferredMeetupArea = "Enter your preferred meetup area.";
     }
   }
 
@@ -144,16 +149,6 @@ export async function requestBooking(
       values: preservedValues,
     };
   }
-  if (
-    (values.meetupConfirmed !== "true" || !values.meetupReference)
-  ) {
-    return {
-      error: "meetup_required",
-      fieldErrors: { meetupReference: "Confirm the current meetup area or public venue." },
-      status: "error",
-      values: preservedValues,
-    };
-  }
   const context = await getAuthenticatedUser();
   if (!context) {
     const query = new URLSearchParams(
@@ -168,74 +163,15 @@ export async function requestBooking(
     redirect(loginPath(`/account/bookings/new?${query.toString()}`));
   }
 
-  const referenceSecret = getMeetupReferenceSecret();
-  const routingPolicyVersion = getMeetupRoutingPolicyVersion();
-  if (!referenceSecret || !routingPolicyVersion) {
-    return { error: "request_failed", status: "error", values: preservedValues };
-  }
-  let meetupPlan: Record<string, string | number>;
-  if (values.meetupReference.startsWith("v3.")) {
-    const claims = readCanonicalAreaReference(
-      values.meetupReference,
-      referenceSecret,
-      {
-        binding: buildCanonicalAreaBinding({
-          cameraId: fields.data.camera,
-          handoffTime: values.handoffTime,
-          pickupDate: values.pickupDate,
-          policyVersion: policyVersion!,
-          renterId: context.user.id,
-          returnDate: values.returnDate,
-        }),
-      },
-    );
-    if (!claims) {
-      return { error: "meetup_expired", status: "error", values: preservedValues };
-    }
-    meetupPlan = {
-      area_code: claims.areaCode,
-      area_label: claims.areaLabel,
-      area_release: claims.release,
-      kind: "canonical_area",
-      renter_city_label: claims.areaLabel,
-    };
-  } else {
-    const config = getMeetupProviderConfig();
-    if (!config) {
-      return { error: "request_failed", status: "error", values: preservedValues };
-    }
-    const binding = buildMeetupBinding({
-      cameraId: fields.data.camera,
-      configVersion: config.configVersion,
-      handoffTime: values.handoffTime,
-      pickupDate: values.pickupDate,
-      policyVersion: policyVersion!,
-      renterId: context.user.id,
-      returnDate: values.returnDate,
-      routingPolicyVersion,
-    });
-    const claims = readRecommendationReference(
-      values.meetupReference,
-      config.referenceSecret,
-      { binding },
-    );
-    if (
-      !claims ||
-      claims.configVersion !== config.configVersion ||
-      claims.routingPolicyVersion !== routingPolicyVersion
-    ) {
-      return { error: "meetup_expired", status: "error", values: preservedValues };
-    }
-    meetupPlan = {
-      kind: "public_venue",
-      provider: "geoapify",
-      provider_config_version: claims.configVersion,
-      renter_city_label: claims.renterCity.label,
-      venue_address: claims.address,
-      venue_city: claims.city,
-      venue_latitude: claims.latitude,
-      venue_longitude: claims.longitude,
-      venue_name: claims.name,
+  const profileResult = await context.supabase.schema("api").rpc("ensure_profile", {
+    p_legal_name: fields.data.legalName,
+    p_phone: fields.data.phone,
+  });
+  if (profileResult.error || profileResult.data?.account_status !== "active") {
+    return {
+      error: profileResult.data?.account_status === "suspended" ? "suspended" : "profile_required",
+      status: "error",
+      values: preservedValues,
     };
   }
   let admin;
@@ -244,14 +180,14 @@ export async function requestBooking(
   } catch {
     return { error: "request_failed", status: "error", values: preservedValues };
   }
-  const result = await admin.schema("api").rpc("request_booking_schedule_with_meetup_v2_idempotent", {
+  const result = await admin.schema("api").rpc("request_booking_with_preference_idempotent", {
     p_camera_id: fields.data.camera,
     p_expected_location: fields.data.expectedLocation,
     p_handoff_time: values.handoffTime,
     p_intended_use: fields.data.intendedUse,
     p_pickup_date: values.pickupDate,
     p_policy_version: policyVersion!,
-    p_meetup_plan: meetupPlan,
+    p_preferred_meetup_area: fields.data.preferredMeetupArea,
     p_renter_id: context.user.id,
     p_return_date: values.returnDate,
     p_operation_id: operationId.data,
@@ -273,9 +209,8 @@ export async function requestBooking(
                 : error?.code === "23P01" || error?.code === "55000"
                   ? "unavailable"
                   : error?.code === "23514" ||
-                      (error?.code === "22023" &&
-                        error.message === "meetup_request_invalid")
-                    ? "meetup_required"
+                      error?.code === "22023"
+                    ? "invalid_input"
                     : "request_failed",
       status: "error",
       values: preservedValues,
