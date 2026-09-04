@@ -6,7 +6,38 @@ import type { PsgcChoice } from "./types";
 
 type Selection = { code: string; name: string; type: PsgcChoice["type"] };
 const EMPTY_PATH: Selection[] = [];
-const INDEPENDENT_CITY_BRANCH = "__independent_city__";
+
+// PSGC correctly places highly urbanized cities directly below their region.
+// The address form presents these cities inside the geographic area people use
+// in everyday addresses, while the submitted barangay code remains canonical.
+const FRIENDLY_AREA_BY_LOCALITY: Readonly<Record<string, string>> = {
+  "0730600000": "0702200000", // City of Cebu -> Cebu
+  "0731100000": "0702200000", // City of Lapu-Lapu -> Cebu
+  "0731300000": "0702200000", // City of Mandaue -> Cebu
+};
+
+function sortChoices(choices: PsgcChoice[]) {
+  return [...choices].sort((left, right) =>
+    left.name.localeCompare(right.name) || left.code.localeCompare(right.code),
+  );
+}
+
+export function choicesForProvinceOrArea(choices: PsgcChoice[]) {
+  return choices.filter((choice) => !FRIENDLY_AREA_BY_LOCALITY[choice.code]);
+}
+
+export function choicesForFriendlyArea(
+  regionChoices: PsgcChoice[],
+  areaCode: string,
+  localityChoices: PsgcChoice[],
+) {
+  const aliases = regionChoices.filter(
+    (choice) => FRIENDLY_AREA_BY_LOCALITY[choice.code] === areaCode,
+  );
+  return sortChoices(
+    [...new Map([...localityChoices, ...aliases].map((choice) => [choice.code, choice])).values()],
+  );
+}
 
 export function createLatestRequestGate() {
   let latest = 0;
@@ -65,6 +96,42 @@ export function PsgcAreaSelector({
           if (!selected) break;
           parent = selected;
         }
+        const regionalChoices = loaded[1]?.choices ?? [];
+        const officialAreaCode = loaded[1]?.selected ?? "";
+        const friendlyAreaCode = FRIENDLY_AREA_BY_LOCALITY[officialAreaCode];
+        if (friendlyAreaCode) {
+          const response = await fetch(`/api/locations/psgc?parent=${friendlyAreaCode}`, {
+            cache: "no-store",
+          });
+          if (!response.ok) throw new Error("reference unavailable");
+          const payload = await response.json() as { choices: PsgcChoice[]; release: string };
+          loaded.splice(
+            1,
+            1,
+            { choices: regionalChoices, selected: friendlyAreaCode },
+            {
+              choices: choicesForFriendlyArea(
+                regionalChoices,
+                friendlyAreaCode,
+                payload.choices,
+              ),
+              selected: officialAreaCode,
+            },
+          );
+          activeRelease = payload.release;
+        } else if (
+          loaded[1]?.choices.some((choice) => choice.code === officialAreaCode && choice.type === "province")
+          && loaded[2]
+        ) {
+          loaded[2] = {
+            ...loaded[2],
+            choices: choicesForFriendlyArea(
+              regionalChoices,
+              officialAreaCode,
+              loaded[2].choices,
+            ),
+          };
+        }
         if (!cancelled) {
           setLevels(loaded);
           setRelease(activeRelease);
@@ -102,7 +169,11 @@ export function PsgcAreaSelector({
       if (!response.ok) throw new Error("reference unavailable");
       const payload = await response.json() as { choices: PsgcChoice[]; release: string };
       if (!requestGate.current.isCurrent(request)) return;
-      setLevels([...next, { choices: payload.choices, selected: "" }]);
+      const regionChoices = levelIndex === 1 ? current.choices : [];
+      const choices = selected.type === "province"
+        ? choicesForFriendlyArea(regionChoices, selected.code, payload.choices)
+        : payload.choices;
+      setLevels([...next, { choices, selected: "" }]);
       setRelease(payload.release);
       setStatus("ready");
     } catch (error) {
@@ -113,18 +184,6 @@ export function PsgcAreaSelector({
         setStatus("error");
       }
     }
-  }
-
-  function selectIndependentCityBranch(levelIndex: number) {
-    activeRequest.current?.abort();
-    requestGate.current.begin();
-    const current = levels[levelIndex];
-    setLevels([
-      ...levels.slice(0, levelIndex),
-      { ...current, selected: INDEPENDENT_CITY_BRANCH },
-    ]);
-    setStatus("ready");
-    onSelectionChange?.(null, release);
   }
 
   const selectedArea = status === "ready"
@@ -146,40 +205,31 @@ export function PsgcAreaSelector({
         );
         const isMixedRegionLevel = provinces.length > 0 && independentCities.length > 0;
         if (isMixedRegionLevel) {
-          const independentSelected = level.selected === INDEPENDENT_CITY_BRANCH
-            || independentCities.some((choice) => choice.code === level.selected);
+          const visibleChoices = choicesForProvinceOrArea(level.choices);
+          const visibleProvinces = visibleChoices.filter((choice) => choice.type === "province");
+          const visibleIndependentCities = visibleChoices.filter((choice) =>
+            choice.type === "city" || choice.type === "municipality",
+          );
           return (
-            <div className="space-y-3" key={`${index}-province-and-independent-city`}>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">Province</span>
-                <select
-                  className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2"
-                  disabled={status === "loading"}
-                  onChange={(event) => event.target.value === INDEPENDENT_CITY_BRANCH
-                    ? selectIndependentCityBranch(index)
-                    : void select(index, event.target.value)}
-                  value={independentSelected ? INDEPENDENT_CITY_BRANCH : level.selected}
-                >
-                  <option value="">Select…</option>
-                  {provinces.map((choice) => <option key={choice.code} value={choice.code}>{choice.name}</option>)}
-                  <option value={INDEPENDENT_CITY_BRANCH}>Not applicable — independent city</option>
-                </select>
-              </label>
-              {independentSelected ? (
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">City or municipality</span>
-                  <select
-                    className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2"
-                    disabled={status === "loading"}
-                    onChange={(event) => void select(index, event.target.value)}
-                    value={level.selected === INDEPENDENT_CITY_BRANCH ? "" : level.selected}
-                  >
-                    <option value="">Select…</option>
-                    {independentCities.map((choice) => <option key={choice.code} value={choice.code}>{choice.name}</option>)}
-                  </select>
-                </label>
-              ) : null}
-            </div>
+            <label className="block" key={`${index}-province-or-area`}>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">Province or area</span>
+              <select
+                className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2"
+                disabled={status === "loading"}
+                onChange={(event) => void select(index, event.target.value)}
+                value={level.selected}
+              >
+                <option value="">Select…</option>
+                <optgroup label="Provinces and familiar areas">
+                  {visibleProvinces.map((choice) => <option key={choice.code} value={choice.code}>{choice.name}</option>)}
+                </optgroup>
+                {visibleIndependentCities.length > 0 ? (
+                  <optgroup label="Independent cities">
+                    {visibleIndependentCities.map((choice) => <option key={choice.code} value={choice.code}>{choice.name}</option>)}
+                  </optgroup>
+                ) : null}
+              </select>
+            </label>
           );
         }
         return (
@@ -200,7 +250,7 @@ export function PsgcAreaSelector({
         );
       })}
       <p aria-live="polite" className="text-sm text-stone-600" id={`${id}-status`} role={status === "error" ? "alert" : "status"}>
-        {status === "loading" ? "Loading valid areas…" : status === "error" ? "Area choices could not be loaded. Retry by reloading this page." : selectedCode ? "Barangay selected." : "Choose a region, province or independent-city branch, city or municipality, and barangay."}
+        {status === "loading" ? "Loading valid areas…" : status === "error" ? "Area choices could not be loaded. Retry by reloading this page." : selectedCode ? "Barangay selected." : "Choose a region, province or area, city or municipality, and barangay."}
       </p>
     </fieldset>
   );
