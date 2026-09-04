@@ -337,6 +337,7 @@ declare
   plan public.booking_meetup_plans%rowtype;
   meetup_json jsonb;
   kyc_json jsonb;
+  snapshot_changed boolean := false;
 begin
   select booking.meetup_snapshot_required
   into required
@@ -391,6 +392,7 @@ begin
       true
     );
     new.snapshot_schema_version := greatest(new.snapshot_schema_version, 5);
+    snapshot_changed := true;
   end if;
 
   if plan.booking_id is not null then
@@ -403,23 +405,29 @@ begin
         'provider_config_version', plan.provider_config_version,
         'attribution', plan.attribution
       );
+      new.snapshot_schema_version := greatest(new.snapshot_schema_version, 2);
     elsif plan.plan_kind = 'canonical_area' then
       meetup_json := meetup_json || jsonb_build_object(
         'kind', 'canonical_area', 'area_code', plan.area_code,
         'area_release', plan.area_release, 'area_label', plan.area_label,
         'venue_status', 'pending_owner_confirmation'
       );
+      new.snapshot_schema_version := greatest(new.snapshot_schema_version, 3);
     else
       meetup_json := meetup_json || jsonb_build_object(
         'kind', 'preferred_area', 'area_label', plan.area_label,
         'venue_status', 'pending_owner_confirmation'
       );
+      new.snapshot_schema_version := greatest(new.snapshot_schema_version, 4);
     end if;
     new.snapshot := new.snapshot || jsonb_build_object('meetup', meetup_json);
+    snapshot_changed := true;
   end if;
-  new.content_sha256 := extensions.digest(
-    convert_to(new.snapshot::text, 'UTF8'), 'sha256'
-  );
+  if snapshot_changed then
+    new.content_sha256 := extensions.digest(
+      convert_to(new.snapshot::text, 'UTF8'), 'sha256'
+    );
+  end if;
   return new;
 end;
 $$;
