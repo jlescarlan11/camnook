@@ -4,9 +4,9 @@ import { z } from "zod";
 
 export const REVIEWED_GEOAPIFY_CATEGORIES = [
   "commercial.shopping_mall",
-  "public_transport.train",
-  "public_transport.bus",
-  "activity.community_center",
+  "catering.fast_food",
+  "education.university",
+  "service.police",
 ] as const;
 
 const schema = z.object({
@@ -46,12 +46,8 @@ function numberFromEnvironment(value: string | undefined, fallback: number) {
   return Number(value);
 }
 export function getMeetupProviderConfig(): MeetupProviderConfig | null {
-  const categories = (process.env.MEETUP_ALLOWED_CATEGORIES ?? "")
-    .split(",")
-    .map((category) => category.trim())
-    .filter(Boolean);
   const parsed = schema.safeParse({
-    allowedCategories: categories,
+    allowedCategories: REVIEWED_GEOAPIFY_CATEGORIES,
     apiKey: process.env.GEOAPIFY_API_KEY,
     configVersion: process.env.MEETUP_PROVIDER_CONFIG_VERSION ?? "geoapify-v1",
     referenceSecret: getMeetupReferenceSecret(),

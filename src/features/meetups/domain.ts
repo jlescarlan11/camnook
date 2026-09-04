@@ -176,18 +176,13 @@ export function rankEligiblePlaces(
         normalized.findIndex(
           (candidate) =>
             candidate.providerPlaceId === place.providerPlaceId ||
-            (candidate.latitude === place.latitude &&
-              candidate.longitude === place.longitude &&
-              candidate.name === place.name &&
-              candidate.address === place.address),
+            (candidate.name.toLocaleLowerCase("en") ===
+              place.name.toLocaleLowerCase("en") &&
+              candidate.address.toLocaleLowerCase("en") ===
+                place.address.toLocaleLowerCase("en")),
         ) === index,
     )
     .sort((first, second) => {
-      const distanceDifference =
-        distanceMeters(first, searchCenter) -
-        distanceMeters(second, searchCenter);
-      if (Math.abs(distanceDifference) >= 0.01) return distanceDifference;
-
       const firstCategory = Math.min(
         ...first.categories
           .filter((category) => allowlist.has(category))
@@ -200,12 +195,50 @@ export function rankEligiblePlaces(
       );
       if (firstCategory !== secondCategory) return firstCategory - secondCategory;
 
+      const distanceDifference =
+        distanceMeters(first, searchCenter) -
+        distanceMeters(second, searchCenter);
+      if (Math.abs(distanceDifference) >= 0.01) return distanceDifference;
+
       return (
         first.name.localeCompare(second.name, "en") ||
         first.address.localeCompare(second.address, "en") ||
         first.providerPlaceId.localeCompare(second.providerPlaceId, "en")
       );
     });
+}
+
+export function selectDiversePlaces(
+  rankedPlaces: ProviderPlace[],
+  categoryPriority: readonly string[],
+  limit: number,
+) {
+  if (limit <= 0) return [];
+  const selected: ProviderPlace[] = [];
+  const selectedIds = new Set<string>();
+
+  while (selected.length < limit) {
+    let added = false;
+    for (const category of categoryPriority) {
+      const next = rankedPlaces.find(
+        (place) =>
+          !selectedIds.has(place.providerPlaceId) &&
+          place.categories.includes(category),
+      );
+      if (!next) continue;
+      selected.push(next);
+      selectedIds.add(next.providerPlaceId);
+      added = true;
+      if (selected.length === limit) break;
+    }
+    if (!added) break;
+  }
+
+  for (const place of rankedPlaces) {
+    if (selected.length === limit) break;
+    if (!selectedIds.has(place.providerPlaceId)) selected.push(place);
+  }
+  return selected;
 }
 
 export function rankPlacesByBalancedTravel(

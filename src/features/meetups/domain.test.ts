@@ -6,6 +6,7 @@ import {
   coarseCoordinate,
   rankEligiblePlaces,
   rankPlacesByBalancedTravel,
+  selectDiversePlaces,
   type ProviderPlace,
 } from "./domain";
 
@@ -126,7 +127,7 @@ describe("meetup recommendation domain", () => {
     ]);
   });
 
-  it("ranks by calculated distance, configured category order, then stable text", () => {
+  it("ranks by configured venue suitability, distance, then stable text", () => {
     const equalCoordinate = { latitude: 10.32, longitude: 123.89 };
     const ranked = rankEligiblePlaces(
       [
@@ -160,8 +161,8 @@ describe("meetup recommendation domain", () => {
     expect(ranked.map((candidate) => candidate.providerPlaceId)).toEqual([
       "alpha",
       "zulu",
-      "station",
       "far",
+      "station",
     ]);
     expect(ranked[0]?.name).toBe("Alpha Mall");
   });
@@ -176,12 +177,52 @@ describe("meetup recommendation domain", () => {
       [
         place(),
         place({ name: " Ayala   Center Cebu " }),
-        place({ providerPlaceId: "duplicate-id" }),
+        place({
+          address: "CARDINAL ROSALES AVENUE, CEBU CITY",
+          latitude: 10.3173,
+          longitude: 123.9055,
+          name: "AYALA CENTER CEBU",
+          providerPlaceId: "duplicate-id",
+        }),
       ],
       center,
       ["commercial.shopping_mall"],
     );
     expect(ranked).toHaveLength(1);
+  });
+
+  it("keeps dense fast-food results from crowding out other public venue types", () => {
+    const ranked = rankEligiblePlaces(
+      [
+        ...Array.from({ length: 8 }, (_, index) => place({
+          categories: ["catering.fast_food"],
+          latitude: center.latitude + index * 0.0001,
+          name: `Fast food ${index}`,
+          providerPlaceId: `fast-food-${index}`,
+        })),
+        place({ name: "Ayala Center Cebu", providerPlaceId: "mall" }),
+        place({ categories: ["education.university"], name: "UP Cebu", providerPlaceId: "university" }),
+        place({ categories: ["service.police"], name: "Police Station", providerPlaceId: "police" }),
+      ],
+      center,
+      ["commercial.shopping_mall", "catering.fast_food", "education.university", "service.police"],
+    );
+
+    expect(selectDiversePlaces(ranked, [
+      "commercial.shopping_mall",
+      "catering.fast_food",
+      "education.university",
+      "service.police",
+    ], 8).map((candidate) => candidate.providerPlaceId)).toEqual([
+      "mall",
+      "fast-food-0",
+      "university",
+      "police",
+      "fast-food-1",
+      "fast-food-2",
+      "fast-food-3",
+      "fast-food-4",
+    ]);
   });
 
   it("balances the worse trip, then total trip, then deterministic venue order", () => {

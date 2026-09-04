@@ -10,7 +10,7 @@ Geoapify was selected after Vercel Marketplace discovery returned no maps,
 geocoding, or places product. The provider exposes both required HTTPS APIs and
 documents worldwide/global open-data coverage. Its reverse geocoder supports a
 `type=city` result and the Places API supports category-constrained circle search,
-including shopping malls, public transport, and community centers.
+including shopping malls, fast-food restaurants, universities, and police stations.
 
 Authoritative review sources:
 
@@ -41,9 +41,10 @@ server-only Vercel Development variables; never use a `NEXT_PUBLIC_` prefix:
 - `GEOAPIFY_API_KEY`: dedicated provider key.
 - `MEETUP_RECOMMENDATION_SECRET`: independently generated random value of at
   least 32 characters; it is not the provider key.
-- `MEETUP_ALLOWED_CATEGORIES`: comma-separated subset of the reviewed constants
-  in `src/features/meetups/config.ts`.
-- `MEETUP_PROVIDER_CONFIG_VERSION`: bump when category/ranking policy changes.
+- The four reviewed venue categories are code-owned in
+  `src/features/meetups/config.ts`, so a deployed revision cannot keep the older
+  category set through stale environment configuration.
+- `MEETUP_PROVIDER_CONFIG_VERSION`: bump when ranking or binding policy changes.
 - `MEETUP_PROVIDER_TIMEOUT_MS`: 500–10000; default 4000.
 - `MEETUP_SEARCH_RADIUS_METERS`: 1000–20000; default 8000.
 
@@ -91,7 +92,7 @@ provider pass/fail status.
 ## Quota, outage, and rotation
 
 Each current-position recommendation costs one reverse-geocoding operation plus
-one midpoint Places operation per configured reviewed category (each returns at
+one midpoint Places operation per code-owned reviewed category (each returns at
 most 20 results). Saved origins skip the reverse lookup. Manual-city and
 canonical-area recommendations consume one geocoding operation before midpoint
 discovery. With at most four reviewed categories, every complete recommendation

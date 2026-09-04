@@ -52,7 +52,6 @@ describe("recommendMeetup", () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     process.env.GEOAPIFY_API_KEY = "provider-development-key";
-    process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
     process.env.MEETUP_RECOMMENDATION_SECRET =
       "server-only-meetup-reference-secret-value";
     process.env.MAPBOX_ACCESS_TOKEN = "mapbox-server-token-value";
@@ -96,6 +95,9 @@ describe("recommendMeetup", () => {
           ],
         }),
       )
+      .mockResolvedValueOnce(mcp({ results: [] }))
+      .mockResolvedValueOnce(mcp({ results: [] }))
+      .mockResolvedValueOnce(mcp({ results: [] }))
       .mockResolvedValueOnce(
         mcp({
           results: [
@@ -140,11 +142,21 @@ describe("recommendMeetup", () => {
     expect(JSON.stringify(result)).not.toMatch(/10\.30123456|123\.90123456|provider:ayala|provider:mandaue/);
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/10\.|123\.|Ayala|Mandaue|reference/);
     expect(String(request.mock.calls[0]?.[0])).not.toMatch(/10\.30123456|123\.90123456/);
-    expect(String(request.mock.calls[2]?.[0])).toContain(
+    expect(
+      request.mock.calls.slice(1, 5).map(([, init]) =>
+        JSON.parse(String(init?.body)).params.arguments.category,
+      ),
+    ).toEqual([
+      "commercial.shopping_mall",
+      "catering.fast_food",
+      "education.university",
+      "service.police",
+    ]);
+    expect(String(request.mock.calls[5]?.[0])).toContain(
       "/directions-matrix/v1/mapbox/driving-traffic/",
     );
-    expect(String(request.mock.calls[2]?.[0])).not.toMatch(/search|geocod/i);
-    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 2);
+    expect(String(request.mock.calls[5]?.[0])).not.toMatch(/search|geocod/i);
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 5);
     expect(claimMapboxRoutingBudget).toHaveBeenCalledWith("renter-1", 2);
   });
 
@@ -213,18 +225,12 @@ describe("recommendMeetup", () => {
         validSchedule({ locationMode: "manual", manualCity: "Mandaue City" }),
       ),
     ).resolves.toEqual({ error: "rate_limited", status: "error" });
-    expect(claimGeoapifyProviderBudget).toHaveBeenNthCalledWith(1, "renter-1", 2);
-    expect(claimGeoapifyProviderBudget).toHaveBeenNthCalledWith(2, "renter-1", 2);
+    expect(claimGeoapifyProviderBudget).toHaveBeenNthCalledWith(1, "renter-1", 5);
+    expect(claimGeoapifyProviderBudget).toHaveBeenNthCalledWith(2, "renter-1", 5);
     expect(request).not.toHaveBeenCalled();
   });
 
   it("keeps the complete four-category recommendation plan within five calls", async () => {
-    process.env.MEETUP_ALLOWED_CATEGORIES = [
-      "commercial.shopping_mall",
-      "public_transport.train",
-      "public_transport.bus",
-      "activity.community_center",
-    ].join(",");
     vi.mocked(claimGeoapifyProviderBudget).mockResolvedValue(false);
     const request = vi.fn();
     vi.stubGlobal("fetch", request);
@@ -285,7 +291,7 @@ describe("recommendMeetup", () => {
       p_release_key: "2026-q2",
     });
     expect(JSON.stringify(actorRpc.mock.calls)).not.toContain("replace_my_meetup_origin");
-    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 2);
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 5);
     expect(request).not.toHaveBeenCalled();
   });
 });

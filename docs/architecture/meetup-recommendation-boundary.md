@@ -65,10 +65,13 @@ routes, secrets, tokens, or constructed URLs.
 ## Deterministic selection
 
 Discovery uses one deterministic spherical midpoint between the lender and renter
-origins. CamNook performs one search per configured category around that midpoint,
+origins. CamNook performs one search per reviewed category around that midpoint,
 then merges results by provider identity and category; it does not trust provider
 ordering. Together with the city or centroid lookup, a complete recommendation
 uses no more than five Geoapify calls.
+The four code-owned searches cover shopping malls, fast-food restaurants,
+universities, and police stations. They favor recognizable, commonly staffed or
+busy meetup locations without claiming live crowd or safety data.
 Candidates must have a meaningful name, public
 formatted address, city, provider identity, and at least one exact configured
 allowlist category. Accommodation, residential-building, and populated-place
@@ -76,11 +79,14 @@ categories are rejected even if a record also carries an allowed category.
 Identifier-like names such as unit numbers or route numbers and records outside
 the configured midpoint radius are also rejected.
 
-Each configured category is sent as a separate bounded provider tool call because
+Each reviewed category is sent as a separate bounded provider tool call because
 the provider's POST interface accepts one category per call. Eligible candidates
-are then ordered by CamNook-calculated center distance, configured
-category priority, normalized name, normalized address, and provider identity.
-The first eight distinct eligible candidates are compared with one Mapbox
+are then ordered by code-owned category priority, CamNook-calculated center
+distance, normalized name, normalized address, and provider identity. Equivalent
+normalized name/address records are collapsed even when provider IDs or
+coordinates differ. A category-round-robin selects up to eight candidates so a
+dense category cannot crowd every other reviewed venue type out of routing. The
+selected candidates are compared with one Mapbox
 `driving-traffic` matrix from the renter and owner origins. CamNook returns at most
 five reachable venues by lowest maximum individual travel time, then lowest
 combined travel time, then the existing deterministic Geoapify order. If routing

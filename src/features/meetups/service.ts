@@ -12,6 +12,7 @@ import {
   coordinateSchema,
   rankEligiblePlaces,
   rankPlacesByBalancedTravel,
+  selectDiversePlaces,
   type Coordinate,
   type NormalizedCity,
   type PlaceTravelTime,
@@ -228,7 +229,11 @@ export async function recommendPublicMeetup(
         radiusMeters: config.searchRadiusMeters,
       },
     );
-    const eligible = qualityEligible.slice(0, 8);
+    const eligible = selectDiversePlaces(
+      qualityEligible,
+      config.allowedCategories,
+      8,
+    );
     if (!eligible.length) throw new ProviderBoundaryError("empty");
 
     const routed = await routeCandidates(eligible, input, options);

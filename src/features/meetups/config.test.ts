@@ -9,7 +9,6 @@ import {
 
 const names = [
   "GEOAPIFY_API_KEY",
-  "MEETUP_ALLOWED_CATEGORIES",
   "MEETUP_PROVIDER_CONFIG_VERSION",
   "MEETUP_PROVIDER_TIMEOUT_MS",
   "MEETUP_RECOMMENDATION_SECRET",
@@ -31,27 +30,25 @@ afterEach(() => {
   }
 });
 describe("meetup provider configuration", () => {
-  it("fails closed when a secret or reviewed category is missing", () => {
+  it("fails closed when a required secret is missing", () => {
     process.env.GEOAPIFY_API_KEY = "provider-key";
     process.env.MEETUP_RECOMMENDATION_SECRET = "x".repeat(32);
-    process.env.MEETUP_ALLOWED_CATEGORIES = "catering.cafe";
-    expect(getMeetupProviderConfig()).toBeNull();
+    expect(getMeetupProviderConfig()).not.toBeNull();
 
     delete process.env.GEOAPIFY_API_KEY;
-    process.env.MEETUP_ALLOWED_CATEGORIES = "commercial.shopping_mall";
     expect(getMeetupProviderConfig()).toBeNull();
   });
 
-  it("returns trimmed server configuration with bounded defaults", () => {
+  it("returns the code-owned busy-public policy with bounded defaults", () => {
     process.env.GEOAPIFY_API_KEY = " provider-key ";
     process.env.MEETUP_RECOMMENDATION_SECRET = "s".repeat(32);
-    process.env.MEETUP_ALLOWED_CATEGORIES =
-      "commercial.shopping_mall, public_transport.train";
 
     expect(getMeetupProviderConfig()).toEqual({
       allowedCategories: [
         "commercial.shopping_mall",
-        "public_transport.train",
+        "catering.fast_food",
+        "education.university",
+        "service.police",
       ],
       apiKey: "provider-key",
       configVersion: "geoapify-v1",

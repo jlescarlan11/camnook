@@ -370,9 +370,10 @@ export function RequestForm({
                   {recommendations[0].routeMode === "balanced"
                     ? "Ranked to balance advisory driving time for both people. "
                     : "Routing is temporarily unavailable, so these options use Geoapify’s deterministic public-place ranking without travel-time claims. "}
-                  These are reviewed public venue categories, not live crowd or
-                  safety evidence. Meet during operating hours in a staffed,
-                  visible area.
+                  Suggestions favor familiar, busy public venue types such as
+                  malls, fast-food restaurants, universities, and police stations.
+                  Crowd levels and safety are not verified live, so meet during
+                  operating hours in a staffed, visible area.
                 </p>
                 <div className="space-y-3" id="additional-meetup-options">
                 {visibleRecommendations.map((recommendation, index) => (

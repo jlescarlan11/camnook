@@ -119,7 +119,8 @@ describe("RequestForm rendered meetup options", () => {
     expect(markup).toContain("Owner handoff origin: <strong>Cebu City</strong>");
     expect(markup).toContain("Ayala Center Cebu");
     expect(markup).toContain("14 min from you · 12 min from owner");
-    expect(markup).toContain("not live crowd or safety evidence");
+    expect(markup).toContain("malls, fast-food restaurants, universities, and police stations");
+    expect(markup).toContain("Crowd levels and safety are not verified live");
     expect(markup).toContain("staffed, visible area");
     expect(markup).toContain("Powered by Geoapify");
     expect(markup).toContain("sm:flex-row");
