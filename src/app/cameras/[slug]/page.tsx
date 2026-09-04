@@ -49,6 +49,9 @@ export default async function CameraPage({ params }: CameraPageProps) {
                   <DetailValue label="Current daily rate" value={phpFormatter.format(result.camera.dailyRate)} />
                   <DetailValue label="Security deposit" value={phpFormatter.format(result.camera.securityDeposit)} />
                 </dl>
+                <p className="mt-4 text-sm text-stone-700">
+                  Service area: {result.camera.handoffPolicy?.cityLabel ?? "Currently unavailable"}
+                </p>
 
                 <section className="mt-8 border-t border-stone-200 pt-7">
                   <h2 className="text-xl font-semibold">Fixed inclusions</h2>
@@ -73,6 +76,7 @@ export default async function CameraPage({ params }: CameraPageProps) {
                 cameraId={result.camera.id}
                 cameraName={result.camera.name}
                 policy={result.camera.handoffPolicy}
+                requestable={result.camera.requestable}
               />
             </aside>
           </div>

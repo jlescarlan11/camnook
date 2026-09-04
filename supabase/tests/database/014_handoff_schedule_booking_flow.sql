@@ -39,6 +39,33 @@ insert into public.camera_handoff_slots (camera_id, local_time) values
   ('c0100000-0000-4000-8000-000000000001', '09:00'),
   ('c0100000-0000-4000-8000-000000000001', '17:00');
 
+update public.camera_handoff_policies set
+  psgc_release_key = '2026-q2', psgc_area_code = '0730600041',
+  approximation_level = 'barangay_centroid'
+where camera_id = 'c0100000-0000-4000-8000-000000000001';
+insert into private.location_anchors (
+  camera_id, release_key, area_code, precision, source, latitude, longitude,
+  provider_reference, provenance_version, captured_at, updated_by
+) values (
+  'c0100000-0000-4000-8000-000000000001', '2026-q2', '0730600041',
+  'barangay_centroid', 'provider_centroid', 10.333, 123.897,
+  'provider:schedule-lahug', 'schedule-test-v1', statement_timestamp(),
+  'c0000000-0000-4000-8000-000000000001'
+);
+insert into public.contract_templates (
+  id, version, schema_version, terms, content_sha256, approved_at, approved_by,
+  activated_at, created_by
+) values (
+  'c0300000-0000-4000-8000-000000000001', 'schedule-v1', 1,
+  jsonb_build_object('pickup','x','return','x','cancellation','x','late-return','x','damage','x','loss','x','non-transferability','x'),
+  extensions.digest(convert_to('schedule-template','UTF8'),'sha256'), statement_timestamp(),
+  'c0000000-0000-4000-8000-000000000001', statement_timestamp(),
+  'c0000000-0000-4000-8000-000000000001'
+);
+update private.gcash_payment_configuration set enabled = true,
+  recipient_name = 'Schedule Owner', recipient_account = '09171234567',
+  updated_by = 'c0000000-0000-4000-8000-000000000001';
+
 do $$
 declare
   monday date :=

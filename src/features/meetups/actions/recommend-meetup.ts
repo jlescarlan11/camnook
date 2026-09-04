@@ -6,11 +6,12 @@ import { getAuthenticatedUser } from "@/lib/auth/require-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { isCalendarDate, isHandoffTime } from "../../bookings/calendar";
-import { buildMeetupBinding } from "../binding";
+import { buildCanonicalAreaBinding, buildMeetupBinding } from "../binding";
 import { cityInputSchema } from "../city-input";
 import { buildDiscoverySeeds } from "../domain";
 import {
   getMeetupProviderConfig,
+  getMeetupReferenceSecret,
   getMeetupRoutingConfig,
   getMeetupRoutingPolicyVersion,
 } from "../config";
@@ -19,9 +20,14 @@ import { GeoapifyAdapter, ProviderBoundaryError } from "../provider";
 import { claimMapboxRoutingBudget } from "../routing-budget";
 import { recommendPublicMeetup } from "../service";
 import { recordMeetupTelemetry } from "../telemetry";
-import type { SafeMeetupRecommendation } from "../types";
+import { mintCanonicalAreaReference } from "../reference";
+import type {
+  SafeCanonicalMeetupArea,
+  SafeMeetupRecommendation,
+} from "../types";
 
 export type RecommendMeetupState = {
+  canonicalArea?: SafeCanonicalMeetupArea;
   error?:
     | "authentication"
     | "configuration"
@@ -32,6 +38,7 @@ export type RecommendMeetupState = {
     | "schedule_changed";
   recommendations?: SafeMeetupRecommendation[];
   status: "idle" | "error" | "success";
+  warning?: "provider_unavailable";
 };
 
 const contextSchema = z.object({
@@ -42,6 +49,27 @@ const contextSchema = z.object({
   longitude: z.coerce.number().min(-180).max(180),
   policy_version: z.coerce.number().int().positive(),
   provider_city_id: z.string().min(2).max(240),
+});
+
+const canonicalAreaSchema = z.object({
+  active: z.literal(true),
+  code: z.string().regex(/^\d{10}$/),
+  current: z.literal(true),
+  name: z.string().min(1).max(160),
+  path: z.array(z.object({
+    code: z.string().regex(/^\d{10}$/),
+    name: z.string().min(1).max(160),
+    type: z.enum([
+      "region",
+      "province",
+      "city",
+      "municipality",
+      "submunicipality",
+      "barangay",
+    ]),
+  })),
+  release: z.string().regex(/^\d{4}-q[1-4]$/),
+  type: z.literal("barangay"),
 });
 
 function value(formData: FormData, key: string) {
@@ -76,9 +104,10 @@ export async function recommendMeetup(
   const context = await getAuthenticatedUser();
   if (!context) return { error: "authentication", status: "error" };
   const config = getMeetupProviderConfig();
+  const referenceSecret = getMeetupReferenceSecret();
   const routingConfig = getMeetupRoutingConfig();
   const routingPolicyVersion = getMeetupRoutingPolicyVersion();
-  if (!config || !routingPolicyVersion) {
+  if (!referenceSecret || !routingPolicyVersion) {
     return { error: "configuration", status: "error" };
   }
 
@@ -112,12 +141,16 @@ export async function recommendMeetup(
   let renterCity;
   let currentPosition;
   let manualCity;
+  let canonicalArea: SafeCanonicalMeetupArea | undefined;
   let providerBudgetReserved = false;
   let providerLookupCount = 0;
-  const adapter = new GeoapifyAdapter({
-    apiKey: config.apiKey,
-    timeoutMs: config.timeoutMs,
-  });
+  const now = new Date();
+  const adapter = config
+    ? new GeoapifyAdapter({
+        apiKey: config.apiKey,
+        timeoutMs: config.timeoutMs,
+      })
+    : null;
   const ownerOrigin = {
     latitude: parsedContext.data.latitude,
     longitude: parsedContext.data.longitude,
@@ -160,6 +193,28 @@ export async function recommendMeetup(
       release: z.string().regex(/^\d{4}-q[1-4]$/),
     }).safeParse(saved.data);
     if (saved.error || !parsedSaved.success) return { error: "invalid_location", status: "error" };
+    canonicalArea = {
+      areaCode: parsedSaved.data.area_code,
+      areaLabel: parsedSaved.data.area_name,
+      expiresAt: new Date(now.getTime() + 15 * 60 * 1_000).toISOString(),
+      path: [],
+      reference: mintCanonicalAreaReference({
+        areaCode: parsedSaved.data.area_code,
+        areaLabel: parsedSaved.data.area_name,
+        binding: buildCanonicalAreaBinding({
+          cameraId,
+          handoffTime,
+          pickupDate,
+          policyVersion,
+          renterId: context.user.id,
+          returnDate,
+        }),
+        expiresAt: new Date(now.getTime() + 15 * 60 * 1_000).toISOString(),
+        kind: "canonical_area",
+        release: parsedSaved.data.release,
+      }, referenceSecret),
+      release: parsedSaved.data.release,
+    };
     renterCity = {
       countryCode: "PH" as const,
       label: parsedSaved.data.area_name,
@@ -177,15 +232,34 @@ export async function recommendMeetup(
       p_area_code: canonicalInput.data.areaCode,
       p_release_key: canonicalInput.data.release,
     });
-    const canonical = z.object({
-      active: z.literal(true), code: z.string(), current: z.literal(true), name: z.string().min(1),
-      path: z.array(z.object({
-        name: z.string().min(1),
-        type: z.enum(["region", "province", "city", "municipality", "submunicipality", "barangay"]),
-      })), release: z.string(),
-      type: z.literal("barangay"),
-    }).safeParse(resolution.data);
+    const canonical = canonicalAreaSchema.safeParse(resolution.data);
     if (resolution.error || !canonical.success) return { error: "invalid_location", status: "error" };
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1_000).toISOString();
+    canonicalArea = {
+      areaCode: canonical.data.code,
+      areaLabel: canonical.data.name,
+      expiresAt,
+      path: canonical.data.path,
+      reference: mintCanonicalAreaReference({
+        areaCode: canonical.data.code,
+        areaLabel: canonical.data.name,
+        binding: buildCanonicalAreaBinding({
+          cameraId,
+          handoffTime,
+          pickupDate,
+          policyVersion,
+          renterId: context.user.id,
+          returnDate,
+        }),
+        expiresAt,
+        kind: "canonical_area",
+        release: canonical.data.release,
+      }, referenceSecret),
+      release: canonical.data.release,
+    };
+    if (!config) {
+      return { canonicalArea, status: "success", warning: "provider_unavailable" };
+    }
     providerLookupCount = 1;
     const completeRequestCount = 1 + 3 * config.allowedCategories.length;
     if (!(await claimGeoapifyProviderBudget(context.user.id, completeRequestCount))) {
@@ -196,11 +270,11 @@ export async function recommendMeetup(
         resultCount: 0,
         status: "quota",
       });
-      return { error: "provider_unavailable", status: "error" };
+      return { canonicalArea, status: "success", warning: "provider_unavailable" };
     }
     providerBudgetReserved = true;
     try {
-      const centroid = await adapter.geocodeAreaCentroid({
+      const centroid = await adapter!.geocodeAreaCentroid({
         expectedAreaNames: canonical.data.path
           .filter((area) => area.type !== "region")
           .map((area) => area.name),
@@ -214,10 +288,15 @@ export async function recommendMeetup(
         providerCityId: centroid.providerReference,
       };
     } catch {
-      return { error: "provider_unavailable", status: "error" };
+      return { canonicalArea, status: "success", warning: "provider_unavailable" };
     }
   }
 
+  if (!config) {
+    return canonicalArea
+      ? { canonicalArea, status: "success", warning: "provider_unavailable" }
+      : { error: "configuration", status: "error" };
+  }
   const knownRenterOrigin = currentPosition ?? renterCity;
   const providerRequestCount = knownRenterOrigin
     ? buildDiscoverySeeds(ownerOrigin, knownRenterOrigin).length *
@@ -235,12 +314,14 @@ export async function recommendMeetup(
       resultCount: 0,
       status: "quota",
     });
-    return { error: "provider_unavailable", status: "error" };
+    return canonicalArea
+      ? { canonicalArea, status: "success", warning: "provider_unavailable" }
+      : { error: "provider_unavailable", status: "error" };
   }
 
   if (manualCity) {
     try {
-      renterCity = await adapter.geocodeCity(manualCity);
+      renterCity = await adapter!.geocodeCity(manualCity);
     } catch (error) {
       return {
         error:
@@ -277,16 +358,23 @@ export async function recommendMeetup(
       renterCity,
     },
     {
-      adapter,
+      adapter: adapter!,
       config,
       recordTelemetry: recordMeetupTelemetry,
       reserveRoutingBudget: (elementCount) =>
         claimMapboxRoutingBudget(context.user.id, elementCount),
       routingConfig,
       routingPolicyVersion,
+      now,
     },
   );
   return result.status === "available"
-    ? { recommendations: result.recommendations, status: "success" }
-    : { error: "provider_unavailable", status: "error" };
+    ? {
+        canonicalArea,
+        recommendations: result.recommendations,
+        status: "success",
+      }
+    : canonicalArea
+      ? { canonicalArea, status: "success", warning: "provider_unavailable" }
+      : { error: "provider_unavailable", status: "error" };
 }

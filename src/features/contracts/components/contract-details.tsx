@@ -113,11 +113,15 @@ export function ContractDetails({
           </h3>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             <Detail label="Renter city" value={snapshot.meetup.renter_city} />
-            <Detail label="Public venue" value={snapshot.meetup.venue_name} />
-            <Detail label="Venue address" value={snapshot.meetup.venue_address} />
-            <Detail label="Venue city" value={snapshot.meetup.venue_city} />
+            {snapshot.meetup.kind === "public_venue" ? <>
+              <Detail label="Public venue" value={snapshot.meetup.venue_name} />
+              <Detail label="Venue address" value={snapshot.meetup.venue_address} />
+              <Detail label="Venue city" value={snapshot.meetup.venue_city} />
+            </> : (
+              <Detail label="Venue status" value="Exact public venue pending owner confirmation" />
+            )}
           </dl>
-          <p className="mt-3 text-xs text-stone-500">{snapshot.meetup.attribution}</p>
+          {snapshot.meetup.kind === "public_venue" ? <p className="mt-3 text-xs text-stone-500">{snapshot.meetup.attribution}</p> : null}
         </section>
       ) : null}
 

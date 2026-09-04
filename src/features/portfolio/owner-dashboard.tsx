@@ -36,6 +36,7 @@ export function OwnerOperationsPanel({
   dashboard: OwnerOperationsDashboard;
 }) {
   const { queues } = dashboard;
+  const actionableCount = Object.values(dashboard.queue_counts).reduce((sum, count) => sum + count, 0) + dashboard.supporting_queue_counts.cancellation;
 
   return (
     <>
@@ -74,6 +75,8 @@ export function OwnerOperationsPanel({
       </section>
 
       <DepositReconciliation dashboard={dashboard} />
+
+      {actionableCount === 0 ? <p className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900" role="status">All clear. No operational work needs action right now.</p> : null}
 
       <QueueSection
         count={dashboard.queue_counts.review}
@@ -390,6 +393,7 @@ function SupportingQueues({
 }: {
   dashboard: OwnerOperationsDashboard;
 }) {
+  if (dashboard.supporting_queue_counts.cancellation === 0) return null;
   return (
     <section className="mt-10" aria-labelledby="supporting-queues-heading">
       <h2 className="text-2xl font-semibold" id="supporting-queues-heading">
@@ -504,7 +508,6 @@ function QueueSection({
   children,
   count,
   description,
-  empty,
   id,
   title,
 }: {
@@ -515,6 +518,7 @@ function QueueSection({
   id: string;
   title: string;
 }) {
+  if (count === 0) return null;
   return (
     <section className="mt-9 scroll-mt-6" id={`queue-${id}`} aria-labelledby={`queue-${id}-heading`}>
       <div className="flex items-center gap-3">
@@ -522,11 +526,7 @@ function QueueSection({
         <span className="rounded-full bg-stone-200 px-2.5 py-1 text-sm font-semibold">{count}</span>
       </div>
       <p className="mt-2 text-sm leading-6 text-stone-600">{description}</p>
-      {count === 0 ? (
-        <p className="mt-4 rounded-2xl border border-stone-200 bg-white p-5 text-stone-600" role="status">{empty}</p>
-      ) : (
-        <ul className="mt-4 grid gap-4 lg:grid-cols-2">{children}</ul>
-      )}
+      <ul className="mt-4 grid gap-4 lg:grid-cols-2">{children}</ul>
     </section>
   );
 }

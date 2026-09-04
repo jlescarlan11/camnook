@@ -171,6 +171,7 @@ describe("pickup UI privacy and checklist controls", () => {
 
   it("uses one persisted meetup for confirmed pickup and active return contexts", () => {
     const meetup = {
+      kind: "public_venue" as const,
       address: "Cardinal Rosales Avenue, Cebu City",
       attribution: "© OpenStreetMap contributors · Powered by Geoapify" as const,
       city: "Cebu City",

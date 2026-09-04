@@ -23,7 +23,9 @@ const contractSnapshotSchema = z.object({
     serial_number: z.string().min(1),
   }),
   meetup: z
-    .object({
+    .union([
+      z.object({
+        kind: z.literal("public_venue").default("public_venue"),
       attribution: z.literal("© OpenStreetMap contributors · Powered by Geoapify"),
       provider: z.literal("geoapify"),
       provider_config_version: z.string().min(1),
@@ -33,7 +35,15 @@ const contractSnapshotSchema = z.object({
       venue_latitude: z.coerce.number().min(-90).max(90),
       venue_longitude: z.coerce.number().min(-180).max(180),
       venue_name: z.string().min(2),
-    })
+      }),
+      z.object({
+        kind: z.literal("canonical_area"),
+        area_code: z.string().regex(/^\d{9}$/),
+        area_label: z.string().min(2),
+        area_release: z.string().min(1),
+        renter_city: z.string().min(2),
+      }),
+    ])
     .optional(),
   pricing: z.object({
     billable_days: z.number().int().positive(),

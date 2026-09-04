@@ -41,7 +41,11 @@ export function RenterPickupStatus({
               <Value label="Schedule" value={formatManilaDateTime(pickup.pickup_at)} />
               <Value
                 label="Location"
-                value={meetup ? `${meetup.name} — ${meetup.address}` : instructions.location}
+                value={meetup?.kind === "public_venue"
+                  ? `${meetup.name} — ${meetup.address}`
+                  : meetup?.kind === "canonical_area"
+                    ? `${meetup.areaLabel} — exact public venue pending owner confirmation`
+                    : instructions.location}
               />
               <Value label="Contact" value={instructions.contact} />
               <Value label="Process" value={instructions.process} />
@@ -63,7 +67,12 @@ export function RenterPickupStatus({
             <Value label="Starting condition" value="Written condition report recorded" />
             <Value label="Expected return" value={formatManilaDateTime(pickup.return_at)} />
             {meetup ? (
-              <Value label="Return meetup" value={`${meetup.name} — ${meetup.address}`} />
+              <Value
+                label="Return meetup"
+                value={meetup.kind === "public_venue"
+                  ? `${meetup.name} — ${meetup.address}`
+                  : `${meetup.areaLabel} — exact public venue pending owner confirmation`}
+              />
             ) : null}
           </dl>
           {pickup.handoff.photos.length > 0 ? (

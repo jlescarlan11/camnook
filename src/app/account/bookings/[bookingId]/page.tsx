@@ -11,6 +11,7 @@ import {
   loadBookingDetailContext,
 } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
 import { ContractDetails } from "@/features/contracts/components/contract-details";
 import { SignContractControl } from "@/features/contracts/components/sign-contract-control";
 import { PaymentPanel } from "@/features/payments/payment-panel";
@@ -74,10 +75,10 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                   <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Persisted booking</p>
                   <h1 className="mt-3 text-3xl font-semibold tracking-tight">{result.booking.camera.name}</h1>
                 </div>
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">{result.booking.state}</span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">{presentCustomerBookingStatus(result.booking.state, result.booking.requestedAt).label}</span>
               </div>
               <p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-                FOR_REVIEW does not reserve inventory. Approval is subject to availability; identity is checked in person at pickup.
+                {presentCustomerBookingStatus(result.booking.state, result.booking.requestedAt).nextStep} {presentCustomerBookingStatus(result.booking.state, result.booking.requestedAt).target ?? ""} A request does not reserve inventory; identity is checked in person at pickup.
               </p>
               <dl className="mt-6 grid gap-3 sm:grid-cols-2">
                 <DetailValue label="Pickup (Asia/Manila)" value={formatManilaDateTime(result.booking.pickupAt)} />
@@ -90,11 +91,15 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                   <h2 className="text-lg font-semibold" id="planned-meetup-heading">Planned pickup and return meetup</h2>
                   <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                     <DetailValue label="Renter city" value={result.booking.meetup.renterCity} />
-                    <DetailValue label="Public venue" value={result.booking.meetup.name} />
-                    <DetailValue label="Venue address" value={result.booking.meetup.address} />
-                    <DetailValue label="Venue city" value={result.booking.meetup.city} />
+                    {result.booking.meetup.kind === "public_venue" ? <>
+                      <DetailValue label="Public venue" value={result.booking.meetup.name} />
+                      <DetailValue label="Venue address" value={result.booking.meetup.address} />
+                      <DetailValue label="Venue city" value={result.booking.meetup.city} />
+                    </> : (
+                      <DetailValue label="Venue status" value="Exact public venue pending owner confirmation" />
+                    )}
                   </dl>
-                  <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p>
+                  {result.booking.meetup.kind === "public_venue" ? <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p> : null}
                 </section>
               ) : null}
               <section className="mt-7 border-t border-stone-200 pt-6">

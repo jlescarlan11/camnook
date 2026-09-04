@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PublicHandoffPolicy } from "@/features/listings/handoff-types";
 
@@ -41,6 +41,7 @@ type ScheduleQuoteFormProps = {
   cameraId: string;
   cameraName: string;
   policy: PublicHandoffPolicy | null;
+  requestable?: boolean;
 };
 
 export function ScheduleQuoteForm({
@@ -48,21 +49,34 @@ export function ScheduleQuoteForm({
   cameraId,
   cameraName,
   policy,
+  requestable = true,
 }: ScheduleQuoteFormProps) {
   const today = getManilaToday();
   const currentMonth = monthFromCalendarDate(today)!;
   const [visibleMonth, setVisibleMonth] = useState(currentMonth);
   const [pickupDate, setPickupDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
-  const [handoffTime, setHandoffTime] = useState("");
+  const [handoffTime, setHandoffTime] = useState(
+    policy?.approvedTimes.length === 1 ? policy.approvedTimes[0] : "",
+  );
   const [editGeneration, setEditGeneration] = useState(0);
   const [state, formAction, pending] = useActionState(
     quoteBooking,
     initialQuoteActionState,
   );
   const days = useMemo(() => buildCalendarMonth(visibleMonth), [visibleMonth]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastAutoQuoteKey = useRef("");
+  const autoQuoteKey = `${cameraId}|${policy?.version ?? 0}|${pickupDate}|${returnDate}|${handoffTime}`;
+
+  useEffect(() => {
+    if (!pickupDate || !returnDate || !handoffTime || pending || lastAutoQuoteKey.current === autoQuoteKey) return;
+    lastAutoQuoteKey.current = autoQuoteKey;
+    formRef.current?.requestSubmit();
+  }, [autoQuoteKey, handoffTime, pending, pickupDate, returnDate]);
 
   if (
+    !requestable ||
     !policy?.enabled ||
     policy.allowedWeekdays.length === 0 ||
     policy.approvedTimes.length === 0
@@ -76,8 +90,8 @@ export function ScheduleQuoteForm({
           Scheduling unavailable
         </h2>
         <p className="mt-3 text-sm leading-6 text-stone-600">
-          {cameraName} does not have an active lender handoff schedule. Check
-          back later or choose another published camera.
+          {cameraName} is viewable but is not accepting new requests right now.
+          Check back later or choose another published camera.
         </p>
         <Link
           className="mt-5 inline-flex min-h-11 items-center font-semibold text-amber-900 underline"
@@ -148,7 +162,7 @@ export function ScheduleQuoteForm({
   }
 
   function chooseDate(date: string) {
-    if (!handoffTime) return;
+    const calendarTime = handoffTime || activePolicy.approvedTimes[0] || "";
     const choosingReturn = Boolean(pickupDate && !returnDate);
     const status = endpointStatus({
       allowedWeekdays: activePolicy.allowedWeekdays,
@@ -156,7 +170,7 @@ export function ScheduleQuoteForm({
       date,
       role: choosingReturn ? "return" : "pickup",
       selectedPickup: pickupDate,
-      time: handoffTime,
+      time: calendarTime,
     });
     if (status.disabled) return;
 
@@ -173,12 +187,13 @@ export function ScheduleQuoteForm({
     <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
       <h2 className="text-2xl font-semibold tracking-tight">Choose rental dates</h2>
       <p className="mt-2 text-sm leading-6 text-stone-600">
-        Select one lender-approved handoff time, then pickup and return dates.
+        Choose pickup and return dates. If more than one lender-approved handoff
+        time is available, choose one before the quote refreshes.
         The same Philippine time applies to both endpoints. A quote or request
         does not reserve the camera.
       </p>
 
-      <form action={formAction} className="mt-6 space-y-6">
+      <form action={formAction} className="mt-6 space-y-6" ref={formRef}>
         <input name="camera" type="hidden" value={cameraId} />
         <input name="generation" type="hidden" value={editGeneration} />
         <input name="pickupDate" type="hidden" value={pickupDate} />
@@ -227,7 +242,7 @@ export function ScheduleQuoteForm({
           <legend className="text-sm font-semibold">Rental date range</legend>
           <p className="mt-1 text-xs leading-5 text-stone-500" id="calendar-help">
             {!handoffTime
-              ? "Choose a handoff time before selecting dates."
+              ? "Choose pickup and return dates, then select a handoff time."
               : pickupDate && !returnDate
                 ? "Pickup selected. Choose a later return handoff date. Dimmed no-handoff days can stay inside the rental."
                 : "Choose pickup, then return. Selecting again starts a new range."}
@@ -274,16 +289,14 @@ export function ScheduleQuoteForm({
                   return <span aria-hidden="true" className="min-h-11" key={day.date} />;
                 }
                 const choosingReturn = Boolean(pickupDate && !returnDate);
-                const status = handoffTime
-                  ? endpointStatus({
+                const status = endpointStatus({
                       allowedWeekdays: activePolicy.allowedWeekdays,
                       availability,
                       date: day.date,
                       role: choosingReturn ? "return" : "pickup",
                       selectedPickup: pickupDate,
-                      time: handoffTime,
-                    })
-                  : { disabled: true, reason: "choose_time" as const };
+                      time: handoffTime || activePolicy.approvedTimes[0] || "",
+                    });
                 const selectedPickup = day.date === pickupDate;
                 const selectedReturn = day.date === returnDate;
                 const inRange = Boolean(
@@ -301,8 +314,6 @@ export function ScheduleQuoteForm({
                       ? "no lender handoff"
                       : status.reason === "unavailable"
                       ? "unavailable"
-                      : status.reason === "choose_time"
-                        ? "choose a handoff time first"
                       : status.reason === "closed" || status.reason === "before_pickup"
                           ? "not selectable"
                           : "available";
@@ -363,7 +374,7 @@ export function ScheduleQuoteForm({
           disabled={!complete || presentation.disableQuoteSubmit}
           type="submit"
         >
-          {pending ? "Getting quote…" : "Get authoritative quote"}
+          {pending ? "Refreshing quote…" : state.status === "error" ? "Retry quote" : "Refresh quote"}
         </button>
       </form>
 

@@ -90,6 +90,7 @@ describe("contract details", () => {
   it("renders the persisted meetup from the contract snapshot without recomputation", () => {
     const withMeetup = structuredClone(agreement);
     withMeetup.current.snapshot.meetup = {
+      kind: "public_venue",
       attribution: "© OpenStreetMap contributors · Powered by Geoapify",
       provider: "geoapify",
       provider_config_version: "geoapify-v1",

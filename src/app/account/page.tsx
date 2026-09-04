@@ -6,6 +6,7 @@ import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
 import { MeetupOriginForm } from "@/features/locations/meetup-origin-form";
 import { requirePageUser } from "@/lib/auth/require-user";
 
@@ -88,12 +89,18 @@ export default async function AccountPage() {
                             {formatManilaDateTime(booking.pickupAt)} – {formatManilaDateTime(booking.returnAt)}
                           </p>
                         </div>
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-950">{booking.state}</span>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-950">{presentCustomerBookingStatus(booking.state, booking.requestedAt).label}</span>
                       </div>
                       <p className="mt-3 text-sm text-stone-500">Requested {formatManilaDateTime(booking.requestedAt)} (Asia/Manila)</p>
+                      <p className="mt-2 text-sm text-stone-700">{presentCustomerBookingStatus(booking.state, booking.requestedAt).nextStep}</p>
+                      {presentCustomerBookingStatus(booking.state, booking.requestedAt).target ? <p className="mt-1 text-xs text-stone-500">{presentCustomerBookingStatus(booking.state, booking.requestedAt).target}</p> : null}
                       {booking.meetup ? (
                         <p className="mt-2 text-sm text-stone-700">
-                          Meetup: <strong>{booking.meetup.name}</strong> — {booking.meetup.address}
+                          Meetup: {booking.meetup.kind === "public_venue" ? (
+                            <><strong>{booking.meetup.name}</strong> — {booking.meetup.address}</>
+                          ) : (
+                            <><strong>{booking.meetup.areaLabel}</strong> — exact public venue pending owner confirmation</>
+                          )}
                         </p>
                       ) : null}
                       <Link className="mt-4 inline-flex min-h-11 items-center font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4" href={`/account/bookings/${booking.id}`}>
