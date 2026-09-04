@@ -131,9 +131,9 @@ describe("recommendPublicMeetup", () => {
         candidateCount: 5,
         elementCount: 10,
         providerBudgetStatus: "reserved",
-        providerRequestCount: 4,
+        providerRequestCount: 2,
         routingStatus: "success",
-        seedCount: 3,
+        seedCount: 1,
         status: "available",
       }),
     );
@@ -247,7 +247,7 @@ describe("recommendPublicMeetup", () => {
     expect(configured.adapter.reverseGeocodeCity).not.toHaveBeenCalled();
   });
 
-  it("discovers around distinct owner, renter, and midpoint seeds before deduplicating", async () => {
+  it("discovers once around the midpoint", async () => {
     const configured = options();
     const recordTelemetry = vi.fn();
     const renterCity = {
@@ -264,20 +264,18 @@ describe("recommendPublicMeetup", () => {
     );
 
     expect(result.status).toBe("available");
-    expect(configured.adapter.searchPublicPlaces).toHaveBeenCalledTimes(3);
+    expect(configured.adapter.searchPublicPlaces).toHaveBeenCalledTimes(1);
     expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).toEqual([
-      { latitude: input.lenderCity.latitude, longitude: input.lenderCity.longitude },
-      { latitude: renterCity.latitude, longitude: renterCity.longitude },
-      expect.not.objectContaining({ latitude: renterCity.latitude, longitude: renterCity.longitude }),
+      { latitude: 10.313002, longitude: 123.9174 },
     ]);
     expect(recordTelemetry).toHaveBeenCalledWith(expect.objectContaining({
-      providerRequestCount: 3,
-      resultCount: 3,
-      seedCount: 3,
+      providerRequestCount: 1,
+      resultCount: 1,
+      seedCount: 1,
     }));
   });
 
-  it("uses the confirmed device coordinate as the renter discovery seed", async () => {
+  it("uses the confirmed device coordinate to calculate the midpoint seed", async () => {
     const configured = options();
     configured.adapter.reverseGeocodeCity.mockResolvedValue({
       countryCode: "PH",
@@ -289,10 +287,9 @@ describe("recommendPublicMeetup", () => {
 
     await recommendPublicMeetup(input, configured);
 
-    expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).toContainEqual(
-      input.currentPosition,
-    );
-    expect(configured.adapter.searchPublicPlaces.mock.calls.map(([request]) => request.center)).not.toContainEqual({
+    expect(configured.adapter.searchPublicPlaces).toHaveBeenCalledTimes(1);
+    expect(configured.adapter.searchPublicPlaces.mock.calls[0][0].center).not.toEqual(input.currentPosition);
+    expect(configured.adapter.searchPublicPlaces.mock.calls[0][0].center).not.toEqual({
       latitude: 11.0,
       longitude: 124.0,
     });

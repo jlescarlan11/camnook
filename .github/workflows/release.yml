@@ -179,6 +179,29 @@ jobs:
           printf '### Staged candidate\n- SHA: `%s`\n- Deployment: `%s`\n- Prior live deployment: `%s`\n- State: `READY, unaliased`\n' \
             "$RELEASE_SHA" "$candidate_id" "$prior_id" >>"$GITHUB_STEP_SUMMARY"
 
+      - name: Verify Production meetup providers on candidate
+        run: |
+          set -euo pipefail
+          response="$(
+            vercel curl /api/internal/meetup-provider-readiness \
+              --deployment "$CANDIDATE_ID" -- \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --max-time 30 \
+              --request POST \
+              --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+          )"
+          jq -e '
+            .geoapify == "passed" and
+            .mapbox == "passed" and
+            .providerRequestCount >= 2 and
+            .providerRequestCount <= 5 and
+            .routeElementCount == 6
+          ' <<<"$response" >/dev/null
+          printf '### Production meetup providers verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Coordinates: `public Cebu fixtures only`\n' \
+            "$RELEASE_SHA" >>"$GITHUB_STEP_SUMMARY"
+
       - name: Link exact Production project
         id: production-link
         run: |

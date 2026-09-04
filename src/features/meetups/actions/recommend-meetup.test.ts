@@ -98,32 +98,6 @@ describe("recommendMeetup", () => {
       )
       .mockResolvedValueOnce(
         mcp({
-          results: [{
-            categories: ["commercial.shopping_mall"],
-            city: "Cebu City",
-            formatted: "Cardinal Rosales Avenue, Cebu City",
-            lat: 10.3172,
-            lon: 123.9054,
-            name: "Ayala Center Cebu",
-            place_id: "provider:ayala",
-          }],
-        }),
-      )
-      .mockResolvedValueOnce(
-        mcp({
-          results: [{
-            categories: ["commercial.shopping_mall"],
-            city: "Cebu City",
-            formatted: "Cardinal Rosales Avenue, Cebu City",
-            lat: 10.3172,
-            lon: 123.9054,
-            name: "Ayala Center Cebu",
-            place_id: "provider:ayala",
-          }],
-        }),
-      )
-      .mockResolvedValueOnce(
-        mcp({
           results: [
             {
               categories: ["commercial.shopping_mall"],
@@ -166,11 +140,11 @@ describe("recommendMeetup", () => {
     expect(JSON.stringify(result)).not.toMatch(/10\.30123456|123\.90123456|provider:ayala|provider:mandaue/);
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/10\.|123\.|Ayala|Mandaue|reference/);
     expect(String(request.mock.calls[0]?.[0])).not.toMatch(/10\.30123456|123\.90123456/);
-    expect(String(request.mock.calls[4]?.[0])).toContain(
+    expect(String(request.mock.calls[2]?.[0])).toContain(
       "/directions-matrix/v1/mapbox/driving-traffic/",
     );
-    expect(String(request.mock.calls[4]?.[0])).not.toMatch(/search|geocod/i);
-    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 4);
+    expect(String(request.mock.calls[2]?.[0])).not.toMatch(/search|geocod/i);
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 2);
     expect(claimMapboxRoutingBudget).toHaveBeenCalledWith("renter-1", 2);
   });
 
@@ -232,13 +206,33 @@ describe("recommendMeetup", () => {
 
     await expect(
       recommendMeetup({ status: "idle" }, validSchedule()),
-    ).resolves.toEqual({ error: "provider_unavailable", status: "error" });
+    ).resolves.toEqual({ error: "rate_limited", status: "error" });
     await expect(
       recommendMeetup(
         { status: "idle" },
         validSchedule({ locationMode: "manual", manualCity: "Mandaue City" }),
       ),
-    ).resolves.toEqual({ error: "provider_unavailable", status: "error" });
+    ).resolves.toEqual({ error: "rate_limited", status: "error" });
+    expect(claimGeoapifyProviderBudget).toHaveBeenNthCalledWith(1, "renter-1", 2);
+    expect(claimGeoapifyProviderBudget).toHaveBeenNthCalledWith(2, "renter-1", 2);
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("keeps the complete four-category recommendation plan within five calls", async () => {
+    process.env.MEETUP_ALLOWED_CATEGORIES = [
+      "commercial.shopping_mall",
+      "public_transport.train",
+      "public_transport.bus",
+      "activity.community_center",
+    ].join(",");
+    vi.mocked(claimGeoapifyProviderBudget).mockResolvedValue(false);
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+
+    await expect(
+      recommendMeetup({ status: "idle" }, validSchedule()),
+    ).resolves.toEqual({ error: "rate_limited", status: "error" });
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 5);
     expect(request).not.toHaveBeenCalled();
   });
 
@@ -283,7 +277,7 @@ describe("recommendMeetup", () => {
         release: "2026-q2",
       },
       status: "success",
-      warning: "provider_unavailable",
+      warning: "rate_limited",
     });
     expect(actorRpc).toHaveBeenCalledTimes(1);
     expect(actorRpc).toHaveBeenCalledWith("resolve_psgc_area", {
@@ -291,7 +285,7 @@ describe("recommendMeetup", () => {
       p_release_key: "2026-q2",
     });
     expect(JSON.stringify(actorRpc.mock.calls)).not.toContain("replace_my_meetup_origin");
-    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 4);
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledWith("renter-1", 2);
     expect(request).not.toHaveBeenCalled();
   });
 });

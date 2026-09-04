@@ -297,14 +297,27 @@ export function RequestForm({
                     ? "The schedule changed or became unavailable. Return to the listing and choose again."
                     : recommendationState.error === "authentication"
                       ? "Your session expired. Sign in again before requesting a meetup."
-                      : "A public venue could not be suggested. Choose or confirm a Philippine area instead."}
+                      : recommendationState.error === "configuration"
+                        ? "Public venue suggestions are not configured right now. Choose or confirm a Philippine area instead."
+                        : recommendationState.error === "rate_limited"
+                          ? "Place suggestions are busy right now. Wait a moment, then try again, or confirm a Philippine area instead."
+                          : recommendationState.error === "no_eligible_places"
+                            ? "No reviewed public venues were found for this area. Choose or confirm a Philippine area instead."
+                            : "The place provider could not be reached. Try again, or choose a Philippine area instead."}
             </p>
           ) : null}
 
-          {recommendationState.warning === "provider_unavailable" && canonicalArea ? (
+          {recommendationState.warning && canonicalArea ? (
             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
-              Public venue suggestions are unavailable right now. Your selected
-              area is still usable; the owner will confirm the venue before handoff.
+              {recommendationState.warning === "configuration"
+                ? "Public venue suggestions are not configured right now."
+                : recommendationState.warning === "rate_limited"
+                  ? "Place suggestions are busy right now. You can retry shortly."
+                  : recommendationState.warning === "no_eligible_places"
+                    ? "No reviewed public venues were found for this area."
+                    : "The place provider could not be reached right now."}{" "}
+              Your selected area is still usable; the owner will confirm the venue
+              before handoff.
             </p>
           ) : null}
 

@@ -468,11 +468,8 @@ set local "request.jwt.claim.role" = 'service_role';
 do $$
 begin
   if not api.claim_geoapify_provider_budget(
-    'd0000000-0000-4000-8000-000000000002', 3
+    'd0000000-0000-4000-8000-000000000002', 5
   )
-    or not api.claim_geoapify_provider_budget(
-      'd0000000-0000-4000-8000-000000000002', 2
-    )
     or api.claim_geoapify_provider_budget(
       'd0000000-0000-4000-8000-000000000002', 1
     )

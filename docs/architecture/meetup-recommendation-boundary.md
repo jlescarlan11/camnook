@@ -40,8 +40,9 @@ logged, returned, persisted, or exposed to the browser. The coordinate is not
 copied into returned city context,
 telemetry, storage, cookies, URLs controlled by CamNook, or errors. Geoapify must
 receive that coordinate to perform the lookup; Mapbox receives it only for the
-transient route comparison. Geoapify's normalized city centroid drives midpoint
-and POI search. Manual-city routing uses that centroid and is labeled approximate.
+transient route comparison. The confirmed device coordinate and lender origin
+drive the midpoint search; manual-city routing uses the normalized city centroid
+and is labeled approximate.
 
 Saved renter and lender anchors remain private database data. Public listing DTOs expose the
 lender's area label, approximation level, and schedule but not provider IDs or coordinates. The admin address
@@ -63,16 +64,17 @@ routes, secrets, tokens, or constructed URLs.
 
 ## Deterministic selection
 
-Discovery uses up to three deterministic seeds: lender origin, renter origin,
-and their spherical midpoint. Duplicate seeds collapse before budget reservation
-and provider calls. CamNook merges results by provider identity and category,
-then evaluates them around the midpoint; it does not trust provider ordering.
+Discovery uses one deterministic spherical midpoint between the lender and renter
+origins. CamNook performs one search per configured category around that midpoint,
+then merges results by provider identity and category; it does not trust provider
+ordering. Together with the city or centroid lookup, a complete recommendation
+uses no more than five Geoapify calls.
 Candidates must have a meaningful name, public
 formatted address, city, provider identity, and at least one exact configured
 allowlist category. Accommodation, residential-building, and populated-place
 categories are rejected even if a record also carries an allowed category.
 Identifier-like names such as unit numbers or route numbers and records outside
-every configured seed radius are also rejected.
+the configured midpoint radius are also rejected.
 
 Each configured category is sent as a separate bounded provider tool call because
 the provider's POST interface accepts one category per call. Eligible candidates

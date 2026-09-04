@@ -34,12 +34,50 @@ export type RecommendMeetupState = {
     | "invalid_city"
     | "invalid_location"
     | "invalid_schedule"
+    | "no_eligible_places"
     | "provider_unavailable"
+    | "rate_limited"
     | "schedule_changed";
   recommendations?: SafeMeetupRecommendation[];
   status: "idle" | "error" | "success";
-  warning?: "provider_unavailable";
+  warning?:
+    | "configuration"
+    | "no_eligible_places"
+    | "provider_unavailable"
+    | "rate_limited";
 };
+
+type RecommendationFailure =
+  | "configuration"
+  | "no_eligible_places"
+  | "provider_unavailable"
+  | "rate_limited";
+
+function safeRecommendationFailure(
+  reason:
+    | "configuration"
+    | "empty"
+    | "invalid_input"
+    | "malformed"
+    | "network"
+    | "quota"
+    | "timeout"
+    | "unsupported_city",
+): RecommendationFailure {
+  if (reason === "configuration") return "configuration";
+  if (reason === "empty") return "no_eligible_places";
+  if (reason === "quota") return "rate_limited";
+  return "provider_unavailable";
+}
+
+function unavailableRecommendation(
+  error: RecommendationFailure,
+  canonicalArea?: SafeCanonicalMeetupArea,
+): RecommendMeetupState {
+  return canonicalArea
+    ? { canonicalArea, status: "success", warning: error }
+    : { error, status: "error" };
+}
 
 const contextSchema = z.object({
   camera_id: z.uuid(),
@@ -258,10 +296,10 @@ export async function recommendMeetup(
       release: canonical.data.release,
     };
     if (!config) {
-      return { canonicalArea, status: "success", warning: "provider_unavailable" };
+      return { canonicalArea, status: "success", warning: "configuration" };
     }
     providerLookupCount = 1;
-    const completeRequestCount = 1 + 3 * config.allowedCategories.length;
+    const completeRequestCount = 1 + config.allowedCategories.length;
     if (!(await claimGeoapifyProviderBudget(context.user.id, completeRequestCount))) {
       recordMeetupTelemetry({
         durationBucket: "fast",
@@ -270,7 +308,7 @@ export async function recommendMeetup(
         resultCount: 0,
         status: "quota",
       });
-      return { canonicalArea, status: "success", warning: "provider_unavailable" };
+      return { canonicalArea, status: "success", warning: "rate_limited" };
     }
     providerBudgetReserved = true;
     try {
@@ -293,16 +331,14 @@ export async function recommendMeetup(
   }
 
   if (!config) {
-    return canonicalArea
-      ? { canonicalArea, status: "success", warning: "provider_unavailable" }
-      : { error: "configuration", status: "error" };
+    return unavailableRecommendation("configuration", canonicalArea);
   }
   const knownRenterOrigin = currentPosition ?? renterCity;
   const providerRequestCount = knownRenterOrigin
     ? buildDiscoverySeeds(ownerOrigin, knownRenterOrigin).length *
         config.allowedCategories.length +
       (currentPosition ? 1 : 0)
-    : 1 + 3 * config.allowedCategories.length;
+    : 1 + config.allowedCategories.length;
   if (
     !providerBudgetReserved &&
     !(await claimGeoapifyProviderBudget(context.user.id, providerRequestCount))
@@ -314,23 +350,20 @@ export async function recommendMeetup(
       resultCount: 0,
       status: "quota",
     });
-    return canonicalArea
-      ? { canonicalArea, status: "success", warning: "provider_unavailable" }
-      : { error: "provider_unavailable", status: "error" };
+    return unavailableRecommendation("rate_limited", canonicalArea);
   }
 
   if (manualCity) {
     try {
       renterCity = await adapter!.geocodeCity(manualCity);
     } catch (error) {
-      return {
-        error:
-          error instanceof ProviderBoundaryError &&
-          error.code === "unsupported_city"
-            ? "invalid_city"
-            : "provider_unavailable",
-        status: "error",
-      };
+      if (error instanceof ProviderBoundaryError) {
+        if (error.code === "unsupported_city") {
+          return { error: "invalid_city", status: "error" };
+        }
+        return unavailableRecommendation(safeRecommendationFailure(error.code));
+      }
+      return unavailableRecommendation("provider_unavailable");
     }
   }
 
@@ -374,7 +407,8 @@ export async function recommendMeetup(
         recommendations: result.recommendations,
         status: "success",
       }
-    : canonicalArea
-      ? { canonicalArea, status: "success", warning: "provider_unavailable" }
-      : { error: "provider_unavailable", status: "error" };
+    : unavailableRecommendation(
+        safeRecommendationFailure(result.reason),
+        canonicalArea,
+      );
 }

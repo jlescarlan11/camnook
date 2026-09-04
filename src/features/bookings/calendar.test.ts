@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCalendarMonth,
+  calendarEndpointRole,
   composeManilaWallClock,
   endpointStatus,
   getManilaToday,
@@ -142,5 +143,22 @@ describe("booking calendar", () => {
         [],
       ),
     ).toBe(false);
+  });
+
+  it("treats an earlier date as a replacement pickup after pickup is selected", () => {
+    expect(
+      calendarEndpointRole({
+        date: "2099-09-07",
+        pickupDate: "2099-09-15",
+        returnDate: "",
+      }),
+    ).toBe("pickup");
+    expect(
+      calendarEndpointRole({
+        date: "2099-09-16",
+        pickupDate: "2099-09-15",
+        returnDate: "",
+      }),
+    ).toBe("return");
   });
 });

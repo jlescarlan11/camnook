@@ -76,19 +76,20 @@ After disabled migrations and code are on the exact protected Preview SHA:
 Handoff scheduling is enabled by releases from `main`, but each listing remains
 fail-closed until the owner saves an enabled policy with a public city label,
 private coarse city anchor, allowed weekdays, and approved Asia/Manila handoff
-times. Meetup admission remains fail-closed until dedicated Production Geoapify
+times. Meetup admission remains fail-closed unless dedicated Production Geoapify
 and Mapbox credentials, the independent recommendation secret, reviewed provider
 and routing policy versions, quota/cost alerting, rotation owners, and outage
-responses are configured. Verify
-provider health, runtime/database monitoring, and rollback control without
-recording sensitive values.
+responses remain configured. Every protected Production release now validates
+the environment-backed configuration and both provider boundaries with bounded,
+public Cebu fixtures before staging. Verify runtime/database monitoring and
+rollback control without recording sensitive values.
 
 Every Geoapify-bound action first reserves its exact outbound call count: a
-current-position renter recommendation reserves one city lookup plus one request
-per unique discovery seed and reviewed category; saved origins omit the city
-lookup, while manual and canonical modes reserve their city/centroid lookup plus
-the maximum bounded three-seed discovery plan in one operation before the first
-provider call;
+current-position renter recommendation reserves one city lookup plus one midpoint
+request per reviewed category; saved origins omit the city lookup, while manual
+and canonical modes reserve their city/centroid lookup plus the same bounded
+midpoint discovery plan in one operation before the first provider call. The
+maximum four-category plan therefore reserves five calls;
 an owner city or address suggestion reserves one call. The reservation is fail-closed at five shared calls per
 second, ten calls per actor per fifteen-minute window, and 3,000 calls per UTC
 day; only short-lived aggregate counters are retained. Only server actions using

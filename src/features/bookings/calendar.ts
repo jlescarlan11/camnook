@@ -144,6 +144,16 @@ export function endpointStatus(input: {
     : { disabled: false, reason: "available" as const };
 }
 
+export function calendarEndpointRole(input: {
+  date: string;
+  pickupDate: string;
+  returnDate: string;
+}): "pickup" | "return" {
+  return input.pickupDate && !input.returnDate && input.date > input.pickupDate
+    ? "return"
+    : "pickup";
+}
+
 export function periodOverlapsAvailability(
   pickupDate: string,
   returnDate: string,

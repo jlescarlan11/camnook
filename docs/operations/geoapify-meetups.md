@@ -72,14 +72,30 @@ Record only the date, environment, config version, safe status category, and
 pass/fail. Do not record the request URL, key, exact input, raw response, place ID,
 opaque reference, or user identity.
 
+## Automated Production check
+
+Vercel Production secrets are non-exportable, so the protected release job tests
+them inside the staged candidate rather than downloading them. It calls the
+candidate-only `/api/internal/meetup-provider-readiness` route with the existing
+protected Supabase management credential. The route verifies that credential
+against the fixed Production project, validates both runtime provider
+configurations, proves the complete category plan remains within five calls, and
+checks Geoapify venues plus Mapbox durations using public Cebu fixtures only.
+
+The route returns only bounded counts and pass/fail categories. Provider keys,
+raw responses, place identities, addresses, and coordinates are never returned
+or logged. A failed check leaves the candidate unaliased and blocks Production
+migration and promotion. Release evidence records only the exact Git SHA and
+provider pass/fail status.
+
 ## Quota, outage, and rotation
 
 Each current-position recommendation costs one reverse-geocoding operation plus
-one Places operation per unique discovery seed and configured reviewed category
-(each returns at most 20 results). Saved, canonical, and manual origins skip the
-reverse lookup. A canonical centroid save or one-time canonical lookup consumes
-one additional geocoding operation before discovery. The action calculates and
-reserves the exact call count before any provider request. Mapbox
+one midpoint Places operation per configured reviewed category (each returns at
+most 20 results). Saved origins skip the reverse lookup. Manual-city and
+canonical-area recommendations consume one geocoding operation before midpoint
+discovery. With at most four reviewed categories, every complete recommendation
+reserves no more than five calls before any provider request. Mapbox
 routing is budgeted separately; see `docs/operations/mapbox-meetup-routing.md`. Monitor the provider dashboard
 for daily credits, rate limits, abnormal failures, and plan cost. CamNook must fail
 closed on quota, timeout, network, malformed, unsupported, or empty responses;

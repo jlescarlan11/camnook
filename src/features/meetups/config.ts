@@ -13,6 +13,7 @@ const schema = z.object({
   allowedCategories: z
     .array(z.enum(REVIEWED_GEOAPIFY_CATEGORIES))
     .min(1)
+    .max(REVIEWED_GEOAPIFY_CATEGORIES.length)
     .refine((values) => new Set(values).size === values.length),
   apiKey: z.string().trim().min(8),
   configVersion: z.string().trim().min(1).max(64),

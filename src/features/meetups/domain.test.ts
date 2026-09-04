@@ -48,13 +48,11 @@ describe("meetup recommendation domain", () => {
     ).toEqual({ latitude: 10.001493, longitude: -180 });
   });
 
-  it("builds deterministic owner, renter, and midpoint discovery seeds", () => {
+  it("builds one deterministic midpoint discovery seed", () => {
     expect(buildDiscoverySeeds(
       { latitude: 10.3157, longitude: 123.8854 },
       { latitude: 10.3236, longitude: 123.9222 },
     )).toEqual([
-      { latitude: 10.3157, longitude: 123.8854 },
-      { latitude: 10.3236, longitude: 123.9222 },
       calculateSearchCenter(
         { latitude: 10.3157, longitude: 123.8854 },
         { latitude: 10.3236, longitude: 123.9222 },
@@ -66,12 +64,9 @@ describe("meetup recommendation domain", () => {
     ["Cebu–Mandaue", { latitude: 10.3157, longitude: 123.8854 }, { latitude: 10.3236, longitude: 123.9222 }],
     ["Cebu–Lapu-Lapu bridge", { latitude: 10.3157, longitude: 123.8854 }, { latitude: 10.3103, longitude: 123.9494 }],
     ["Cebu–Talisay", { latitude: 10.3157, longitude: 123.8854 }, { latitude: 10.2447, longitude: 123.8494 }],
-  ])("retains both origin neighborhoods for %s even when the midpoint is unsuitable", (_label, owner, renter) => {
+  ])("uses only the fair midpoint for %s", (_label, owner, renter) => {
     const seeds = buildDiscoverySeeds(owner, renter);
-    expect(seeds).toHaveLength(3);
-    expect(seeds[0]).toEqual(owner);
-    expect(seeds[1]).toEqual(renter);
-    expect(seeds[2]).toEqual(calculateSearchCenter(owner, renter));
+    expect(seeds).toEqual([calculateSearchCenter(owner, renter)]);
   });
 
   it("rejects incomplete, private, residential, and non-allowlisted results", () => {

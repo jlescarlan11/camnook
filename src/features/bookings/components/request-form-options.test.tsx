@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const recommendationState = vi.hoisted(() => ({
+  error: undefined as
+    | "configuration"
+    | "no_eligible_places"
+    | "provider_unavailable"
+    | "rate_limited"
+    | undefined,
   recommendations: [
     {
       address: "Cardinal Rosales Avenue, Cebu City",
@@ -40,6 +46,12 @@ const recommendationState = vi.hoisted(() => ({
     },
   ],
   status: "success" as const,
+  warning: undefined as
+    | "configuration"
+    | "no_eligible_places"
+    | "provider_unavailable"
+    | "rate_limited"
+    | undefined,
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -79,6 +91,8 @@ function renderForm() {
 
 describe("RequestForm rendered meetup options", () => {
   beforeEach(() => {
+    recommendationState.error = undefined;
+    recommendationState.warning = undefined;
     recommendationState.recommendations.forEach((recommendation, index) => {
       recommendation.ownerTravelMinutes = index === 0 ? 12 : 15;
       recommendation.renterTravelMinutes = index === 0 ? 14 : 10;
@@ -125,6 +139,16 @@ describe("RequestForm rendered meetup options", () => {
     expect(markup).toContain("without travel-time claims");
     expect(markup.match(/Travel times unavailable; this option is not route-ranked\./g)).toHaveLength(2);
     expect(markup).not.toContain("min from you");
+  });
+
+  it.each([
+    ["configuration", "Public venue suggestions are not configured right now."],
+    ["rate_limited", "Place suggestions are busy right now."],
+    ["no_eligible_places", "No reviewed public venues were found for this area."],
+    ["provider_unavailable", "The place provider could not be reached."],
+  ] as const)("explains the safe %s failure", (error, message) => {
+    recommendationState.error = error;
+    expect(renderForm()).toContain(message);
   });
 
   it("renders only three of five cards before an accessible reveal control", () => {

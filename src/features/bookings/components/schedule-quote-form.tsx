@@ -8,6 +8,7 @@ import type { PublicHandoffPolicy } from "@/features/listings/handoff-types";
 import { quoteBooking } from "../actions/quote-booking";
 import {
   buildCalendarMonth,
+  calendarEndpointRole,
   endpointStatus,
   formatHandoffTime,
   getManilaToday,
@@ -163,18 +164,18 @@ export function ScheduleQuoteForm({
 
   function chooseDate(date: string) {
     const calendarTime = handoffTime || activePolicy.approvedTimes[0] || "";
-    const choosingReturn = Boolean(pickupDate && !returnDate);
+    const role = calendarEndpointRole({ date, pickupDate, returnDate });
     const status = endpointStatus({
       allowedWeekdays: activePolicy.allowedWeekdays,
       availability,
       date,
-      role: choosingReturn ? "return" : "pickup",
+      role,
       selectedPickup: pickupDate,
       time: calendarTime,
     });
     if (status.disabled) return;
 
-    if (choosingReturn && date > pickupDate) {
+    if (role === "return") {
       setReturnDate(date);
     } else {
       setPickupDate(date);
@@ -288,15 +289,19 @@ export function ScheduleQuoteForm({
                 if (!day.inMonth) {
                   return <span aria-hidden="true" className="min-h-11" key={day.date} />;
                 }
-                const choosingReturn = Boolean(pickupDate && !returnDate);
+                const role = calendarEndpointRole({
+                  date: day.date,
+                  pickupDate,
+                  returnDate,
+                });
                 const status = endpointStatus({
-                      allowedWeekdays: activePolicy.allowedWeekdays,
-                      availability,
-                      date: day.date,
-                      role: choosingReturn ? "return" : "pickup",
-                      selectedPickup: pickupDate,
-                      time: handoffTime || activePolicy.approvedTimes[0] || "",
-                    });
+                  allowedWeekdays: activePolicy.allowedWeekdays,
+                  availability,
+                  date: day.date,
+                  role,
+                  selectedPickup: pickupDate,
+                  time: handoffTime || activePolicy.approvedTimes[0] || "",
+                });
                 const selectedPickup = day.date === pickupDate;
                 const selectedReturn = day.date === returnDate;
                 const inRange = Boolean(

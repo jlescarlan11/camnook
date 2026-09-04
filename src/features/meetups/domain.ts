@@ -79,16 +79,7 @@ export function buildDiscoverySeeds(
   ownerOrigin: Coordinate,
   renterOrigin: Coordinate,
 ): Coordinate[] {
-  const values = [
-    coordinateSchema.parse(ownerOrigin),
-    coordinateSchema.parse(renterOrigin),
-    calculateSearchCenter(ownerOrigin, renterOrigin),
-  ];
-  const unique = new Map<string, Coordinate>();
-  for (const value of values) {
-    unique.set(`${value.latitude.toFixed(6)}:${value.longitude.toFixed(6)}`, value);
-  }
-  return [...unique.values()];
+  return [calculateSearchCenter(ownerOrigin, renterOrigin)];
 }
 
 function distanceMeters(first: Coordinate, second: Coordinate) {
