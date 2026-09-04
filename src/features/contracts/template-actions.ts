@@ -73,6 +73,10 @@ export async function publishContractTemplate(
     return { error: "invalid_input", fieldErrors, status: "error" };
   }
 
+  // Postgres accepts NULL for this UUID argument, but generated RPC types model
+  // every non-defaulted function argument as non-nullable.
+  const expectedActiveTemplateId = (expectedActiveId.data || null) as string;
+
   let context: Awaited<ReturnType<typeof requireUser>>;
   try {
     context = await requireUser();
@@ -91,7 +95,7 @@ export async function publishContractTemplate(
     const result = await context.supabase
       .schema("api")
       .rpc("publish_contract_template", {
-        p_expected_active_id: expectedActiveId.data! || null,
+        p_expected_active_id: expectedActiveTemplateId,
         p_operation_id: randomUUID(),
         p_terms: terms.data!,
         p_version: version.data!,
