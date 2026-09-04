@@ -1,7 +1,7 @@
 # CamNook Open Decisions and Readiness
 
 Status: owner launch policy approved; machine evidence controls Production GO<br>
-Last updated: 2026-08-16
+Last updated: 2026-09-04
 
 ## Outcome
 
@@ -17,7 +17,7 @@ These are approved and are not open discovery questions:
 - one serialized camera per listing and fixed included accessories;
 - public discovery, authenticated booking, pickup/return only;
 - manual GCash movement with application-side records only;
-- no online KYC; the named renter presents one original current government ID at pickup;
+- progressive KYC before the first booking (legal name, birthdate, mobile number, and residential address), with the original government ID checked at pickup;
 - no block in `FOR_REVIEW`; atomic approval creates a database-enforced hold;
 - one continuous 24-hour deadline from approval;
 - timely submission preserves `PAYMENT_REVIEW` without automatic expiry;
@@ -35,13 +35,14 @@ These remain accepted unless implementation reveals a concrete conflict:
 1. Each camera has one daily rate.
 2. Penalties, deductions, and exceptional amounts are manually decided.
 3. One original current government ID shown in person is sufficient for MVP;
-   CamNook retains no copy, number, type, address, birth date, or expiry.
+   CamNook retains the renter-entered KYC profile but no ID copy, number, type,
+   signature, QR/barcode, or expiry.
 4. Refunds happen outside the application.
 5. Exactly one admin is bootstrapped and protected by database authorization.
 6. The renter named on the account and contract personally collects the camera.
 7. PostgreSQL time ranges are half-open `[pickup, return)`; any future turnaround buffer is an explicit separate block/rule.
-8. A renter may submit and receive approval without online identity evidence.
-   Equipment release requires the named renter and physical ID match at pickup.
+8. A renter must complete the minimum KYC profile before submitting a booking.
+   Equipment release requires the named adult renter and physical ID match at pickup.
 
 ## Approved decisions
 
@@ -99,13 +100,16 @@ Unblocks: Sprint 7 issues #78–#86
 
 ## Decisions required before implementation of affected behavior
 
-### OD-04 — Minimized in-person identity policy
+### OD-04 — Progressive renter KYC and minimized in-person identity policy
 
 Owner: product/business<br>
-Status: approved for Production on 2026-08-16<br>
-Unblocks: booking approval and physical equipment release without online KYC
+Status: amended and approved for Production on 2026-09-04<br>
+Unblocks: adult-only booking requests, contract identity, and physical equipment release
 
-Online government-ID upload and review are retired. Policy
+Before the first booking request, the renter saves a legal name, birthdate,
+mobile number, and residential address. SMS OTP is not required. The profile is
+actor-owned and each new booking freezes its KYC details for the immutable
+agreement. Online government-ID upload and review remain retired. Policy
 `government-id-evidence-v2` remains disabled, the renter and owner surfaces no
 longer expose it, and booking approval does not require a verification record.
 At pickup, the named contract renter presents one original current government

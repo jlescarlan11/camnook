@@ -14,6 +14,7 @@ import { stringFormValue, type ActionStatus } from "./state";
 export type RequestBookingActionState = {
   error?:
     | "invalid_input"
+    | "kyc_required"
     | "profile_required"
     | "request_limit"
     | "request_failed"
@@ -200,9 +201,11 @@ export async function requestBooking(
       error:
         error?.code === "42501" && error.message === "booking_profile_required"
           ? "profile_required"
+          : error?.code === "42501" && error.message === "booking_kyc_required"
+            ? "kyc_required"
           : error?.code === "42501" && error.message === "booking_profile_suspended"
             ? "suspended"
-            : error?.code === "P0001"
+              : error?.code === "P0001"
               ? "request_limit"
               : error?.code === "40001"
                 ? "schedule_changed"

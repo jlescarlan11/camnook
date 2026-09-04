@@ -6,6 +6,7 @@ import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadBookingRequestPageContext } from "@/features/bookings/data/booking-request-page";
 import { formatHandoffTime } from "@/features/bookings/calendar";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { KycProfileForm } from "@/features/kyc/kyc-profile-form";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -91,12 +92,19 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
                 <h2 className="text-xl font-semibold">Requests are unavailable</h2>
                 <p className="mt-2 leading-7">This account is suspended and cannot submit requests. Contact CamNook for help.</p>
               </section>
+            ) : !requestContext.kycProfile?.current ? (
+              <section className="mt-8 rounded-3xl border border-amber-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="kyc-heading">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Required before requesting</p>
+                <h2 className="mt-2 text-2xl font-semibold" id="kyc-heading">Complete your renter KYC</h2>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Add the minimum details needed to confirm adult eligibility and prepare a rental contract. No SMS OTP or ID upload is required.</p>
+                <KycProfileForm kyc={requestContext.kycProfile ?? null} profile={profile ?? null} returnTo={`/account/bookings/new?${query}`} />
+              </section>
             ) : (
               <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
                 <RequestForm
                   camera={values.camera}
                   key={query}
-                  profile={profile}
+                  profile={profile ? { ...profile, defaultAddress: { areaName: requestContext.kycProfile.areaName, valid: true } } : profile}
                   returnHref={`/cameras/${camera.slug}`}
                   schedule={{ handoffTime: values.handoffTime, pickupDate: values.pickupDate, policyVersion: values.policyVersion, returnDate: values.returnDate }}
                   summary={{

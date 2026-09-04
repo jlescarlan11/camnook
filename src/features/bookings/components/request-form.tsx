@@ -24,7 +24,11 @@ export function RequestForm({
   summary,
 }: {
   camera: string;
-  profile?: null | { legalName: string; phone: string };
+  profile?: null | {
+    defaultAddress?: null | { areaName: string; valid: boolean };
+    legalName: string;
+    phone: string;
+  };
   returnHref?: string;
   schedule: Schedule;
   summary: ReviewSummary;
@@ -71,7 +75,32 @@ export function RequestForm({
           </div>
           <div className="mt-5 space-y-5">
             <Field label="Preferred meetup area" error={state.fieldErrors?.preferredMeetupArea} help="We’ll arrange the exact public meetup location after your request is approved.">
-              <input autoComplete="address-level2" className={inputClass} maxLength={160} name="preferredMeetupArea" onChange={(event) => update("preferredMeetupArea", event.target.value)} placeholder="e.g. IT Park, Cebu City" required value={values.preferredMeetupArea} />
+              {profile?.defaultAddress?.valid ? (
+                <button
+                  className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-amber-950"
+                  onClick={() => update("preferredMeetupArea", profile.defaultAddress!.areaName)}
+                  type="button"
+                >
+                  <span><span className="block text-xs font-semibold uppercase tracking-wide text-amber-800">Suggested from your default address</span><span className="mt-1 block font-semibold">{profile.defaultAddress.areaName}</span></span>
+                  <span aria-hidden="true">Use</span>
+                </button>
+              ) : (
+                <p className="mt-2 rounded-xl bg-stone-50 px-4 py-3 text-sm font-normal text-stone-600">
+                  <Link className="font-semibold text-amber-900 underline" href="/account#default-address">Save a default address</Link> to get a suggestion here next time.
+                </p>
+              )}
+              <input
+                autoComplete="address-level2"
+                className={inputClass}
+                list={profile?.defaultAddress?.valid ? "preferred-meetup-suggestions" : undefined}
+                maxLength={160}
+                name="preferredMeetupArea"
+                onChange={(event) => update("preferredMeetupArea", event.target.value)}
+                placeholder="e.g. IT Park, Cebu City"
+                required
+                value={values.preferredMeetupArea}
+              />
+              {profile?.defaultAddress?.valid ? <datalist id="preferred-meetup-suggestions"><option value={profile.defaultAddress.areaName} /></datalist> : null}
             </Field>
             <Field label="Purpose" error={state.fieldErrors?.intendedUse}>
               <textarea className={`${inputClass} min-h-28`} maxLength={1000} name="intendedUse" onChange={(event) => update("intendedUse", event.target.value)} placeholder="Tell the owner what you plan to shoot" required value={values.intendedUse} />
@@ -104,7 +133,7 @@ export function RequestForm({
           <button className="mt-6 min-h-11 font-semibold text-amber-900 underline" onClick={() => setReviewing(false)} type="button">Edit your details</button>
           {state.error ? (
             <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800" role="alert">
-              {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? "We couldn’t confirm the request. Check your bookings before retrying." : "Check your details and try again."}
+              {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "kyc_required" ? <>Your KYC details need attention. <Link className="font-semibold underline" href="/account#default-address">Review your KYC profile</Link>.</> : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? "We couldn’t confirm the request. Check your bookings before retrying." : "Check your details and try again."}
             </div>
           ) : null}
           <button className="mt-6 min-h-12 w-full rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 disabled:opacity-60" disabled={pending} type="submit">

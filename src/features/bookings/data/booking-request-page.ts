@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import type { requireUser } from "@/lib/auth/require-user";
+import { kycProfileSchema, projectKycProfile } from "@/features/kyc/types";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
 
@@ -39,17 +40,6 @@ const contextSchema = z.object({
     total_due: z.number().nonnegative(),
   }).strict(),
 }).strict();
-const meetupOriginSchema = z.object({
-  active: z.boolean(),
-  area_code: z.string().regex(/^\d{10}$/),
-  area_name: z.string().min(1).max(160),
-  area_type: z.string(),
-  current: z.boolean(),
-  path: z.array(z.unknown()),
-  precision: z.enum(["city_centroid", "barangay_centroid", "precise"]),
-  release: z.string().regex(/^\d{4}-q[1-4]$/),
-}).strict().nullable();
-
 export async function loadBookingRequestPageContext(
   context: UserContext,
   values: BookingRequestPageValues,
@@ -68,7 +58,7 @@ export async function loadBookingRequestPageContext(
     return { status: "error" } as const;
   }
 
-  const [result, originResult] = await Promise.all([
+  const [result, kycResult] = await Promise.all([
     context.supabase.schema("api").rpc("get_booking_request_page_context", {
       p_camera_id: camera.data,
       p_handoff_time: values.handoffTime,
@@ -76,15 +66,15 @@ export async function loadBookingRequestPageContext(
       p_policy_version: policyVersion,
       p_return_date: values.returnDate,
     }),
-    context.supabase.schema("api").rpc("get_my_meetup_origin"),
+    context.supabase.schema("api").rpc("get_my_kyc_profile"),
   ]);
   const parsed = contextSchema.safeParse(result.data);
-  const origin = meetupOriginSchema.safeParse(originResult.data);
+  const kyc = kycProfileSchema.safeParse(kycResult.data);
   if (
     result.error ||
-    originResult.error ||
+    kycResult.error ||
     !parsed.success ||
-    !origin.success ||
+    !kyc.success ||
     parsed.data.camera.id !== camera.data ||
     parsed.data.quote.camera_id !== camera.data
   ) {
@@ -101,11 +91,7 @@ export async function loadBookingRequestPageContext(
           phone: data.profile.phone,
         }
       : null,
-    meetupOrigin: origin.data ? {
-      areaName: origin.data.area_name,
-      precision: origin.data.precision,
-      valid: origin.data.active && origin.data.current,
-    } : null,
+    kycProfile: kyc.data ? projectKycProfile(kyc.data) : null,
     quote: {
       billableDays: data.quote.billable_days,
       cameraId: data.quote.camera_id,

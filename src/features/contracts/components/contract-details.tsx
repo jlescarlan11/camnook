@@ -50,6 +50,13 @@ export function ContractDetails({
       <dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Detail label="Renter legal name" value={snapshot.renter.legal_name} />
         <Detail label="Renter phone" value={snapshot.renter.phone} />
+        {snapshot.renter.birth_date ? <Detail label="Renter birthdate" value={snapshot.renter.birth_date} /> : null}
+        {snapshot.renter.address ? (
+          <Detail
+            label="Renter residential address"
+            value={`${snapshot.renter.address.line1}, ${[...snapshot.renter.address.path].reverse().map((area) => area.name).join(", ")}`}
+          />
+        ) : null}
         <Detail label="Camera" value={snapshot.camera.name} />
         <Detail label="Camera serial" value={snapshot.camera.serial_number} />
         <Detail

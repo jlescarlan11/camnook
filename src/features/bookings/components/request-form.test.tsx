@@ -39,4 +39,30 @@ describe("RequestForm", () => {
     expect(markup).not.toContain('name="longitude"');
     expect(markup).not.toContain("Geoapify");
   });
+
+  it("offers the saved default address as a meetup-area suggestion", () => {
+    const markup = renderToStaticMarkup(
+      <RequestForm
+        camera="11111111-1111-4111-8111-111111111111"
+        profile={{
+          defaultAddress: { areaName: "Lahug, Cebu City", valid: true },
+          legalName: "Maria Santos",
+          phone: "+63 917 123 4567",
+        }}
+        schedule={schedule}
+        summary={{
+          cameraName: "Canon R50",
+          dates: "Aug 24 – Aug 26",
+          handoffTime: "9:00 AM PHT",
+          rentalAmount: "₱1,500",
+          securityDeposit: "₱3,000",
+          totalDue: "₱4,500",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Suggested from your default address");
+    expect(markup).toContain("Lahug, Cebu City");
+    expect(markup).toContain('list="preferred-meetup-suggestions"');
+  });
 });

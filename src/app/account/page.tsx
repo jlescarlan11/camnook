@@ -7,6 +7,7 @@ import { SiteHeader } from "@/features/bookings/components/site-header";
 import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
+import { KycProfileForm } from "@/features/kyc/kyc-profile-form";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -56,8 +57,17 @@ export default async function AccountPage() {
               <AccountProfile profile={account.profile} />
             </section>
 
+            <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="default-address-heading" id="default-address">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">KYC details</p>
+              <h2 className="mt-2 text-2xl font-semibold" id="default-address-heading">Default address</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
+                Complete this once before your first booking. Your saved barangay is also offered as a meetup-area suggestion, never as the final public meetup point.
+              </p>
+              <KycProfileForm kyc={account.kycProfile} profile={account.profile} returnTo="/account#default-address" />
+            </section>
+
             <section className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950" aria-labelledby="pickup-id-heading">
-              <h2 className="text-xl font-semibold" id="pickup-id-heading">Identity check happens at pickup</h2>
+              <h2 className="text-xl font-semibold" id="pickup-id-heading">KYC identity check happens at pickup</h2>
               <p className="mt-2 leading-7">You do not need to upload an ID to request or receive approval for a booking. The named renter must bring one original current government ID and appear in person at pickup. CamNook records only that the ID was checked and matched—never its image, number, type, or expiry.</p>
               <Link className="mt-3 inline-block font-semibold underline" href="/privacy/government-id">Read the in-person identity notice</Link>
             </section>

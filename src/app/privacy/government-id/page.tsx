@@ -5,7 +5,7 @@ import { SiteHeader } from "@/features/bookings/components/site-header";
 import { PRIVACY_EMAIL } from "@/features/privacy-email/constants";
 
 export const metadata: Metadata = {
-  title: "In-person identity check notice | CamNook",
+  title: "Renter KYC and identity check notice | CamNook",
 };
 
 export default function GovernmentIdPrivacyNoticePage() {
@@ -15,34 +15,39 @@ export default function GovernmentIdPrivacyNoticePage() {
       <main className="mx-auto max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
         <article className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-10">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800">Effective operating notice</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight">In-person identity check</h1>
-          <p className="mt-3 text-sm text-stone-500">Version in-person-id-v1 · effective 16 August 2026</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Renter KYC and in-person identity check</h1>
+          <p className="mt-3 text-sm text-stone-500">Version progressive-renter-kyc-v1 · effective 4 September 2026</p>
 
           <div className="mt-8 space-y-7 leading-7 text-stone-700">
             <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
               <h2 className="font-semibold">No government-ID upload</h2>
-              <p className="mt-2">CamNook does not ask renters to upload or email a government ID. A booking request and approval do not depend on online KYC.</p>
+              <p className="mt-2">CamNook does not ask renters to upload or email a government ID. Before the first booking request, renters save the minimum profile details described below. The original ID is checked only in person.</p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-stone-950">What CamNook collects before booking</h2>
+              <p className="mt-2">CamNook stores the renter’s full legal name, birthdate, mobile number, and residential address. These details establish adult eligibility, prepare the rental contract, support booking coordination, and reduce equipment-loss risk. SMS verification is not used.</p>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-stone-950">What happens at pickup</h2>
-              <p className="mt-2">The named renter must appear in person and show one original current government ID. An authorized administrator visually compares the name and photo with the renter and the signed rental contract before releasing the camera.</p>
+              <p className="mt-2">The named renter must appear in person and show one original current government ID. An authorized administrator visually compares the name and photo with the renter and confirms that the ID shows the renter is at least 18 before releasing the camera.</p>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-stone-950">What CamNook records</h2>
-              <p className="mt-2">CamNook records the pickup time, the administrator, and yes/no attestations that the named renter was present and the original ID was checked and matched. CamNook does not photograph the ID or record its number, type, address, birth date, signature, QR code, barcode, or expiry.</p>
+              <p className="mt-2">CamNook records the renter-entered KYC profile and freezes it into the applicable rental agreement. For the physical ID, CamNook records only the pickup time, administrator, and yes/no attestations that the renter was present and the original ID was checked and matched. CamNook does not photograph the ID or copy its number, type, signature, QR code, barcode, or expiry.</p>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-stone-950">Purpose and legal basis</h2>
-              <p className="mt-2">The limited visual check is used to perform the rental contract, prevent release to the wrong person, and protect the renter and equipment. This approach follows the Data Privacy Act principles of transparency, legitimate purpose, and proportionality by using a less intrusive physical check instead of retaining an ID copy.</p>
+              <p className="mt-2">The KYC profile and limited visual check are used to take steps toward and perform the rental contract, confirm adult eligibility, prevent release to the wrong person, and protect the renter and equipment. This approach follows the Data Privacy Act principles of transparency, legitimate purpose, and proportionality by collecting contract-relevant details while using a less intrusive physical check instead of retaining an ID copy.</p>
               <p className="mt-3 text-sm">Reference: <a className="font-semibold underline decoration-amber-300 underline-offset-4" href="https://privacy.gov.ph/data-privacy-act/" rel="noreferrer" target="_blank">Republic Act No. 10173, Data Privacy Act of 2012</a>.</p>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-stone-950">If you decline</h2>
-              <p className="mt-2">CamNook cannot release rented equipment to a person whose identity cannot be matched to the named renter and signed contract. Contact CamNook before pickup if the renter’s legal name needs correction.</p>
+              <p className="mt-2">A renter who does not provide the required profile details cannot submit a booking request. CamNook cannot release equipment when the original ID does not match the named adult renter and signed contract.</p>
             </section>
 
             <section>
@@ -52,7 +57,7 @@ export default function GovernmentIdPrivacyNoticePage() {
 
             <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
               <h2 className="font-semibold">Owner approval</h2>
-              <p className="mt-2">The CamNook owner approved this minimized operating policy on 16 August 2026. It is an operational privacy decision based on Philippine law, not a representation that outside legal counsel reviewed the business.</p>
+              <p className="mt-2">The CamNook owner approved progressive renter KYC on 4 September 2026 while retaining the minimized in-person ID policy. It is an operational privacy decision based on Philippine law, not a representation that outside legal counsel reviewed the business.</p>
             </section>
           </div>
 

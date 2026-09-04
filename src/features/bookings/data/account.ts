@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type { requireUser } from "@/lib/auth/require-user";
 import type { Database } from "@/types/database.generated";
+import { kycProfileSchema, projectKycProfile } from "@/features/kyc/types";
 
 import { projectContractHistorySnapshot } from "../../contracts/data";
 import {
@@ -91,17 +92,6 @@ const accountOverviewSchema = z.object({
   is_admin: z.boolean(),
   profile: safeProfileSchema.nullable(),
 }).strict();
-const meetupOriginSchema = z.object({
-  active: z.boolean(),
-  area_code: z.string().regex(/^\d{10}$/),
-  area_name: z.string().min(1).max(160),
-  area_type: z.string(),
-  current: z.boolean(),
-  path: z.array(z.unknown()),
-  precision: z.enum(["city_centroid", "barangay_centroid", "precise"]),
-  release: z.string().regex(/^\d{4}-q[1-4]$/),
-}).strict().nullable();
-
 export function projectBooking(
   row: SafeBookingRow,
   camera: PublicCameraIdentity | null,
@@ -150,13 +140,13 @@ export function projectBooking(
 }
 
 export async function loadAccountOverview(context: UserContext) {
-  const [result, originResult] = await Promise.all([
+  const [result, kycResult] = await Promise.all([
     context.supabase.schema("api").rpc("get_my_account_overview"),
-    context.supabase.schema("api").rpc("get_my_meetup_origin"),
+    context.supabase.schema("api").rpc("get_my_kyc_profile"),
   ]);
   const parsed = accountOverviewSchema.safeParse(result.data);
-  const origin = meetupOriginSchema.safeParse(originResult.data);
-  if (result.error || !parsed.success || originResult.error || !origin.success) return { status: "error" } as const;
+  const kyc = kycProfileSchema.safeParse(kycResult.data);
+  if (result.error || !parsed.success || kycResult.error || !kyc.success) return { status: "error" } as const;
 
   if (parsed.data.bookings.some(
     ({ booking, meetup }) => booking.meetup_snapshot_required && !meetup,
@@ -180,11 +170,7 @@ export async function loadAccountOverview(context: UserContext) {
         }
       : null,
     isAdmin: parsed.data.is_admin,
-    meetupOrigin: origin.data ? {
-      areaName: origin.data.area_name,
-      precision: origin.data.precision,
-      valid: origin.data.active && origin.data.current,
-    } : null,
+    kycProfile: kyc.data ? projectKycProfile(kyc.data) : null,
     status: "success" as const,
   };
 }

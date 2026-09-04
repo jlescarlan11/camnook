@@ -54,6 +54,16 @@ const contractSnapshotSchema = z.object({
     total_due: z.number().nonnegative(),
   }),
   renter: z.object({
+    address: z.object({
+      area_code: z.string().regex(/^\d{10}$/),
+      area_release: z.string().regex(/^\d{4}-q[1-4]$/),
+      line1: z.string().min(3),
+      path: z.array(z.object({
+        name: z.string().min(1),
+        type: z.string().min(1),
+      })),
+    }).optional(),
+    birth_date: z.iso.date().optional(),
     legal_name: z.string().min(1),
     phone: z.string().min(1),
   }),

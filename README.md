@@ -1,8 +1,8 @@
 # CamNook
 
 CamNook is a single-owner camera-rental application with a database-authoritative
-paid-rental lifecycle, passwordless email sign-in, and an in-person pickup
-identity check. The current Production decision is recorded by the
+paid-rental lifecycle, passwordless email sign-in, progressive renter KYC, and
+an in-person pickup identity check. The current Production decision is recorded by the
 machine-checked launch evidence rather than this overview.
 
 ## Stack
@@ -217,10 +217,11 @@ for the owner dashboard/reporting acceptance matrix,
 for the versioned notice, and
 [`docs/operations/government-id-evidence.md`](docs/operations/government-id-evidence.md)
 for the retired design and cleanup controls. At pickup, the named renter must
-show one original current government ID. The administrator records only that
-the renter was present and the ID was checked and matched; no image, number,
-type, address, birth date, or expiry is retained. This minimized policy was
-approved by the owner on 16 August 2026 under the transparency, legitimate
+save a legal name, birthdate, mobile number, and residential address before a
+first booking request, then show one original current government ID at pickup.
+The administrator records only that the renter was present, adult, and the ID
+was checked and matched; no ID image, number, type, or expiry is retained. This
+progressive policy was approved by the owner on 4 September 2026 under the transparency, legitimate
 purpose, and proportionality principles of Republic Act No. 10173. That owner
 approval does not claim outside-counsel review.
 

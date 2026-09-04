@@ -85,7 +85,7 @@ export function PickupControls({
             <p className="text-sm text-stone-600">Expected renter: {pickup.renter_legal_name}. Inspect one original current government ID in person. Do not photograph it or record its number, type, or expiry.</p>
             <Checklist name="namedRenter" value="confirmed-named-renter">The named contract renter is physically present; no representative or substitute is collecting.</Checklist>
             <Checklist name="originalIdChecked" value="confirmed-original-id">I inspected the original physical ID.</Checklist>
-            <Checklist name="originalIdMatched" value="confirmed-id-match">The original ID photo and name match the physically present named renter.</Checklist>
+            <Checklist name="originalIdMatched" value="confirmed-id-match">The original ID photo and name match the physically present named renter, and the ID confirms the renter is at least 18.</Checklist>
           </fieldset>
 
           <div>
