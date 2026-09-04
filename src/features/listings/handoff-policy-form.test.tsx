@@ -3,14 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./handoff-actions", () => ({
   saveCameraHandoffPolicy: vi.fn(),
-  suggestHandoffAddress: vi.fn(),
-  suggestHandoffCity: vi.fn(),
 }));
 
-import {
-  HandoffPolicyForm,
-  resetAddressLookupRequest,
-} from "./handoff-policy-form";
+import { HandoffPolicyForm } from "./handoff-policy-form";
 
 describe("HandoffPolicyForm", () => {
   it("renders associated admin fields, PHT guidance, and an accessible save control", () => {
@@ -30,27 +25,25 @@ describe("HandoffPolicyForm", () => {
       />,
     );
 
-    expect(markup).toContain("Customer-facing city");
-    expect(markup).toContain("Saved handoff city");
-    expect(markup).toContain("Auto-suggest a public address");
-    expect(markup).toContain("Public place or address");
-    expect(markup).toContain('role="combobox"');
-    expect(markup).toContain("Use my current city");
-    expect(markup).toContain("Enter a city instead");
+    expect(markup).toContain("Private routing origin");
+    expect(markup).toContain("Legacy city-only origin: Cebu City");
+    expect(markup).not.toContain("Legacy routing city");
+    expect(markup).not.toContain("Public place or address");
     expect(markup).toContain("Philippine-time handoffs");
     expect(markup).toContain("Asia/Manila (UTC+08:00)");
     expect(markup).toContain("Save handoff policy");
     expect(markup).toContain('name="expectedVersion" value="2"');
     expect(markup).toContain('name="weekdays"');
-    expect(markup).toContain('autoComplete="address-level2"');
+    expect(markup).not.toContain('autoComplete="address-level2"');
     expect(markup).not.toContain('name="providerCityId"');
     expect(markup).not.toContain('name="latitude"');
     expect(markup).not.toContain('name="longitude"');
     expect(markup).not.toContain("Origin precision");
     expect(markup).not.toContain("Private device position");
+    expect(markup).toMatch(/disabled="" type="submit">Save handoff policy/);
   });
 
-  it("does not request browser location while rendering a legacy policy", () => {
+  it("requires a private routing origin when no location is configured", () => {
     const getCurrentPosition = vi.fn();
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
 
@@ -71,8 +64,8 @@ describe("HandoffPolicyForm", () => {
     );
 
     expect(getCurrentPosition).not.toHaveBeenCalled();
-    expect(markup).toContain("No handoff city is saved");
-    expect(markup).toContain('name="cityReference"');
+    expect(markup).toContain("Legacy city-only origin: not configured");
+    expect(markup).not.toContain('name="cityReference"');
     expect(markup).toContain('disabled=""');
     expect(markup).toMatch(/Save handoff policy<\/button>/);
     vi.unstubAllGlobals();
@@ -113,18 +106,9 @@ describe("HandoffPolicyForm", () => {
     expect(markup).not.toContain('name="originPrecision"');
     expect(markup).not.toContain("Origin precision");
     expect(markup).not.toContain("Use device position");
+    expect(markup).not.toContain("Legacy routing city");
+    expect(markup).not.toContain("Public place or address");
     expect(markup).toContain("Save handoff policy");
   });
 
-  it("allows a previously searched address to be searched again after editing", () => {
-    expect(resetAddressLookupRequest("Ayala Center Cebu", "Cebu IT Park")).toBe(
-      "",
-    );
-    expect(resetAddressLookupRequest("Cebu IT Park", "Ayala Center Cebu")).toBe(
-      "",
-    );
-    expect(resetAddressLookupRequest("Ayala Center Cebu", " Ayala Center Cebu ")).toBe(
-      "Ayala Center Cebu",
-    );
-  });
 });
