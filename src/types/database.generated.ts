@@ -21,8 +21,10 @@ export type Database = {
     }
     Functions: {
       get_my_kyc_profile: { Args: never; Returns: Json }
+      get_my_kyc_profile_v2: { Args: never; Returns: Json }
       get_owner_cameras: { Args: never; Returns: Json }
       save_my_kyc_profile: { Args: { p_input: Json }; Returns: Json }
+      save_my_kyc_profile_v2: { Args: { p_input: Json }; Returns: Json }
       save_camera_draft: { Args: { p_input: Json }; Returns: string }
       unpublish_camera: { Args: { p_camera_id: string }; Returns: boolean }
       request_booking_with_preference_idempotent: {

@@ -66,7 +66,7 @@ export async function loadBookingRequestPageContext(
       p_policy_version: policyVersion,
       p_return_date: values.returnDate,
     }),
-    context.supabase.schema("api").rpc("get_my_kyc_profile"),
+    context.supabase.schema("api").rpc("get_my_kyc_profile_v2"),
   ]);
   const parsed = contextSchema.safeParse(result.data);
   const kyc = kycProfileSchema.safeParse(kycResult.data);

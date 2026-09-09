@@ -114,4 +114,32 @@ describe("contract details", () => {
     expect(markup).toContain("Mandaue City");
     expect(markup).toContain("Cardinal Rosales Avenue");
   });
+
+  it("renders a structured written address and postal code without pin data", () => {
+    const withAddress = structuredClone(agreement);
+    withAddress.current.snapshot.renter.address = {
+      address_details: "Lahug",
+      area_code: "0730600041",
+      area_release: "2026-q2",
+      building: "Mango Residences",
+      format_version: 2,
+      house_number: "Unit 4",
+      line1: "Mango Residences, Unit 4 Mango Avenue, Lahug",
+      path: [
+        { name: "Region VII", type: "region" },
+        { name: "Cebu", type: "province" },
+        { name: "City of Cebu", type: "city" },
+        { name: "Lahug", type: "barangay" },
+      ],
+      postal_code: "6000",
+      street_name: "Mango Avenue",
+    };
+    withAddress.versions = [withAddress.current];
+
+    const markup = renderToStaticMarkup(
+      <ContractDetails agreement={withAddress} approvalDeadlineAt="2026-08-16T00:00:00Z" />,
+    );
+    expect(markup).toContain("Mango Residences, Unit 4 Mango Avenue, Lahug, City of Cebu, Cebu, Region VII, 6000");
+    expect(markup).not.toContain("latitude");
+  });
 });

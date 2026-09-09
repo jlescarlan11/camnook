@@ -115,6 +115,33 @@ const addressSearchResponseSchema = z.object({
   ).max(5),
 });
 
+const residentialLabelSchema = z.string().trim().min(1).max(500)
+  .refine((value) => !/[\p{Cc}\p{Cf}]/u.test(value));
+
+const residentialSearchResponseSchema = z.object({
+  results: z.array(z.object({
+    address_line1: providerAddressPartSchema.optional(),
+    address_line2: providerAddressPartSchema.optional(),
+    country_code: z.string().trim().length(2),
+    formatted: residentialLabelSchema.optional(),
+    lat: z.number().finite().min(-90).max(90),
+    lon: z.number().finite().min(-180).max(180),
+  })).max(5),
+});
+
+const residentialReverseResponseSchema = z.object({
+  results: z.array(
+    z.object({
+      address_line1: providerAddressPartSchema.optional(),
+      address_line2: providerAddressPartSchema.optional(),
+      country_code: z.string().trim().length(2),
+      formatted: residentialLabelSchema.optional(),
+      lat: z.number().finite().min(-90).max(90),
+      lon: z.number().finite().min(-180).max(180),
+    }),
+  ).max(1),
+});
+
 const mcpResponseSchema = z.object({
   error: z.object({ code: z.number(), message: z.string().max(500) }).optional(),
   jsonrpc: z.literal("2.0"),
@@ -351,6 +378,47 @@ export class GeoapifyAdapter {
       }
     }
     return [...unique.values()];
+  }
+
+  async searchResidentialAddresses(query: string) {
+    const payload = await this.requestTool("geocode_address", {
+      country_codes: ["ph"],
+      lang: "en",
+      limit: 5,
+      query,
+    });
+    const parsed = residentialSearchResponseSchema.safeParse(payload);
+    if (!parsed.success) throw new ProviderBoundaryError("malformed");
+
+    return parsed.data.results.flatMap((result) => {
+      const label = result.formatted ??
+        [result.address_line1, result.address_line2].filter(Boolean).join(", ");
+      if (result.country_code.toUpperCase() !== "PH" || !label) return [];
+      return [{
+        label: label.replace(/\s+/g, " "),
+        latitude: result.lat,
+        longitude: result.lon,
+      }];
+    });
+  }
+
+  async reverseGeocodeResidentialAddress(position: Coordinate) {
+    const payload = await this.requestTool("reverse_geocode_coordinates", {
+      country_codes: ["ph"],
+      lang: "en",
+      lat: position.latitude,
+      limit: 1,
+      lon: position.longitude,
+    });
+    const parsed = residentialReverseResponseSchema.safeParse(payload);
+    if (!parsed.success) throw new ProviderBoundaryError("malformed");
+    const result = parsed.data.results[0];
+    const label = result?.formatted ??
+      [result?.address_line1, result?.address_line2].filter(Boolean).join(", ");
+    if (!result || result.country_code.toUpperCase() !== "PH" || !label) {
+      throw new ProviderBoundaryError("empty");
+    }
+    return { label: label.replace(/\s+/g, " ") };
   }
 
   async geocodeAreaCentroid(input: {

@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   getMeetupProviderConfig,
+  getResidentialGeocodingConfig,
   getMeetupRoutingConfig,
 } from "./config";
 
@@ -14,6 +15,7 @@ const names = [
   "MEETUP_RECOMMENDATION_SECRET",
   "MEETUP_SEARCH_RADIUS_METERS",
   "MAPBOX_ACCESS_TOKEN",
+  "RESIDENTIAL_GEOCODING_TIMEOUT_MS",
   "MEETUP_ROUTING_MAX_CANDIDATES",
   "MEETUP_ROUTING_MAX_ELEMENTS",
   "MEETUP_ROUTING_POLICY_VERSION",
@@ -75,5 +77,16 @@ describe("meetup provider configuration", () => {
     process.env.MEETUP_ROUTING_MAX_CANDIDATES = "8";
     process.env.MEETUP_ROUTING_MAX_ELEMENTS = "15";
     expect(getMeetupRoutingConfig()).toBeNull();
+  });
+
+  it("reuses the server-only Geoapify key with a separate bounded residential timeout", () => {
+    process.env.GEOAPIFY_API_KEY = " provider-key ";
+    process.env.RESIDENTIAL_GEOCODING_TIMEOUT_MS = "2500";
+    expect(getResidentialGeocodingConfig()).toEqual({
+      apiKey: "provider-key",
+      timeoutMs: 2500,
+    });
+    process.env.RESIDENTIAL_GEOCODING_TIMEOUT_MS = "100";
+    expect(getResidentialGeocodingConfig()).toBeNull();
   });
 });

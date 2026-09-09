@@ -15,7 +15,7 @@ const values = {
 
 function bookingRequestClient(data: unknown, error: unknown = null) {
   const rpc = vi.fn().mockImplementation((name: string) => Promise.resolve(
-    name === "get_my_kyc_profile" ? { data: null, error: null } : { data, error },
+    name === "get_my_kyc_profile_v2" ? { data: null, error: null } : { data, error },
   ));
   return {
     context: {
@@ -94,7 +94,7 @@ describe("booking request page context", () => {
         p_return_date: "2099-09-09",
       },
     );
-    expect(fixture.rpc).toHaveBeenCalledWith("get_my_kyc_profile");
+    expect(fixture.rpc).toHaveBeenCalledWith("get_my_kyc_profile_v2");
   });
 
   it("rejects malformed URL state without a database request", async () => {
