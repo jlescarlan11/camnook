@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getMeetupProviderConfig: vi.fn(),
   getMeetupRoutingConfig: vi.fn(),
   reverseGeocodeCity: vi.fn(),
+  runResidentialProductionSmoke: vi.fn(),
   searchPublicPlaces: vi.fn(),
 }));
 
@@ -25,10 +26,14 @@ vi.mock("@/features/meetups/routing-provider", () => ({
     calculateTravelTimes = mocks.calculateTravelTimes;
   },
 }));
+vi.mock("@/features/kyc/production-smoke", () => ({
+  runResidentialProductionSmoke: mocks.runResidentialProductionSmoke,
+}));
 
 import { POST } from "./route";
 
 const originalVercelEnvironment = process.env.VERCEL_ENV;
+const originalResidentialMapKey = process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY;
 const authorization = "Bearer production-management-token-value";
 const providerConfig = {
   allowedCategories: ["commercial.shopping_mall"],
@@ -58,7 +63,16 @@ describe("Production meetup provider readiness", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.VERCEL_ENV = "production";
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}")));
+    process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY =
+      "dedicated-browser-map-key-value";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      return Promise.resolve(url.startsWith("https://maps.geoapify.com/")
+        ? new Response(new Uint8Array([137, 80, 78, 71]), {
+            headers: { "content-type": "image/png" },
+          })
+        : new Response("{}"));
+    }));
     mocks.getMeetupProviderConfig.mockReturnValue(providerConfig);
     mocks.getMeetupRoutingConfig.mockReturnValue(routingConfig);
     mocks.reverseGeocodeCity.mockResolvedValue({
@@ -84,12 +98,18 @@ describe("Production meetup provider readiness", () => {
       { ownerSeconds: 660, renterSeconds: 540 },
       { ownerSeconds: 900, renterSeconds: 780 },
     ]);
+    mocks.runResidentialProductionSmoke.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     if (originalVercelEnvironment === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = originalVercelEnvironment;
+    if (originalResidentialMapKey === undefined) {
+      delete process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY;
+    } else {
+      process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY = originalResidentialMapKey;
+    }
   });
 
   it("rejects missing or unverified Production management authorization", async () => {
@@ -108,6 +128,33 @@ describe("Production meetup provider readiness", () => {
     });
   });
 
+  it("fails closed when the dedicated residential browser map key is unavailable", async () => {
+    delete process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY;
+    let response = await POST(request());
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "residential_map_configuration_unavailable",
+    });
+
+    process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY = providerConfig.apiKey;
+    response = await POST(request());
+    expect(response.status).toBe(503);
+  });
+
+  it("fails closed when the Production-origin tile probe is rejected", async () => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      return Promise.resolve(url.startsWith("https://maps.geoapify.com/")
+        ? new Response("forbidden", { status: 403 })
+        : new Response("{}"));
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "residential_map_configuration_unavailable",
+    });
+  });
+
   it("returns only bounded aggregate provider evidence", async () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
@@ -115,10 +162,25 @@ describe("Production meetup provider readiness", () => {
     expect(body).toEqual({
       geoapify: "passed",
       mapbox: "passed",
-      providerRequestCount: 2,
+      providerRequestCount: 3,
+      residentialKyc: "passed",
+      residentialMapTiles: "passed",
       routeElementCount: 6,
     });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: "maps.geoapify.com",
+        pathname: "/v1/tile/osm-bright/12/3457/1929.png",
+      }),
+      expect.objectContaining({
+        headers: {
+          Origin: "https://camnook.shop",
+          Referer: "https://camnook.shop/account",
+        },
+      }),
+    );
     expect(mocks.searchPublicPlaces).toHaveBeenCalledTimes(1);
+    expect(mocks.runResidentialProductionSmoke).toHaveBeenCalledOnce();
     expect(JSON.stringify(body)).not.toMatch(
       /Ayala|Mandaue|provider-place|10\.3|123\.9/,
     );

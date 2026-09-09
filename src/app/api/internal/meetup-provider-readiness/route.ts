@@ -8,6 +8,7 @@ import {
 } from "@/features/meetups/domain";
 import { GeoapifyAdapter } from "@/features/meetups/provider";
 import { MapboxMatrixAdapter } from "@/features/meetups/routing-provider";
+import { runResidentialProductionSmoke } from "@/features/kyc/production-smoke";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ const PUBLIC_ROUTE_TARGETS = [
   { latitude: 10.3308, longitude: 123.9067 },
   { latitude: 10.3103, longitude: 123.9494 },
 ];
+const PUBLIC_CEBU_TILE_URL =
+  "https://maps.geoapify.com/v1/tile/osm-bright/12/3457/1929.png";
+const PRODUCTION_ORIGIN = "https://camnook.shop";
 
 function bearerToken(request: Request) {
   const authorization = request.headers.get("authorization");
@@ -50,6 +54,42 @@ async function hasProductionManagementAccess(token: string) {
   }
 }
 
+async function verifyResidentialMapTiles(serverApiKey: string) {
+  const browserMapKey = process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY?.trim();
+  if (
+    !browserMapKey ||
+    browserMapKey.length < 20 ||
+    browserMapKey === serverApiKey
+  ) {
+    return false;
+  }
+
+  try {
+    const url = new URL(PUBLIC_CEBU_TILE_URL);
+    url.searchParams.set("apiKey", browserMapKey);
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        Origin: PRODUCTION_ORIGIN,
+        Referer: `${PRODUCTION_ORIGIN}/account`,
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const isPng = response.headers.get("content-type")
+      ?.toLowerCase().startsWith("image/png") ?? false;
+    if (response.body) {
+      try {
+        await response.body.cancel();
+      } catch {
+        // The status and content type remain decisive if the body closed.
+      }
+    }
+    return response.ok && isPng;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
   const token = bearerToken(request);
   if (
@@ -66,12 +106,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "configuration_unavailable" }, { status: 503 });
   }
 
-  const providerRequestCount = 1 + providerConfig.allowedCategories.length;
+  const providerRequestCount = 2 + providerConfig.allowedCategories.length;
   if (providerRequestCount > 5) {
     return Response.json({ error: "provider_plan_unbounded" }, { status: 503 });
   }
 
   try {
+    if (!(await verifyResidentialMapTiles(providerConfig.apiKey))) {
+      return Response.json(
+        { error: "residential_map_configuration_unavailable" },
+        { status: 503 },
+      );
+    }
+
     const geoapify = new GeoapifyAdapter({
       apiKey: providerConfig.apiKey,
       timeoutMs: providerConfig.timeoutMs,
@@ -111,10 +158,14 @@ export async function POST(request: Request) {
       return Response.json({ error: "mapbox_unavailable" }, { status: 503 });
     }
 
+    await runResidentialProductionSmoke();
+
     return Response.json({
       geoapify: "passed",
       mapbox: "passed",
       providerRequestCount,
+      residentialKyc: "passed",
+      residentialMapTiles: "passed",
       routeElementCount: routes.length * 2,
     });
   } catch {
