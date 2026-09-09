@@ -3,12 +3,13 @@
 Reviewed: 2026-09-09. Implementation status: code and local verification only.
 Production use additionally requires the environment and release checks below.
 
-The 9 September 2026 read-only Production environment inventory confirmed the
-existing server-side Geoapify and Mapbox credentials. It did not contain
-`NEXT_PUBLIC_GEOAPIFY_MAP_KEY` or `RESIDENTIAL_GEOCODING_TIMEOUT_MS`. Vercel
-does not expose provider-side product or origin restrictions, so the Geoapify
-Maps scope and reviewed origins also remain a release check. Do not promote
-this feature until those settings are provisioned and verified.
+The 9 September 2026 environment inventory confirmed the existing server-side
+Geoapify and Mapbox credentials. `RESIDENTIAL_GEOCODING_TIMEOUT_MS=4000` is
+configured for Development, Preview, and Production. The inventory did not
+contain `NEXT_PUBLIC_GEOAPIFY_MAP_KEY`. Vercel does not expose provider-side
+product or origin restrictions, so the Geoapify Maps scope and reviewed origins
+also remain a release check. Do not promote this feature until that key is
+provisioned and verified.
 
 ## Provider and purpose boundary
 
