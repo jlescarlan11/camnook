@@ -30,7 +30,7 @@ type SmokeProfile = {
   building?: unknown;
   house_number?: unknown;
   postal_code?: unknown;
-  release_key?: unknown;
+  release?: unknown;
   residential_pin?: null | { source?: unknown };
   street_name?: unknown;
 };
@@ -41,7 +41,7 @@ function assertProfile(value: unknown, expectedPin: boolean) {
     !profile || profile.address_details !== fixture.address_details ||
     profile.area_code !== fixture.area_code || profile.building !== fixture.building ||
     profile.house_number !== fixture.house_number || profile.postal_code !== fixture.postal_code ||
-    profile.release_key !== fixture.release_key || profile.street_name !== fixture.street_name ||
+    profile.release !== fixture.release_key || profile.street_name !== fixture.street_name ||
     typeof profile.address_revision !== "string" ||
     (expectedPin ? profile.residential_pin?.source !== "map_pin" : profile.residential_pin !== null)
   ) throw new Error("Residential Production smoke returned an unexpected projection");
