@@ -1,15 +1,17 @@
 # Structured residential address and optional pin
 
-Reviewed: 2026-09-09. Implementation status: code and local verification only.
-Production use additionally requires the environment and release checks below.
+Reviewed: 2026-09-09. The structured address and written-address fallback are
+live in Production. The residential map remains unavailable until its dedicated
+browser key passes the automated release gate below.
 
 The 9 September 2026 environment inventory confirmed the existing server-side
 Geoapify and Mapbox credentials. `RESIDENTIAL_GEOCODING_TIMEOUT_MS=4000` is
 configured for Development, Preview, and Production. The inventory did not
 contain `NEXT_PUBLIC_GEOAPIFY_MAP_KEY`. Vercel does not expose provider-side
 product or origin restrictions, so the Geoapify Maps scope and reviewed origins
-also remain a release check. Do not promote this feature until that key is
-provisioned and verified.
+also remain a release check. The workflow refuses promotion unless that key is
+provisioned, differs from the server key, and returns a Cebu PNG tile when
+called with the Production origin and referrer.
 
 ## Provider and purpose boundary
 
@@ -62,10 +64,28 @@ Configure in each applicable Vercel environment:
 - `RESIDENTIAL_GEOCODING_TIMEOUT_MS=4000` — allowed range 500–10000.
 - `NEXT_PUBLIC_GEOAPIFY_MAP_KEY` — origin- and Maps-restricted public key.
 
-Use synthetic or public Cebu fixtures for provider checks. Never put a real
-home address or coordinate in CI, release evidence, screenshots, issues, or
-logs. Verify search, reverse lookup, map tiles, visible attribution, denied
-browser permission, manual keyboard placement, and provider failure fallback.
+Configure the GitHub `production` environment once:
+
+- `RESIDENTIAL_MAP_KEY_REVIEWED=maps-only-origin-reviewed-v1` — an authorized
+  operator's attestation that the public key is limited to Maps and the reviewed
+  Development, Preview, and Production origins.
+
+The Production candidate gate calls the internal provider-readiness route with
+the Supabase management credential. The route verifies the browser key against
+a public Cebu tile and returns aggregate status only; the key and request URL
+never enter release evidence. Use synthetic or public Cebu fixtures for
+provider checks. Never put a real home address or coordinate in CI, release
+evidence, screenshots, issues, or logs. Verify search, reverse lookup, map
+tiles, visible attribution, denied browser permission, manual keyboard
+placement, and provider failure fallback.
+
+Before promotion, the protected readiness route creates or rotates credentials
+for one dedicated synthetic renter, signs in through the public Auth boundary,
+and uses the actor-owned v2 RPCs to save/reload a structured address, set and
+reload a public-fixture pin, remove it, and confirm removal with a fresh read.
+It leaves the synthetic written address in place and no saved pin. After the
+promoted application smoke passes, the workflow closes issues #132 and #133
+with the exact SHA and release-run evidence.
 
 Release only through `.github/workflows/release.yml`: the exact merged main SHA
 must pass CI, Development migration and verification, protected Production

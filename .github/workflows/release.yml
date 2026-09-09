@@ -102,6 +102,7 @@ jobs:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      RESIDENTIAL_MAP_KEY_REVIEWED: ${{ vars.RESIDENTIAL_MAP_KEY_REVIEWED }}
     steps:
       - name: Check out admitted revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -117,7 +118,7 @@ jobs:
           node-version: 24
 
       - name: Install pinned Vercel CLI
-        run: npm install --global vercel@59.10.0
+        run: npm install --global vercel@59.13.1
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
@@ -129,6 +130,7 @@ jobs:
           test "$(pnpm --version)" = "10.33.1"
           vercel --version
           supabase --version
+          test "$RESIDENTIAL_MAP_KEY_REVIEWED" = "maps-only-origin-reviewed-v1"
 
       - name: Refuse revision or Vercel identity drift
         run: |
@@ -188,18 +190,20 @@ jobs:
               --fail-with-body \
               --silent \
               --show-error \
-              --max-time 30 \
+              --max-time 60 \
               --request POST \
               --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
           )"
           jq -e '
             .geoapify == "passed" and
             .mapbox == "passed" and
-            .providerRequestCount >= 2 and
+            .residentialMapTiles == "passed" and
+            .residentialKyc == "passed" and
+            .providerRequestCount >= 3 and
             .providerRequestCount <= 5 and
             .routeElementCount == 6
           ' <<<"$response" >/dev/null
-          printf '### Production meetup providers verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Coordinates: `public Cebu fixtures only`\n' \
+          printf '### Production location and residential KYC verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Residential map tiles: `passed`\n- Structured save/reload: `passed`\n- Pin save/reload/removal: `passed`\n- Identity: `dedicated synthetic renter`\n- Coordinates: `public Cebu fixtures only`\n' \
             "$RELEASE_SHA" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Link exact Production project
@@ -349,6 +353,28 @@ jobs:
           # shellcheck disable=SC2016
           printf '### Production application verified\n- SHA: `%s`\n- Deployment: `%s`\n- Public smoke: `passed`\n- Handoff scheduling: `built in`\n- Meetup planning: `built in`\n' \
             "$RELEASE_SHA" "$CANDIDATE_ID" >>"$GITHUB_STEP_SUMMARY"
+
+  close-residential-issues:
+    name: Close verified residential-address issues
+    needs: [admit, production-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: ${{ needs.admit.outputs.release_sha }}
+    steps:
+      - name: Close issues after exact-SHA Production verification
+        run: |
+          set -euo pipefail
+          release_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          for issue in 132 133; do
+            if [[ "$(gh issue view "$issue" --repo "$GITHUB_REPOSITORY" --json state --jq .state)" == "OPEN" ]]; then
+              gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --reason completed \
+                --comment "Verified in Production at commit \`$RELEASE_SHA\`. Exact-SHA release, residential provider readiness, structured save/reload, and pin save/reload/removal passed: $release_url"
+            fi
+          done
 
   development:
     name: Migrate and verify Development
