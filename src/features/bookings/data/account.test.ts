@@ -33,7 +33,7 @@ const baseRow: SafeBookingRow = {
 
 describe("renter booking projection", () => {
   it("loads the account overview through one owner-scoped snapshot RPC", async () => {
-    const rpc = vi.fn().mockImplementation((name: string) => Promise.resolve(name === "get_my_kyc_profile" ? {
+    const rpc = vi.fn().mockImplementation((name: string) => Promise.resolve(name === "get_my_kyc_profile_v2" ? {
       data: null,
       error: null,
     } : {
@@ -65,7 +65,7 @@ describe("renter booking projection", () => {
     });
     expect(rpc).toHaveBeenCalledTimes(2);
     expect(rpc).toHaveBeenCalledWith("get_my_account_overview");
-    expect(rpc).toHaveBeenCalledWith("get_my_kyc_profile");
+    expect(rpc).toHaveBeenCalledWith("get_my_kyc_profile_v2");
   });
 
   it("rejects unexpected private fields in the account snapshot", async () => {

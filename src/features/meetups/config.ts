@@ -41,6 +41,15 @@ export const meetupRoutingConfigSchema = z
 export type MeetupProviderConfig = z.infer<typeof schema>;
 export type MeetupRoutingConfig = z.infer<typeof meetupRoutingConfigSchema>;
 
+const residentialGeocodingConfigSchema = z.object({
+  apiKey: z.string().trim().min(8),
+  timeoutMs: z.number().int().min(500).max(10_000),
+});
+
+export type ResidentialGeocodingConfig = z.infer<
+  typeof residentialGeocodingConfigSchema
+>;
+
 function numberFromEnvironment(value: string | undefined, fallback: number) {
   if (!value?.trim()) return fallback;
   return Number(value);
@@ -88,6 +97,17 @@ export function getMeetupRoutingConfig(): MeetupRoutingConfig | null {
     profile: process.env.MEETUP_ROUTING_PROFILE ?? "driving-traffic",
     routingPolicyVersion: getMeetupRoutingPolicyVersion(),
     timeoutMs: numberFromEnvironment(process.env.MEETUP_ROUTING_TIMEOUT_MS, 4_000),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+export function getResidentialGeocodingConfig(): ResidentialGeocodingConfig | null {
+  const parsed = residentialGeocodingConfigSchema.safeParse({
+    apiKey: process.env.GEOAPIFY_API_KEY,
+    timeoutMs: numberFromEnvironment(
+      process.env.RESIDENTIAL_GEOCODING_TIMEOUT_MS,
+      4_000,
+    ),
   });
   return parsed.success ? parsed.data : null;
 }

@@ -142,7 +142,7 @@ export function projectBooking(
 export async function loadAccountOverview(context: UserContext) {
   const [result, kycResult] = await Promise.all([
     context.supabase.schema("api").rpc("get_my_account_overview"),
-    context.supabase.schema("api").rpc("get_my_kyc_profile"),
+    context.supabase.schema("api").rpc("get_my_kyc_profile_v2"),
   ]);
   const parsed = accountOverviewSchema.safeParse(result.data);
   const kyc = kycProfileSchema.safeParse(kycResult.data);

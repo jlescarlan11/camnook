@@ -15,7 +15,13 @@ describe("KycProfileForm", () => {
       />,
     );
     expect(markup).toContain('name="birthDate"');
-    expect(markup).toContain('name="addressLine1"');
+    expect(markup).toContain('name="houseNumber"');
+    expect(markup).toContain('name="streetName"');
+    expect(markup).toContain('name="building"');
+    expect(markup).toContain('name="postalCode"');
+    expect(markup).toContain('name="addressDetails"');
+    expect(markup).toContain("Add map pin");
+    expect(markup).toContain("optional");
     expect(markup).toContain('name="psgcAreaCode"');
     expect(markup).toContain("SMS verification is not required");
     expect(markup).toContain("do not store its image or number");

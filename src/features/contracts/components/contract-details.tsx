@@ -54,7 +54,7 @@ export function ContractDetails({
         {snapshot.renter.address ? (
           <Detail
             label="Renter residential address"
-            value={`${snapshot.renter.address.line1}, ${[...snapshot.renter.address.path].reverse().map((area) => area.name).join(", ")}`}
+            value={formatContractAddress(snapshot.renter.address)}
           />
         ) : null}
         <Detail label="Camera" value={snapshot.camera.name} />
@@ -190,6 +190,24 @@ export function ContractDetails({
       </details>
     </section>
   );
+}
+
+export function formatContractAddress(address: {
+  line1: string;
+  path: Array<{ name: string }>;
+  postal_code?: string;
+}) {
+  const writtenParts = address.line1.split(",").map(normalizedAddressPart);
+  const administrativePath = [...address.path]
+    .reverse()
+    .map((area) => area.name)
+    .filter((name) => !writtenParts.includes(normalizedAddressPart(name)));
+  if (address.postal_code) administrativePath.push(address.postal_code);
+  return [address.line1, ...administrativePath].join(", ");
+}
+
+function normalizedAddressPart(value: string) {
+  return value.trim().toLocaleLowerCase("en").replace(/\s+/g, " ");
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

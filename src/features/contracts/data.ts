@@ -55,13 +55,19 @@ const contractSnapshotSchema = z.object({
   }),
   renter: z.object({
     address: z.object({
+      address_details: z.string().min(1).max(200).optional(),
       area_code: z.string().regex(/^\d{10}$/),
       area_release: z.string().regex(/^\d{4}-q[1-4]$/),
+      building: z.string().min(1).max(160).optional(),
+      format_version: z.number().int().min(1).max(2).optional(),
+      house_number: z.string().min(1).max(80).optional(),
       line1: z.string().min(3),
       path: z.array(z.object({
         name: z.string().min(1),
         type: z.string().min(1),
       })),
+      postal_code: z.string().min(1).max(16).optional(),
+      street_name: z.string().min(1).max(160).optional(),
     }).optional(),
     birth_date: z.iso.date().optional(),
     legal_name: z.string().min(1),

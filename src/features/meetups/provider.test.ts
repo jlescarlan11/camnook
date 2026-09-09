@@ -215,6 +215,64 @@ describe("GeoapifyAdapter", () => {
     expect(String(request.mock.calls[0]?.[0])).not.toContain("secret-key");
   });
 
+  it("returns bounded Philippine residential suggestions for the private KYC picker", async () => {
+    const request = vi.fn().mockResolvedValue(response(mcp({ results: [
+      {
+        country_code: "ph",
+        formatted: "123 Mango Avenue, Cebu City, Philippines",
+        lat: 10.3172,
+        lon: 123.9054,
+        result_type: "building",
+      },
+      {
+        country_code: "sg",
+        formatted: "Foreign address",
+        lat: 1.29,
+        lon: 103.85,
+        result_type: "building",
+      },
+    ] })));
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: request,
+      timeoutMs: 100,
+    });
+
+    await expect(adapter.searchResidentialAddresses("123 Mango Avenue")).resolves.toEqual([
+      {
+        label: "123 Mango Avenue, Cebu City, Philippines",
+        latitude: 10.3172,
+        longitude: 123.9054,
+      },
+    ]);
+    const calledUrl = request.mock.calls[0]?.[0] as URL;
+    expect(calledUrl.search).toBe("");
+    expect(request.mock.calls[0]?.[1]?.body).toContain('"query":"123 Mango Avenue"');
+  });
+
+  it("reverse geocodes a residential pin without returning raw provider fields", async () => {
+    const request = vi.fn().mockResolvedValue(response(mcp({ results: [{
+      country_code: "ph",
+      formatted: "Mango Avenue, Cebu City, Philippines",
+      internal: "provider-only",
+      lat: 10.3172,
+      lon: 123.9054,
+    }] })));
+    const adapter = new GeoapifyAdapter({
+      apiKey: "secret-key",
+      fetchImplementation: request,
+      timeoutMs: 100,
+    });
+    const result = await adapter.reverseGeocodeResidentialAddress({
+      latitude: 10.3172,
+      longitude: 123.9054,
+    });
+    expect(result).toEqual({ label: "Mango Avenue, Cebu City, Philippines" });
+    const calledUrl = request.mock.calls[0]?.[0] as URL;
+    expect(calledUrl.search).toBe("");
+    expect(JSON.stringify(result)).not.toContain("provider-only");
+  });
+
   it("accepts only an administrative centroid matching the resolved PSGC path", async () => {
     const request = vi.fn().mockResolvedValue(
       response(mcp({

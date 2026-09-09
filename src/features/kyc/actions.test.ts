@@ -14,13 +14,24 @@ import { saveKycProfile } from "./actions";
 function fields(overrides: Record<string, string> = {}) {
   const data = new FormData();
   Object.entries({
-    addressLine1: "Unit 4, 123 Mango Avenue",
+    addressDetails: "Near community hall",
     birthDate: "1990-03-15",
+    building: "Mango Residences",
+    expectedAddressRevision: "",
+    houseNumber: "Unit 4",
     legalName: "Maria Santos",
+    legacyAddressLine1: "",
+    pinAccuracyMeters: "",
+    pinLatitude: "",
+    pinLongitude: "",
+    pinOperation: "keep",
+    pinSource: "",
     phone: "+63 917 123 4567",
+    postalCode: "6000",
     psgcAreaCode: "0722170010",
     psgcRelease: "2026-q2",
     returnTo: "/account/bookings/new?camera=example",
+    streetName: "123 Mango Avenue",
     ...overrides,
   }).forEach(([key, value]) => data.set(key, value));
   return data;
@@ -39,16 +50,73 @@ describe("renter KYC action", () => {
     await expect(saveKycProfile({ status: "idle" }, fields())).rejects.toThrow(
       "redirect:/account/bookings/new?camera=example",
     );
-    expect(rpc).toHaveBeenCalledWith("save_my_kyc_profile", {
+    expect(rpc).toHaveBeenCalledWith("save_my_kyc_profile_v2", {
       p_input: {
-        address_line1: "Unit 4, 123 Mango Avenue",
+        address_details: "Near community hall",
         area_code: "0722170010",
         birth_date: "1990-03-15",
+        building: "Mango Residences",
+        expected_address_revision: null,
+        house_number: "Unit 4",
+        legacy_address_line1: null,
         legal_name: "Maria Santos",
+        pin_accuracy_meters: null,
+        pin_consent_version: null,
+        pin_latitude: null,
+        pin_longitude: null,
+        pin_operation: "keep",
+        pin_source: null,
         phone: "+63 917 123 4567",
+        postal_code: "6000",
         release_key: "2026-q2",
+        street_name: "123 Mango Avenue",
       },
     });
+  });
+
+  it("preserves an unsplit legacy address when no structured field is entered", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
+    vi.mocked(requireUser).mockResolvedValue({
+      supabase: { schema: vi.fn(() => ({ rpc })) },
+      user: { id: "11111111-1111-4111-8111-111111111111" },
+    } as never);
+    const data = fields({
+      addressDetails: "", building: "", houseNumber: "",
+      legacyAddressLine1: "Sitio Riverside, unnamed road",
+      postalCode: "", streetName: "",
+    });
+    await expect(saveKycProfile({ status: "idle" }, data)).rejects.toThrow("redirect:");
+    expect(rpc).toHaveBeenCalledWith("save_my_kyc_profile_v2", {
+      p_input: expect.objectContaining({
+        address_details: null,
+        legacy_address_line1: "Sitio Riverside, unnamed road",
+      }),
+    });
+  });
+
+  it("validates a confirmed pin before authentication", async () => {
+    await expect(saveKycProfile({ status: "idle" }, fields({
+      pinLatitude: "NaN",
+      pinLongitude: "123.90",
+      pinOperation: "set",
+      pinSource: "map_pin",
+    }))).resolves.toMatchObject({
+      error: "invalid",
+      fieldErrors: { residentialPin: expect.any(String) },
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects coordinate fields when the pin operation does not set a pin", async () => {
+    await expect(saveKycProfile({ status: "idle" }, fields({
+      pinLatitude: "10.31",
+      pinLongitude: "123.89",
+      pinOperation: "keep",
+    }))).resolves.toMatchObject({
+      error: "invalid",
+      fieldErrors: { residentialPin: expect.any(String) },
+    });
+    expect(requireUser).not.toHaveBeenCalled();
   });
 
   it("rejects an underage renter before authentication or persistence", async () => {
