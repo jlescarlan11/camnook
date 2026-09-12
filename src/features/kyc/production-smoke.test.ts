@@ -11,7 +11,7 @@ const saved = {
   building: "Release Automation",
   house_number: "12",
   postal_code: "6000",
-  release_key: "2026-q2",
+  release: "2026-q2",
   residential_pin: { source: "map_pin" },
   street_name: "Mango Avenue",
 };
