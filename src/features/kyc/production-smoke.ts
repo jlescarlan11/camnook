@@ -87,9 +87,15 @@ export async function runResidentialProductionSmoke({
   }
 
   const actor = createActorClient();
-  const signIn = await actor.auth.signInWithPassword({
-    email: SMOKE_EMAIL,
-    password: ephemeralCredential,
+  // Issue a token only for the fixed synthetic actor; no email is sent.
+  // Password sign-in requires a human CAPTCHA in Production.
+  const link = await admin.auth.admin.generateLink({ type: "magiclink", email: SMOKE_EMAIL });
+  if (link.error || link.data.user?.id !== user?.id || !link.data.properties?.hashed_token) {
+    throw new Error("Residential Production smoke token generation failed");
+  }
+  const signIn = await actor.auth.verifyOtp({
+    token_hash: link.data.properties.hashed_token,
+    type: "email",
   });
   if (signIn.error || !signIn.data.user || signIn.data.user.id !== user?.id) {
     throw new Error("Residential Production smoke authentication failed");

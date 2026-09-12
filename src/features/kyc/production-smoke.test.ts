@@ -22,7 +22,11 @@ describe("residential Production smoke", () => {
       data: { user: { id: "smoke-user" } },
       error: null,
     });
-    const admin = { auth: { admin: { createUser } } };
+    const generateLink = vi.fn().mockResolvedValue({
+      data: { user: { id: "smoke-user" }, properties: { hashed_token: "single-use-token" } },
+      error: null,
+    });
+    const admin = { auth: { admin: { createUser, generateLink } } };
     const rpc = vi.fn()
       .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({ data: saved, error: null })
@@ -32,7 +36,7 @@ describe("residential Production smoke", () => {
     const signOut = vi.fn().mockResolvedValue({ error: null });
     const actor = {
       auth: {
-        signInWithPassword: vi.fn().mockResolvedValue({
+        verifyOtp: vi.fn().mockResolvedValue({
           data: { user: { id: "smoke-user" } },
           error: null,
         }),
@@ -50,6 +54,8 @@ describe("residential Production smoke", () => {
       email: "residential-release-smoke@camnook.invalid",
       email_confirm: true,
     }));
+    expect(generateLink).toHaveBeenCalledWith({ type: "magiclink", email: "residential-release-smoke@camnook.invalid" });
+    expect(actor.auth.verifyOtp).toHaveBeenCalledWith({ type: "email", token_hash: "single-use-token" });
     expect(rpc.mock.calls.map(([name]) => name)).toEqual([
       "get_my_kyc_profile_v2",
       "save_my_kyc_profile_v2",

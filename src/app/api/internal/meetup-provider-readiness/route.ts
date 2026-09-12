@@ -112,6 +112,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "provider_plan_unbounded" }, { status: 503 });
   }
 
+  let stage = "residential_map_tiles";
   try {
     if (!(await verifyResidentialMapTiles(providerConfig.apiKey))) {
       return Response.json(
@@ -120,6 +121,7 @@ export async function POST(request: Request) {
       );
     }
 
+    stage = "geoapify";
     const geoapify = new GeoapifyAdapter({
       apiKey: providerConfig.apiKey,
       timeoutMs: providerConfig.timeoutMs,
@@ -145,6 +147,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "geoapify_unavailable" }, { status: 503 });
     }
 
+    stage = "mapbox";
     const routes = await new MapboxMatrixAdapter(
       routingConfig,
     ).calculateTravelTimes({
@@ -159,6 +162,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "mapbox_unavailable" }, { status: 503 });
     }
 
+    stage = "residential_kyc";
     await runResidentialProductionSmoke();
 
     return Response.json({
@@ -170,7 +174,7 @@ export async function POST(request: Request) {
       routeElementCount: routes.length * 2,
     });
   } catch {
-    console.error("Production meetup provider readiness check failed");
+    console.error("Production meetup provider readiness check failed", { stage });
     return Response.json({ error: "provider_unavailable" }, { status: 503 });
   }
 }
