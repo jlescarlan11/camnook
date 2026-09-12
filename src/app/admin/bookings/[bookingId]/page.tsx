@@ -84,19 +84,19 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
       : null;
 
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-950">
+    <div className="min-h-screen bg-stone-50 text-stone-950">
       <SiteHeader />
-      <main className="mx-auto max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
+      <main className="page-shell py-8 sm:py-12">
         <Link
-          className="inline-flex min-h-11 items-center font-medium text-amber-900 underline decoration-amber-300 underline-offset-4"
+          className="inline-flex min-h-11 items-center font-medium text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4"
           href="/admin"
         >
-          ← Back to review queue
+          Back to bookings
         </Link>
 
         {result.status === "error" || result.status === "inconsistent" ? (
           <section
-            className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900"
+            className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900"
             role="alert"
           >
             <h1 className="text-2xl font-semibold">
@@ -118,18 +118,17 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
           </section>
         ) : (
           <>
-          <section className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">What you need to do now</p>
-            <h1 className="mt-2 text-2xl font-semibold">{result.booking.state === "FOR_REVIEW" ? "Review this request" : ownerActionTitle(result.booking.state)}</h1>
-            <p className="mt-2 leading-7 text-amber-950">{result.booking.state === "FOR_REVIEW" ? "Check the renter, schedule, and availability, then accept or decline." : "Only the actions relevant to this booking’s current stage are available below."}</p>
-            <a className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white" href="#current-owner-action">{result.booking.state === "FOR_REVIEW" ? "Review request" : "View current action"}</a>
+          <section className="surface mt-6 grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="p-6 sm:p-8"><p className="eyebrow">Current owner action</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">{result.booking.state === "FOR_REVIEW" ? "Review this request" : ownerActionTitle(result.booking.state)}</h1>
+            <p className="mt-2 leading-7 text-stone-600">{result.booking.state === "FOR_REVIEW" ? "Check the renter, schedule, and availability, then accept or decline." : "Only the actions relevant to this booking’s current stage are available below."}</p>
+            <a className="button-primary mt-5" href="#current-owner-action">{result.booking.state === "FOR_REVIEW" ? "Review request" : "View current action"}</a></div>
+            <dl className="border-t border-stone-200 bg-[#edf5ff] p-6 lg:border-l lg:border-t-0 sm:p-8"><DetailValue label="Pickup" value={formatManilaDateTime(result.booking.pickupAt)} /><DetailValue label="Return" value={formatManilaDateTime(result.booking.returnAt)} /></dl>
           </section>
-          <article className="mt-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" id="current-owner-action">
+          <article className="surface mt-6 p-6 sm:p-8" id="current-owner-action">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">
-                  Persisted admin review
-                </p>
+                <p className="eyebrow">Booking record</p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-tight">
                   {result.booking.camera?.name ?? "Camera unavailable"}
                 </h1>

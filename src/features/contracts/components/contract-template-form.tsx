@@ -28,7 +28,7 @@ export function ContractTemplateForm({
   return (
     <section
       aria-labelledby="contract-template-heading"
-      className="mt-8 rounded-2xl border border-stone-200 bg-white p-6"
+      className="mt-8 rounded-xl border border-stone-200 bg-white p-6"
       id="contracts"
     >
       <h2 className="text-xl font-semibold" id="contract-template-heading">

@@ -141,7 +141,7 @@ export function PaymentPanel({
       ) : null}
 
       {payment.instructions ? (
-        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
+        <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
           <h3 className="font-semibold">Authoritative payment instructions</h3>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <Instruction label="Recipient" value={payment.instructions.recipient_name} />
@@ -187,7 +187,7 @@ export function PaymentPanel({
           </div>
           <ProofField error={submitState.fieldErrors?.proof} id="payment-proof" />
           <button
-            className="min-h-12 w-full rounded-xl bg-amber-800 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={submitPending}
             type="submit"
           >
@@ -197,7 +197,7 @@ export function PaymentPanel({
       ) : null}
 
       {transaction?.status === "submitted" ? (
-        <form action={proofAction} className="mt-5 space-y-4 rounded-2xl border border-stone-200 p-5">
+        <form action={proofAction} className="mt-5 space-y-4 rounded-xl border border-stone-200 p-5">
           <input name="bookingId" type="hidden" value={payment.booking_id} />
           <input name="transactionId" type="hidden" value={transaction.id} />
           <h3 className="font-semibold">

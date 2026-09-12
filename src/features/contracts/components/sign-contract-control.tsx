@@ -30,7 +30,7 @@ export function SignContractControl({
     <section
       aria-busy={pending}
       aria-labelledby="sign-contract-heading"
-      className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6"
+      className="mt-7 rounded-xl border border-amber-200 bg-amber-50 p-5 sm:p-6"
     >
       <h2 className="text-xl font-semibold" id="sign-contract-heading">
         Sign this exact agreement
@@ -70,7 +70,7 @@ export function SignContractControl({
           </p>
         ) : null}
         <button
-          className="mt-5 min-h-12 w-full rounded-xl bg-amber-900 px-5 py-3 font-semibold text-white transition hover:bg-amber-800 focus:outline-none focus:ring-4 focus:ring-amber-200 disabled:cursor-not-allowed disabled:opacity-55"
+          className="mt-5 min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white transition hover:bg-stone-800 focus:outline-none focus:ring-4 focus:ring-[#c9dcfb] disabled:cursor-not-allowed disabled:opacity-55"
           disabled={!canSign || pending || state.status === "success"}
           type="submit"
         >

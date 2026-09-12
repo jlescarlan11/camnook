@@ -11,7 +11,7 @@ import {
 } from "./owner-actions";
 
 const initial: CameraActionState = { status: "idle" };
-const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100";
+const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]";
 
 export function CameraDetailsForm({ camera }: {
   camera?: { accessories: { name: string }[]; daily_rate: number; description: string | null; id: string; name: string; security_deposit: number };
@@ -35,7 +35,7 @@ export function CameraDetailsForm({ camera }: {
 
 export function CameraPhotoForm({ cameraId, cameraName, photoCount }: { cameraId: string; cameraName: string; photoCount: number }) {
   const [state, action, pending] = useActionState(uploadCameraPhoto, initial);
-  return <form action={action} className="mt-6 rounded-2xl border border-stone-200 p-5">
+  return <form action={action} className="mt-6 rounded-xl border border-stone-200 p-5">
     <input name="cameraId" type="hidden" value={cameraId} />
     <input name="cameraName" type="hidden" value={cameraName} />
     <input name="sortPosition" type="hidden" value={photoCount} />
@@ -53,13 +53,13 @@ export function PublishCameraForm({ cameraId }: { cameraId: string }) {
   return <form action={action} className="mt-6">
     <input name="cameraId" type="hidden" value={cameraId} />
     <ActionMessage state={state} success="Camera published." />
-    <button className="min-h-12 w-full rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 disabled:opacity-60" disabled={pending} type="submit">{pending ? "Publishing…" : "Publish camera"}</button>
+    <button className="min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={pending} type="submit">{pending ? "Publishing…" : "Publish camera"}</button>
   </form>;
 }
 
 export function BlockDatesForm({ cameraId }: { cameraId: string }) {
   const [state, action, pending] = useActionState(blockCameraDates, initial);
-  return <form action={action} className="mt-6 rounded-2xl border border-stone-200 p-5">
+  return <form action={action} className="mt-6 rounded-xl border border-stone-200 p-5">
     <input name="cameraId" type="hidden" value={cameraId} />
     <h3 className="font-semibold">Blocked dates</h3>
     <p className="mt-1 text-sm text-stone-600">Keep the camera unavailable for maintenance or personal use.</p>

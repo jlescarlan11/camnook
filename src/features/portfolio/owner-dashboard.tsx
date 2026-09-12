@@ -32,8 +32,10 @@ const requiredQueueLinks = [
 
 export function OwnerOperationsPanel({
   dashboard,
+  mode = "full",
 }: {
   dashboard: OwnerOperationsDashboard;
+  mode?: "full" | "overview";
 }) {
   const { queues } = dashboard;
   const actionableCount = Object.values(dashboard.queue_counts).reduce((sum, count) => sum + count, 0) + dashboard.supporting_queue_counts.cancellation;
@@ -43,12 +45,12 @@ export function OwnerOperationsPanel({
       <section className="mt-8" aria-labelledby="operations-summary-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold" id="operations-summary-heading">
-              Current operations
+            <h2 className="section-heading" id="operations-summary-heading">
+              Work by stage
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
-              Each count and item comes from the same database snapshot. An
-              unavailable projection is never shown as an empty queue.
+              Review decisions and handoffs separately so each booking stays in
+              the right stage.
             </p>
           </div>
           <p className="text-sm text-stone-500">
@@ -61,8 +63,8 @@ export function OwnerOperationsPanel({
         >
           {requiredQueueLinks.map(([key, label]) => (
             <a
-              className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-amber-400"
-              href={`#queue-${key}`}
+              className="surface p-4 transition hover:border-[#6da8e8]"
+              href={mode === "overview" ? "/admin/bookings" : `#queue-${key}`}
               key={key}
             >
               <span className="block text-2xl font-semibold">
@@ -76,7 +78,20 @@ export function OwnerOperationsPanel({
 
       <DepositReconciliation dashboard={dashboard} />
 
-      {actionableCount === 0 ? <p className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900" role="status">All clear. No operational work needs action right now.</p> : null}
+      {mode === "overview" ? (
+        <section className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#d8e0ea] pt-6">
+          <p className="text-sm text-[#58677d]">
+            {actionableCount === 0
+              ? "No operational work needs action right now."
+              : `${actionableCount} ${actionableCount === 1 ? "item needs" : "items need"} attention.`}
+          </p>
+          <Link className="button-primary" href="/admin/bookings">
+            Open all booking work
+          </Link>
+        </section>
+      ) : (
+        <>
+      {actionableCount === 0 ? <p className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900" role="status">All clear. No operational work needs action right now.</p> : null}
 
       <QueueSection
         count={dashboard.queue_counts.review}
@@ -128,7 +143,7 @@ export function OwnerOperationsPanel({
       >
         {queues.payment.map((item) => (
           <li
-            className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+            className="rounded-xl border border-stone-200 bg-white p-5"
             key={item.transaction_id}
           >
             <p className="font-semibold">
@@ -251,6 +266,8 @@ export function OwnerOperationsPanel({
       />
 
       <SupportingQueues dashboard={dashboard} />
+        </>
+      )}
     </>
   );
 }
@@ -280,7 +297,7 @@ export function OwnerPortfolioPanel({
             never count as rental revenue.
           </p>
         </div>
-        <form className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_auto]" method="get">
+        <form className="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-[1fr_1fr_auto]" method="get">
           <label className="text-sm font-medium text-stone-700">
             Start date
             <input
@@ -311,12 +328,12 @@ export function OwnerPortfolioPanel({
       </div>
 
       {invalidPeriod ? (
-        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-900" role="alert">
+        <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5 text-red-900" role="alert">
           Enter valid dates with the excluded end date after the start date.
           No fallback financial report was loaded.
         </div>
       ) : report === null ? (
-        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-900" role="alert">
+        <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5 text-red-900" role="alert">
           Portfolio metrics are unavailable. Do not treat missing data as zero;
           reload before using this page for reporting.
         </div>
@@ -334,7 +351,7 @@ function DepositReconciliation({
 }) {
   const totals = dashboard.deposit_reconciliation;
   return (
-    <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6" aria-labelledby="deposit-reconciliation-heading">
+    <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-6" aria-labelledby="deposit-reconciliation-heading">
       <h2 className="text-xl font-semibold" id="deposit-reconciliation-heading">
         Deposit liability reconciliation
       </h2>
@@ -442,11 +459,11 @@ function PortfolioReport({ report }: { report: OwnerPortfolioReport }) {
       </p>
 
       {report.cameras.length === 0 ? (
-        <p className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 text-stone-600">
+        <p className="mt-6 rounded-xl border border-stone-200 bg-white p-5 text-stone-600">
           No serialized cameras are recorded.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+        <div className="mt-6 overflow-x-auto rounded-xl border border-stone-200 bg-white">
           <table className="w-full min-w-[1050px] border-collapse text-left text-sm">
             <thead className="bg-stone-100 text-stone-700">
               <tr>
@@ -543,7 +560,7 @@ function BookingQueueItem({
   summary: string;
 }) {
   return (
-    <li className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    <li className="rounded-xl border border-stone-200 bg-white p-5">
       <p className="font-semibold">{summary}</p>
       <p className="mt-2 text-sm leading-6 text-stone-600">{children}</p>
       <Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4" href={`/admin/bookings/${bookingId}`}>
@@ -556,7 +573,7 @@ function BookingQueueItem({
 function SupportingList({ children, empty, title }: { children: ReactNode; empty: string; title: string }) {
   const hasItems = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-stone-200 bg-white p-5">
       <h3 className="text-lg font-semibold">{title}</h3>
       {hasItems ? <ul className="mt-3 space-y-3">{children}</ul> : <p className="mt-3 text-sm text-stone-600">{empty}</p>}
     </div>
@@ -565,7 +582,7 @@ function SupportingList({ children, empty, title }: { children: ReactNode; empty
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-stone-200">
+    <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
       <dt className="text-sm text-stone-500">{label}</dt>
       <dd className="mt-1 break-words text-lg font-semibold">{value}</dd>
     </div>

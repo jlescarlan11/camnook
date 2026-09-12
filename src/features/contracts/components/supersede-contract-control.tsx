@@ -58,7 +58,7 @@ export function SupersedeContractControl({
         <input name="bookingId" type="hidden" value={bookingId} />
         <Field label="Camera" error={state.fieldErrors?.camera} id="camera">
           <select
-            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-amber-800 focus:ring-4 focus:ring-amber-100"
+            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
             defaultValue={currentCameraId}
             disabled={pending}
             id="camera"
@@ -75,7 +75,7 @@ export function SupersedeContractControl({
         <div className="hidden sm:block" />
         <Field label="Pickup (Asia/Manila)" error={state.fieldErrors?.pickup} id="pickup">
           <input
-            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-amber-800 focus:ring-4 focus:ring-amber-100"
+            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
             defaultValue={pickup}
             disabled={pending}
             id="pickup"
@@ -86,7 +86,7 @@ export function SupersedeContractControl({
         </Field>
         <Field label="Return (Asia/Manila)" error={state.fieldErrors?.return} id="return">
           <input
-            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-amber-800 focus:ring-4 focus:ring-amber-100"
+            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
             defaultValue={returnValue}
             disabled={pending}
             id="return"

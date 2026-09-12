@@ -10,16 +10,16 @@ export const metadata: Metadata = {
 
 export default function GovernmentIdPrivacyNoticePage() {
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-950">
+    <div className="min-h-screen bg-stone-50 text-stone-950">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
-        <article className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-10">
+        <article className="rounded-xl border border-stone-200 bg-white p-6 sm:p-10">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-800">Effective operating notice</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">Renter KYC and in-person identity check</h1>
           <p className="mt-3 text-sm text-stone-500">Version progressive-renter-kyc-v1 · effective 4 September 2026</p>
 
           <div className="mt-8 space-y-7 leading-7 text-stone-700">
-            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
+            <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
               <h2 className="font-semibold">No government-ID upload</h2>
               <p className="mt-2">CamNook does not ask renters to upload or email a government ID. Before the first booking request, renters save the minimum profile details described below. The original ID is checked only in person.</p>
             </section>
@@ -61,7 +61,7 @@ export default function GovernmentIdPrivacyNoticePage() {
               <p className="mt-2">For access, correction, deletion, objection, or another privacy concern, email <a className="font-semibold underline decoration-amber-300 underline-offset-4" href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>. Do not attach an ID file. You may also contact the <a className="font-semibold underline decoration-amber-300 underline-offset-4" href="https://privacy.gov.ph" rel="noreferrer" target="_blank">National Privacy Commission</a>.</p>
             </section>
 
-            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
               <h2 className="font-semibold">Owner approval</h2>
               <p className="mt-2">The CamNook owner approved progressive renter KYC on 4 September 2026 while retaining the minimized in-person ID policy. It is an operational privacy decision based on Philippine law, not a representation that outside legal counsel reviewed the business.</p>
             </section>

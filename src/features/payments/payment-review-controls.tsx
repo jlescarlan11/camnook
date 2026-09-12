@@ -144,7 +144,7 @@ export function PaymentReviewControls({
       <div className="mt-8 grid gap-5 border-t border-stone-200 pt-7 lg:grid-cols-2">
         <form
           action={verifyAction}
-          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
           onSubmit={() => setLastDecision("verify")}
         >
           <input name="decision" type="hidden" value="verified" />
@@ -208,7 +208,7 @@ export function PaymentReviewControls({
 
         <form
           action={rejectAction}
-          className="rounded-2xl border border-red-200 bg-red-50 p-5"
+          className="rounded-xl border border-red-200 bg-red-50 p-5"
           onSubmit={() => setLastDecision("reject")}
         >
           <input name="decision" type="hidden" value="rejected" />

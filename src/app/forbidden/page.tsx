@@ -7,8 +7,8 @@ export const metadata: Metadata = {
 
 export default function ForbiddenPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-100 px-6 py-12 text-stone-950">
-      <section className="w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-8 shadow-sm sm:p-10">
+    <main className="flex min-h-screen items-center justify-center bg-stone-50 px-6 py-12 text-stone-950">
+      <section className="w-full max-w-lg rounded-xl border border-stone-200 bg-white p-8 sm:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-red-700">
           Access denied
         </p>

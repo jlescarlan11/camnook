@@ -23,7 +23,7 @@ export function GcashConfigurationForm({
   return (
     <section
       aria-labelledby="gcash-configuration-heading"
-      className="mt-8 rounded-2xl border border-stone-200 bg-white p-6"
+      className="mt-8 rounded-xl border border-stone-200 bg-white p-6"
     >
       <h2 className="text-xl font-semibold" id="gcash-configuration-heading">
         GCash payment recipient

@@ -154,6 +154,22 @@ export function calendarEndpointRole(input: {
     : "pickup";
 }
 
+// Date selection comes before time selection. A date is usable when at least
+// one approved time works, including the entire range for a return endpoint.
+export function calendarDateStatus(
+  input: Omit<Parameters<typeof endpointStatus>[0], "time"> & { approvedTimes: readonly string[] },
+) {
+  const statuses = input.approvedTimes.map((time) => {
+    const status = endpointStatus({ ...input, time });
+    if (status.disabled || input.role !== "return" || !input.selectedPickup) return status;
+    const pickup = endpointStatus({ ...input, date: input.selectedPickup, role: "pickup", time });
+    return pickup.disabled || periodOverlapsAvailability(input.selectedPickup, input.date, time, input.availability)
+      ? { disabled: true, reason: "unavailable" as const }
+      : status;
+  });
+  return statuses.find((status) => !status.disabled) ?? statuses[0] ?? { disabled: true, reason: "invalid" as const };
+}
+
 export function periodOverlapsAvailability(
   pickupDate: string,
   returnDate: string,

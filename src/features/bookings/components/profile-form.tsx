@@ -27,7 +27,7 @@ export function ProfileForm({
           aria-describedby={state.fieldErrors?.legalName ? "legal-name-error" : undefined}
           aria-invalid={Boolean(state.fieldErrors?.legalName)}
           autoComplete="name"
-          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100"
+          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
           id="legalName"
           maxLength={160}
           name="legalName"
@@ -49,7 +49,7 @@ export function ProfileForm({
           aria-describedby={state.fieldErrors?.phone ? "phone-error" : undefined}
           aria-invalid={Boolean(state.fieldErrors?.phone)}
           autoComplete="tel"
-          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100"
+          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
           id="phone"
           maxLength={32}
           minLength={7}
