@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
   searchPublicPlaces: vi.fn(),
 }));
 
-vi.mock("@/features/meetups/config", () => ({
+vi.mock("@/features/meetups/config", async () => ({
+  ...(await vi.importActual<typeof import("@/features/meetups/config")>("@/features/meetups/config")),
   getMeetupProviderConfig: mocks.getMeetupProviderConfig,
   getMeetupRoutingConfig: mocks.getMeetupRoutingConfig,
 }));
@@ -31,12 +32,13 @@ vi.mock("@/features/kyc/production-smoke", () => ({
 }));
 
 import { POST } from "./route";
+import { REVIEWED_GEOAPIFY_CATEGORIES } from "@/features/meetups/config";
 
 const originalVercelEnvironment = process.env.VERCEL_ENV;
 const originalResidentialMapKey = process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY;
 const authorization = "Bearer production-management-token-value";
 const providerConfig = {
-  allowedCategories: ["commercial.shopping_mall"],
+  allowedCategories: REVIEWED_GEOAPIFY_CATEGORIES,
   apiKey: "provider-key",
   configVersion: "geoapify-v1",
   referenceSecret: "recommendation-encryption-secret-value",
@@ -162,7 +164,7 @@ describe("Production meetup provider readiness", () => {
     expect(body).toEqual({
       geoapify: "passed",
       mapbox: "passed",
-      providerRequestCount: 3,
+      providerRequestCount: 7,
       residentialKyc: "passed",
       residentialMapTiles: "passed",
       routeElementCount: 6,
@@ -184,6 +186,18 @@ describe("Production meetup provider readiness", () => {
     expect(JSON.stringify(body)).not.toMatch(
       /Ayala|Mandaue|provider-place|10\.3|123\.9/,
     );
+  });
+
+  it("rejects an oversized provider plan before making provider requests", async () => {
+    mocks.getMeetupProviderConfig.mockReturnValue({
+      ...providerConfig,
+      allowedCategories: [...REVIEWED_GEOAPIFY_CATEGORIES, "extra-category"],
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: "provider_plan_unbounded" });
+    expect(mocks.reverseGeocodeCity).not.toHaveBeenCalled();
+    expect(mocks.runResidentialProductionSmoke).not.toHaveBeenCalled();
   });
 
   it("fails closed without exposing provider details", async () => {

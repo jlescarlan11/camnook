@@ -106,8 +106,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "configuration_unavailable" }, { status: 503 });
   }
 
-  const providerRequestCount = 2 + providerConfig.allowedCategories.length;
-  if (providerRequestCount > 5) {
+  // One tile, one reverse lookup, one matrix, and one search per category.
+  const providerRequestCount = 3 + providerConfig.allowedCategories.length;
+  if (providerRequestCount > 7) {
     return Response.json({ error: "provider_plan_unbounded" }, { status: 503 });
   }
 
