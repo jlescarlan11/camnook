@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCalendarMonth,
+  calendarDateStatus,
   calendarEndpointRole,
   composeManilaWallClock,
   endpointStatus,
@@ -11,6 +12,29 @@ import {
 } from "./calendar";
 
 describe("booking calendar", () => {
+  const dateSelection = {
+    allowedWeekdays: [1, 2, 3, 4, 5], approvedTimes: ["09:00", "17:00"],
+    availability: [], date: "2026-09-14", now: new Date("2026-09-12T00:00:00Z"), role: "pickup" as const,
+  };
+
+  it("keeps a date selectable when the first slot is booked but a later one is free", () => {
+    expect(calendarDateStatus({ ...dateSelection, availability: [{ startsAt: "2026-09-14T08:00:00+08:00", endsAt: "2026-09-14T12:00:00+08:00" }] })).toMatchObject({ disabled: false });
+  });
+
+  it("keeps today's future slot selectable after its morning slot has passed", () => {
+    expect(calendarDateStatus({ ...dateSelection, now: new Date("2026-09-14T12:00:00+08:00") })).toMatchObject({ disabled: false });
+  });
+
+  it("disables a day when every approved time is unavailable", () => {
+    expect(calendarDateStatus({ ...dateSelection, availability: [{ startsAt: "2026-09-14T08:00:00+08:00", endsAt: "2026-09-14T18:00:00+08:00" }] })).toMatchObject({ disabled: true });
+  });
+
+  it("requires a common pickup and return time without an intervening booking", () => {
+    const range = { ...dateSelection, role: "return" as const, selectedPickup: "2026-09-14", date: "2026-09-17" };
+    expect(calendarDateStatus({ ...range, availability: [{ startsAt: "2026-09-15T09:00:00+08:00", endsAt: "2026-09-16T09:00:00+08:00" }] })).toMatchObject({ disabled: true });
+    expect(calendarDateStatus({ ...range, availability: [{ startsAt: "2026-09-14T08:00:00+08:00", endsAt: "2026-09-14T12:00:00+08:00" }] })).toMatchObject({ disabled: false });
+  });
+
   it("renders a stable six-week leap-month grid with adjacent days", () => {
     const days = buildCalendarMonth("2028-02");
     expect(days).toHaveLength(42);

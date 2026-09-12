@@ -2,26 +2,26 @@ import Link from "next/link";
 
 export function SiteHeader() {
   return (
-    <header className="border-b border-stone-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+    <header className="border-b border-[#d8e0ea] bg-white">
+      <div className="page-shell flex min-h-18 items-center justify-between gap-4 py-4">
         <Link
-          className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-800"
+          className="text-base font-bold uppercase tracking-[0.26em] text-[#081d3b]"
           href="/"
         >
           CamNook
         </Link>
-        <nav aria-label="Primary" className="flex items-center gap-4 text-sm">
+        <nav aria-label="Primary" className="flex items-center gap-2 text-sm sm:gap-6">
           <Link
-            className="rounded-lg px-2 py-2 font-medium text-stone-700 hover:text-stone-950 focus:outline-none focus:ring-4 focus:ring-amber-100"
+            className="rounded-md px-2 py-2 font-medium text-[#58677d] hover:text-[#081d3b]"
             href="/"
           >
             Cameras
           </Link>
           <Link
-            className="rounded-lg px-2 py-2 font-medium text-stone-700 hover:text-stone-950 focus:outline-none focus:ring-4 focus:ring-amber-100"
+            className="rounded-md px-2 py-2 font-medium text-[#58677d] hover:text-[#081d3b]"
             href="/account"
           >
-            Account
+            Your rentals
           </Link>
         </nav>
       </div>

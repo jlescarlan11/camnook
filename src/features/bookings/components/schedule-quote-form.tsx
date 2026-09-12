@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PublicHandoffPolicy } from "@/features/listings/handoff-types";
-
 import { quoteBooking } from "../actions/quote-booking";
 import {
   buildCalendarMonth,
+  calendarDateStatus,
   calendarEndpointRole,
   endpointStatus,
   formatHandoffTime,
@@ -19,22 +19,12 @@ import {
 } from "../calendar";
 import { initialQuoteActionState } from "../form-state";
 import { formatManilaDateTime } from "../manila-time";
-import {
-  nextQuoteEditGeneration,
-  scheduleQuoteFormPresentation,
-} from "../presenter";
+import { nextQuoteEditGeneration, scheduleQuoteFormPresentation } from "../presenter";
+import { canScheduleRental } from "../scheduling";
+import type { ScheduleSelection } from "../schedule-navigation";
 
-const phpFormatter = new Intl.NumberFormat("en-PH", {
-  currency: "PHP",
-  style: "currency",
-});
-
-const monthFormatter = new Intl.DateTimeFormat("en-PH", {
-  month: "long",
-  timeZone: "UTC",
-  year: "numeric",
-});
-
+const phpFormatter = new Intl.NumberFormat("en-PH", { currency: "PHP", maximumFractionDigits: 0, style: "currency" });
+const monthFormatter = new Intl.DateTimeFormat("en-PH", { month: "long", timeZone: "UTC", year: "numeric" });
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type ScheduleQuoteFormProps = {
@@ -43,32 +33,23 @@ type ScheduleQuoteFormProps = {
   cameraName: string;
   policy: PublicHandoffPolicy | null;
   requestable?: boolean;
+  initialSchedule?: ScheduleSelection;
 };
 
-export function ScheduleQuoteForm({
-  availability,
-  cameraId,
-  cameraName,
-  policy,
-  requestable = true,
-}: ScheduleQuoteFormProps) {
+export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, requestable = true, initialSchedule }: ScheduleQuoteFormProps) {
   const today = getManilaToday();
   const currentMonth = monthFromCalendarDate(today)!;
-  const [visibleMonth, setVisibleMonth] = useState(currentMonth);
-  const [pickupDate, setPickupDate] = useState("");
-  const [returnDate, setReturnDate] = useState("");
-  const [handoffTime, setHandoffTime] = useState(
-    policy?.approvedTimes.length === 1 ? policy.approvedTimes[0] : "",
-  );
+  const [visibleMonth, setVisibleMonth] = useState(initialSchedule ? monthFromCalendarDate(initialSchedule.pickupDate)! : currentMonth);
+  const [pickupDate, setPickupDate] = useState(initialSchedule?.pickupDate ?? "");
+  const [returnDate, setReturnDate] = useState(initialSchedule?.returnDate ?? "");
+  const [handoffTime, setHandoffTime] = useState(initialSchedule?.handoffTime ?? (policy?.approvedTimes.length === 1 ? policy.approvedTimes[0] : ""));
   const [editGeneration, setEditGeneration] = useState(0);
-  const [state, formAction, pending] = useActionState(
-    quoteBooking,
-    initialQuoteActionState,
-  );
-  const days = useMemo(() => buildCalendarMonth(visibleMonth), [visibleMonth]);
+  const [state, formAction, pending] = useActionState(quoteBooking, initialQuoteActionState);
   const formRef = useRef<HTMLFormElement>(null);
   const lastAutoQuoteKey = useRef("");
-  const autoQuoteKey = `${cameraId}|${policy?.version ?? 0}|${pickupDate}|${returnDate}|${handoffTime}`;
+  const days = useMemo(() => buildCalendarMonth(visibleMonth), [visibleMonth]);
+  // Restoring the same values after an edit still needs a fresh quote generation.
+  const autoQuoteKey = `${cameraId}|${policy?.version ?? 0}|${pickupDate}|${returnDate}|${handoffTime}|${editGeneration}`;
   const validHandoffTimes = useMemo(() => {
     if (!policy || !pickupDate || !returnDate) return [];
     return policy.approvedTimes.filter((time) => {
@@ -84,124 +65,49 @@ export function ScheduleQuoteForm({
     formRef.current?.requestSubmit();
   }, [autoQuoteKey, handoffTime, pending, pickupDate, returnDate]);
 
-  if (
-    !requestable ||
-    !policy?.enabled ||
-    policy.allowedWeekdays.length === 0 ||
-    policy.approvedTimes.length === 0
-  ) {
-    return (
-      <section
-        aria-labelledby="schedule-unavailable-heading"
-        className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8"
-      >
-        <h2 className="text-2xl font-semibold" id="schedule-unavailable-heading">
-          Scheduling unavailable
-        </h2>
-        <p className="mt-3 text-sm leading-6 text-stone-600">
-          {cameraName} is viewable but is not accepting new requests right now.
-          Check back later or choose another published camera.
-        </p>
-        <Link
-          className="mt-5 inline-flex min-h-11 items-center font-semibold text-amber-900 underline"
-          href="/"
-        >
-          Browse cameras
-        </Link>
-      </section>
-    );
+  if (!canScheduleRental(policy, requestable)) {
+    return <section aria-labelledby="schedule-unavailable-heading" className="mt-8 border-y border-[#d8e0ea] py-10">
+      <p className="eyebrow">Availability</p>
+      <h2 className="section-heading mt-3" id="schedule-unavailable-heading">Scheduling unavailable</h2>
+      <p className="mt-3 max-w-xl text-sm leading-6 text-[#58677d]">{cameraName} is viewable but is not accepting new requests right now. Check back later or choose another published camera.</p>
+      <Link className="button-secondary mt-6" href="/">Browse cameras</Link>
+    </section>;
   }
-  const activePolicy = policy;
 
-  const input = {
-    camera: cameraId,
-    handoffTime,
-    pickupDate,
-    policyVersion: String(activePolicy.version),
-    returnDate,
-  };
-  const presentation = scheduleQuoteFormPresentation(
-    state,
-    input,
-    pending,
-    editGeneration,
-  );
-  const selectedPickupStatus = pickupDate
-    ? endpointStatus({
-        allowedWeekdays: activePolicy.allowedWeekdays,
-        availability,
-        date: pickupDate,
-        role: "pickup",
-        time: handoffTime,
-      })
-    : null;
-  const selectedReturnStatus = returnDate
-    ? endpointStatus({
-        allowedWeekdays: activePolicy.allowedWeekdays,
-        availability,
-        date: returnDate,
-        role: "return",
-        selectedPickup: pickupDate,
-        time: handoffTime,
-      })
-    : null;
-  const overlap =
-    Boolean(pickupDate && returnDate && handoffTime) &&
-    periodOverlapsAvailability(
-      pickupDate,
-      returnDate,
-      handoffTime,
-      availability,
-    );
-  const complete = Boolean(
-    pickupDate &&
-      returnDate &&
-      handoffTime &&
-      !overlap &&
-      selectedPickupStatus &&
-      !selectedPickupStatus.disabled &&
-      selectedReturnStatus &&
-      !selectedReturnStatus.disabled,
-  );
+  const activePolicy = policy;
+  const input = { camera: cameraId, handoffTime, pickupDate, policyVersion: String(activePolicy.version), returnDate };
+  const presentation = scheduleQuoteFormPresentation(state, input, pending, editGeneration);
+  const selectedPickupStatus = pickupDate ? endpointStatus({ allowedWeekdays: activePolicy.allowedWeekdays, availability, date: pickupDate, role: "pickup", time: handoffTime }) : null;
+  const selectedReturnStatus = returnDate ? endpointStatus({ allowedWeekdays: activePolicy.allowedWeekdays, availability, date: returnDate, role: "return", selectedPickup: pickupDate, time: handoffTime }) : null;
+  const overlap = Boolean(pickupDate && returnDate && handoffTime) && periodOverlapsAvailability(pickupDate, returnDate, handoffTime, availability);
+  const complete = Boolean(pickupDate && returnDate && handoffTime && !overlap && selectedPickupStatus && !selectedPickupStatus.disabled && selectedReturnStatus && !selectedReturnStatus.disabled);
   const requestQuery = new URLSearchParams(input).toString();
   const monthDate = new Date(`${visibleMonth}-01T00:00:00Z`);
 
-  function markEdited() {
-    setEditGeneration(nextQuoteEditGeneration);
-  }
-
+  function markEdited() { setEditGeneration(nextQuoteEditGeneration); }
   function chooseDate(date: string) {
-    const calendarTime = handoffTime || activePolicy.approvedTimes[0] || "";
     const role = calendarEndpointRole({ date, pickupDate, returnDate });
-    const status = endpointStatus({
-      allowedWeekdays: activePolicy.allowedWeekdays,
-      availability,
-      date,
-      role,
-      selectedPickup: pickupDate,
-      time: calendarTime,
-    });
+    const status = calendarDateStatus({ allowedWeekdays: activePolicy.allowedWeekdays, approvedTimes: activePolicy.approvedTimes, availability, date, role, selectedPickup: pickupDate });
     if (status.disabled) return;
-
-    if (role === "return") {
-      setReturnDate(date);
-    } else {
-      setPickupDate(date);
-      setReturnDate("");
-    }
+    if (role === "return") setReturnDate(date);
+    else { setPickupDate(date); setReturnDate(""); }
     setHandoffTime("");
     markEdited();
   }
 
-  return (
-    <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Step 2 of 4</p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight">Choose your schedule</h2>
-      <p className="mt-2 text-sm leading-6 text-stone-600">
-        Choose dates first, then one of the handoff times available for that range. Your total updates automatically. A quote does not reserve the camera.
-      </p>
+  return <section className="py-9 sm:py-12" aria-labelledby="schedule-heading">
+    <p className="eyebrow">Plan your rental</p>
+    <h2 className="page-heading mt-3" id="schedule-heading">Plan pickup and return</h2>
+    <p className="mt-3 max-w-2xl leading-7 text-[#58677d]">Choose dates on the calendar, then use one approved handoff time for both pickup and return. Your estimate updates automatically.</p>
+    <span className="sr-only">Choose your schedule. Step 2 of 4.</span>
 
-      <form action={formAction} className="mt-6 space-y-6" ref={formRef}>
+    <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,1fr)_25rem] xl:gap-12">
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        // A quote is a read operation: preserve the schedule instead of resetting it.
+        const data = new FormData(event.currentTarget);
+        startTransition(() => formAction(data));
+      }} ref={formRef}>
         <input name="camera" type="hidden" value={cameraId} />
         <input name="generation" type="hidden" value={editGeneration} />
         <input name="pickupDate" type="hidden" value={pickupDate} />
@@ -209,209 +115,65 @@ export function ScheduleQuoteForm({
         <input name="returnDate" type="hidden" value={returnDate} />
 
         <fieldset aria-describedby="calendar-help overlap-error">
-          <legend className="text-base font-semibold">1. Choose dates</legend>
-          <p className="mt-1 text-xs leading-5 text-stone-500" id="calendar-help">
-            {!handoffTime
-              ? "Choose pickup and return dates, then select a handoff time."
-              : pickupDate && !returnDate
-                ? "Pickup selected. Choose a later return handoff date. Dimmed no-handoff days can stay inside the rental."
-                : "Choose pickup, then return. Selecting again starts a new range."}
-          </p>
-
-          <div className="mt-3 rounded-2xl border border-stone-200 p-3 sm:p-4">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                aria-label="Show previous month"
-                className="min-h-11 min-w-11 rounded-lg border border-stone-300 text-xl disabled:opacity-40"
-                disabled={visibleMonth <= currentMonth}
-                onClick={() => {
-                  const previous = shiftCalendarMonth(visibleMonth, -1);
-                  if (previous) setVisibleMonth(previous);
-                }}
-                type="button"
-              >
-                ‹
-              </button>
-              <h3 aria-live="polite" className="font-semibold">
-                {monthFormatter.format(monthDate)}
-              </h3>
-              <button
-                aria-label="Show next month"
-                className="min-h-11 min-w-11 rounded-lg border border-stone-300 text-xl"
-                onClick={() => {
-                  const next = shiftCalendarMonth(visibleMonth, 1);
-                  if (next) setVisibleMonth(next);
-                }}
-                type="button"
-              >
-                ›
-              </button>
+          <legend className="font-semibold">Choose dates</legend>
+          <p className="mt-1 text-sm leading-6 text-[#58677d]" id="calendar-help">{!handoffTime ? "Choose pickup and return dates, then select a handoff time." : pickupDate && !returnDate ? "Pickup selected. Choose a later return handoff date. Dimmed no-handoff days can stay inside the rental." : "Choose pickup, then return. Selecting again starts a new range."}</p>
+          <div className="mt-5 border-y border-[#d8e0ea] py-5 sm:px-2">
+            <div className="flex items-center justify-between gap-4">
+              <button aria-label="Show previous month" className="button-secondary min-w-20 disabled:cursor-not-allowed disabled:opacity-35" disabled={visibleMonth <= currentMonth} onClick={() => { const previous = shiftCalendarMonth(visibleMonth, -1); if (previous) setVisibleMonth(previous); }} type="button">Previous</button>
+              <h3 aria-live="polite" className="text-lg font-semibold">{monthFormatter.format(monthDate)}</h3>
+              <button aria-label="Show next month" className="button-secondary min-w-20" onClick={() => { const next = shiftCalendarMonth(visibleMonth, 1); if (next) setVisibleMonth(next); }} type="button">Next</button>
             </div>
-
-            <div aria-hidden="true" className="mt-4 grid grid-cols-7 text-center text-xs font-semibold text-stone-500">
-              {weekdays.map((weekday) => (
-                <span key={weekday}>{weekday}</span>
-              ))}
-            </div>
-            <div className="mt-2 grid grid-cols-7 gap-1">
-              {days.map((day) => {
-                if (!day.inMonth) {
-                  return <span aria-hidden="true" className="min-h-11" key={day.date} />;
-                }
-                const role = calendarEndpointRole({
-                  date: day.date,
-                  pickupDate,
-                  returnDate,
-                });
-                const status = endpointStatus({
-                  allowedWeekdays: activePolicy.allowedWeekdays,
-                  availability,
-                  date: day.date,
-                  role,
-                  selectedPickup: pickupDate,
-                  time: handoffTime || activePolicy.approvedTimes[0] || "",
-                });
-                const selectedPickup = day.date === pickupDate;
-                const selectedReturn = day.date === returnDate;
-                const inRange = Boolean(
-                  pickupDate && returnDate && day.date > pickupDate && day.date < returnDate,
-                );
-                const stateLabel = selectedPickup
-                  ? "selected pickup"
-                  : selectedReturn
-                    ? "selected return"
-                    : inRange && status.reason === "no_handoff"
-                      ? "included rental day, no lender handoff"
-                      : inRange
-                        ? "included rental day"
-                    : status.reason === "no_handoff"
-                      ? "no lender handoff"
-                      : status.reason === "unavailable"
-                      ? "unavailable"
-                      : status.reason === "closed" || status.reason === "before_pickup"
-                          ? "not selectable"
-                          : "available";
-                return (
-                  <button
-                    aria-label={`${day.label}, ${stateLabel}`}
-                    aria-pressed={selectedPickup || selectedReturn}
-                    className={`min-h-11 rounded-lg text-sm font-medium focus:outline-none focus:ring-4 focus:ring-amber-200 ${
-                      selectedPickup || selectedReturn
-                        ? "bg-stone-950 text-white"
-                        : inRange
-                          ? "bg-amber-100 text-stone-950"
-                          : "hover:bg-stone-100"
-                    } disabled:cursor-not-allowed disabled:text-stone-400 disabled:hover:bg-transparent`}
-                    disabled={status.disabled}
-                    key={day.date}
-                    onClick={() => chooseDate(day.date)}
-                    type="button"
-                  >
-                    {day.day}
-                  </button>
-                );
-              })}
-            </div>
+            <div aria-hidden="true" className="mt-6 grid grid-cols-7 text-center text-xs font-semibold text-[#58677d]">{weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
+            <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">{days.map((day) => {
+              if (!day.inMonth) return <span aria-hidden="true" className="min-h-14" key={day.date} />;
+              const role = calendarEndpointRole({ date: day.date, pickupDate, returnDate });
+              const status = calendarDateStatus({ allowedWeekdays: activePolicy.allowedWeekdays, approvedTimes: activePolicy.approvedTimes, availability, date: day.date, role, selectedPickup: pickupDate });
+              const selectedPickup = day.date === pickupDate;
+              const selectedReturn = day.date === returnDate;
+              const inRange = Boolean(pickupDate && returnDate && day.date > pickupDate && day.date < returnDate);
+              const stateLabel = selectedPickup ? "selected pickup" : selectedReturn ? "selected return" : inRange && status.reason === "no_handoff" ? "included rental day, no lender handoff" : inRange ? "included rental day" : status.reason === "no_handoff" ? "no lender handoff" : status.reason === "unavailable" ? "unavailable" : status.reason === "closed" || status.reason === "before_pickup" ? "not selectable" : "available";
+              return <button aria-label={`${day.label}, ${stateLabel}`} aria-pressed={selectedPickup || selectedReturn} className={`flex min-h-14 flex-col items-center justify-center rounded-lg px-1 text-sm font-semibold ${selectedPickup ? "bg-[#0b4f9c] text-white" : selectedReturn ? "bg-[#c9dcfb] text-[#081d3b]" : inRange ? "bg-[#e7f0ff] text-[#081d3b]" : status.reason === "no_handoff" ? "bg-[#fff7e6] text-[#58677d]" : "hover:bg-[#f2f7ff]"} disabled:cursor-not-allowed disabled:bg-transparent disabled:text-[#a0abba]`} disabled={status.disabled} key={day.date} onClick={() => chooseDate(day.date)} type="button">
+                <span>{day.day}</span>{selectedPickup ? <span className="hidden text-[10px] font-medium sm:block">Pickup</span> : selectedReturn ? <span className="hidden text-[10px] font-medium sm:block">Return</span> : status.reason === "no_handoff" ? <span className="hidden text-[10px] font-normal sm:block">No handoff</span> : null}
+              </button>;
+            })}</div>
           </div>
         </fieldset>
 
-        <div>
-          <label className="block text-base font-semibold" htmlFor="handoff-time">2. Choose handoff time</label>
-          <select
-            aria-describedby="handoff-time-help"
-            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100 disabled:bg-stone-100"
-            disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0}
-            id="handoff-time"
-            name="handoffTime"
-            onChange={(event) => { setHandoffTime(event.target.value); markEdited(); }}
-            required
-            value={handoffTime}
-          >
+        <div className="mt-7 max-w-xl">
+          <label className="block font-semibold" htmlFor="handoff-time">Choose handoff time</label>
+          <p className="mt-1 text-sm text-[#58677d]">The same time applies to pickup and return.</p>
+          <select aria-describedby="handoff-time-help" className="mt-3 min-h-12 w-full rounded-lg border border-[#b9c6d6] bg-white px-4 text-base outline-none focus:border-[#0b4f9c] disabled:bg-[#f2f4f7]" disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0} id="handoff-time" name="handoffTime" onChange={(event) => { setHandoffTime(event.target.value); markEdited(); }} required value={handoffTime}>
             <option value="">{pickupDate && returnDate ? "Choose a time" : "Choose dates first"}</option>
             {validHandoffTimes.map((time) => <option key={time} value={time}>{formatHandoffTime(time)}</option>)}
           </select>
-          <p className="mt-2 text-xs leading-5 text-stone-500" id="handoff-time-help">Only times valid for both pickup and return are shown.</p>
+          <p className="mt-2 text-xs leading-5 text-[#58677d]" id="handoff-time-help">Only times valid for both pickup and return are shown.</p>
         </div>
-
-        <div className="rounded-xl bg-stone-50 p-4 text-sm">
-          <h3 className="font-semibold">Selected schedule</h3>
-          <dl className="mt-2 grid gap-2 sm:grid-cols-2">
-            <QuoteValue label="Pickup date" value={pickupDate || "Not selected"} />
-            <QuoteValue label="Return date" value={returnDate || "Not selected"} />
-            <QuoteValue
-              label="Handoff time"
-              value={handoffTime ? `${formatHandoffTime(handoffTime)} PHT` : "Not selected"}
-            />
-            <QuoteValue
-              label="Meetup area"
-              value={`${activePolicy.cityLabel} (${activePolicy.approximationLevel === "barangay_centroid" ? "barangay-level approximation" : activePolicy.approximationLevel === "precise" ? "precise origin kept private" : "city-level approximation"})`}
-            />
-          </dl>
-        </div>
-
-        <div className="text-xs leading-5 text-stone-600">
-          <h3 className="font-semibold text-stone-800">Availability key</h3>
-          <p className="mt-1">Dark: pickup or return · Amber: included rental days · Dimmed: cannot be a handoff endpoint.</p>
-          <p>Dimmed no-handoff days may remain inside a valid rental range.</p>
-        </div>
-
-        {overlap ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" id="overlap-error" role="alert">
-            This range overlaps a currently unavailable period. Choose another range.
-          </p>
-        ) : null}
-
-        <button
-          aria-hidden="true"
-          className="sr-only"
-          tabIndex={-1}
-          disabled={!complete || presentation.disableQuoteSubmit}
-          type="submit"
-        >
-          Calculate quote
-        </button>
+        <div className="mt-6 text-xs leading-5 text-[#58677d]"><h3 className="font-semibold text-[#081d3b]">Availability key</h3><p className="mt-1">Blue: pickup, return, or included rental days · Pale amber: no handoff · Dimmed: cannot be a handoff endpoint.</p><p>Dimmed no-handoff days may remain inside a valid rental range.</p></div>
+        {overlap ? <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" id="overlap-error" role="alert">This range overlaps a currently unavailable period. Choose another range.</p> : null}
+        <button aria-hidden="true" className="sr-only" tabIndex={-1} disabled={!complete || presentation.disableQuoteSubmit} type="submit">Calculate quote</button>
       </form>
 
-      {presentation.liveMessage ? (
-        <p
-          aria-live="polite"
-          className={`mt-5 rounded-xl px-4 py-3 text-sm ${state.error ? "border border-red-200 bg-red-50 text-red-800" : "border border-amber-200 bg-amber-50 text-amber-950"}`}
-          role={state.error ? "alert" : "status"}
-        >
-          {presentation.liveMessage}
-        </p>
-      ) : null}
-
-      {presentation.quote ? (
-        <section aria-labelledby="schedule-quote-heading" className="mt-6 border-t border-stone-200 pt-6">
-          <h3 className="text-xl font-semibold" id="schedule-quote-heading">Your total</h3>
-          <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-            <QuoteValue label="Pickup" value={formatManilaDateTime(presentation.quote.pickupAt)} />
-            <QuoteValue label="Return" value={formatManilaDateTime(presentation.quote.returnAt)} />
-            <QuoteValue label="Billable days" value={String(presentation.quote.billableDays)} />
-            <QuoteValue label="Rental subtotal" value={phpFormatter.format(presentation.quote.rentalAmount)} />
-            <QuoteValue label="Deposit" value={phpFormatter.format(presentation.quote.securityDeposit)} />
-            <QuoteValue label="Total" value={phpFormatter.format(presentation.quote.totalDue)} />
-          </dl>
-          {presentation.canContinue ? (
-            <Link
-              className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 transition hover:bg-amber-400 focus:outline-none focus:ring-4 focus:ring-amber-200"
-              href={`/account/bookings/new?${requestQuery}`}
-            >
-              Continue
-            </Link>
-          ) : null}
-        </section>
-      ) : null}
+      <aside className="border-t border-[#d8e0ea] pt-8 xl:border-l xl:border-t-0 xl:pl-10 xl:pt-0" aria-labelledby="schedule-summary-heading">
+        <h3 className="section-heading" id="schedule-summary-heading">Your schedule</h3>
+        <dl className="mt-5">
+          <QuoteValue label="Pickup" value={presentation.quote ? formatManilaDateTime(presentation.quote.pickupAt) : pickupDate || "Choose a date"} />
+          <QuoteValue label="Return" value={presentation.quote ? formatManilaDateTime(presentation.quote.returnAt) : returnDate || "Choose a date"} />
+          <QuoteValue label="Handoff time" value={handoffTime ? `${formatHandoffTime(handoffTime)} PHT` : "Choose a time"} />
+          <QuoteValue label="Meetup area" value={`${activePolicy.cityLabel} (${activePolicy.approximationLevel === "barangay_centroid" ? "barangay-level approximation" : activePolicy.approximationLevel === "precise" ? "precise origin kept private" : "city-level approximation"})`} />
+        </dl>
+        {presentation.liveMessage ? <p aria-live="polite" className={`mt-5 rounded-lg px-4 py-3 text-sm ${state.error ? "border border-red-200 bg-red-50 text-red-800" : "bg-[#f2f7ff] text-[#082d5d]"}`} role={state.error ? "alert" : "status"}>{presentation.liveMessage}</p> : null}
+        {state.error === "retryable" ? <button className="button-secondary mt-4" disabled={!complete || pending} onClick={() => formRef.current?.requestSubmit()} type="button">{pending ? "Retrying estimate…" : "Retry estimate"}</button> : null}
+        {presentation.quote ? <section aria-labelledby="schedule-quote-heading" className="mt-7 border-t border-[#d8e0ea] pt-6">
+          <h4 className="text-lg font-semibold" id="schedule-quote-heading">Estimate</h4>
+          <dl className="mt-3"><QuoteValue label="Billable days" value={`${presentation.quote.billableDays} ${presentation.quote.billableDays === 1 ? "day" : "days"}`} /><QuoteValue label="Rental subtotal" value={phpFormatter.format(presentation.quote.rentalAmount)} /><QuoteValue label="Security deposit" value={phpFormatter.format(presentation.quote.securityDeposit)} /><QuoteValue label="Estimated total" value={phpFormatter.format(presentation.quote.totalDue)} strong /></dl>
+          <p className="mt-5 rounded-lg border border-[#efc477] bg-[#fff7e6] p-4 text-sm text-[#754000]">An estimate does not reserve the camera.</p>
+          {presentation.canContinue ? <><Link className="button-primary mt-6 w-full" href={`/account/bookings/new?${requestQuery}`}>Continue to request</Link><p className="mt-3 text-center text-xs text-[#58677d]">Email sign-in is next. Your dates carry forward.</p></> : null}
+        </section> : <p className="mt-7 border-t border-[#d8e0ea] pt-6 text-sm leading-6 text-[#58677d]">Choose dates and a handoff time to see the rental amount, deposit, and estimated total. An estimate does not reserve the camera.</p>}
+      </aside>
     </div>
-  );
+  </section>;
 }
 
-function QuoteValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-stone-500">{label}</dt>
-      <dd className="mt-1 font-semibold text-stone-950">{value}</dd>
-    </div>
-  );
+function QuoteValue({ label, strong = false, value }: { label: string; strong?: boolean; value: string }) {
+  return <div className="detail-row"><dt className="text-sm text-[#58677d]">{label}</dt><dd className={`${strong ? "text-lg" : "text-sm"} max-w-[60%] text-right font-semibold text-[#081d3b]`}>{value}</dd></div>;
 }

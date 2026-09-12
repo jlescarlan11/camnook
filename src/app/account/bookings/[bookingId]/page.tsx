@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BookingActionCard, DetailValue } from "@/features/bookings/components/booking-action-card";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { PersistedIntendedUse } from "@/features/bookings/components/persisted-intended-use";
 import {
@@ -11,7 +12,7 @@ import {
   loadBookingDetailContext,
 } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
-import { customerNextAction, customerRentalProgress, presentCustomerBookingStatus } from "@/features/bookings/customer-status";
+import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
 import { ContractDetails } from "@/features/contracts/components/contract-details";
 import { SignContractControl } from "@/features/contracts/components/sign-contract-control";
 import { PaymentPanel } from "@/features/payments/payment-panel";
@@ -53,12 +54,12 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
     : { status: "error" as const };
 
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-950">
+    <div className="min-h-screen bg-stone-50 text-stone-950">
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
-        <Link className="inline-flex min-h-11 items-center font-medium text-amber-900 underline decoration-amber-300 underline-offset-4" href="/account">← Back to account</Link>
+      <main className="page-shell py-8 sm:py-12">
+        <Link className="inline-flex min-h-11 items-center font-medium text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href="/account">Back to your rentals</Link>
         {result.status === "error" || result.status === "inconsistent" ? (
-          <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+          <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
             <h1 className="text-2xl font-semibold">Booking unavailable</h1>
             <p className="mt-2 leading-7">{bookingPresentation(result).message}</p>
           </section>
@@ -70,11 +71,11 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
               </p>
             ) : null}
             <BookingActionCard booking={result.booking} />
-            <article className="mt-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" id="next-action">
+            <article className="surface mt-6 p-6 sm:p-8" id="next-action">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Persisted booking</p>
-                  <h1 className="mt-3 text-3xl font-semibold tracking-tight">{result.booking.camera.name}</h1>
+                  <p className="eyebrow">Booking record</p>
+                  <h2 className="mt-3 text-3xl font-semibold tracking-tight">{result.booking.camera.name}</h2>
                 </div>
                 <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">{presentCustomerBookingStatus(result.booking.state, result.booking.requestedAt).label}</span>
               </div>
@@ -189,30 +190,6 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
           </>
         )}
       </main>
-    </div>
-  );
-}
-
-function BookingActionCard({ booking }: { booking: { state: string; requestedAt: string; approval?: { approvalDeadlineAt: string } } }) {
-  const next = customerNextAction(booking.state, booking.approval?.approvalDeadlineAt);
-  const progress = customerRentalProgress(booking.state);
-  return <section className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-8" aria-labelledby="next-step-heading">
-    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">What you need to do now</p>
-    <h1 className="mt-2 text-2xl font-semibold" id="next-step-heading">{next.title}</h1>
-    <p className="mt-2 leading-7 text-amber-950">{next.body}</p>
-    {booking.state === "FOR_REVIEW" ? <p className="mt-2 text-sm text-amber-900">{presentCustomerBookingStatus(booking.state, booking.requestedAt).target}</p> : null}
-    {next.action ? <a className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white" href="#next-action">{next.action}</a> : null}
-    <ol className="mt-7 grid gap-2 text-sm sm:grid-cols-3">
-      {progress.map((step) => <li className={`rounded-xl border px-3 py-2 ${step.state === "complete" ? "border-emerald-200 bg-white text-emerald-800" : step.state === "current" ? "border-amber-400 bg-white font-semibold" : "border-amber-100 text-stone-500"}`} key={step.label}>{step.state === "complete" ? "✓" : step.state === "current" ? "●" : "○"} {step.label}</li>)}
-    </ol>
-  </section>;
-}
-
-function DetailValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl bg-stone-50 p-4">
-      <dt className="text-sm text-stone-500">{label}</dt>
-      <dd className="mt-1 break-words font-medium">{value}</dd>
     </div>
   );
 }

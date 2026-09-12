@@ -61,7 +61,7 @@ export function DecisionControls({
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <form
           action={approveAction}
-          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
           onSubmit={() => setLastAction("approve")}
         >
           <input name="bookingId" type="hidden" value={bookingId} />
@@ -88,7 +88,7 @@ export function DecisionControls({
 
         <form
           action={rejectAction}
-          className="rounded-2xl border border-red-200 bg-red-50 p-5"
+          className="rounded-xl border border-red-200 bg-red-50 p-5"
           onSubmit={() => setLastAction("reject")}
         >
           <input name="bookingId" type="hidden" value={bookingId} />

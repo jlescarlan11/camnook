@@ -46,7 +46,7 @@ export function LoginForm({
           aria-invalid={Boolean(state.fieldErrors?.email)}
           autoComplete="email"
           autoFocus
-          className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-amber-700 focus:ring-4 focus:ring-amber-100"
+          className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
           id="email"
           inputMode="email"
           maxLength={254}

@@ -23,11 +23,12 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-100">
+    <div className="min-h-screen">
       <SiteHeader />
-      <main className="mx-auto max-w-5xl px-5 py-8 sm:px-8">
+      <main className="page-shell max-w-5xl py-8 sm:py-12">
         <AdminNav current="settings" />
-        <h1 className="mt-6 text-4xl font-semibold">Settings</h1>
+        <p className="eyebrow mt-8">Owner configuration</p>
+        <h1 className="page-heading mt-3">Settings</h1>
         <section id="payments">
           {data.gcashConfiguration.status === "success" ? (
             <GcashConfigurationForm
@@ -43,7 +44,7 @@ export default async function SettingsPage() {
           <ContractTemplateForm configuration={template.configuration} />
         ) : (
           <section
-            className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900"
+            className="mt-8 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900"
             id="contracts"
             role="alert"
           >
@@ -52,7 +53,7 @@ export default async function SettingsPage() {
           </section>
         )}
         <section
-          className="mt-8 rounded-2xl border border-stone-200 bg-white p-6"
+          className="mt-8 rounded-xl border border-stone-200 bg-white p-6"
           id="handoffs"
         >
           <h2 className="text-xl font-semibold">Camera handoff policies</h2>

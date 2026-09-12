@@ -4,117 +4,102 @@ import Link from "next/link";
 import { logout } from "@/features/auth/actions";
 import { AccountProfile } from "@/features/bookings/components/account-profile";
 import { SiteHeader } from "@/features/bookings/components/site-header";
+import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
 import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
-import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
 import { KycProfileForm } from "@/features/kyc/kyc-profile-form";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
-
-export const metadata: Metadata = {
-  title: "Your account | CamNook",
-};
+export const metadata: Metadata = { title: "Your rentals | CamNook" };
 
 export default async function AccountPage() {
   const context = await requirePageUser("/account");
   const account = await loadAccountOverview(context);
 
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-950">
+    <div className="min-h-screen bg-stone-50 text-stone-950">
       <SiteHeader />
-      <main className="mx-auto max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
-        <div className="flex flex-wrap items-start justify-between gap-5">
+      <main className="page-shell py-10 sm:py-14">
+        <header className="flex flex-wrap items-end justify-between gap-6 border-b border-stone-200 pb-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">CamNook account</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your rental requests</h1>
-            <p className="mt-3 text-stone-600">Signed in as {context.user.email}</p>
+            <p className="eyebrow">Renter account</p>
+            <h1 className="page-heading mt-3">Your rentals</h1>
+            <p className="mt-3 text-stone-600">Dates, progress, and the next step for every request.</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {account.status === "success" && account.isAdmin ? (
-              <Link className="inline-flex min-h-11 items-center rounded-xl border border-stone-300 bg-white px-4 py-2 font-medium" href="/admin">
-                Admin area
-              </Link>
-            ) : null}
-            <form action={logout}>
-              <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-medium" type="submit">
-                Sign out
-              </button>
-            </form>
+            {account.status === "success" && account.isAdmin ? <Link className="button-secondary" href="/admin">Owner area</Link> : null}
+            <form action={logout}><button className="button-secondary" type="submit">Sign out</button></form>
           </div>
-        </div>
+        </header>
 
         {account.status === "error" ? (
-          <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+          <section className="mt-8 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
             <h2 className="text-xl font-semibold">Account details unavailable</h2>
             <p className="mt-2 leading-7">We couldn’t load your profile or requests. Please retry before submitting another request.</p>
             <Link className="mt-3 inline-block font-semibold underline" href="/account">Try again</Link>
           </section>
         ) : (
-          <>
-            <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="profile-heading">
-              <h2 className="text-2xl font-semibold" id="profile-heading">Profile</h2>
-              <AccountProfile profile={account.profile} />
-            </section>
-
-            <section className="mt-8 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="default-address-heading" id="default-address">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">KYC details</p>
-              <h2 className="mt-2 text-2xl font-semibold" id="default-address-heading">Default address</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-                Complete this once before your first booking. Your saved barangay is also offered as a meetup-area suggestion, never as the final public meetup point.
-              </p>
-              <KycProfileForm kyc={account.kycProfile} profile={account.profile} returnTo="/account#default-address" />
-            </section>
-
-            <section className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950" aria-labelledby="pickup-id-heading">
-              <h2 className="text-xl font-semibold" id="pickup-id-heading">KYC identity check happens at pickup</h2>
-              <p className="mt-2 leading-7">You do not need to upload an ID to request or receive approval for a booking. The named renter must bring one original current government ID and appear in person at pickup. CamNook records only that the ID was checked and matched—never its image, number, type, or expiry.</p>
-              <Link className="mt-3 inline-block font-semibold underline" href="/privacy/government-id">Read the in-person identity notice</Link>
-            </section>
-
-            <section className="mt-8" aria-labelledby="bookings-heading">
-              <h2 className="text-2xl font-semibold" id="bookings-heading">Bookings</h2>
+          <div className="mt-10 grid items-start gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,.75fr)]">
+            <section aria-labelledby="bookings-heading">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="section-heading" id="bookings-heading">Rental schedule</h2>
+                <Link className="font-semibold text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href="/">Find a camera</Link>
+              </div>
               {account.bookings.length === 0 ? (
-                <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-6" role="status">
+                <div className="surface mt-5 p-6" role="status">
                   <p className="leading-7 text-stone-600">You don’t have any booking requests yet.</p>
-                  <Link className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-stone-950 px-5 py-3 font-medium text-white" href="/">
-                    Browse cameras
-                  </Link>
+                  <Link className="button-primary mt-5" href="/">Browse cameras</Link>
                 </div>
               ) : (
-                <ul className="mt-5 space-y-4">
-                  {account.bookings.map((booking) => (
-                    <li className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6" key={booking.id}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-semibold">{booking.camera.name}</h3>
-                          <p className="mt-1 text-sm text-stone-600">
-                            {formatManilaDateTime(booking.pickupAt)} – {formatManilaDateTime(booking.returnAt)}
-                          </p>
+                <ol className="mt-5 border-t border-stone-200">
+                  {account.bookings.map((booking) => {
+                    const status = presentCustomerBookingStatus(booking.state, booking.requestedAt, booking.pickupAt);
+                    return (
+                      <li className="border-b border-stone-200 py-6" key={booking.id}>
+                        <div className="grid gap-5 sm:grid-cols-[9.5rem_minmax(0,1fr)_auto] sm:items-start">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Pickup</p>
+                            <p className="mt-1 font-semibold">{formatManilaDateTime(booking.pickupAt)}</p>
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Return</p>
+                            <p className="mt-1 text-sm">{formatManilaDateTime(booking.returnAt)}</p>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">{booking.camera.name}</h3>
+                            <p className="mt-1 text-sm font-medium text-[#0b4f9c]">{status.label}</p>
+                            <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">{status.nextStep}</p>
+                            {status.target ? <p className="mt-1 text-xs text-stone-500">{status.target}</p> : null}
+                            {booking.meetup ? <p className="mt-2 text-sm text-stone-600">Meetup: {booking.meetup.kind === "public_venue" ? `${booking.meetup.name} — ${booking.meetup.address}` : `${booking.meetup.areaLabel} — venue pending`}</p> : null}
+                          </div>
+                          <Link className="button-secondary whitespace-nowrap" href={`/account/bookings/${booking.id}`}>Open booking</Link>
                         </div>
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-950">{presentCustomerBookingStatus(booking.state, booking.requestedAt).label}</span>
-                      </div>
-                      <p className="mt-3 text-sm text-stone-500">Requested {formatManilaDateTime(booking.requestedAt)} (Asia/Manila)</p>
-                      <p className="mt-2 text-sm text-stone-700">{presentCustomerBookingStatus(booking.state, booking.requestedAt).nextStep}</p>
-                      {presentCustomerBookingStatus(booking.state, booking.requestedAt).target ? <p className="mt-1 text-xs text-stone-500">{presentCustomerBookingStatus(booking.state, booking.requestedAt).target}</p> : null}
-                      {booking.meetup ? (
-                        <p className="mt-2 text-sm text-stone-700">
-                          Preferred meetup area: {booking.meetup.kind === "public_venue" ? (
-                            <><strong>{booking.meetup.name}</strong> — {booking.meetup.address}</>
-                          ) : (
-                            <><strong>{booking.meetup.areaLabel}</strong> — exact public venue pending owner confirmation</>
-                          )}
-                        </p>
-                      ) : null}
-                      <Link className="mt-4 inline-flex min-h-11 items-center font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4" href={`/account/bookings/${booking.id}`}>
-                        View persisted request
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                      </li>
+                    );
+                  })}
+                </ol>
               )}
             </section>
-          </>
+
+            <aside className="space-y-8">
+              <section className="surface p-6" aria-labelledby="profile-heading">
+                <p className="eyebrow">Signed in</p>
+                <h2 className="mt-2 text-xl font-semibold" id="profile-heading">Profile</h2>
+                <p className="mt-1 break-all text-sm text-stone-500">{context.user.email}</p>
+                <AccountProfile profile={account.profile} />
+              </section>
+              <section className="surface p-6" aria-labelledby="default-address-heading" id="default-address">
+                <p className="eyebrow">KYC details</p>
+                <h2 className="mt-2 text-xl font-semibold" id="default-address-heading">Default address</h2>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Complete this before your first booking. Your barangay can suggest a meetup area, while the final venue stays private until confirmed.</p>
+                <KycProfileForm kyc={account.kycProfile} profile={account.profile} returnTo="/account#default-address" />
+              </section>
+              <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950" aria-labelledby="pickup-id-heading">
+                <h2 className="font-semibold" id="pickup-id-heading">Identity check at pickup</h2>
+                <p className="mt-2 text-sm leading-6">Bring one original current government ID. CamNook records only that it was checked and matched.</p>
+                <Link className="mt-3 inline-block text-sm font-semibold underline" href="/privacy/government-id">Read the identity notice</Link>
+              </section>
+            </aside>
+          </div>
         )}
       </main>
     </div>

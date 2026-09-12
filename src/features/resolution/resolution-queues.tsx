@@ -96,7 +96,7 @@ function QueueItem({
   summary: string;
 }) {
   return (
-    <li className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    <li className="rounded-xl border border-stone-200 bg-white p-5">
       <p className="font-semibold">{summary}</p>
       <p className="mt-2 text-sm leading-6 text-stone-600">{children}</p>
       <Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-amber-900 underline" href={`/admin/bookings/${bookingId}`}>Open audited resolution</Link>

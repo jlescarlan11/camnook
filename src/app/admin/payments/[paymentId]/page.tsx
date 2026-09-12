@@ -41,7 +41,7 @@ export default async function AdminPaymentPage({ params }: PageProps) {
   if (result.status === "missing") notFound();
 
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-950">
+    <div className="min-h-screen bg-stone-50 text-stone-950">
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-5 py-8 sm:px-8 sm:py-12">
         <Link className="inline-flex min-h-11 items-center font-medium text-amber-900 underline underline-offset-4" href="/admin">
@@ -49,7 +49,7 @@ export default async function AdminPaymentPage({ params }: PageProps) {
         </Link>
 
         {result.status === "error" || result.status === "stale" ? (
-          <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
+          <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
             <h1 className="text-2xl font-semibold">
               {result.status === "stale" ? "Payment is no longer pending" : "Payment unavailable"}
             </h1>
@@ -60,7 +60,7 @@ export default async function AdminPaymentPage({ params }: PageProps) {
             </p>
           </section>
         ) : (
-          <article className="mt-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
+          <article className="mt-6 rounded-xl border border-stone-200 bg-white p-6 sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Manual GCash reconciliation</p>

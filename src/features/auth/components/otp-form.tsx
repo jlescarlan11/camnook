@@ -54,7 +54,7 @@ export function OtpForm({
             aria-invalid={Boolean(state.fieldErrors?.token)}
             autoComplete="one-time-code"
             autoFocus
-            className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-center font-mono text-2xl tracking-[0.32em] outline-none transition focus:border-amber-700 focus:ring-4 focus:ring-amber-100"
+            className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-center font-mono text-2xl tracking-[0.32em] outline-none transition focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
             id="token"
             inputMode="numeric"
             maxLength={6}

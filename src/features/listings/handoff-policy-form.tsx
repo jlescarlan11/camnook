@@ -44,7 +44,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
         <input name="expectedVersion" type="hidden" value={version} />
         <section
           aria-describedby={saveState.fieldErrors?.city ? "origin-error" : undefined}
-          className="rounded-2xl border border-stone-200 p-5"
+          className="rounded-xl border border-stone-200 p-5"
         >
           <h2 className="text-lg font-semibold">Pickup area</h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
@@ -73,7 +73,7 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
           <FieldError id="origin-error" message={saveState.fieldErrors?.city} />
         </section>
 
-        <fieldset className="rounded-2xl border border-stone-200 p-5">
+        <fieldset className="rounded-xl border border-stone-200 p-5">
           <legend className="px-2 text-lg font-semibold">
             Available days and times
           </legend>

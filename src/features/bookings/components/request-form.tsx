@@ -60,7 +60,7 @@ export function RequestForm({
 
       {!reviewing ? (
         <section aria-labelledby="details-heading">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Step 3 of 4</p>
+          <p className="eyebrow">Step 3 of 4</p>
           <h2 className="mt-2 text-2xl font-semibold" id="details-heading">Your details</h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
             We’ll save your name and phone for next time. The exact public meetup location is arranged only after approval.
@@ -77,11 +77,11 @@ export function RequestForm({
             <Field label="Preferred meetup area" error={state.fieldErrors?.preferredMeetupArea} help="We’ll arrange the exact public meetup location after your request is approved.">
               {profile?.defaultAddress?.valid ? (
                 <button
-                  className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-amber-950"
+                  className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-[#c9dcfb] bg-[#edf5ff] px-4 py-3 text-left text-[#081d3b]"
                   onClick={() => update("preferredMeetupArea", profile.defaultAddress!.areaName)}
                   type="button"
                 >
-                  <span><span className="block text-xs font-semibold uppercase tracking-wide text-amber-800">Suggested from your default address</span><span className="mt-1 block font-semibold">{profile.defaultAddress.areaName}</span></span>
+                  <span><span className="block text-xs font-semibold uppercase tracking-wide text-[#0b4f9c]">Suggested from your default address</span><span className="mt-1 block font-semibold">{profile.defaultAddress.areaName}</span></span>
                   <span aria-hidden="true">Use</span>
                 </button>
               ) : (
@@ -109,13 +109,13 @@ export function RequestForm({
               <input autoComplete="address-level2" className={inputClass} maxLength={500} name="expectedLocation" onChange={(event) => update("expectedLocation", event.target.value)} placeholder="e.g. Cebu City" required value={values.expectedLocation} />
             </Field>
           </div>
-          <button className="mt-7 min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white" onClick={() => {
+          <button className="button-primary mt-7 w-full" onClick={() => {
             if (formRef.current?.reportValidity()) setReviewing(true);
           }} type="button">Continue to review</button>
         </section>
       ) : (
         <section aria-labelledby="review-heading">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Step 4 of 4</p>
+          <p className="eyebrow">Step 4 of 4</p>
           <h2 className="mt-2 text-2xl font-semibold" id="review-heading">Review &amp; request</h2>
           <dl className="mt-6 grid gap-3 sm:grid-cols-2">
             <ReviewValue label="Camera" value={summary.cameraName} />
@@ -136,7 +136,7 @@ export function RequestForm({
               {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "kyc_required" ? <>Your KYC details need attention. <Link className="font-semibold underline" href="/account#default-address">Review your KYC profile</Link>.</> : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? "We couldn’t confirm the request. Check your bookings before retrying." : "Check your details and try again."}
             </div>
           ) : null}
-          <button className="mt-6 min-h-12 w-full rounded-xl bg-amber-500 px-5 py-3 font-semibold text-stone-950 disabled:opacity-60" disabled={pending} type="submit">
+          <button className="button-primary mt-6 w-full disabled:opacity-60" disabled={pending} type="submit">
             {pending ? "Requesting rental…" : "Request rental"}
           </button>
         </section>
@@ -145,12 +145,12 @@ export function RequestForm({
   );
 }
 
-const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100";
+const inputClass = "mt-2 w-full rounded-lg border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]";
 
 function Field({ children, error, help, label }: { children: ReactNode; error?: string; help?: string; label: string }) {
   return <label className="block text-sm font-medium">{label}{children}{help ? <span className="mt-2 block text-xs font-normal leading-5 text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" role="alert">{error}</span> : null}</label>;
 }
 
 function ReviewValue({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-stone-50 p-4"><dt className="text-sm text-stone-500">{label}</dt><dd className="mt-1 break-words font-semibold">{value}</dd></div>;
+  return <div className="border-b border-stone-200 py-3"><dt className="text-sm text-stone-500">{label}</dt><dd className="mt-1 break-words font-semibold">{value}</dd></div>;
 }

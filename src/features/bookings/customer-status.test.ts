@@ -1,8 +1,31 @@
 import { describe, expect, it, vi } from "vitest";
 import { bookingStates } from "@/domain/bookings/state-machine";
-import { OWNER_REVIEW_TARGET_MS, presentCustomerBookingStatus } from "./customer-status";
+import { customerNextAction, OWNER_REVIEW_TARGET_MS, presentCustomerBookingStatus } from "./customer-status";
 
 describe("customer booking status", () => {
+  it("gives an unreviewed past pickup a recovery action without claiming expiry", () => {
+    const now = new Date("2026-09-12T00:00:00Z");
+    const pickupAt = "2026-09-11T09:00:00+08:00";
+    expect(customerNextAction("FOR_REVIEW", undefined, pickupAt, now)).toMatchObject({ action: "Choose new dates", href: "/", title: "Requested pickup time has passed" });
+    const status = presentCustomerBookingStatus("FOR_REVIEW", "2026-09-10T00:00:00Z", pickupAt, now);
+    expect(status.label).toBe("Awaiting owner review");
+    expect(status.nextStep).toContain("pickup time has passed");
+    expect(status.target).toBeUndefined();
+  });
+
+  it("keeps normal review guidance for future or unknown pickup dates", () => {
+    const now = new Date("2026-09-12T00:00:00Z");
+    for (const pickupAt of [undefined, "invalid", "2026-09-13T09:00:00+08:00"]) {
+      expect(customerNextAction("FOR_REVIEW", undefined, pickupAt, now)).toMatchObject({ action: null, title: "Awaiting owner approval" });
+    }
+    expect(customerNextAction("FOR_REVIEW", undefined, now.toISOString(), now).action).toBe("Choose new dates");
+  });
+
+  it("does not override confirmed or active rentals just because pickup is past", () => {
+    const now = new Date("2026-09-12T00:00:00Z");
+    expect(customerNextAction("ACTIVE", undefined, "2026-09-11T00:00:00Z", now).title).toBe("Rental in progress");
+    expect(customerNextAction("CONFIRMED", undefined, "2026-09-11T00:00:00Z", now).title).toBe("Prepare for pickup");
+  });
   it("maps every lifecycle state to one plain-language next step", () => {
     for (const state of bookingStates) {
       const result = presentCustomerBookingStatus(state);

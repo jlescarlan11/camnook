@@ -2,6 +2,11 @@ import type { BookingState } from "@/domain/bookings/state-machine";
 import { formatManilaDateTime } from "./manila-time";
 
 export const OWNER_REVIEW_TARGET_MS = 12 * 60 * 60 * 1_000;
+const passedPickupMessage = "The requested pickup time has passed and this request is still awaiting owner review. Choose new dates if you still need a camera.";
+
+function unreviewedPickupHasPassed(state: string, pickupAt: string | undefined, now: Date) {
+  return state === "FOR_REVIEW" && typeof pickupAt === "string" && Date.parse(pickupAt) <= now.getTime();
+}
 
 const statusCopy: Record<BookingState, { label: string; nextStep: string }> = {
   FOR_REVIEW: { label: "Awaiting owner review", nextStep: "The owner aims to review requests within 12 hours; approval and availability are not guaranteed." },
@@ -21,12 +26,15 @@ const statusCopy: Record<BookingState, { label: string; nextStep: string }> = {
 export function presentCustomerBookingStatus(
   state: string,
   requestedAt?: string,
+  pickupAt?: string,
+  now = new Date(),
 ): { label: string; nextStep: string; target?: string } {
   const copy = statusCopy[state as BookingState];
   if (!copy) {
     console.warn("customer_booking_status_unmapped");
     return { label: "Status update pending", nextStep: "Refresh this page later or contact support before taking action." };
   }
+  if (unreviewedPickupHasPassed(state, pickupAt, now)) return { ...copy, nextStep: passedPickupMessage };
   if (state !== "FOR_REVIEW" || !requestedAt || !Number.isFinite(Date.parse(requestedAt))) return copy;
   return { ...copy, target: `Review target: ${formatManilaDateTime(new Date(Date.parse(requestedAt) + OWNER_REVIEW_TARGET_MS).toISOString())}` };
 }
@@ -36,7 +44,7 @@ export type RentalProgressStep = {
   state: "complete" | "current" | "upcoming";
 };
 
-const progressOrder = ["request", "approval", "meetup", "contract_payment", "pickup", "return"] as const;
+const progressOrder = ["request", "approval", "agreement", "payment", "pickup", "return"] as const;
 
 export function customerRentalProgress(state: string): RentalProgressStep[] {
   const currentIndex: Record<string, number> = {
@@ -51,15 +59,16 @@ export function customerRentalProgress(state: string): RentalProgressStep[] {
     COMPLETED: 6,
   };
   const index = currentIndex[state] ?? (["REJECTED", "EXPIRED", "CANCELLED"].includes(state) ? 1 : 0);
-  const labels = ["Request submitted", "Owner approval", "Meetup", "Contract & payment", "Pickup", "Return"];
+  const labels = ["Request submitted", "Owner approval", "Agreement", "Payment", "Pickup", "Return"];
   return progressOrder.map((_, step) => ({
     label: labels[step],
     state: step < index ? "complete" : step === index ? "current" : "upcoming",
   }));
 }
 
-export function customerNextAction(state: string, approvalDeadline?: string) {
-  if (state === "FOR_REVIEW") return { action: null, body: "No action needed. We’ll notify you when the owner responds.", title: "Awaiting owner approval" };
+export function customerNextAction(state: string, approvalDeadline?: string, pickupAt?: string, now = new Date()): { action: string | null; body: string; title: string; href?: string } {
+  if (unreviewedPickupHasPassed(state, pickupAt, now)) return { action: "Choose new dates", body: passedPickupMessage, href: "/", title: "Requested pickup time has passed" };
+  if (state === "FOR_REVIEW") return { action: null, body: "Your request is awaiting owner review. Check this page for the owner’s response; the camera is not reserved yet.", title: "Awaiting owner approval" };
   if (state === "CONTRACT_PENDING") return { action: "Review & sign agreement", body: `Your rental was approved. Review the agreement${approvalDeadline ? ` before ${formatManilaDateTime(approvalDeadline)}` : ""}.`, title: "Action required" };
   if (state === "TO_PAY") return { action: "Pay", body: `Complete payment${approvalDeadline ? ` before ${formatManilaDateTime(approvalDeadline)}` : ""}.`, title: "Action required" };
   if (state === "PAYMENT_REVIEW") return { action: null, body: "No action needed. Your payment proof is being reviewed.", title: "Payment under review" };

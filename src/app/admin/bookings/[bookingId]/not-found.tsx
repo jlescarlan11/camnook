@@ -2,8 +2,8 @@ import Link from "next/link";
 
 export default function AdminBookingNotFound() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-100 px-5 py-12">
-      <section className="w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-8 text-center shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-stone-50 px-5 py-12">
+      <section className="w-full max-w-lg rounded-xl border border-stone-200 bg-white p-8 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">
           Booking not found
         </h1>

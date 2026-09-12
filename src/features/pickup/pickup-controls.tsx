@@ -80,7 +80,7 @@ export function PickupControls({
           <input className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3" defaultValue={actualAt} id="pickup-actual-at" name="actualAt" required type="datetime-local" />
           {completionState.fieldErrors?.actualAt ? <p className="text-sm text-red-800">{completionState.fieldErrors.actualAt}</p> : null}
 
-          <fieldset className="space-y-3 rounded-2xl border border-stone-200 p-5">
+          <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Named renter and original ID</legend>
             <p className="text-sm text-stone-600">Expected renter: {pickup.renter_legal_name}. Inspect one original current government ID in person. Do not photograph it or record its number, type, or expiry.</p>
             <Checklist name="namedRenter" value="confirmed-named-renter">The named contract renter is physically present; no representative or substitute is collecting.</Checklist>
@@ -95,7 +95,7 @@ export function PickupControls({
             {completionState.fieldErrors?.cameraSerial ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.cameraSerial}</p> : null}
           </div>
 
-          <fieldset className="space-y-3 rounded-2xl border border-stone-200 p-5">
+          <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Included accessories</legend>
             {pickup.accessories.length === 0 ? <p className="text-sm text-stone-600">The signed contract has no included accessories.</p> : pickup.accessories.map((accessory) => (
               <Checklist key={accessory.id} name="accessoryId" value={accessory.id}>{accessory.name} × {accessory.quantity} is present.</Checklist>
@@ -138,7 +138,7 @@ export function PickupControls({
         <Status label="Written condition" value={pickup.handoff.condition_summary} />
       </dl>
 
-      <div className="mt-7 rounded-2xl border border-stone-200 p-5">
+      <div className="mt-7 rounded-xl border border-stone-200 p-5">
         <h3 className="font-semibold">Optional private condition photos</h3>
         <p className="mt-2 text-sm leading-6 text-stone-600">The written report is already valid. A photo uses an opaque no-overwrite path and is limited to 5 MiB JPEG/PNG.</p>
         <form action={photoAction} className="mt-4 space-y-3">

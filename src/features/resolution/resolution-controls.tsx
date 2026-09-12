@@ -153,7 +153,7 @@ export function ResolutionControls({
       </p>
 
       {resolution.cancellation ? (
-        <div className="mt-6 rounded-2xl border border-stone-200 p-5">
+        <div className="mt-6 rounded-xl border border-stone-200 p-5">
           <h3 className="font-semibold">Cancellation request</h3>
           <p className="mt-2 text-sm text-stone-700">
             “{resolution.cancellation.reason}” · requested{" "}
@@ -241,7 +241,7 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.booking_state === "ACTIVE" ? (
-        <form action={returnAction} className="mt-6 space-y-5 rounded-2xl border border-stone-200 p-5">
+        <form action={returnAction} className="mt-6 space-y-5 rounded-xl border border-stone-200 p-5">
           <HiddenIds
             bookingId={resolution.booking_id}
             operationId={operationIds.recordReturn}
@@ -333,7 +333,7 @@ export function ResolutionControls({
       ) : null}
 
       {inspection ? (
-        <div className="mt-6 rounded-2xl border border-stone-200 p-5">
+        <div className="mt-6 rounded-xl border border-stone-200 p-5">
           <h3 className="font-semibold">Immutable return inspection</h3>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <Value label="Actual return" value={formatManilaDateTime(inspection.actual_at)} />
@@ -366,7 +366,7 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.booking_state === "RETURN_REVIEW" && inspection ? (
-        <form action={reviewAction} className="mt-6 space-y-4 rounded-2xl border border-stone-200 p-5">
+        <form action={reviewAction} className="mt-6 space-y-4 rounded-xl border border-stone-200 p-5">
           <HiddenIds
             bookingId={resolution.booking_id}
             operationId={operationIds.returnReview}
@@ -404,7 +404,7 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.booking_state === "ISSUE_REVIEW" ? (
-        <div className="mt-6 space-y-6 rounded-2xl border border-red-200 bg-red-50/40 p-5">
+        <div className="mt-6 space-y-6 rounded-xl border border-red-200 bg-red-50/40 p-5">
           <div>
             <h3 className="font-semibold">Append-only issue notes</h3>
             {resolution.issue_notes.length > 0 ? (
@@ -448,7 +448,7 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.issue_decision ? (
-        <div className="mt-6 rounded-2xl border border-stone-200 p-5">
+        <div className="mt-6 rounded-xl border border-stone-200 p-5">
           <h3 className="font-semibold">Persisted issue decision</h3>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <Value label="Kind" value={resolution.issue_decision.decision_kind} />
@@ -462,7 +462,7 @@ export function ResolutionControls({
       {(resolution.booking_state === "COMPLETED" ||
         resolution.booking_state === "CANCELLED") &&
       resolution.deposit.held_amount > 0 ? (
-        <div className="mt-6 rounded-2xl border border-stone-200 p-5">
+        <div className="mt-6 rounded-xl border border-stone-200 p-5">
           <h3 className="font-semibold">Deposit liability and external movements</h3>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Value label="Verified held" value={phpFormatter.format(resolution.deposit.held_amount)} />
