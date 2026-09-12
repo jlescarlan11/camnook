@@ -184,7 +184,7 @@ jobs:
       - name: Verify Production meetup providers on candidate
         run: |
           set -euo pipefail
-          response="$(
+          if ! response="$(
             vercel curl /api/internal/meetup-provider-readiness \
               --deployment "$CANDIDATE_ID" -- \
               --fail-with-body \
@@ -193,14 +193,18 @@ jobs:
               --max-time 60 \
               --request POST \
               --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
-          )"
+          )"; then
+            # Print only the route's fixed error code, never arbitrary response data.
+            jq -r '.error | select(type == "string" and test("^[a-z_]{1,80}$"))' <<<"$response" >&2
+            exit 1
+          fi
           jq -e '
             .geoapify == "passed" and
             .mapbox == "passed" and
             .residentialMapTiles == "passed" and
             .residentialKyc == "passed" and
-            .providerRequestCount >= 3 and
-            .providerRequestCount <= 5 and
+            .providerRequestCount >= 4 and
+            .providerRequestCount <= 7 and
             .routeElementCount == 6
           ' <<<"$response" >/dev/null
           printf '### Production location and residential KYC verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Residential map tiles: `passed`\n- Structured save/reload: `passed`\n- Pin save/reload/removal: `passed`\n- Identity: `dedicated synthetic renter`\n- Coordinates: `public Cebu fixtures only`\n' \
