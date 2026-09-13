@@ -82,3 +82,5 @@
 - Payment proof fixture: `/payment-proof`; generated image only. Run `checkPaymentProofRecovery` from `scripts/usability/check-payment-proof-recovery.mjs` with the tab and generated test-photo.png path.
 
 - Initial payment fixture: `/payment-submission`; `checkPaymentSubmissionRecovery` verifies rejected TEST1234 → corrected TEST5678 with proof chosen once. No hosted submission.
+
+- PR preparation: rebased the follow-up onto main after PR #139. Push verification passed 742 tests and required updating the launch-evidence repository migration count from 74 to 75. Historical hosted observations and NO_GO remain unchanged.

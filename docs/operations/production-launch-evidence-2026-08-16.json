@@ -13,7 +13,7 @@
     },
     "repository": {
       "auditedCommit": "3b44ad569d01060b0b0c2a03d74cab6cdb64e3c4",
-      "migrationCount": 74
+      "migrationCount": 75
     },
     "deployment": {
       "id": "dpl_D9n4mhBQxxT3XnWbmNV1z1H67RaM",
@@ -217,7 +217,8 @@
     "Configure and verify the Production provider credential, category policy, quota/cost/rotation controls, owner-approved camera policy, and rollback rehearsal while both feature flags remain disabled.",
     "Configure the owner-approved real GCash recipient before accepting a payment; submission remains fail closed until then.",
     "Configure PICKUP_LOCATION, PICKUP_CONTACT, and PICKUP_PROCESS before confirming any pickup; renter instructions remain fail closed until then.",
-    "Keep online government-ID collection disabled and perform the minimized original-ID check only when the named renter is physically present at pickup."
+    "Keep online government-ID collection disabled and perform the minimized original-ID check only when the named renter is physically present at pickup.",
+    "The owner manual-block management migration 20260912120916 is verified only in an isolated local database and remains pending an authorized release; hosted migration observations above are unchanged."
   ],
   "sources": [
     "https://github.com/jlescarlan11/camnook/issues/9",
