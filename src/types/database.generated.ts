@@ -23,6 +23,7 @@ export type Database = {
       get_my_kyc_profile: { Args: never; Returns: Json }
       get_my_kyc_profile_v2: { Args: never; Returns: Json }
       get_owner_cameras: { Args: never; Returns: Json }
+      get_owner_manual_blocks: { Args: { p_camera_id: string }; Returns: Json }
       save_my_kyc_profile: { Args: { p_input: Json }; Returns: Json }
       save_my_kyc_profile_v2: { Args: { p_input: Json }; Returns: Json }
       save_camera_draft: { Args: { p_input: Json }; Returns: string }

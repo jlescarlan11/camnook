@@ -1,7 +1,10 @@
+import { CameraLoadError } from "@/features/bookings/components/camera-load-error";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { phpFormatter } from "@/features/bookings/currency";
 import { notFound } from "next/navigation";
 
+import { CameraPhotoGallery } from "@/features/bookings/components/camera-photo-gallery";
 import { CameraPhoto } from "@/features/bookings/components/camera-photo";
 import { ScheduleQuoteForm } from "@/features/bookings/components/schedule-quote-form";
 import { SiteHeader } from "@/features/bookings/components/site-header";
@@ -11,7 +14,6 @@ import { restoreScheduleSelection } from "@/features/bookings/schedule-navigatio
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Camera details | CamNook" };
 type CameraPageProps = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
-const phpFormatter = new Intl.NumberFormat("en-PH", { currency: "PHP", maximumFractionDigits: 0, style: "currency" });
 
 export default async function CameraPage({ params, searchParams }: CameraPageProps) {
   const { slug } = await params;
@@ -23,7 +25,7 @@ export default async function CameraPage({ params, searchParams }: CameraPagePro
     <SiteHeader />
     <main className="page-shell py-7 sm:py-10">
       <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href="/">Back to cameras</Link>
-      {result.status === "error" ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert"><h1 className="text-2xl font-semibold">Camera details unavailable</h1><p className="mt-2 leading-7">We couldn’t load this camera. Return to the catalog and try again.</p></div> : <>
+      {result.status === "error" ? <CameraLoadError query={query} slug={slug} /> : <>
         <section className="mt-5 grid gap-6 border-b border-[#d8e0ea] pb-7 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
           <div className="w-32 overflow-hidden rounded-xl bg-[#f2f7ff] sm:w-full"><CameraPhoto name={result.camera.name} photo={result.camera.photos[0]} priority /></div>
           <div className="min-w-0">
@@ -33,6 +35,7 @@ export default async function CameraPage({ params, searchParams }: CameraPagePro
             <details className="mt-3 text-sm"><summary className="cursor-pointer font-semibold text-[#0b4f9c]">Kit details</summary><p className="mt-3 max-w-3xl leading-6 text-[#58677d]">{result.camera.description}</p>{result.camera.accessories.length ? <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[#58677d]">{result.camera.accessories.map((accessory) => <li key={`${accessory.name}-${accessory.quantity}`}>{accessory.quantity} × {accessory.name}</li>)}</ul> : null}</details>
           </div>
         </section>
+        <CameraPhotoGallery name={result.camera.name} photos={result.camera.photos} />
         <ScheduleQuoteForm key={JSON.stringify(initialSchedule) ?? "empty"} initialSchedule={initialSchedule} availability={result.camera.availability} cameraId={result.camera.id} cameraName={result.camera.name} policy={result.camera.handoffPolicy} requestable={result.camera.requestable} />
       </>}
     </main>

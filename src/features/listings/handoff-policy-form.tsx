@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState, type ReactNode } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
@@ -21,11 +21,12 @@ const weekdayLabels = [
   "Saturday",
 ];
 
-export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
+export function HandoffPolicyForm({ policy, children, continueToPreview = false }: { policy: AdminHandoffPolicy; children?: ReactNode; continueToPreview?: boolean }) {
   const [saveState, saveAction, savePending] = useActionState(
     saveCameraHandoffPolicy,
     initialSaveState,
   );
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [canonicalAreaType, setCanonicalAreaType] = useState<"barangay" | null>(null);
   const [canonicalSelectionChanged, setCanonicalSelectionChanged] = useState(false);
   const version =
@@ -39,7 +40,13 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
 
   return (
     <div className="mt-8 space-y-7">
-      <form action={saveAction} className="space-y-7">
+      <form id="handoff-policy-form" className="space-y-7" onChange={() => setHasUnsavedChanges(true)} onSubmit={(event) => {
+        event.preventDefault();
+        if (savePending || !canSave) return;
+        const data = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter);
+        setHasUnsavedChanges(false);
+        startTransition(() => saveAction(data));
+      }}>
         <input name="cameraId" type="hidden" value={policy.cameraId} />
         <input name="expectedVersion" type="hidden" value={version} />
         <section
@@ -145,7 +152,9 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
           </label>
         </fieldset>
 
-        {saveState.status !== "idle" ? (
+        {saveState.status === "success" && hasUnsavedChanges ? (
+          <p className="text-sm text-stone-600" role="status">Unsaved changes.</p>
+        ) : !savePending && saveState.status !== "idle" ? (
           <div
             aria-live="polite"
             className={`rounded-xl border p-4 text-sm ${saveState.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-900"}`}
@@ -171,6 +180,8 @@ export function HandoffPolicyForm({ policy }: { policy: AdminHandoffPolicy }) {
         {savePending ? "Saving availability…" : "Save availability"}
         </button>
       </form>
+      {children}
+      {continueToPreview ? <button className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={savePending || !canSave} form="handoff-policy-form" name="intent" value="continue" type="submit">{savePending ? "Saving availability…" : "Save availability and continue to preview"}</button> : null}
     </div>
   );
 }

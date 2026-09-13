@@ -11,6 +11,16 @@ import {
 } from "./test-fixtures";
 
 describe("owner dashboard presentation", () => {
+  it("links only populated queues and preserves their destination from the overview", () => {
+    const dashboard = { ...emptyOwnerOperationsDashboard, queue_counts: { ...emptyOwnerOperationsDashboard.queue_counts, review: 1 } };
+    const overview = renderToStaticMarkup(<OwnerOperationsPanel dashboard={dashboard} mode="overview" />);
+    const full = renderToStaticMarkup(<OwnerOperationsPanel dashboard={dashboard} />);
+    expect(overview).toContain('href="/admin/bookings#queue-review"');
+    expect(full).toContain('href="#queue-review"');
+    expect(full).not.toContain('href="#queue-payment"');
+    expect(overview).not.toContain('href="/admin/bookings#queue-payment"');
+    expect(full).toContain("Payment review");
+  });
   it("renders all nine authoritative queues and explicit reporting methodology", () => {
     const operations = renderToStaticMarkup(
       <OwnerOperationsPanel dashboard={emptyOwnerOperationsDashboard} />,

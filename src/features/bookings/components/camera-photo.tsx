@@ -4,10 +4,12 @@ export function CameraPhoto({
   name,
   photo,
   priority = false,
+  fit = "cover",
 }: {
   name: string;
   photo?: { alt: string; url: string };
   priority?: boolean;
+  fit?: "cover" | "contain";
 }) {
   if (!photo) {
     return (
@@ -21,7 +23,7 @@ export function CameraPhoto({
     <div className="relative aspect-[4/3] overflow-hidden bg-stone-200">
       <Image
         alt={photo.alt}
-        className="object-cover"
+        className={fit === "contain" ? "object-contain" : "object-cover"}
         fill
         priority={priority}
         sizes="(max-width: 768px) 100vw, 50vw"

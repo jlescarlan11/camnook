@@ -45,6 +45,7 @@ describe("ResidentialPinPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add map pin" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add map pin" }));
 
     expect(hidden(container, "pinOperation")?.value).toBe("keep");
     expect(hidden(container, "pinLatitude")?.value).toBe("");
@@ -59,6 +60,7 @@ describe("ResidentialPinPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add map pin" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm this pin" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Adjust map pin" }));
 
     expect(hidden(container, "pinOperation")?.value).toBe("set");
     expect(hidden(container, "pinLatitude")?.value).toBe("10.3157");
@@ -82,6 +84,7 @@ describe("ResidentialPinPicker", () => {
 
     expect(screen.getByText(/Reconfirm or remove/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Remove map pin" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add map pin" }));
 
     expect(hidden(container, "pinOperation")?.value).toBe("remove");
     expect(hidden(container, "pinLatitude")?.value).toBe("");

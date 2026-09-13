@@ -49,6 +49,7 @@ describe("HandoffPolicyForm", () => {
 
     const markup = renderToStaticMarkup(
       <HandoffPolicyForm
+        continueToPreview
         policy={{
           allowedWeekdays: [],
           approvedTimes: [],
@@ -66,7 +67,7 @@ describe("HandoffPolicyForm", () => {
     expect(getCurrentPosition).not.toHaveBeenCalled();
     expect(markup).toContain("Pickup area");
     expect(markup).not.toContain('name="cityReference"');
-    expect(markup).toContain('disabled=""');
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*form="handoff-policy-form"[^>]*>Save availability and continue to preview<\/button>/);
     expect(markup).toMatch(/Save availability<\/button>/);
     vi.unstubAllGlobals();
   });

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { requestBooking } from "@/features/bookings/actions/request-booking";
+import { requestBooking, type RequestBookingActionState } from "@/features/bookings/actions/request-booking";
 import { initialRequestBookingActionState } from "@/features/bookings/form-state";
 
 type Schedule = { handoffTime: string; pickupDate: string; policyVersion: string; returnDate: string };
@@ -33,8 +33,16 @@ export function RequestForm({
   schedule: Schedule;
   summary: ReviewSummary;
 }) {
-  const [state, formAction, pending] = useActionState(requestBooking, initialRequestBookingActionState);
   const [reviewing, setReviewing] = useState(false);
+  const [state, formAction, pending] = useActionState(async (previous: RequestBookingActionState, data: FormData) => {
+    const result = await requestBooking(previous, data);
+    if (result.fieldErrors && (
+      result.fieldErrors.legalName || result.fieldErrors.phone ||
+      result.fieldErrors.preferredMeetupArea || result.fieldErrors.intendedUse ||
+      result.fieldErrors.expectedLocation
+    )) setReviewing(false);
+    return result;
+  }, initialRequestBookingActionState);
   const [operationId] = useState(() => crypto.randomUUID());
   const [values, setValues] = useState({
     expectedLocation: state.values?.expectedLocation ?? "",
@@ -44,13 +52,27 @@ export function RequestForm({
     preferredMeetupArea: state.values?.preferredMeetupArea ?? "",
   });
   const formRef = useRef<HTMLFormElement>(null);
+  const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const reviewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const previousStep = useRef(reviewing);
+
+  useEffect(() => {
+    if (previousStep.current === reviewing) return;
+    previousStep.current = reviewing;
+    (reviewing ? reviewHeadingRef : detailsHeadingRef).current?.focus();
+  }, [reviewing]);
 
   function update(name: keyof typeof values, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
   }
 
   return (
-    <form action={formAction} className="space-y-6" ref={formRef}>
+    <form action={formAction} className="space-y-6" onSubmit={(event) => {
+      if (!reviewing) {
+        event.preventDefault();
+        if (formRef.current?.reportValidity()) setReviewing(true);
+      }
+    }} ref={formRef}>
       <input name="operationId" type="hidden" value={operationId} />
       <input name="camera" type="hidden" value={camera} />
       <input name="handoffTime" type="hidden" value={schedule.handoffTime} />
@@ -58,10 +80,9 @@ export function RequestForm({
       <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
       <input name="returnDate" type="hidden" value={schedule.returnDate} />
 
-      {!reviewing ? (
-        <section aria-labelledby="details-heading">
+        <section aria-labelledby="details-heading" hidden={reviewing}>
           <p className="eyebrow">Step 3 of 4</p>
-          <h2 className="mt-2 text-2xl font-semibold" id="details-heading">Your details</h2>
+          <h2 className="mt-2 text-2xl font-semibold" id="details-heading" ref={detailsHeadingRef} tabIndex={-1}>Your details</h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
             We’ll save your name and phone for next time. The exact public meetup location is arranged only after approval.
           </p>
@@ -113,10 +134,9 @@ export function RequestForm({
             if (formRef.current?.reportValidity()) setReviewing(true);
           }} type="button">Continue to review</button>
         </section>
-      ) : (
-        <section aria-labelledby="review-heading">
+        <section aria-labelledby="review-heading" hidden={!reviewing}>
           <p className="eyebrow">Step 4 of 4</p>
-          <h2 className="mt-2 text-2xl font-semibold" id="review-heading">Review &amp; request</h2>
+          <h2 className="mt-2 text-2xl font-semibold" id="review-heading" ref={reviewHeadingRef} tabIndex={-1}>Review &amp; request</h2>
           <dl className="mt-6 grid gap-3 sm:grid-cols-2">
             <ReviewValue label="Camera" value={summary.cameraName} />
             <ReviewValue label="Dates" value={summary.dates} />
@@ -133,14 +153,13 @@ export function RequestForm({
           <button className="mt-6 min-h-11 font-semibold text-amber-900 underline" onClick={() => setReviewing(false)} type="button">Edit your details</button>
           {state.error ? (
             <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800" role="alert">
-              {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "kyc_required" ? <>Your KYC details need attention. <Link className="font-semibold underline" href="/account#default-address">Review your KYC profile</Link>.</> : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? "We couldn’t confirm the request. Check your bookings before retrying." : "Check your details and try again."}
+              {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "kyc_required" ? <>Your KYC details need attention. <Link className="font-semibold underline" href="/account#default-address">Review your KYC profile</Link>.</> : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? <>We couldn’t confirm the request. <Link className="font-semibold underline" href="/account">Check your bookings</Link> before retrying.</> : "Check your details and try again."}
             </div>
           ) : null}
           <button className="button-primary mt-6 w-full disabled:opacity-60" disabled={pending} type="submit">
             {pending ? "Requesting rental…" : "Request rental"}
           </button>
         </section>
-      )}
     </form>
   );
 }

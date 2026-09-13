@@ -43,3 +43,19 @@ export async function loadOwnerCamera(context: AdminContext, cameraId: string) {
   const camera = result.cameras.find((item) => item.id === cameraId);
   return camera ? { camera, status: "success" as const } : { status: "missing" as const };
 }
+
+const manualBlockSchema = z.object({
+  id: z.uuid(),
+  kind: z.enum(["manual", "maintenance"]),
+  starts_at: z.iso.datetime({ offset: true }),
+  ends_at: z.iso.datetime({ offset: true }),
+}).strict();
+export type OwnerManualBlock = z.infer<typeof manualBlockSchema>;
+export type OwnerManualBlocksResult = { status: "success"; blocks: OwnerManualBlock[] } | { status: "error" };
+
+export async function loadOwnerManualBlocks(context: AdminContext, cameraId: string): Promise<OwnerManualBlocksResult> {
+  if (!z.uuid().safeParse(cameraId).success) return { status: "error" };
+  const result = await context.supabase.schema("api").rpc("get_owner_manual_blocks", { p_camera_id: cameraId });
+  const parsed = z.array(manualBlockSchema).safeParse(result.data);
+  return result.error || !parsed.success ? { status: "error" } : { status: "success", blocks: parsed.data };
+}

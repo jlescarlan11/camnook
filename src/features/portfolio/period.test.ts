@@ -35,4 +35,19 @@ describe("portfolio report periods", () => {
       ).toBe("invalid");
     }
   });
+  it("retains a reversed range for correction without loading a fallback report", () => {
+    expect(resolvePortfolioPeriod({ start: "2026-09-20", end: "2026-09-19" })).toEqual({
+      status: "invalid", period: { startDate: "2026-09-20", endDateExclusive: "2026-09-19" },
+    });
+  });
+
+  it("keeps the valid endpoint and clears only malformed or missing dates", () => {
+    expect(resolvePortfolioPeriod({ start: "2026-09-20", end: "not-a-date" })).toEqual({
+      status: "invalid", period: { startDate: "2026-09-20", endDateExclusive: "" },
+    });
+    expect(resolvePortfolioPeriod({ end: "2026-09-21" })).toEqual({
+      status: "invalid", period: { startDate: "", endDateExclusive: "2026-09-21" },
+    });
+  });
+
 });

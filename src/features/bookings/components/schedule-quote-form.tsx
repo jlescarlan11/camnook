@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { phpFormatter } from "@/features/bookings/currency";
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PublicHandoffPolicy } from "@/features/listings/handoff-types";
@@ -23,7 +24,6 @@ import { nextQuoteEditGeneration, scheduleQuoteFormPresentation } from "../prese
 import { canScheduleRental } from "../scheduling";
 import type { ScheduleSelection } from "../schedule-navigation";
 
-const phpFormatter = new Intl.NumberFormat("en-PH", { currency: "PHP", maximumFractionDigits: 0, style: "currency" });
 const monthFormatter = new Intl.DateTimeFormat("en-PH", { month: "long", timeZone: "UTC", year: "numeric" });
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -50,14 +50,10 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
   const days = useMemo(() => buildCalendarMonth(visibleMonth), [visibleMonth]);
   // Restoring the same values after an edit still needs a fresh quote generation.
   const autoQuoteKey = `${cameraId}|${policy?.version ?? 0}|${pickupDate}|${returnDate}|${handoffTime}|${editGeneration}`;
-  const validHandoffTimes = useMemo(() => {
-    if (!policy || !pickupDate || !returnDate) return [];
-    return policy.approvedTimes.filter((time) => {
-      const pickup = endpointStatus({ allowedWeekdays: policy.allowedWeekdays, availability, date: pickupDate, role: "pickup", time });
-      const returning = endpointStatus({ allowedWeekdays: policy.allowedWeekdays, availability, date: returnDate, role: "return", selectedPickup: pickupDate, time });
-      return !pickup.disabled && !returning.disabled && !periodOverlapsAvailability(pickupDate, returnDate, time, availability);
-    });
-  }, [availability, pickupDate, policy, returnDate]);
+  const validHandoffTimes = useMemo(
+    () => handoffTimesForRange(policy, availability, pickupDate, returnDate),
+    [availability, pickupDate, policy, returnDate],
+  );
 
   useEffect(() => {
     if (!pickupDate || !returnDate || !handoffTime || pending || lastAutoQuoteKey.current === autoQuoteKey) return;
@@ -91,7 +87,8 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
     if (status.disabled) return;
     if (role === "return") setReturnDate(date);
     else { setPickupDate(date); setReturnDate(""); }
-    setHandoffTime("");
+    const times = role === "return" ? handoffTimesForRange(activePolicy, availability, pickupDate, date) : [];
+    setHandoffTime(times.length === 1 ? times[0] : "");
     markEdited();
   }
 
@@ -102,7 +99,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
     <span className="sr-only">Choose your schedule. Step 2 of 4.</span>
 
     <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,1fr)_25rem] xl:gap-12">
-      <form onSubmit={(event) => {
+      <form className="min-w-0" onSubmit={(event) => {
         event.preventDefault();
         // A quote is a read operation: preserve the schedule instead of resetting it.
         const data = new FormData(event.currentTarget);
@@ -114,13 +111,13 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
         <input name="policyVersion" type="hidden" value={activePolicy.version} />
         <input name="returnDate" type="hidden" value={returnDate} />
 
-        <fieldset aria-describedby="calendar-help overlap-error">
+        <fieldset className="min-w-0" aria-describedby="calendar-help overlap-error">
           <legend className="font-semibold">Choose dates</legend>
           <p className="mt-1 text-sm leading-6 text-[#58677d]" id="calendar-help">{!handoffTime ? "Choose pickup and return dates, then select a handoff time." : pickupDate && !returnDate ? "Pickup selected. Choose a later return handoff date. Dimmed no-handoff days can stay inside the rental." : "Choose pickup, then return. Selecting again starts a new range."}</p>
           <div className="mt-5 border-y border-[#d8e0ea] py-5 sm:px-2">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
               <button aria-label="Show previous month" className="button-secondary min-w-20 disabled:cursor-not-allowed disabled:opacity-35" disabled={visibleMonth <= currentMonth} onClick={() => { const previous = shiftCalendarMonth(visibleMonth, -1); if (previous) setVisibleMonth(previous); }} type="button">Previous</button>
-              <h3 aria-live="polite" className="text-lg font-semibold">{monthFormatter.format(monthDate)}</h3>
+              <h3 aria-live="polite" className="min-w-0 text-center text-base font-semibold sm:text-lg">{monthFormatter.format(monthDate)}</h3>
               <button aria-label="Show next month" className="button-secondary min-w-20" onClick={() => { const next = shiftCalendarMonth(visibleMonth, 1); if (next) setVisibleMonth(next); }} type="button">Next</button>
             </div>
             <div aria-hidden="true" className="mt-6 grid grid-cols-7 text-center text-xs font-semibold text-[#58677d]">{weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
@@ -172,6 +169,15 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
       </aside>
     </div>
   </section>;
+}
+
+function handoffTimesForRange(policy: PublicHandoffPolicy | null, availability: CalendarAvailability[], pickupDate: string, returnDate: string) {
+  if (!policy || !pickupDate || !returnDate) return [];
+  return policy.approvedTimes.filter((time) => {
+    const pickup = endpointStatus({ allowedWeekdays: policy.allowedWeekdays, availability, date: pickupDate, role: "pickup", time });
+    const returning = endpointStatus({ allowedWeekdays: policy.allowedWeekdays, availability, date: returnDate, role: "return", selectedPickup: pickupDate, time });
+    return !pickup.disabled && !returning.disabled && !periodOverlapsAvailability(pickupDate, returnDate, time, availability);
+  });
 }
 
 function QuoteValue({ label, strong = false, value }: { label: string; strong?: boolean; value: string }) {

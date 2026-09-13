@@ -23,6 +23,7 @@ export function ResidentialMap({
 }) {
   const container = useRef<HTMLDivElement>(null);
   const callback = useRef(onDraftChange);
+  const searchRequest = useRef(0);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [status, setStatus] = useState("");
@@ -83,6 +84,8 @@ export function ResidentialMap({
   }, [initialPin, mapKey]);
 
   async function search() {
+    const request = ++searchRequest.current;
+    setSuggestions([]);
     if (query.trim().length < 3) {
       setStatus("Enter at least 3 characters.");
       return;
@@ -95,11 +98,14 @@ export function ResidentialMap({
         method: "POST",
       });
       const body = await response.json() as { suggestions?: Suggestion[] };
+      if (request !== searchRequest.current) return;
       if (!response.ok || !body.suggestions) throw new Error("search_failed");
       setSuggestions(body.suggestions);
       setStatus(body.suggestions.length ? "Choose a result below." : "No matching Philippine address found.");
     } catch {
-      setStatus("Address search is unavailable. You can place the pin manually or continue without it.");
+      if (request === searchRequest.current) {
+        setStatus("Address search is unavailable. You can place the pin manually or continue without it.");
+      }
     }
   }
 
@@ -179,7 +185,12 @@ export function ResidentialMap({
             className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 px-3"
             id="residential-map-search"
             maxLength={300}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              searchRequest.current += 1;
+              setQuery(event.target.value);
+              setSuggestions([]);
+              setStatus("");
+            }}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void search(); } }}
             value={query}
           />
@@ -198,7 +209,12 @@ export function ResidentialMap({
 
       <button className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium" onClick={useLocation} type="button">Use my location</button>
 
-      <fieldset>
+      <fieldset onKeyDown={(event) => {
+        if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+          event.preventDefault();
+          placeCoordinates();
+        }
+      }}>
         <legend className="text-sm font-medium">Keyboard pin placement</legend>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
           <label className="text-sm">Latitude<input className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => setLatitude(event.target.value)} value={latitude} /></label>
