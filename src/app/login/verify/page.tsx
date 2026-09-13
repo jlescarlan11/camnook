@@ -24,7 +24,7 @@ export default async function VerifyOtpPage() {
           CamNook
         </Link>
         <h1 className="mt-5 text-3xl font-semibold tracking-tight">
-          Check your email
+          Enter your code
         </h1>
         {pendingLogin ? (
           <>
@@ -33,7 +33,7 @@ export default async function VerifyOtpPage() {
               <span className="font-medium text-stone-900">
                 {maskEmail(pendingLogin.email)}
               </span>
-              . The code can only be used once.
+              .
             </p>
             <OtpForm
               captchaSiteKey={captchaSiteKey}

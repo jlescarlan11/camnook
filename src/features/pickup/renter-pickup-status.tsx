@@ -59,8 +59,8 @@ export function RenterPickupStatus({
 
       {pickup.handoff ? (
         <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="active-rental-heading">
-          <h2 className="text-lg font-semibold" id="active-rental-heading">Active rental handoff</h2>
-          <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">Pickup completed {formatManilaDateTime(pickup.handoff.actual_at)}. The rental is ACTIVE.</p>
+          <h2 className="text-lg font-semibold" id="active-rental-heading">Rental active</h2>
+          <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">Picked up {formatManilaDateTime(pickup.handoff.actual_at)}.</p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <Value label="Identity handoff" value="Named renter and original ID checked" />
             <Value label="Equipment handoff" value="Camera and all included accessories checked" />
@@ -97,7 +97,7 @@ export function RenterPickupStatus({
       ) : null}
 
       <details className="mt-7 rounded-xl border border-stone-200 p-4">
-        <summary className="cursor-pointer font-semibold">Owned booking timeline</summary>
+        <summary className="cursor-pointer font-semibold">Booking history</summary>
         <ol className="mt-4 space-y-3 text-sm">
           {pickup.timeline.map((event, index) => (
             <li key={`${event.occurred_at}-${event.to_state}-${index}`}>

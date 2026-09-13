@@ -34,11 +34,6 @@ export function ContractTemplateForm({
       <h2 className="text-xl font-semibold" id="contract-template-heading">
         Contract template
       </h2>
-      <p className="mt-2 text-sm leading-6 text-stone-600">
-        This template is copied into an immutable agreement when you approve a
-        request. Publishing a replacement never changes contracts already
-        issued or signed.
-      </p>
 
       <p
         className={`mt-4 rounded-xl border p-4 text-sm ${
@@ -49,8 +44,8 @@ export function ContractTemplateForm({
         role="status"
       >
         {active
-          ? `Active template: ${active.version} · schema ${active.schema_version}`
-          : "No active contract template. New rental requests remain disabled until one is published."}
+          ? `Active: ${active.version}`
+          : "No active template. New requests are disabled."}
       </p>
 
       <form action={action} className="mt-6 space-y-5">

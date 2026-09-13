@@ -63,9 +63,8 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
 
   if (!canScheduleRental(policy, requestable)) {
     return <section aria-labelledby="schedule-unavailable-heading" className="mt-8 border-y border-[#d8e0ea] py-10">
-      <p className="eyebrow">Availability</p>
-      <h2 className="section-heading mt-3" id="schedule-unavailable-heading">Scheduling unavailable</h2>
-      <p className="mt-3 max-w-xl text-sm leading-6 text-[#58677d]">{cameraName} is viewable but is not accepting new requests right now. Check back later or choose another published camera.</p>
+      <h2 className="section-heading" id="schedule-unavailable-heading">Not available to rent</h2>
+      <p className="mt-2 max-w-xl text-sm text-[#58677d]">{cameraName} is not accepting requests right now.</p>
       <Link className="button-secondary mt-6" href="/">Browse cameras</Link>
     </section>;
   }
@@ -93,9 +92,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
   }
 
   return <section className="py-9 sm:py-12" aria-labelledby="schedule-heading">
-    <p className="eyebrow">Plan your rental</p>
-    <h2 className="page-heading mt-3" id="schedule-heading">Plan pickup and return</h2>
-    <p className="mt-3 max-w-2xl leading-7 text-[#58677d]">Choose dates on the calendar, then use one approved handoff time for both pickup and return. Your estimate updates automatically.</p>
+    <h2 className="page-title" id="schedule-heading">Choose your dates</h2>
     <span className="sr-only">Choose your schedule. Step 2 of 4.</span>
 
     <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,1fr)_25rem] xl:gap-12">
@@ -113,7 +110,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
 
         <fieldset className="min-w-0" aria-describedby="calendar-help overlap-error">
           <legend className="font-semibold">Choose dates</legend>
-          <p className="mt-1 text-sm leading-6 text-[#58677d]" id="calendar-help">{!handoffTime ? "Choose pickup and return dates, then select a handoff time." : pickupDate && !returnDate ? "Pickup selected. Choose a later return handoff date. Dimmed no-handoff days can stay inside the rental." : "Choose pickup, then return. Selecting again starts a new range."}</p>
+          <p className="mt-1 text-sm leading-6 text-[#58677d]" id="calendar-help">{pickupDate && !returnDate ? "Now choose a later return date." : !pickupDate ? "Select pickup, then return." : "Select a new date to start over."}</p>
           <div className="mt-5 border-y border-[#d8e0ea] py-5 sm:px-2">
             <div className="flex items-center justify-between gap-2 sm:gap-4">
               <button aria-label="Show previous month" className="button-secondary min-w-20 disabled:cursor-not-allowed disabled:opacity-35" disabled={visibleMonth <= currentMonth} onClick={() => { const previous = shiftCalendarMonth(visibleMonth, -1); if (previous) setVisibleMonth(previous); }} type="button">Previous</button>
@@ -137,15 +134,14 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
         </fieldset>
 
         <div className="mt-7 max-w-xl">
-          <label className="block font-semibold" htmlFor="handoff-time">Choose handoff time</label>
-          <p className="mt-1 text-sm text-[#58677d]">The same time applies to pickup and return.</p>
+          <label className="block font-semibold" htmlFor="handoff-time">Handoff time</label>
           <select aria-describedby="handoff-time-help" className="mt-3 min-h-12 w-full rounded-lg border border-[#b9c6d6] bg-white px-4 text-base outline-none focus:border-[#0b4f9c] disabled:bg-[#f2f4f7]" disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0} id="handoff-time" name="handoffTime" onChange={(event) => { setHandoffTime(event.target.value); markEdited(); }} required value={handoffTime}>
             <option value="">{pickupDate && returnDate ? "Choose a time" : "Choose dates first"}</option>
             {validHandoffTimes.map((time) => <option key={time} value={time}>{formatHandoffTime(time)}</option>)}
           </select>
-          <p className="mt-2 text-xs leading-5 text-[#58677d]" id="handoff-time-help">Only times valid for both pickup and return are shown.</p>
+          <p className="mt-2 text-xs leading-5 text-[#58677d]" id="handoff-time-help">Applies to pickup and return.</p>
         </div>
-        <div className="mt-6 text-xs leading-5 text-[#58677d]"><h3 className="font-semibold text-[#081d3b]">Availability key</h3><p className="mt-1">Blue: pickup, return, or included rental days · Pale amber: no handoff · Dimmed: cannot be a handoff endpoint.</p><p>Dimmed no-handoff days may remain inside a valid rental range.</p></div>
+        <details className="mt-5 text-xs leading-5 text-[#58677d]"><summary className="cursor-pointer font-semibold text-[#0b4f9c]">Calendar key</summary><p className="mt-2">Blue marks your rental. Amber days can be included but not used for handoff. Dimmed dates cannot be selected.</p></details>
         {overlap ? <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" id="overlap-error" role="alert">This range overlaps a currently unavailable period. Choose another range.</p> : null}
         <button aria-hidden="true" className="sr-only" tabIndex={-1} disabled={!complete || presentation.disableQuoteSubmit} type="submit">Calculate quote</button>
       </form>
@@ -163,9 +159,9 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
         {presentation.quote ? <section aria-labelledby="schedule-quote-heading" className="mt-7 border-t border-[#d8e0ea] pt-6">
           <h4 className="text-lg font-semibold" id="schedule-quote-heading">Estimate</h4>
           <dl className="mt-3"><QuoteValue label="Billable days" value={`${presentation.quote.billableDays} ${presentation.quote.billableDays === 1 ? "day" : "days"}`} /><QuoteValue label="Rental subtotal" value={phpFormatter.format(presentation.quote.rentalAmount)} /><QuoteValue label="Security deposit" value={phpFormatter.format(presentation.quote.securityDeposit)} /><QuoteValue label="Estimated total" value={phpFormatter.format(presentation.quote.totalDue)} strong /></dl>
-          <p className="mt-5 rounded-lg border border-[#efc477] bg-[#fff7e6] p-4 text-sm text-[#754000]">An estimate does not reserve the camera.</p>
-          {presentation.canContinue ? <><Link className="button-primary mt-6 w-full" href={`/account/bookings/new?${requestQuery}`}>Continue to request</Link><p className="mt-3 text-center text-xs text-[#58677d]">Email sign-in is next. Your dates carry forward.</p></> : null}
-        </section> : <p className="mt-7 border-t border-[#d8e0ea] pt-6 text-sm leading-6 text-[#58677d]">Choose dates and a handoff time to see the rental amount, deposit, and estimated total. An estimate does not reserve the camera.</p>}
+          <p className="mt-4 text-xs text-[#754000]">Estimate only—not reserved.</p>
+          {presentation.canContinue ? <Link className="button-primary mt-5 w-full" href={`/account/bookings/new?${requestQuery}`}>Request this camera</Link> : null}
+        </section> : <p className="mt-7 border-t border-[#d8e0ea] pt-6 text-sm text-[#58677d]">Your estimate appears after you choose dates and a time. It does not reserve the camera.</p>}
       </aside>
     </div>
   </section>;

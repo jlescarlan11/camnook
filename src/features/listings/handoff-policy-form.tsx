@@ -54,10 +54,6 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
           className="rounded-xl border border-stone-200 p-5"
         >
           <h2 className="text-lg font-semibold">Pickup area</h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
-            Choose the general area where you can hand off this camera. No street
-            or home address is stored.
-          </p>
           <div className="mt-4">
             <PsgcAreaSelector
               initialPath={policy.canonicalAnchor?.areaPath}
@@ -84,9 +80,7 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
           <legend className="px-2 text-lg font-semibold">
             Available days and times
           </legend>
-          <p className="text-sm text-stone-600">
-            Timezone: Asia/Manila (UTC+08:00)
-          </p>
+          <p className="text-sm text-stone-600">Asia/Manila (UTC+08:00)</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {weekdayLabels.map((label, value) => (
               <label
@@ -128,8 +122,7 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
             placeholder={"09:00\n17:00"}
           />
           <p className="mt-2 text-xs text-stone-500" id="approved-times-help">
-            Enter unique 24-hour values as HH:MM, separated by lines, spaces, or
-            commas.
+            24-hour time, such as 09:00 or 17:00.
           </p>
           <FieldError
             id="approved-times-error"
@@ -145,9 +138,6 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
             />
             <span>
               <span className="block font-medium">Make these times available to renters</span>
-              <span className="mt-1 block text-sm text-stone-600">
-                Renters can choose only these days and times.
-              </span>
             </span>
           </label>
         </fieldset>

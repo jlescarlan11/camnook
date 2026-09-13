@@ -28,6 +28,7 @@
     "db:types:linked": "pnpm dlx supabase@2.114.0 gen types typescript --linked --schema public,api > src/types/database.generated.ts"
   },
   "dependencies": {
+    "@radix-ui/react-icons": "1.3.2",
     "@supabase/ssr": "0.12.4",
     "@supabase/supabase-js": "2.112.3",
     "leaflet": "1.9.4",

@@ -63,40 +63,29 @@ export default async function AdminPaymentPage({ params }: PageProps) {
           <article className="mt-6 rounded-xl border border-stone-200 bg-white p-6 sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">Manual GCash reconciliation</p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight">{result.item.renter_legal_name}</h1>
+                <p className="text-sm font-semibold text-[#0b4f9c]">GCash review</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight">{result.item.renter_legal_name}</h1>
                 <p className="mt-2 text-stone-600">{result.item.camera_name}</p>
               </div>
-              <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-950">PAYMENT_REVIEW</span>
+              <span className="status-pill">Needs review</span>
             </div>
 
             <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-              Reconcile only against the actual transfer in the approved GCash
-              account shown below. Proof is optional supporting evidence and is
-              never sufficient by itself.
+              Confirm the transfer in GCash. The uploaded proof alone is not confirmation.
             </p>
 
             <dl className="mt-6 grid gap-3 sm:grid-cols-2">
               <Detail label="Declared amount" value={phpFormatter.format(result.item.declared_amount)} />
-              <Detail label="Authoritative total" value={phpFormatter.format(result.item.total_due)} />
-              <Detail label="Rental allocation" value={phpFormatter.format(result.item.rental_amount)} />
-              <Detail label="Security-deposit allocation" value={phpFormatter.format(result.item.security_deposit)} />
-              <Detail label="Submitted sender" value={result.item.sender_name} />
-              <Detail label="Submitted reference" value={result.item.reference} />
-              <Detail label="Approved recipient" value={result.item.recipient_name} />
-              <Detail label="Approved GCash account" value={result.item.recipient_account} />
-              <Detail label="Submitted (Asia/Manila)" value={formatManilaDateTime(result.item.submitted_at)} />
-              <Detail label="Original deadline (unchanged)" value={formatManilaDateTime(result.item.approval_deadline_at)} />
+              <Detail label="Amount due" value={phpFormatter.format(result.item.total_due)} />
+              <Detail label="Sender" value={result.item.sender_name} />
+              <Detail label="Reference" value={result.item.reference} />
+              <Detail label="Recipient" value={`${result.item.recipient_name} · ${result.item.recipient_account}`} />
+              <Detail label="Submitted" value={formatManilaDateTime(result.item.submitted_at)} />
               <Detail
                 label="Private proof"
                 value={result.item.proof ? `${result.item.proof.media_type} · ${formatBytes(result.item.proof.byte_size)}` : "Not attached"}
               />
-              <Detail label="Currency" value={result.item.currency} />
             </dl>
-            <p className="mt-4 text-xs text-stone-500">
-              This projection omits proof paths, signed URLs, digests, unrelated
-              renter fields, and unrelated financial records.
-            </p>
 
             <PaymentReviewControls
               hasProof={result.item.proof !== null}
@@ -104,8 +93,8 @@ export default async function AdminPaymentPage({ params }: PageProps) {
               proofId={result.item.proof?.proof_id}
             />
 
-            <section className="mt-8 border-t border-stone-200 pt-7" aria-labelledby="payment-audit-heading">
-              <h2 className="text-xl font-semibold" id="payment-audit-heading">Append-only audit history</h2>
+            <details className="mt-8 border-t border-stone-200 pt-7">
+              <summary className="cursor-pointer text-lg font-semibold text-[#0b4f9c]" id="payment-audit-heading">History</summary>
               {result.audit.length === 0 ? (
                 <p className="mt-3 text-sm text-stone-600">No projected payment audit events are available.</p>
               ) : (
@@ -114,14 +103,11 @@ export default async function AdminPaymentPage({ params }: PageProps) {
                     <li className="rounded-xl bg-stone-50 p-4 text-sm" key={entry.audit_id}>
                       <p className="font-medium">{entry.action} · {entry.outcome}</p>
                       <p className="mt-1 text-stone-600">{formatManilaDateTime(entry.occurred_at)} · {entry.purpose}</p>
-                      <p className="mt-1 break-all text-xs text-stone-500">
-                        Actor: {entry.actor_user_id ?? "System"} · Transaction: {entry.transaction_id} · Operation: {entry.operation_id}
-                      </p>
                     </li>
                   ))}
                 </ol>
               )}
-            </section>
+            </details>
           </article>
         )}
       </main>

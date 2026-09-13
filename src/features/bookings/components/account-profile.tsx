@@ -12,10 +12,7 @@ export function AccountProfile({ profile }: AccountProfileProps) {
   if (!profile) {
     return (
       <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-        <p>
-          Add your name and phone now so your account is ready when
-          you choose a camera.
-        </p>
+        <p>Add your contact details.</p>
         <ProfileForm successMessage="Profile saved. Your account is ready for booking requests." />
       </div>
     );

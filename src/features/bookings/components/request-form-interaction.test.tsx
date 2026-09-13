@@ -23,7 +23,7 @@ it("requires explicit confirmation and submits reviewed details, including edits
   // Enter in the last detail field must also stop at review.
   await userEvent.keyboard("{Enter}");
   expect(action).not.toHaveBeenCalled();
-  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Review & request" }));
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Review" }));
   await userEvent.click(screen.getByRole("button", { name: "Request rental" }));
   await waitFor(() => expect(submissions).toHaveLength(1));
   expect(screen.getByRole("link", { name: "Check your bookings" }).getAttribute("href")).toBe("/account");
@@ -55,7 +55,7 @@ it("opens the details step when validation rejects a field, preserving the draft
   await userEvent.click(screen.getByRole("button", { name: "Request rental" }));
   await screen.findByRole("textbox", { name: /Name/ });
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Your details" }));
-  expect(screen.getByRole("alert").textContent).toBe("Enter your name.");
+  expect((await screen.findByRole("alert")).textContent).toBe("Enter your name.");
   expect((screen.getByRole("textbox", { name: "Purpose" }) as HTMLTextAreaElement).value).toBe("Portrait practice");
   await userEvent.type(screen.getByRole("textbox", { name: /Name/ }), "lex");
   await userEvent.click(screen.getByRole("button", { name: "Continue to review" }));

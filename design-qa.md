@@ -1,25 +1,49 @@
-# CamNook redesign QA
+# CamNook spotlight redesign — visual QA
 
-Reference: `Time Together` direction at `/Users/johnlesterescarlan/.codex/generated_images/01a081fc-0919-7673-8acd-61036625b9aa/exec-2331a9a1-9676-4dbf-aebe-baa600eba981.png`
+final result: passed
 
-Reviewed the public catalog, camera detail, interactive date range, live estimate, sign-in handoff, and responsive behavior in the Codex in-app browser. Desktop checks used a 1440 × 1000 viewport. Mobile checks used a 390 × 844 viewport.
+## Source and evidence
 
-| Area | Result | Evidence |
-| --- | --- | --- |
-| Visual hierarchy | Pass | Camera context stays compact and the calendar and schedule estimate dominate the detail page. |
-| Color system | Pass | Midnight blue is used for primary actions, pale blue for selections and status, and amber is limited to schedule cautions. |
-| Schedule interaction | Pass | Pickup and return states update in the calendar; valid handoff times appear only after both dates are chosen. |
-| Quote behavior | Pass | Selecting Sep 14–17 at 9:00 AM produced 3 billable days, ₱1,350 rental, ₱1,000 deposit, and ₱2,350 total. |
-| Sign-in continuity | Pass | Continue to request redirected to sign-in with camera, dates, time, and policy version retained in the sanitized return path. |
-| Mobile layout | Pass | Catalog and detail pages have no horizontal overflow at 390 px; navigation, calendar, and buttons remain usable. |
-| Accessibility | Pass | Landmarks, headings, field labels, live quote status, disabled dates, selected endpoints, and current progress steps expose semantic state. |
-| Runtime and code | Pass | ESLint, TypeScript, 663 tests, and the Next.js production build pass. |
+- Source visual truth: `/Users/johnlesterescarlan/.codex/generated_images/01a09874-7f76-7901-b424-414423218f25/exec-9b82daeb-4be8-4d75-8f56-b86c876167e0.png` (first displayed concept selected by the user).
+- Implementation: `http://localhost:3000/`.
+- Final desktop screenshot: `/Users/johnlesterescarlan/.codex/visualizations/2026/09/13/01a09874-7f76-7901-b424-414423218f25/implementation-desktop-final.png`.
+- Mobile screenshot: `/Users/johnlesterescarlan/.codex/visualizations/2026/09/13/01a09874-7f76-7901-b424-414423218f25/implementation-mobile.png`.
+- Desktop requested CSS viewport: 1488 × 1058; source raster 1487 × 1058; browser screenshot raster 1473 × 1047. Browser image export slightly scales the viewport; comparisons used corresponding proportional positions rather than claiming exact pixel equality. Mobile CSS viewport: 390 × 844.
+- State: catalog, first camera. Development has two listings, disabled rental requests, and Cebu City pickup, while the concept reflects the one published Production listing, active requests, and Lahug pickup. These business-data differences are expected; no settings or inventory were changed to force a visual match.
+- Source and final implementation were opened together in the same image comparison tool result. Whole-screen images resolved the typography, photo, price, action, and inclusion regions; separate cropped comparisons were unnecessary.
 
-## Resolved findings
+## Comparison history
 
-- **P1:** The customer progress model placed meetup before the agreement. Replaced it with separate Agreement and Payment stages.
-- **P1:** The estimate disclosure was absent before a quote existed. The non-reservation statement now remains visible throughout scheduling.
-- **P2:** Login and form focus rings used amber as an interaction color. Updated focus treatment to blue so amber remains caution-only.
-- **P2:** Several secondary flows retained oversized radii and shadows. Reduced their radius and removed decorative shadows for the flatter selected direction.
+1. Initial rendering: P2 camera photo too small because the supplied photograph includes substantial white padding. Changed spotlight image fit and increased its desktop frame width from 720px to 1000px. Kept the actual catalog photograph instead of generating a replacement representation of rental inventory.
+2. Final rendering: camera now dominates the center, with headline, model, price, action and inclusions in the selected order. All product edges remain visible for the current camera. No remaining actionable P0/P1/P2 visual issues.
+3. Navigation links were given 44px minimum touch height. Header spacing preserves the compact desktop and mobile presentation.
 
-No open P0, P1, or P2 visual issues remain in the reviewed flows.
+## Fidelity surfaces
+
+- Typography: existing Geist sans-serif, bold tightly tracked display heading, responsive model heading, subdued body copy and prominent prices match the concept hierarchy. Long catalog names can wrap.
+- Spacing/layout: open white page, centered product, paired prices with a light separator, pill action, quiet inclusion divider. Mobile wraps the heading and description with no horizontal overflow.
+- Colors/tokens: white base, navy-charcoal ink, muted blue-gray copy and blue primary actions. Disabled-request listings intentionally use the secondary action style. Existing semantic warning colors preserved.
+- Images: published catalog asset, responsive Next Image sizing and preload on first photo. The real photo differs in perspective and sharpness from the generated concept; retaining the real rental representation is intentional. Missing images retain an explicit accessible message.
+- Copy: selected headline and subtitle implemented; price, deposit, kit description, location and action eligibility remain catalog-derived.
+
+## Verification
+
+- Browser: catalog to camera details, kit disclosure expansion, back to catalog, and Your rentals navigation passed. Existing signed-in rentals page rendered on mobile. No forms submitted or bookings created.
+- No browser console errors returned during inspection.
+- Typecheck and scoped ESLint passed; git diff whitespace check passed.
+- Test suite: 87 files passed, 2 skipped; 706 tests passed, 2 skipped.
+- Production build passed.
+- Scope: catalog layout, shared header/photo presentation and shared visual tokens/buttons. Existing local edits preserved.
+
+## Gaps and follow-up polish
+
+- Active date selection cannot be browser-tested against current Development inventory because requests are disabled; existing automated booking tests passed. Production was not deployed or changed.
+- The concept's decorative action arrow is omitted; the action label remains explicit.
+- Recheck spotlight crop when new inventory with differently composed photography is published.
+- No claim of a complete visual audit of every authenticated owner workflow.
+
+## Approved follow-up refinements
+
+The user subsequently requested an icon tooltip beside the camera name. The final UI uses a 16px information icon with a 44px hit target; both kit description and pickup location are inside the tooltip. It supports hover, keyboard focus, tap, outside-click dismissal, and Escape. The former inclusion divider and standalone pickup line were removed. Browser inspection confirmed the final tooltip and its pickup content; TypeScript and scoped ESLint passed. Earlier screenshots above document the original selected layout, before these explicitly requested refinements.
+
+Before push, changes were integrated with current main's recovery fixes, preserving saved form values, camera setup validation, camera gallery fit, queue destinations, and retry controls.

@@ -27,8 +27,7 @@ export default async function SettingsPage() {
       <SiteHeader />
       <main className="page-shell max-w-5xl py-8 sm:py-12">
         <AdminNav current="settings" />
-        <p className="eyebrow mt-8">Owner configuration</p>
-        <h1 className="page-heading mt-3">Settings</h1>
+        <h1 className="page-title mt-8">Settings</h1>
         <section id="payments">
           {data.gcashConfiguration.status === "success" ? (
             <GcashConfigurationForm

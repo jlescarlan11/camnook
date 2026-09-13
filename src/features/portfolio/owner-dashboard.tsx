@@ -44,15 +44,7 @@ export function OwnerOperationsPanel({
     <>
       <section className="mt-8" aria-labelledby="operations-summary-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="section-heading" id="operations-summary-heading">
-              Work by stage
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
-              Review decisions and handoffs separately so each booking stays in
-              the right stage.
-            </p>
-          </div>
+          <h2 className="section-heading" id="operations-summary-heading">Work</h2>
           <p className="text-sm text-stone-500">
             As of {formatManilaDateTime(dashboard.generated_at)}
           </p>
@@ -61,7 +53,7 @@ export function OwnerOperationsPanel({
           aria-label="Operations queue summary"
           className="mt-5 grid gap-3 sm:grid-cols-3"
         >
-          {requiredQueueLinks.map(([key, label]) => {
+          {requiredQueueLinks.filter(([key]) => dashboard.queue_counts[key] > 0).map(([key, label]) => {
             const count = dashboard.queue_counts[key];
             const content = <>
               <span className="block text-2xl font-semibold">
@@ -288,19 +280,7 @@ export function OwnerPortfolioPanel({
   return (
     <section className="mt-12 border-t border-stone-300 pt-10" aria-labelledby="portfolio-heading">
       <div className="flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-800">
-            Owner-only financials
-          </p>
-          <h2 className="mt-2 text-3xl font-semibold" id="portfolio-heading">
-            Portfolio performance
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
-            Manila calendar dates use a half-open interval: start included, end
-            excluded. Deposits, deductions, refunds, and unverified transfers
-            never count as rental revenue.
-          </p>
-        </div>
+        <h2 className="text-3xl font-semibold" id="portfolio-heading">Performance</h2>
         <form className="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-[1fr_1fr_auto]" method="get">
           <label className="text-sm font-medium text-stone-700">
             Start date
@@ -356,13 +336,7 @@ function DepositReconciliation({
   const totals = dashboard.deposit_reconciliation;
   return (
     <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-6" aria-labelledby="deposit-reconciliation-heading">
-      <h2 className="text-xl font-semibold" id="deposit-reconciliation-heading">
-        Deposit liability reconciliation
-      </h2>
-      <p className="mt-2 text-sm leading-6 text-amber-950/80">
-        Verified deposits − approved deductions − net externally recorded refunds
-        equals remaining liability. Reversals offset their original entry once.
-      </p>
+      <h2 className="text-xl font-semibold" id="deposit-reconciliation-heading">Deposits</h2>
       <dl className="mt-5 grid gap-3 sm:grid-cols-3">
         <Metric label="Verified deposits" value={phpFormatter.format(totals.verified_deposit_total)} />
         <Metric label="Approved deductions" value={phpFormatter.format(totals.approved_deduction_total)} />
@@ -417,13 +391,7 @@ function SupportingQueues({
   if (dashboard.supporting_queue_counts.cancellation === 0) return null;
   return (
     <section className="mt-10" aria-labelledby="supporting-queues-heading">
-      <h2 className="text-2xl font-semibold" id="supporting-queues-heading">
-        Supporting compliance and cancellation work
-      </h2>
-      <p className="mt-2 text-sm leading-6 text-stone-600">
-        Online government-ID review is retired. Cancellation review remains
-        reachable while broad responses omit free-form cancellation reasons.
-      </p>
+      <h2 className="text-2xl font-semibold" id="supporting-queues-heading">Cancellation review</h2>
       <div className="mt-5 grid gap-5">
         <SupportingList
           empty="No cancellation requests await review."
@@ -458,9 +426,7 @@ function PortfolioReport({ report }: { report: OwnerPortfolioReport }) {
         <Metric label="Maintenance" value={formatDuration(portfolio.maintenance_seconds)} />
         <Metric label="Manual unavailability" value={formatDuration(portfolio.manual_unavailable_seconds)} />
       </dl>
-      <p className="mt-4 text-sm leading-6 text-stone-600">
-        {report.period.start_date} through {report.period.end_date_exclusive} (end excluded), Asia/Manila. Rental intervals are scheduled pickup-to-return for CONFIRMED through COMPLETED states and are unioned before duration so overlaps count once. Camera denominator windows run from creation to archive.
-      </p>
+      <details className="mt-4 text-sm text-stone-600"><summary className="cursor-pointer font-semibold text-[#0b4f9c]">Calculation notes</summary><p className="mt-2 leading-6">{report.period.start_date} through {report.period.end_date_exclusive} (end excluded), Asia/Manila. Revenue excludes deposits, deductions, refunds, and unverified transfers.</p></details>
 
       {report.cameras.length === 0 ? (
         <p className="mt-6 rounded-xl border border-stone-200 bg-white p-5 text-stone-600">
@@ -528,7 +494,6 @@ function PortfolioReport({ report }: { report: OwnerPortfolioReport }) {
 function QueueSection({
   children,
   count,
-  description,
   id,
   title,
 }: {
@@ -546,7 +511,6 @@ function QueueSection({
         <h2 className="text-2xl font-semibold" id={`queue-${id}-heading`}>{title}</h2>
         <span className="rounded-full bg-stone-200 px-2.5 py-1 text-sm font-semibold">{count}</span>
       </div>
-      <p className="mt-2 text-sm leading-6 text-stone-600">{description}</p>
       <ul className="mt-4 grid gap-4 lg:grid-cols-2">{children}</ul>
     </section>
   );

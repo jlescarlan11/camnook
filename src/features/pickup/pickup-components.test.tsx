@@ -162,7 +162,7 @@ describe("pickup UI privacy and checklist controls", () => {
       <RenterPickupStatus instructions={null} meetup={null} pickup={active} />,
     );
 
-    expect(markup).toContain("The rental is ACTIVE");
+    expect(markup).toContain("Rental active");
     expect(markup).toContain("Expected return");
     expect(markup).toContain("Written condition report recorded");
     expect(markup).not.toContain("Pickup instructions");

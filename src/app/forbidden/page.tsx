@@ -9,21 +9,13 @@ export default function ForbiddenPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-stone-50 px-6 py-12 text-stone-950">
       <section className="w-full max-w-lg rounded-xl border border-stone-200 bg-white p-8 sm:p-10">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-red-700">
-          Access denied
-        </p>
-        <h1 className="mt-5 text-3xl font-semibold tracking-tight">
-          This area is for the CamNook administrator.
-        </h1>
-        <p className="mt-4 leading-7 text-stone-600">
-          Your session is valid, but this account does not have administrator
-          access.
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">Access denied</h1>
+        <p className="mt-3 text-stone-600">This area is for the CamNook owner.</p>
         <Link
           className="mt-8 inline-block rounded-xl bg-stone-950 px-5 py-3 font-medium text-white"
           href="/account"
         >
-          Return to your account
+          Go to your rentals
         </Link>
       </section>
     </main>

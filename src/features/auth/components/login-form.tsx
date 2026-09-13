@@ -85,7 +85,7 @@ export function LoginForm({
         disabled={pending || !captchaReady}
         type="submit"
       >
-        {pending ? "Sending code…" : "Email me a sign-in or registration code"}
+        {pending ? "Sending code…" : "Continue with email"}
       </button>
     </form>
   );

@@ -73,50 +73,36 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
             <BookingActionCard booking={result.booking} />
             <article className="surface mt-6 p-6 sm:p-8" id="next-action">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="eyebrow">Booking record</p>
-                  <h2 className="mt-3 text-3xl font-semibold tracking-tight">{result.booking.camera.name}</h2>
-                </div>
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">{presentCustomerBookingStatus(result.booking.state, result.booking.requestedAt).label}</span>
+                <h2 className="text-2xl font-semibold tracking-tight">Booking details</h2>
+                <span className="status-pill">{presentCustomerBookingStatus(result.booking.state, result.booking.requestedAt).label}</span>
               </div>
               <dl className="mt-6 grid gap-3 sm:grid-cols-2">
-                <DetailValue label="Pickup (Asia/Manila)" value={formatManilaDateTime(result.booking.pickupAt)} />
-                <DetailValue label="Return (Asia/Manila)" value={formatManilaDateTime(result.booking.returnAt)} />
-                <DetailValue label="Requested (Asia/Manila)" value={formatManilaDateTime(result.booking.requestedAt)} />
-                <DetailValue label="Expected location" value={result.booking.expectedLocation} />
+                <DetailValue label="Pickup" value={formatManilaDateTime(result.booking.pickupAt)} />
+                <DetailValue label="Return" value={formatManilaDateTime(result.booking.returnAt)} />
               </dl>
               {result.booking.meetup ? (
                 <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="planned-meetup-heading">
                   <h2 className="text-lg font-semibold" id="planned-meetup-heading">Meetup</h2>
                   <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <DetailValue label="Preferred meetup area" value={result.booking.meetup.renterCity} />
                     {result.booking.meetup.kind === "public_venue" ? <>
-                      <DetailValue label="Public venue" value={result.booking.meetup.name} />
-                      <DetailValue label="Venue address" value={result.booking.meetup.address} />
-                      <DetailValue label="Venue city" value={result.booking.meetup.city} />
+                      <DetailValue label="Venue" value={result.booking.meetup.name} />
+                      <DetailValue label="Address" value={result.booking.meetup.address} />
                     </> : (
-                      <DetailValue label="Venue status" value="Exact public venue pending owner confirmation" />
+                      <DetailValue label="Venue" value="Pending owner confirmation" />
                     )}
                   </dl>
                   {result.booking.meetup.kind === "public_venue" ? <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p> : null}
                 </section>
               ) : null}
-              <section className="mt-7 border-t border-stone-200 pt-6">
-                <h2 className="text-lg font-semibold">Intended use</h2>
-                <PersistedIntendedUse value={result.booking.intendedUse} />
-              </section>
+              <details className="mt-7 border-t border-stone-200 pt-6 text-sm"><summary className="cursor-pointer font-semibold text-[#0b4f9c]">Request details</summary><dl className="mt-3 grid gap-3 sm:grid-cols-2"><DetailValue label="Requested" value={formatManilaDateTime(result.booking.requestedAt)} /><DetailValue label="Shooting city" value={result.booking.expectedLocation} /></dl><h2 className="mt-4 font-semibold">Purpose</h2><PersistedIntendedUse value={result.booking.intendedUse} /></details>
               {"approval" in result.booking ? (
                 <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="approval-heading">
-                  <h2 className="text-lg font-semibold" id="approval-heading">Approval pricing snapshot</h2>
+                  <h2 className="text-lg font-semibold" id="approval-heading">Price</h2>
                   <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <DetailValue label="Approved" value={formatManilaDateTime(result.booking.approval.approvedAt)} />
-                    <DetailValue label="Approval deadline" value={formatManilaDateTime(result.booking.approval.approvalDeadlineAt)} />
                     <DetailValue label="Billable days" value={String(result.booking.approval.billableDays)} />
-                    <DetailValue label="Daily rate" value={phpFormatter.format(result.booking.approval.dailyRate)} />
                     <DetailValue label="Rental amount" value={phpFormatter.format(result.booking.approval.rentalAmount)} />
                     <DetailValue label="Security deposit" value={phpFormatter.format(result.booking.approval.securityDeposit)} />
                     <DetailValue label="Total due" value={phpFormatter.format(result.booking.approval.totalDue)} />
-                    <DetailValue label="Currency" value={result.booking.approval.currency} />
                   </dl>
                 </section>
               ) : null}

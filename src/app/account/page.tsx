@@ -21,11 +21,9 @@ export default async function AccountPage() {
     <div className="min-h-screen bg-stone-50 text-stone-950">
       <SiteHeader />
       <main className="page-shell py-10 sm:py-14">
-        <header className="flex flex-wrap items-end justify-between gap-6 border-b border-stone-200 pb-8">
+        <header className="flex flex-wrap items-center justify-between gap-6 border-b border-stone-200 pb-6">
           <div>
-            <p className="eyebrow">Renter account</p>
-            <h1 className="page-heading mt-3">Your rentals</h1>
-            <p className="mt-3 text-stone-600">Dates, progress, and the next step for every request.</p>
+            <h1 className="page-title">Rentals</h1>
           </div>
           <div className="flex flex-wrap gap-3">
             {account.status === "success" && account.isAdmin ? <Link className="button-secondary" href="/admin">Owner area</Link> : null}
@@ -43,7 +41,7 @@ export default async function AccountPage() {
           <div className="mt-10 grid items-start gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,.75fr)]">
             <section aria-labelledby="bookings-heading">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="section-heading" id="bookings-heading">Rental schedule</h2>
+                <h2 className="section-heading" id="bookings-heading">Your bookings</h2>
                 <Link className="font-semibold text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href="/">Find a camera</Link>
               </div>
               {account.bookings.length === 0 ? (
@@ -67,8 +65,7 @@ export default async function AccountPage() {
                           <div>
                             <h3 className="text-lg font-semibold">{booking.camera.name}</h3>
                             <p className="mt-1 text-sm font-medium text-[#0b4f9c]">{status.label}</p>
-                            <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">{status.nextStep}</p>
-                            {status.target ? <p className="mt-1 text-xs text-stone-500">{status.target}</p> : null}
+                            <p className="mt-2 max-w-xl text-sm text-stone-600">{status.nextStep}</p>
                             {booking.meetup ? <p className="mt-2 text-sm text-stone-600">Meetup: {booking.meetup.kind === "public_venue" ? `${booking.meetup.name} — ${booking.meetup.address}` : `${booking.meetup.areaLabel} — venue pending`}</p> : null}
                           </div>
                           <Link className="button-secondary whitespace-nowrap" href={`/account/bookings/${booking.id}`}>Open booking</Link>
@@ -82,21 +79,14 @@ export default async function AccountPage() {
 
             <aside className="space-y-8">
               <section className="surface p-6" aria-labelledby="profile-heading">
-                <p className="eyebrow">Signed in</p>
-                <h2 className="mt-2 text-xl font-semibold" id="profile-heading">Profile</h2>
+                <h2 className="text-xl font-semibold" id="profile-heading">Profile</h2>
                 <p className="mt-1 break-all text-sm text-stone-500">{context.user.email}</p>
                 <AccountProfile profile={account.profile} />
               </section>
               <section className="surface p-6" aria-labelledby="default-address-heading" id="default-address">
-                <p className="eyebrow">KYC details</p>
-                <h2 className="mt-2 text-xl font-semibold" id="default-address-heading">Default address</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Complete this before your first booking. Your barangay can suggest a meetup area, while the final venue stays private until confirmed.</p>
+                <h2 className="text-xl font-semibold" id="default-address-heading">Renter details</h2>
+                <p className="mt-2 text-sm text-stone-600">Required before your first request.</p>
                 <KycProfileForm kyc={account.kycProfile} profile={account.profile} returnTo="/account#default-address" />
-              </section>
-              <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950" aria-labelledby="pickup-id-heading">
-                <h2 className="font-semibold" id="pickup-id-heading">Identity check at pickup</h2>
-                <p className="mt-2 text-sm leading-6">Bring one original current government ID. CamNook records only that it was checked and matched.</p>
-                <Link className="mt-3 inline-block text-sm font-semibold underline" href="/privacy/government-id">Read the identity notice</Link>
               </section>
             </aside>
           </div>

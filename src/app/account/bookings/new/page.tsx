@@ -62,16 +62,8 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
         <Link className="inline-flex min-h-11 items-center font-medium text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href={returnHref}>
           Back to camera
         </Link>
-        <ol aria-label="Booking progress" className="mt-5 grid max-w-3xl grid-cols-4 border-b border-stone-200 text-sm">
-          <li className="border-b-2 border-[#0b4f9c] px-2 py-3 font-medium text-[#0b4f9c]">Browse</li>
-          <li className="border-b-2 border-[#0b4f9c] px-2 py-3 font-medium text-[#0b4f9c]">Schedule</li>
-          <li aria-current="step" className="border-b-2 border-[#081d3b] px-2 py-3 font-semibold text-stone-950">Your details</li>
-          <li className="px-2 py-3 text-stone-500">Review</li>
-        </ol>
-        <h1 className="page-heading mt-7">Request {camera?.name ?? "this camera"}</h1>
-        <p className="mt-3 max-w-2xl leading-7 text-stone-600">
-          Add only the details the owner needs to review your request.
-        </p>
+        <p className="mt-5 text-sm font-semibold text-[#0b4f9c]">Step 3 of 4</p>
+        <h1 className="page-title mt-2">Request {camera?.name ?? "this camera"}</h1>
 
         {!ready ? (
           <section className="mt-8 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
@@ -82,7 +74,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
         ) : (
           <>
             <section className="surface mt-8 p-6 sm:p-8" aria-labelledby="schedule-summary-heading">
-              <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="eyebrow">Schedule selected</p><h2 className="mt-2 text-2xl font-semibold" id="schedule-summary-heading">{camera.name}</h2></div><Link className="font-semibold text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href={returnHref}>Change dates</Link></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-semibold" id="schedule-summary-heading">{camera.name}</h2><Link className="font-semibold text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href={returnHref}>Change dates</Link></div>
               <dl className="mt-5 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-5">
                 <ReviewValue label="Pickup" value={formatManilaDateTime(quote.pickupAt)} />
                 <ReviewValue label="Return" value={formatManilaDateTime(quote.returnAt)} />
@@ -99,9 +91,8 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
               </section>
             ) : !requestContext.kycProfile?.current ? (
               <section className="surface mt-8 p-6 sm:p-8" aria-labelledby="kyc-heading">
-                <p className="eyebrow">Required before requesting</p>
-                <h2 className="mt-2 text-2xl font-semibold" id="kyc-heading">Complete your renter KYC</h2>
-                <p className="mt-2 text-sm leading-6 text-stone-600">Add the minimum details needed to confirm adult eligibility and prepare a rental contract. No SMS OTP or ID upload is required.</p>
+                <h2 className="text-2xl font-semibold" id="kyc-heading">Renter details</h2>
+                <p className="mt-2 text-sm text-stone-600">Required for eligibility and your rental contract.</p>
                 <KycProfileForm kyc={requestContext.kycProfile ?? null} profile={profile ?? null} returnTo={`/account/bookings/new?${query}`} />
               </section>
             ) : (

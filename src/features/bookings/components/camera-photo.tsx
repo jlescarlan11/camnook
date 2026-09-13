@@ -5,11 +5,13 @@ export function CameraPhoto({
   photo,
   priority = false,
   fit = "cover",
+  spotlight = false,
 }: {
   name: string;
   photo?: { alt: string; url: string };
   priority?: boolean;
   fit?: "cover" | "contain";
+  spotlight?: boolean;
 }) {
   if (!photo) {
     return (
@@ -20,13 +22,13 @@ export function CameraPhoto({
   }
 
   return (
-    <div className="relative aspect-[4/3] overflow-hidden bg-stone-200">
+    <div className={spotlight ? "spotlight-photo-frame" : "relative aspect-[4/3] overflow-hidden bg-white"}>
       <Image
         alt={photo.alt}
-        className={fit === "contain" ? "object-contain" : "object-cover"}
+        className={spotlight || fit === "cover" ? "object-cover" : "object-contain"}
         fill
-        priority={priority}
-        sizes="(max-width: 768px) 100vw, 50vw"
+        preload={priority}
+        sizes={spotlight ? "(max-width: 768px) calc(100vw - 32px), 1000px" : "(max-width: 768px) 100vw, 50vw"}
         src={photo.url}
       />
     </div>

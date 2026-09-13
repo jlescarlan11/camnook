@@ -56,9 +56,7 @@ export function ResidentialPinPicker({
       <input name="pinAccuracyMeters" type="hidden" value={operation === "set" && selected?.accuracyMeters ? selected.accuracyMeters : ""} />
 
       <h3 className="font-semibold" id="residential-pin-heading">Residential map pin <span className="font-normal text-stone-500">(optional)</span></h3>
-      <p className="mt-1 text-sm leading-6 text-stone-600">
-        A pin helps you confirm the location you entered. It stays private, is not added to your rental contract, and does not change your meetup preference.
-      </p>
+      <p className="mt-1 text-sm text-stone-600">Private and not included in your contract.</p>
 
       {selected && operation !== "remove" ? (
         <p className="mt-3 text-sm" role="status">

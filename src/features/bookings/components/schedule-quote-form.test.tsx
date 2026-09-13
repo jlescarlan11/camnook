@@ -26,7 +26,7 @@ describe("ScheduleQuoteForm", () => {
       />,
     );
 
-    expect(markup).toContain("Scheduling unavailable");
+    expect(markup).toContain("Not available to rent");
     expect(markup).not.toContain('type="datetime-local"');
     expect(markup).not.toContain("Get authoritative quote");
   });
@@ -47,13 +47,10 @@ describe("ScheduleQuoteForm", () => {
     );
 
     expect(markup).toContain("Choose your schedule");
-    expect(markup).toContain("Choose handoff time");
+    expect(markup).toContain("Handoff time");
     expect(markup).toContain("Choose dates first");
-    expect(markup).toContain("Availability key");
-    expect(markup).toContain("cannot be a handoff endpoint");
-    expect(markup).toContain(
-      "Dimmed no-handoff days may remain inside a valid rental range.",
-    );
+    expect(markup).toContain("Calendar key");
+    expect(markup).toContain("cannot be selected");
     expect(markup).toContain("does not reserve the camera");
     expect(markup).toContain("Meetup area");
     expect(markup).toContain("barangay-level approximation");

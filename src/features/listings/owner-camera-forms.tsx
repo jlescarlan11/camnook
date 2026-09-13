@@ -101,7 +101,6 @@ export function BlockDatesForm({ cameraId }: { cameraId: string }) {
   }} ref={formRef}>
     <input name="cameraId" type="hidden" value={cameraId} />
     <h3 className="font-semibold">Blocked dates</h3>
-    <p className="mt-1 text-sm text-stone-600">Keep the camera unavailable for maintenance or personal use.</p>
     <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="From"><input className={inputClass} name="startDate" required type="date" /></Field><Field label="Through"><input className={inputClass} name="endDate" required type="date" /></Field></div>
     <ActionMessage state={state} success="Dates blocked." />
     <button className="mt-4 min-h-11 rounded-xl border border-stone-900 px-4 py-2 font-semibold disabled:opacity-60" disabled={pending} type="submit">{pending ? "Saving…" : "Block dates"}</button>

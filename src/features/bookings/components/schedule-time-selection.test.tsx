@@ -19,7 +19,7 @@ it("quotes the sole valid handoff time and requires a new choice when a later ra
   await userEvent.click(screen.getByRole("button", { name: /August 26, 2099, available/ }));
   await waitFor(() => expect(quote).toHaveBeenCalledOnce());
   expect((quote.mock.calls[0][1] as FormData).get("handoffTime")).toBe("17:00");
-  const time = screen.getByRole("combobox", { name: "Choose handoff time" }) as HTMLSelectElement;
+  const time = screen.getByRole("combobox", { name: "Handoff time" }) as HTMLSelectElement;
   expect(time.value).toBe("17:00");
   await userEvent.click(screen.getByRole("button", { name: /August 27, 2099, available/ }));
   await userEvent.click(screen.getByRole("button", { name: /August 28, 2099, available/ }));

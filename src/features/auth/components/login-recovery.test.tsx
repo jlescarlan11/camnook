@@ -20,10 +20,10 @@ it("retains the email and return destination when retrying a failed sign-in requ
   render(<LoginForm captchaSiteKey={null} returnTo={returnTo} />);
   const email = screen.getByRole("textbox", { name: "Email address" });
   await userEvent.type(email, "renter@example.test");
-  await userEvent.click(screen.getByRole("button", { name: "Email me a sign-in or registration code" }));
+  await userEvent.click(screen.getByRole("button", { name: "Continue with email" }));
   await screen.findByRole("alert");
   expect((email as HTMLInputElement).value).toBe("renter@example.test");
-  await userEvent.click(screen.getByRole("button", { name: "Email me a sign-in or registration code" }));
+  await userEvent.click(screen.getByRole("button", { name: "Continue with email" }));
   await waitFor(() => expect(submissions).toHaveLength(2));
   expect(submissions).toEqual([
     { email: "renter@example.test", next: returnTo },

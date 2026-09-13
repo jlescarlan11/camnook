@@ -52,7 +52,7 @@ export function KycProfileForm({
         <Field error={state.fieldErrors?.birthDate} label="Birthdate">
           <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={adultCutoff()} name="birthDate" required type="date" />
         </Field>
-        <Field error={state.fieldErrors?.phone} label="Mobile number" help="Used for booking coordination. SMS verification is not required.">
+        <Field error={state.fieldErrors?.phone} label="Mobile number">
           <input autoComplete="tel" className={inputClass} defaultValue={submitted?.phone ?? profile?.phone ?? ""} maxLength={32} minLength={7} name="phone" required type="tel" />
         </Field>
       </div>
@@ -71,17 +71,17 @@ export function KycProfileForm({
           <Field error={state.fieldErrors?.houseNumber} label="House or lot number (optional)">
             <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" />
           </Field>
-          <Field error={state.fieldErrors?.streetName} help="Leave blank if your road has no official name." label="Street name (optional)">
+          <Field error={state.fieldErrors?.streetName} label="Street name (optional)">
             <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.streetName ?? kyc?.streetName ?? ""} maxLength={160} name="streetName" />
           </Field>
           <Field error={state.fieldErrors?.building} label="Building name (optional)">
             <input className={inputClass} defaultValue={submitted?.building ?? kyc?.building ?? ""} maxLength={160} name="building" />
           </Field>
-          <Field error={state.fieldErrors?.postalCode} help="Enter the code used for your address; CamNook does not guess it from the barangay." label="Postal code (optional)">
+          <Field error={state.fieldErrors?.postalCode} label="Postal code (optional)">
             <input autoComplete="postal-code" className={inputClass} defaultValue={submitted?.postalCode ?? kyc?.postalCode ?? ""} maxLength={16} name="postalCode" />
           </Field>
         </div>
-        <Field error={state.fieldErrors?.addressDetails} help="Use this for a subdivision, sitio, purok, floor/unit, landmark, or an unnamed road. At least one written-address field is required." label="Additional address details (optional)">
+        <Field error={state.fieldErrors?.addressDetails} label="Unit, subdivision, sitio, or landmark (optional)">
           <input autoComplete="address-line2" className={inputClass} defaultValue={submitted?.addressDetails ?? kyc?.addressDetails ?? ""} maxLength={200} name="addressDetails" />
         </Field>
       </fieldset>
@@ -90,10 +90,7 @@ export function KycProfileForm({
         error={state.fieldErrors?.residentialPin}
         initialPin={kyc?.residentialPin ?? null}
       />
-      <p className="rounded-xl bg-stone-50 p-4 text-sm leading-6 text-stone-600">
-        CamNook uses these details for renter eligibility, the rental contract, and equipment-loss prevention. Bring one original current government ID at pickup. We do not store its image or number.
-        {" "}<Link className="font-semibold text-amber-900 underline" href="/privacy/government-id">Read the renter KYC notice.</Link>
-      </p>
+      <p className="text-sm text-stone-600">No SMS or ID upload. Bring the original ID to pickup. <Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id">Privacy details</Link></p>
       {state.status === "error" ? (
         <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
           {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm or remove the pin, or reload if you edited this profile elsewhere." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}

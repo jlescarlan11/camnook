@@ -81,11 +81,7 @@ export function RequestForm({
       <input name="returnDate" type="hidden" value={schedule.returnDate} />
 
         <section aria-labelledby="details-heading" hidden={reviewing}>
-          <p className="eyebrow">Step 3 of 4</p>
-          <h2 className="mt-2 text-2xl font-semibold" id="details-heading" ref={detailsHeadingRef} tabIndex={-1}>Your details</h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
-            We’ll save your name and phone for next time. The exact public meetup location is arranged only after approval.
-          </p>
+          <h2 className="text-2xl font-semibold" id="details-heading" ref={detailsHeadingRef} tabIndex={-1}>Your details</h2>
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <Field label="Name" error={state.fieldErrors?.legalName}>
               <input autoComplete="name" className={inputClass} maxLength={160} name="legalName" onChange={(event) => update("legalName", event.target.value)} required value={values.legalName} />
@@ -95,14 +91,14 @@ export function RequestForm({
             </Field>
           </div>
           <div className="mt-5 space-y-5">
-            <Field label="Preferred meetup area" error={state.fieldErrors?.preferredMeetupArea} help="We’ll arrange the exact public meetup location after your request is approved.">
+            <Field label="Preferred meetup area" error={state.fieldErrors?.preferredMeetupArea} help="The exact public meetup location follows approval.">
               {profile?.defaultAddress?.valid ? (
                 <button
                   className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-[#c9dcfb] bg-[#edf5ff] px-4 py-3 text-left text-[#081d3b]"
                   onClick={() => update("preferredMeetupArea", profile.defaultAddress!.areaName)}
                   type="button"
                 >
-                  <span><span className="block text-xs font-semibold uppercase tracking-wide text-[#0b4f9c]">Suggested from your default address</span><span className="mt-1 block font-semibold">{profile.defaultAddress.areaName}</span></span>
+                  <span><span className="block text-xs font-semibold text-[#0b4f9c]">Suggested from your default address</span><span className="mt-1 block font-semibold">{profile.defaultAddress.areaName}</span></span>
                   <span aria-hidden="true">Use</span>
                 </button>
               ) : (
@@ -135,8 +131,8 @@ export function RequestForm({
           }} type="button">Continue to review</button>
         </section>
         <section aria-labelledby="review-heading" hidden={!reviewing}>
-          <p className="eyebrow">Step 4 of 4</p>
-          <h2 className="mt-2 text-2xl font-semibold" id="review-heading" ref={reviewHeadingRef} tabIndex={-1}>Review &amp; request</h2>
+          <p className="text-sm font-semibold text-[#0b4f9c]">Step 4 of 4</p>
+          <h2 className="mt-2 text-2xl font-semibold" id="review-heading" ref={reviewHeadingRef} tabIndex={-1}>Review</h2>
           <dl className="mt-6 grid gap-3 sm:grid-cols-2">
             <ReviewValue label="Camera" value={summary.cameraName} />
             <ReviewValue label="Dates" value={summary.dates} />

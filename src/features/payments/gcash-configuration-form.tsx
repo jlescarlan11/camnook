@@ -28,11 +28,6 @@ export function GcashConfigurationForm({
       <h2 className="text-xl font-semibold" id="gcash-configuration-heading">
         GCash payment recipient
       </h2>
-      <p className="mt-2 text-sm leading-6 text-stone-600">
-        Saving a valid recipient makes manual GCash instructions available
-        immediately. Renters upload the reference and private transfer proof;
-        CamNook derives the exact amount and renter name from the booking.
-      </p>
 
       <p
         className={`mt-4 rounded-xl border p-4 text-sm ${
@@ -43,14 +38,14 @@ export function GcashConfigurationForm({
         role="status"
       >
         {configuration.enabled
-          ? `Live recipient: ${configuration.recipient_name} · ${configuration.recipient_account} · v${configuration.version}`
-          : "GCash is not configured yet. Save the approved recipient below to make it live."}
+          ? `Live: ${configuration.recipient_name} · ${configuration.recipient_account}`
+          : "Not configured"}
       </p>
 
       <form action={action} className="mt-5 grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium" htmlFor="recipientName">
-            Approved recipient name
+            Recipient name
           </label>
           <input
             autoComplete="name"
@@ -70,7 +65,7 @@ export function GcashConfigurationForm({
         </div>
         <div>
           <label className="block text-sm font-medium" htmlFor="recipientAccount">
-            Approved GCash number
+            GCash number
           </label>
           <input
             autoComplete="tel"
@@ -95,11 +90,11 @@ export function GcashConfigurationForm({
             disabled={pending}
             type="submit"
           >
-            {pending ? "Saving live recipient…" : "Save and make GCash live"}
+            {pending ? "Saving…" : "Save GCash details"}
           </button>
           {state.status === "success" ? (
             <p className="mt-3 text-sm text-emerald-800" role="status">
-              GCash recipient v{state.version} is live.
+              GCash details saved.
             </p>
           ) : state.status === "error" && !state.fieldErrors ? (
             <p className="mt-3 text-sm text-red-800" role="alert">

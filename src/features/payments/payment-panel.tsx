@@ -109,12 +109,12 @@ export function PaymentPanel({
       className="mt-7 border-t border-stone-200 pt-6"
     >
       <h2 className="text-lg font-semibold" id="payment-heading">
-        Manual GCash payment
+        GCash payment
       </h2>
 
       {transaction?.status === "submitted" ? (
         <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
-          <p className="font-semibold">Payment is awaiting reconciliation</p>
+          <p className="font-semibold">Payment under review</p>
           <p className="mt-1">
             Submitted {formatManilaDateTime(transaction.submitted_at)} before
             the original deadline. It remains in PAYMENT_REVIEW while an
@@ -152,14 +152,13 @@ export function PaymentPanel({
 
       {payment.instructions ? (
         <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
-          <h3 className="font-semibold">Authoritative payment instructions</h3>
+          <h3 className="font-semibold">Payment details</h3>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <Instruction label="Recipient" value={payment.instructions.recipient_name} />
             <Instruction label="GCash account" value={payment.instructions.recipient_account} />
             <Instruction label="Rental amount" value={phpFormatter.format(payment.instructions.rental_amount)} />
             <Instruction label="Security deposit" value={phpFormatter.format(payment.instructions.security_deposit)} />
-            <Instruction label="Exact total" value={phpFormatter.format(payment.instructions.total_due)} />
-            <Instruction label="Currency" value={payment.instructions.currency} />
+            <Instruction label="Total" value={phpFormatter.format(payment.instructions.total_due)} />
           </dl>
           <p className="mt-4 text-xs leading-5">
             Transfer only to this approved recipient and submit the exact total.

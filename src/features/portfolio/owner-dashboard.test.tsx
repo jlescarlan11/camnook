@@ -19,9 +19,9 @@ describe("owner dashboard presentation", () => {
     expect(full).toContain('href="#queue-review"');
     expect(full).not.toContain('href="#queue-payment"');
     expect(overview).not.toContain('href="/admin/bookings#queue-payment"');
-    expect(full).toContain("Payment review");
+    expect(full).not.toContain("Payment review");
   });
-  it("renders all nine authoritative queues and explicit reporting methodology", () => {
+  it("hides empty queues and keeps reporting notes available on demand", () => {
     const operations = renderToStaticMarkup(
       <OwnerOperationsPanel dashboard={emptyOwnerOperationsDashboard} />,
     );
@@ -33,21 +33,10 @@ describe("owner dashboard presentation", () => {
       />,
     );
 
-    for (const heading of [
-      "Booking review",
-      "Contract signature",
-      "Payment review",
-      "Pickup",
-      "Active rental",
-      "Physical return",
-      "Issue review",
-      "Held deposits",
-      "Pending refunds",
-    ]) {
-      expect(operations).toContain(heading);
-    }
-    expect(portfolio).toContain("start included, end excluded");
-    expect(portfolio).toContain("Deposits, deductions, refunds");
+    expect(operations).toContain("All clear");
+    expect(operations).not.toContain("Booking review");
+    expect(portfolio).toContain("Calculation notes");
+    expect(portfolio).toContain("Revenue excludes deposits");
     expect(`${operations}${portfolio}`).not.toMatch(
       /PRIVATE-|serial_number|object_path|sha256|sender_name|internal_notes/,
     );

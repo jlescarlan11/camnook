@@ -23,8 +23,7 @@ describe("KycProfileForm", () => {
     expect(markup).toContain("Add map pin");
     expect(markup).toContain("optional");
     expect(markup).toContain('name="psgcAreaCode"');
-    expect(markup).toContain("SMS verification is not required");
-    expect(markup).toContain("do not store its image or number");
+    expect(markup).toContain("No SMS or ID upload");
     expect(markup).not.toContain('type="file"');
   });
 });

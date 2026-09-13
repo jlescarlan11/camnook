@@ -17,7 +17,7 @@ describe("public email OTP forms", () => {
       <LoginForm captchaSiteKey={null} returnTo="/account" />,
     );
 
-    expect(markup).toContain("Email me a sign-in or registration code");
+    expect(markup).toContain("Continue with email");
     expect(markup).not.toContain("Security check");
     expect(markup).not.toContain("disabled=\"\"");
   });

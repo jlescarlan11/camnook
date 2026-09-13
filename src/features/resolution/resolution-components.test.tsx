@@ -202,7 +202,7 @@ describe("resolution UI", () => {
     );
 
     for (const expected of [
-      "Final issue outcome",
+      "Issue outcome",
       "PHP 1,000 was approved",
       "Verified deposit held",
       "Approved deduction",

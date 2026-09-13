@@ -87,40 +87,35 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
           >
             <h1 className="text-2xl font-semibold">
               {result.status === "inconsistent"
-                ? "Persisted outcome is incomplete"
+                ? "Booking data is incomplete"
                 : "Booking unavailable"}
             </h1>
             <p className="mt-2 leading-7">
               {result.status === "inconsistent"
-                ? "The stored state is missing required approval or rejection evidence. Do not make another decision; refresh and investigate the persisted record."
+                ? "Required approval or rejection details are missing. Refresh before taking action."
                 : "The required booking data could not be loaded. Refresh before making a decision."}
             </p>
             <Link
               className="mt-3 inline-block font-semibold underline"
               href={`/admin/bookings/${bookingId}`}
             >
-              Refresh persisted state
+              Refresh
             </Link>
           </section>
         ) : (
           <>
           <section className="surface mt-6 grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="p-6 sm:p-8"><p className="eyebrow">Current owner action</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">{result.booking.state === "FOR_REVIEW" ? "Review this request" : ownerActionTitle(result.booking.state)}</h1>
-            <p className="mt-2 leading-7 text-stone-600">{result.booking.state === "FOR_REVIEW" ? "Check the renter, schedule, and availability, then accept or decline." : "Only the actions relevant to this booking’s current stage are available below."}</p>
+            <div className="p-6 sm:p-8">
+            <h1 className="text-3xl font-semibold tracking-tight">{result.booking.state === "FOR_REVIEW" ? "Review request" : ownerActionTitle(result.booking.state)}</h1>
             <a className="button-primary mt-5" href="#current-owner-action">{result.booking.state === "FOR_REVIEW" ? "Review request" : "View current action"}</a></div>
             <dl className="border-t border-stone-200 bg-[#edf5ff] p-6 lg:border-l lg:border-t-0 sm:p-8"><DetailValue label="Pickup" value={formatManilaDateTime(result.booking.pickupAt)} /><DetailValue label="Return" value={formatManilaDateTime(result.booking.returnAt)} /></dl>
           </section>
           <article className="surface mt-6 p-6 sm:p-8" id="current-owner-action">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="eyebrow">Booking record</p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+                <h1 className="text-3xl font-semibold tracking-tight">
                   {result.booking.camera?.name ?? "Camera unavailable"}
                 </h1>
-                <p className="mt-2 break-all text-xs text-stone-500">
-                  Booking {result.booking.id}
-                </p>
               </div>
               <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">
                 {result.booking.state}
@@ -137,19 +132,15 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                 value={result.booking.profile?.phone ?? "Unavailable"}
               />
               <DetailValue
-                label="Profile status"
-                value={result.booking.profile?.accountStatus ?? "Unavailable"}
-              />
-              <DetailValue
-                label="Pickup (Asia/Manila)"
+                label="Pickup"
                 value={formatManilaDateTime(result.booking.pickupAt)}
               />
               <DetailValue
-                label="Return (Asia/Manila)"
+                label="Return"
                 value={formatManilaDateTime(result.booking.returnAt)}
               />
               <DetailValue
-                label="Requested (Asia/Manila)"
+                label="Requested"
                 value={formatManilaDateTime(result.booking.requestedAt)}
               />
               <DetailValue
@@ -200,12 +191,11 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
 
             <section className="mt-7 border-t border-stone-200 pt-6">
               <h2 className="text-xl font-semibold">
-                Availability for requested interval
+                Availability
               </h2>
               {result.booking.availability.length === 0 ? (
                 <p className="mt-3 text-stone-600">
-                  No conflicting sanitized availability period overlaps this
-                  request.
+                  No conflicts.
                 </p>
               ) : (
                 <ul className="mt-4 space-y-3">
@@ -229,12 +219,8 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                 {result.booking.quote ? (
                   <section className="mt-7 border-t border-stone-200 pt-6">
                     <h2 className="text-xl font-semibold">
-                      Current authoritative estimate
+                      Price
                     </h2>
-                    <p className="mt-2 text-sm leading-6 text-stone-600">
-                      This is advisory. Approval recalculates from stored booking
-                      instants and current camera rates.
-                    </p>
                     <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       <DetailValue
                         label="Billable days"
@@ -260,10 +246,6 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                         label="Total due"
                         value={phpFormatter.format(result.booking.quote.totalDue)}
                       />
-                      <DetailValue
-                        label="Currency"
-                        value={result.booking.quote.currency}
-                      />
                     </dl>
                   </section>
                 ) : null}
@@ -277,12 +259,8 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               result.booking.approval ? (
               <section className="mt-7 border-t border-stone-200 pt-6">
                 <h2 className="text-xl font-semibold">
-                  Persisted approval result
+                  Approval
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-emerald-900">
-                  The booking is contract-pending. These are immutable stored
-                  pricing snapshots and the safe contract-version reference.
-                </p>
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <DetailValue
                     label="Approved (Asia/Manila)"
@@ -322,19 +300,11 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                     label="Currency"
                     value={result.booking.approval.currency}
                   />
-                  <DetailValue
-                    label="Current contract version"
-                    value={result.booking.approval.currentContractVersionId}
-                  />
-                  <DetailValue
-                    label="Contract reference"
-                    value={`Version ${result.booking.approval.contractReference.versionNo} · ${result.booking.approval.contractReference.status} · issued ${formatManilaDateTime(result.booking.approval.contractReference.issuedAt)}`}
-                  />
                 </dl>
               </section>
             ) : result.booking.state === "REJECTED" && result.booking.rejection ? (
               <section className="mt-7 border-t border-stone-200 pt-6">
-                <h2 className="text-xl font-semibold">Persisted rejection result</h2>
+                <h2 className="text-xl font-semibold">Rejection</h2>
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                   <DetailValue
                     label="Reason"
@@ -353,12 +323,8 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
                 className="mt-7 border-t border-stone-200 pt-6"
                 role="status"
               >
-                <h2 className="text-xl font-semibold">Current persisted state</h2>
-                <p className="mt-2 leading-7 text-stone-600">
-                  This booking is no longer awaiting review. Decision controls
-                  are unavailable; use the displayed persisted state as the
-                  current outcome.
-                </p>
+                <h2 className="text-xl font-semibold">Status</h2>
+                <p className="mt-2 text-stone-600">No decision is needed.</p>
               </section>
             )}
 
@@ -452,13 +418,6 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
               </p>
             ) : null}
 
-            <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-              Verification decisions/uploads, private document reads, contract
-              renter signing, paid-cancellation acceptance, and public launch
-              remain subject to their separate approvals. Pickup and return
-              controls never authorize Production ID collection or paid public
-              launch.
-            </section>
           </article>
           </>
         )}

@@ -42,17 +42,13 @@ export function RenterResolutionStatus({
       className="mt-7 border-t border-stone-200 pt-6"
     >
       <h2 className="text-lg font-semibold" id="resolution-status-heading">
-        Return, cancellation, and deposit outcome
+        Cancellation &amp; return
       </h2>
 
       {resolution.can_request_cancellation ? (
         <form action={cancellationAction} className="mt-4 space-y-3 rounded-xl border border-stone-200 p-4">
           <input name="bookingId" type="hidden" value={resolution.booking_id} />
           <input name="operationId" type="hidden" value={operationId} />
-          <p className="text-sm leading-6 text-stone-600">
-            A request does not cancel or rewrite your booking. An administrator
-            must recheck the current state and record an explicit outcome.
-          </p>
           <label className="block text-sm font-medium" htmlFor="cancellation-request-reason">
             Why are you requesting cancellation?
           </label>
@@ -71,7 +67,7 @@ export function RenterResolutionStatus({
             disabled={cancellationPending}
             type="submit"
           >
-            {cancellationPending ? "Submitting request…" : "Request cancellation review"}
+            {cancellationPending ? "Submitting…" : "Request cancellation"}
           </button>
         </form>
       ) : null}
@@ -105,20 +101,20 @@ export function RenterResolutionStatus({
               <Value label="Refund liability" value={phpFormatter.format(resolution.cancellation.decision.refund_liability_amount)} />
             </dl>
           ) : (
-            <p className="mt-3 text-sm text-stone-600">Pending administrator review; the booking state remains authoritative.</p>
+            <p className="mt-3 text-sm text-stone-600">Pending review.</p>
           )}
         </div>
       ) : null}
 
       {resolution.return_inspection ? (
         <div className="mt-5 rounded-xl border border-stone-200 p-4">
-          <h3 className="font-semibold">Persisted return facts</h3>
+          <h3 className="font-semibold">Return</h3>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             <Value label="Actual return" value={formatManilaDateTime(resolution.return_inspection.actual_at)} />
             <Value label="Expected return" value={formatManilaDateTime(resolution.return_inspection.expected_return_at)} />
-            <Value label="Late fact" value={resolution.return_inspection.late_return ? "Yes" : "No"} />
-            <Value label="Camera damage recorded" value={resolution.return_inspection.camera_has_damage ? "Yes" : "No"} />
-            <Value label="Missing item recorded" value={resolution.return_inspection.has_missing_items ? "Yes" : "No"} />
+            <Value label="Late" value={resolution.return_inspection.late_return ? "Yes" : "No"} />
+            <Value label="Camera damage" value={resolution.return_inspection.camera_has_damage ? "Yes" : "No"} />
+            <Value label="Missing items" value={resolution.return_inspection.has_missing_items ? "Yes" : "No"} />
           </dl>
           <ul className="mt-3 space-y-2 text-sm">
             {resolution.return_inspection.accessories.map((accessory) => (
@@ -154,7 +150,7 @@ export function RenterResolutionStatus({
 
       {resolution.issue_decision ? (
         <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <h3 className="font-semibold">Final issue outcome</h3>
+          <h3 className="font-semibold">Issue outcome</h3>
           <p className="mt-2 text-sm leading-6">{resolution.issue_decision.customer_explanation}</p>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             <Value label="Decision kind" value={resolution.issue_decision.decision_kind} />
@@ -165,8 +161,7 @@ export function RenterResolutionStatus({
 
       {resolution.deposit.held_amount > 0 ? (
         <div className="mt-5 rounded-xl border border-stone-200 p-4">
-          <h3 className="font-semibold">Security-deposit outcome</h3>
-          <p className="mt-2 text-sm text-stone-600">The deposit is tracked as a refundable liability, never rental revenue.</p>
+          <h3 className="font-semibold">Deposit</h3>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             <Value label="Verified deposit held" value={phpFormatter.format(resolution.deposit.held_amount)} />
             <Value label="Approved deduction" value={phpFormatter.format(resolution.deposit.deduction_amount)} />
