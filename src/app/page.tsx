@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { phpFormatter } from "@/features/bookings/currency";
 
 import { CameraPhoto } from "@/features/bookings/components/camera-photo";
 import { SiteHeader } from "@/features/bookings/components/site-header";
@@ -9,7 +10,6 @@ import { loadCatalog, publicCatalogPresentation, publicServiceAreaPresentation }
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { description: "Browse CamNook’s real published camera rental catalog.", title: "Camera rentals | CamNook" };
 
-const phpFormatter = new Intl.NumberFormat("en-PH", { currency: "PHP", maximumFractionDigits: 0, style: "currency" });
 
 export default async function Home() {
   const presentation = publicCatalogPresentation(await loadCatalog());

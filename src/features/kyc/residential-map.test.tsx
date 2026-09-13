@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,36 @@ afterEach(() => {
 });
 
 describe("ResidentialMap fallbacks", () => {
+  it("removes earlier suggestions when the query changes and the next lookup fails", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ suggestions: [{ label: "Old Cebu result", latitude: 10.31, longitude: 123.89 }] })))
+      .mockRejectedValueOnce(new Error("temporary failure")));
+    render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={vi.fn()} />);
+    const query = screen.getByLabelText("Search a Philippine address");
+    await userEvent.type(query, "Cebu");
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
+    await screen.findByRole("button", { name: "Old Cebu result" });
+    await userEvent.clear(query);
+    await userEvent.type(query, "Mandaue");
+    expect(screen.queryByRole("button", { name: "Old Cebu result" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
+    await screen.findByText(/Address search is unavailable/);
+    expect(screen.queryByRole("list", { name: "Address search results" })).toBeNull();
+  });
+
+  it("ignores a search response that arrives after the user edits its query", async () => {
+    let finish!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; })));
+    render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={vi.fn()} />);
+    const query = screen.getByLabelText("Search a Philippine address");
+    await userEvent.type(query, "Cebu");
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
+    await userEvent.clear(query);
+    await act(async () => finish(new Response(JSON.stringify({ suggestions: [{ label: "Late Cebu result", latitude: 10.31, longitude: 123.89 }] }))));
+    expect(screen.queryByRole("button", { name: "Late Cebu result" })).toBeNull();
+    expect(screen.queryByText("Choose a result below.")).toBeNull();
+  });
+
   it("requests geolocation only after the explicit action and retains accuracy", async () => {
     const onDraftChange = vi.fn();
     const getCurrentPosition = vi.fn((success: PositionCallback) => success({
@@ -61,6 +91,31 @@ describe("ResidentialMap fallbacks", () => {
       source: "map_pin",
     }));
     expect(screen.getByText("Coordinates selected. Confirm the pin below.")).toBeTruthy();
+  });
+
+  it("places coordinates with Enter without submitting the enclosing profile", async () => {
+    const onDraftChange = vi.fn();
+    const submit = vi.fn();
+    render(<form onSubmit={(event) => { event.preventDefault(); submit(); }}>
+      <ResidentialMap initialPin={null} mapKey="" onDraftChange={onDraftChange} />
+      <button type="submit">Save profile</button>
+    </form>);
+    for (const label of ["Latitude", "Longitude"]) {
+      await userEvent.click(screen.getByLabelText(label));
+      await userEvent.keyboard("{Enter}");
+    }
+    expect(submit).not.toHaveBeenCalled();
+    expect(onDraftChange).toHaveBeenCalledTimes(2);
+    expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      latitude: 10.3157, longitude: 123.8854, source: "map_pin",
+    }));
+    await userEvent.clear(screen.getByLabelText("Latitude"));
+    await userEvent.type(screen.getByLabelText("Latitude"), "99{Enter}");
+    expect(screen.getByText("Enter valid Philippine coordinates.")).toBeTruthy();
+    expect(onDraftChange).toHaveBeenCalledTimes(2);
+    expect(submit).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Save profile" }));
+    expect(submit).toHaveBeenCalledOnce();
   });
 
   it("selects a bounded search suggestion without changing written fields", async () => {

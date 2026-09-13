@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import {
@@ -28,6 +28,7 @@ export function RenterResolutionStatus({
   operationId: string;
   resolution: MyResolutionState;
 }) {
+  const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationState, cancellationAction, cancellationPending] =
     useActionState(requestCancellation, initialState);
   const [accessState, accessAction, accessPending] = useActionState(
@@ -61,6 +62,8 @@ export function RenterResolutionStatus({
             maxLength={1000}
             minLength={2}
             name="reason"
+            onChange={(event) => setCancellationReason(event.target.value)}
+            value={cancellationReason}
             required
           />
           <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect, useRef } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 
@@ -27,7 +27,7 @@ function actionErrorMessage(error: PaymentActionState["error"]) {
     case "invalid":
       return "Check the payment fields and proof file, then try again.";
     case "proof_failed":
-      return "The payment details were accepted, but the proof was not saved. Use the proof form below to retry; do not submit the transfer again.";
+      return "The payment details were accepted, but the proof was not saved. Use the proof form to retry; do not submit the transfer again.";
     case "recipient_unavailable":
       return "Payment instructions or the current signed contract are unavailable. No payment details were accepted.";
     case "stale":
@@ -81,6 +81,16 @@ export function PaymentPanel({
     initialState,
   );
   const resultRef = useRef<HTMLDivElement>(null);
+  const proofFormRef = useRef<HTMLFormElement>(null);
+  const submitFormRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (submitState.status === "success") submitFormRef.current?.reset();
+  }, [submitState]);
+
+  useEffect(() => {
+    if (proofState.status === "success") proofFormRef.current?.reset();
+  }, [proofState]);
 
   useEffect(() => {
     if (submitState.status !== "idle" || proofState.status !== "idle") {
@@ -165,7 +175,12 @@ export function PaymentPanel({
       ) : null}
 
       {payment.can_submit && payment.instructions ? (
-        <form action={submitAction} className="mt-5 space-y-4">
+        <form ref={submitFormRef} onSubmit={(event) => {
+          event.preventDefault();
+          if (submitPending) return;
+          const formData = new FormData(event.currentTarget);
+          startTransition(() => submitAction(formData));
+        }} className="mt-5 space-y-4">
           <input name="attemptId" type="hidden" value={attemptId} />
           <input name="bookingId" type="hidden" value={payment.booking_id} />
           <div>
@@ -197,7 +212,12 @@ export function PaymentPanel({
       ) : null}
 
       {transaction?.status === "submitted" ? (
-        <form action={proofAction} className="mt-5 space-y-4 rounded-xl border border-stone-200 p-5">
+        <form ref={proofFormRef} onSubmit={(event) => {
+          event.preventDefault();
+          if (proofPending) return;
+          const formData = new FormData(event.currentTarget);
+          startTransition(() => proofAction(formData));
+        }} className="mt-5 space-y-4 rounded-xl border border-stone-200 p-5">
           <input name="bookingId" type="hidden" value={payment.booking_id} />
           <input name="transactionId" type="hidden" value={transaction.id} />
           <h3 className="font-semibold">

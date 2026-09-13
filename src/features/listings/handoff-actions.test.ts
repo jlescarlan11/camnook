@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/auth/require-admin", () => ({
   isAdminAuthorizationError: (error: unknown) =>
     Boolean(
@@ -20,6 +21,7 @@ vi.mock("@/lib/auth/require-user", () => ({ requireUser: vi.fn() }));
 vi.mock("../meetups/provider-budget", () => ({ claimGeoapifyProviderBudget: vi.fn() }));
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { requireUser } from "@/lib/auth/require-user";
@@ -465,6 +467,18 @@ describe("camera handoff city and policy actions", () => {
       }),
     );
     expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
+  it("continues to preview only after successfully saving availability", async () => {
+    const data = validSaveFields();
+    data.set("intent", "continue");
+    authorize({ replace: { data: null, error: { code: "XX000" } } });
+    expect((await saveCameraHandoffPolicy({ status: "idle" }, data)).status).toBe("error");
+    expect(redirect).not.toHaveBeenCalled();
+    const api = authorize();
+    await saveCameraHandoffPolicy({ status: "idle" }, data);
+    expect(api.rpc).toHaveBeenCalledWith("replace_camera_handoff_policy", expect.any(Object));
+    expect(redirect).toHaveBeenCalledWith(`/admin/cameras/${CAMERA_ID}?step=preview`);
   });
 
   it("rejects a legacy city replacement when the camera already has a canonical origin", async () => {

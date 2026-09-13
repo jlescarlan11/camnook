@@ -12,6 +12,7 @@ export type ApprovalReadinessReason =
   | "availability_overlap"
   | "camera_unavailable"
   | "profile_inactive"
+  | "pickup_passed"
   | "quote_unavailable"
   | "template_invalid"
   | "template_unavailable";
@@ -82,7 +83,9 @@ export function assessApprovalReadiness(input: ApprovalReadinessInput) {
     reasons.push("template_invalid");
   }
 
-  if (!input.quote) reasons.push("quote_unavailable");
+  if (Date.parse(input.booking.pickupAt) <= input.now.getTime()) {
+    reasons.push("pickup_passed");
+  } else if (!input.quote) reasons.push("quote_unavailable");
 
   if (
     input.availability.some((period) =>

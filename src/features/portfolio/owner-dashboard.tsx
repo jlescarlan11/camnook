@@ -61,18 +61,22 @@ export function OwnerOperationsPanel({
           aria-label="Operations queue summary"
           className="mt-5 grid gap-3 sm:grid-cols-3"
         >
-          {requiredQueueLinks.map(([key, label]) => (
-            <a
-              className="surface p-4 transition hover:border-[#6da8e8]"
-              href={mode === "overview" ? "/admin/bookings" : `#queue-${key}`}
-              key={key}
-            >
+          {requiredQueueLinks.map(([key, label]) => {
+            const count = dashboard.queue_counts[key];
+            const content = <>
               <span className="block text-2xl font-semibold">
-                {dashboard.queue_counts[key]}
+                {count}
               </span>
               <span className="mt-1 block text-sm text-stone-600">{label}</span>
-            </a>
-          ))}
+            </>;
+            return count > 0 ? (
+              <a
+                className="surface p-4 transition hover:border-[#6da8e8]"
+                href={`${mode === "overview" ? "/admin/bookings" : ""}#queue-${key}`}
+                key={key}
+              >{content}</a>
+            ) : <div className="surface p-4" key={key}>{content}</div>;
+          })}
         </nav>
       </section>
 

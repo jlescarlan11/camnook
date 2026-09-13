@@ -29,6 +29,7 @@ export function OtpForm({
     resendEmailOtp,
     initialAuthFormState,
   );
+  const [token, setToken] = useState("");
   const captchaRef = useRef<CaptchaChallengeHandle>(null);
   const [captchaReady, setCaptchaReady] = useState(!captchaSiteKey);
 
@@ -60,6 +61,8 @@ export function OtpForm({
             maxLength={6}
             minLength={6}
             name="token"
+            onChange={(event) => setToken(event.target.value)}
+            value={token}
             pattern="[0-9]{6}"
             placeholder="000000"
             required

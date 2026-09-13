@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import type { KycProfile } from "./types";
 
@@ -38,6 +38,12 @@ export function ResidentialPinPicker({
   const [draft, setDraft] = useState<DraftPin | null>(initial);
   const [operation, setOperation] = useState<"keep" | "remove" | "set">("keep");
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const editorId = useId();
+  function closeEditor() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
 
   const needsConfirmation = Boolean(addressChanged && initialPin && operation === "keep");
 
@@ -67,6 +73,9 @@ export function ResidentialPinPicker({
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium"
+          ref={trigger}
+          aria-expanded={open}
+          aria-controls={open ? editorId : undefined}
           onClick={() => { setDraft(selected); setOpen(true); }}
           type="button"
         >
@@ -75,14 +84,14 @@ export function ResidentialPinPicker({
         {selected && operation !== "remove" ? (
           <button
             className="min-h-11 rounded-xl px-4 py-2 font-medium text-red-800 underline"
-            onClick={() => { setSelected(null); setDraft(null); setOperation("remove"); setOpen(false); }}
+            onClick={() => { setSelected(null); setDraft(null); setOperation("remove"); closeEditor(); }}
             type="button"
           >Remove map pin</button>
         ) : null}
       </div>
 
       {open ? (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-3" id={editorId}>
           <ResidentialMap
             initialPin={draft}
             mapKey={process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY ?? ""}
@@ -96,13 +105,13 @@ export function ResidentialPinPicker({
                 if (!draft) return;
                 setSelected(draft);
                 setOperation("set");
-                setOpen(false);
+                closeEditor();
               }}
               type="button"
             >Confirm this pin</button>
             <button
               className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium"
-              onClick={() => { setDraft(selected); setOpen(false); }}
+              onClick={() => { setDraft(selected); closeEditor(); }}
               type="button"
             >Cancel</button>
           </div>

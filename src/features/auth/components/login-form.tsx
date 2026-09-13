@@ -23,6 +23,7 @@ export function LoginForm({
   );
   const captchaRef = useRef<CaptchaChallengeHandle>(null);
   const [captchaReady, setCaptchaReady] = useState(!captchaSiteKey);
+  const [email, setEmail] = useState("");
 
   function submit(formData: FormData) {
     formAction(formData);
@@ -51,9 +52,11 @@ export function LoginForm({
           inputMode="email"
           maxLength={254}
           name="email"
+          onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
           required
           type="email"
+          value={email}
         />
         {state.fieldErrors?.email ? (
           <p className="mt-2 text-sm text-red-700" id="email-error" role="alert">

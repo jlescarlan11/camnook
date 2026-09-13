@@ -77,10 +77,14 @@ export function PsgcAreaSelector({
   const [levels, setLevels] = useState<Array<{ choices: PsgcChoice[]; selected: string }>>([]);
   const [release, setRelease] = useState<string | null>(null);
   const [status, setStatus] = useState<"error" | "loading" | "ready">("loading");
+  const [initialAttempt, setInitialAttempt] = useState(0);
+  const retrySelection = useRef<{ levelIndex: number; code: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function loadInitial() {
+      retrySelection.current = null;
+      setStatus("loading");
       try {
         const loaded: Array<{ choices: PsgcChoice[]; selected: string }> = [];
         let parent: string | null = null;
@@ -143,9 +147,10 @@ export function PsgcAreaSelector({
     }
     void loadInitial();
     return () => { cancelled = true; };
-  }, [initialPath]);
+  }, [initialPath, initialAttempt]);
 
   async function select(levelIndex: number, code: string) {
+    retrySelection.current = { levelIndex, code };
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -250,8 +255,21 @@ export function PsgcAreaSelector({
         );
       })}
       <p aria-live="polite" className="text-sm text-stone-600" id={`${id}-status`} role={status === "error" ? "alert" : "status"}>
-        {status === "loading" ? "Loading valid areas…" : status === "error" ? "Area choices could not be loaded. Retry by reloading this page." : selectedCode ? "Barangay selected." : "Choose a region, province or area, city or municipality, and barangay."}
+        {status === "loading" ? "Loading valid areas…" : status === "error" ? "Area choices could not be loaded. Retry to continue with your address." : selectedCode ? "Barangay selected." : "Choose a region, province or area, city or municipality, and barangay."}
       </p>
+      {status === "error" ? (
+        <button
+          className="button-secondary"
+          onClick={() => {
+            const selection = retrySelection.current;
+            if (selection) void select(selection.levelIndex, selection.code);
+            else setInitialAttempt((attempt) => attempt + 1);
+          }}
+          type="button"
+        >
+          Retry area lookup
+        </button>
+      ) : null}
     </fieldset>
   );
 }

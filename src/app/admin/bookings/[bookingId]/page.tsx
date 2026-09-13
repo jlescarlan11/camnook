@@ -1,3 +1,4 @@
+import { BookingBackLink } from "@/features/bookings/admin/booking-back-link";
 import { randomUUID } from "node:crypto";
 
 import type { Metadata } from "next";
@@ -7,7 +8,7 @@ import { z } from "zod";
 
 import { DecisionControls } from "@/features/bookings/admin/decision-controls";
 import { loadAdminBookingPageContext } from "@/features/bookings/admin/data";
-import type { ApprovalReadinessReason } from "@/features/bookings/admin/readiness";
+import { ApprovalReadinessPanel } from "@/features/bookings/admin/approval-readiness-panel";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { PersistedIntendedUse } from "@/features/bookings/components/persisted-intended-use";
 import {
@@ -32,17 +33,7 @@ const phpFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
 });
 
-const readinessMessages: Record<ApprovalReadinessReason, string> = {
-  availability_overlap:
-    "The requested period overlaps current sanitized availability.",
-  camera_unavailable:
-    "The camera is not published and active with complete pricing.",
-  profile_inactive: "The renter profile is not active.",
-  quote_unavailable: "The authoritative quote could not be obtained.",
-  template_invalid:
-    "The active contract template is missing required terms.",
-  template_unavailable: "No active approved contract template is available.",
-};
+
 
 type AdminBookingPageProps = {
   params: Promise<{ bookingId: string }>;
@@ -87,12 +78,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
     <div className="min-h-screen bg-stone-50 text-stone-950">
       <SiteHeader />
       <main className="page-shell py-8 sm:py-12">
-        <Link
-          className="inline-flex min-h-11 items-center font-medium text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4"
-          href="/admin"
-        >
-          Back to bookings
-        </Link>
+        <BookingBackLink />
 
         {result.status === "error" || result.status === "inconsistent" ? (
           <section
@@ -238,36 +224,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
 
             {result.booking.state === "FOR_REVIEW" ? (
               <>
-                <section
-                  className="mt-7 border-t border-stone-200 pt-6"
-                  aria-labelledby="readiness-heading"
-                >
-                  <h2 className="text-xl font-semibold" id="readiness-heading">
-                    Approval readiness
-                  </h2>
-                  <p
-                    className={`mt-4 rounded-xl border p-4 text-sm leading-6 ${
-                      result.booking.readiness.ready
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                        : "border-red-200 bg-red-50 text-red-900"
-                    }`}
-                    role="status"
-                  >
-                    {result.booking.readiness.ready
-                      ? "Advisory checks pass. The approval RPC will recheck every condition atomically."
-                      : "Approval is blocked in the interface. Review the unmet conditions below."}
-                  </p>
-                  {result.booking.readiness.reasons.length > 0 ? (
-                    <ul className="mt-4 list-disc space-y-2 pl-6 text-sm text-red-900">
-                      {result.booking.readiness.reasons.map((reason) => (
-                        <li key={reason}>
-                          {readinessMessages[reason]}{" "}
-                          {reason === "template_invalid" || reason === "template_unavailable" ? <Link className="font-semibold underline" href={`/admin/settings#contracts`}>Fix contract template</Link> : reason === "camera_unavailable" ? <Link className="font-semibold underline" href="/admin/settings#handoffs">Fix camera handoff policy</Link> : reason === "quote_unavailable" ? <Link className="font-semibold underline" href={`/admin/bookings/${result.booking.id}`}>Retry readiness check</Link> : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </section>
+                <ApprovalReadinessPanel bookingId={result.booking.id} readiness={result.booking.readiness} />
 
                 {result.booking.quote ? (
                   <section className="mt-7 border-t border-stone-200 pt-6">

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import {
@@ -642,5 +643,6 @@ export async function saveCameraHandoffPolicy(
   revalidatePath(`/admin/cameras/${base.data.cameraId}/handoff`);
   revalidatePath("/");
 
+  if (value(formData, "intent") === "continue") redirect(`/admin/cameras/${base.data.cameraId}?step=preview`);
   return { cityLabel: savedCityLabel, status: "success", version };
 }

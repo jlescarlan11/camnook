@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { parseCameraAccessories } from "./camera-accessories";
 
 export type CameraActionState = { error?: string; status: "idle" | "error" | "success" };
 
@@ -15,7 +16,8 @@ function text(formData: FormData, name: string) {
 }
 
 function cameraInput(formData: FormData) {
-  const accessories = text(formData, "included").split(/\n|,/).map((name) => name.trim()).filter(Boolean).map((name) => ({ name, quantity: 1 }));
+  const accessories = parseCameraAccessories(text(formData, "included"));
+  if (!accessories) return null;
   return z.object({
     description: z.string().min(2).max(2000),
     dailyRate: z.coerce.number().nonnegative(),
@@ -37,7 +39,7 @@ function cameraInput(formData: FormData) {
 
 export async function createCameraDraft(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const input = cameraInput(formData);
-  if (!input) return { error: "Check the camera name, description, price, and deposit.", status: "error" };
+  if (!input) return { error: "Check the camera name, description, price, deposit, and included items. Use a positive whole-number quantity and list each item only once.", status: "error" };
   const context = await requireAdmin();
   const result = await context.supabase.schema("api").rpc("save_camera_draft", { p_input: input });
   if (result.error || typeof result.data !== "string") return { error: "The camera draft could not be created.", status: "error" };
@@ -48,12 +50,13 @@ export async function createCameraDraft(_state: CameraActionState, formData: For
 export async function updateCameraDraft(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const input = cameraInput(formData);
   const id = z.uuid().safeParse(text(formData, "cameraId"));
-  if (!input || !id.success) return { error: "Check the camera details.", status: "error" };
+  if (!input || !id.success) return { error: "Check the camera details and included items. Use a positive whole-number quantity and list each item only once.", status: "error" };
   const context = await requireAdmin();
   const result = await context.supabase.schema("api").rpc("save_camera_draft", { p_input: { ...input, id: id.data } });
   if (result.error) return { error: "The camera details could not be saved.", status: "error" };
   revalidatePath("/admin/cameras");
   revalidatePath(`/admin/cameras/${id.data}`);
+  if (text(formData, "intent") === "continue") redirect(`/admin/cameras/${id.data}?step=availability`);
   return { status: "success" };
 }
 
@@ -149,13 +152,16 @@ export async function publishCamera(_state: CameraActionState, formData: FormDat
   return { status: "success" };
 }
 
-export async function unpublishCamera(formData: FormData) {
+export async function unpublishCamera(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const cameraId = z.uuid().safeParse(text(formData, "cameraId"));
-  if (!cameraId.success) return;
+  if (!cameraId.success) return { status: "error", error: "Camera not found." };
   const context = await requireAdmin();
-  await context.supabase.schema("api").rpc("unpublish_camera", { p_camera_id: cameraId.data });
+  const result = await context.supabase.schema("api").rpc("unpublish_camera", { p_camera_id: cameraId.data });
+  if (result.error) return { status: "error", error: "The camera could not be unpublished. Please try again." };
   revalidatePath("/");
   revalidatePath("/admin/cameras");
+  revalidatePath(`/admin/cameras/${cameraId.data}`);
+  return { status: "success" };
 }
 
 export async function blockCameraDates(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
@@ -174,5 +180,16 @@ export async function blockCameraDates(_state: CameraActionState, formData: Form
   });
   if (result.error) return { error: "Those dates overlap another unavailable period.", status: "error" };
   revalidatePath(`/admin/cameras/${cameraId.data}`);
+  return { status: "success" };
+}
+
+export async function removeCameraBlock(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
+  const input = z.object({ blockId: z.uuid(), cameraId: z.uuid() }).safeParse({ blockId: text(formData, "blockId"), cameraId: text(formData, "cameraId") });
+  if (!input.success) return { status: "error", error: "This blocked range could not be identified. Reload and try again." };
+  const context = await requireAdmin();
+  const result = await context.supabase.schema("api").rpc("release_manual_block", { p_block_id: input.data.blockId });
+  if (result.error) return { status: "error", error: "The block could not be removed. Please retry or reload the current blocked dates." };
+  revalidatePath(`/admin/cameras/${input.data.cameraId}`);
+  revalidatePath("/");
   return { status: "success" };
 }

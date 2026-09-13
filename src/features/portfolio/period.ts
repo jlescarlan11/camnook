@@ -61,7 +61,13 @@ export function resolvePortfolioPeriod(
   const start = isoDateSchema.safeParse(rawStart);
   const end = isoDateSchema.safeParse(rawEnd);
   if (!start.success || !end.success || end.data <= start.data) {
-    return { period: defaults, status: "invalid" } as const;
+    return {
+      period: {
+        startDate: start.success ? start.data : "",
+        endDateExclusive: end.success ? end.data : "",
+      },
+      status: "invalid",
+    } as const;
   }
 
   return {

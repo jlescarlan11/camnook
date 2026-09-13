@@ -43,6 +43,19 @@ function readyInput(): ApprovalReadinessInput {
 }
 
 describe("admin approval readiness", () => {
+  it.each(["2026-08-20T01:00:00.000Z", "2026-08-21T01:00:00.000Z"])("explains a passed pickup at %s instead of suggesting a quote retry", (now) => {
+    const input = readyInput();
+    input.now = new Date(now);
+    input.quote = null;
+    expect(assessApprovalReadiness(input)).toEqual({ ready: false, reasons: ["pickup_passed"] });
+  });
+
+  it("blocks a passed pickup even when a previously obtained quote is present", () => {
+    const input = readyInput();
+    input.now = new Date("2026-08-21T01:00:00.000Z");
+    expect(assessApprovalReadiness(input)).toEqual({ ready: false, reasons: ["pickup_passed"] });
+  });
+
   it("passes without an online identity-verification precondition", () => {
     expect(assessApprovalReadiness(readyInput())).toEqual({
       ready: true,
