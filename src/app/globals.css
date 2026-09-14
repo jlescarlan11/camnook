@@ -225,3 +225,57 @@ body {
 .kit-info-content p { margin-top: 6px; }
 
 .kit-info-content .kit-info-pickup { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+
+/* Camera detail: a quiet gallery and a compact rental form. */
+.camera-detail-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: center; gap: clamp(32px, 5vw, 80px); min-height: calc(100svh - 200px); padding: 36px 0 72px; }
+.camera-detail-booking { min-width: 0; }
+.camera-detail-title { position: relative; display: flex; align-items: center; gap: 2px; }
+.camera-detail-title h1 { font-size: clamp(28px, 3vw, 44px); font-weight: 650; line-height: 1.12; letter-spacing: -.045em; }
+.camera-detail-price { margin-top: 18px; color: var(--ink-muted); font-size: 16px; line-height: 1.8; }
+.camera-detail-price span { display: inline-block; }
+.camera-detail-title .kit-info-tooltip { top: 100%; bottom: auto; padding: 8px 0 0; }
+.camera-gallery { min-width: 0; }
+.camera-gallery-main { display: block; width: 100%; cursor: zoom-in; border-radius: 12px; }
+.camera-thumbnails { display: flex; justify-content: center; flex-wrap: wrap; gap: 16px; margin-top: 28px; }
+.camera-thumbnails li { width: clamp(72px, 9vw, 132px); }
+.camera-thumbnails button { width: 100%; padding: 5px; border: 1px solid var(--line); border-radius: 7px; cursor: zoom-in; overflow: hidden; }
+.camera-thumbnails button[aria-pressed="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.compact-schedule { margin-top: 44px; }
+.rental-date-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.rental-date-trigger { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; margin-top: 10px; padding: 10px 12px; border: 1px solid #b9c6d6; border-radius: 8px; text-align: left; color: var(--ink-muted); font-size: 14px; cursor: pointer; }
+.rental-date-trigger span { flex: 1; }
+.rental-date-trigger svg { flex-shrink: 0; }
+.compact-estimate > p { border: 0; padding: 0; margin-top: 20px; font-size: 13px; }
+.camera-lightbox, .rental-calendar-dialog { border: 0; padding: 0; background: transparent; color: var(--ink); margin: auto; max-height: 90svh; }
+.camera-lightbox::backdrop, .rental-calendar-dialog::backdrop { background: rgb(8 29 59 / 38%); }
+.camera-lightbox { width: min(1000px, calc(100vw - 32px)); }
+.camera-lightbox-content, .rental-calendar-content { position: relative; background: white; border-radius: 18px; padding: 48px 24px 24px; }
+.camera-lightbox-content > .relative { max-height: 66svh; }
+.camera-lightbox-controls { display: flex; align-items: center; justify-content: center; gap: 28px; margin-top: 16px; font-size: 14px; }
+.dialog-close { position: absolute; right: 10px; top: 8px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; cursor: pointer; border-radius: 50%; z-index: 1; }
+.dialog-close:hover { background: #f5f5f7; }
+.rental-calendar-dialog { width: min(480px, calc(100vw - 32px)); }
+.rental-calendar-content .min-h-14 { min-height: 44px; }
+body:has(dialog[open]) { overflow: hidden; }
+@media (max-width: 900px) {
+  .camera-detail-layout { grid-template-columns: 1fr; gap: 40px; padding-top: 12px; }
+  .camera-gallery { max-width: 650px; width: 100%; margin-inline: auto; }
+  .camera-detail-booking { max-width: 560px; width: 100%; margin-inline: auto; }
+  .camera-detail-title h1 { font-size: 34px; }
+}
+@media (max-width: 600px) {
+  .camera-detail-layout { gap: 32px; }
+  .camera-thumbnails { gap: 12px; margin-top: 12px; }
+  .camera-detail-title h1 { font-size: 30px; }
+  .camera-detail-price { font-size: 14px; margin-top: 10px; }
+  .compact-schedule { margin-top: 28px; }
+  .rental-date-fields { gap: 10px; }
+  .rental-date-trigger { padding: 10px; gap: 7px; font-size: 13px; }
+  .rental-calendar-dialog { margin: auto 0 0; width: 100%; max-width: 100%; max-height: 92svh; }
+  .rental-calendar-content { border-radius: 20px 20px 0 0; padding: 48px 20px max(24px, env(safe-area-inset-bottom)); }
+}
+.camera-gallery-main { overflow: hidden; }
+.camera-gallery-main img { transform: scale(1.35); }
+.compact-schedule > p { font-size: 16px; }
+.compact-schedule > h2 { font-size: 28px; }
+@media (max-width: 600px) { .compact-schedule > p { font-size: 14px; } .compact-schedule > h2 { font-size: 24px; } }
