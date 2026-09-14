@@ -1,14 +1,29 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+/** @vitest-environment jsdom */
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeAll, expect, it } from "vitest";
 import { CameraPhotoGallery } from "./camera-photo-gallery";
 
-it("exposes every ordered photo without cropping and offers no empty gallery", () => {
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+});
+afterEach(cleanup);
+it("opens the clicked thumbnail, navigates photos, and retains the selected photo after closing", async () => {
   const photos = ["front", "back", "kit"].map((view) => ({ alt: `${view} view`, url: `/${view}.png` }));
-  const html = renderToStaticMarkup(<CameraPhotoGallery name="Test camera" photos={photos} />);
-  expect(html).toContain("View all 3 photos");
-  expect(html.indexOf('alt="front view"')).toBeLessThan(html.indexOf('alt="back view"'));
-  expect(html.indexOf('alt="back view"')).toBeLessThan(html.indexOf('alt="kit view"'));
-  expect(html.match(/class="object-contain"/g)).toHaveLength(3);
-  expect(html).toContain("Photo 3 of 3");
-  expect(renderToStaticMarkup(<CameraPhotoGallery name="Empty" photos={[]} />)).toBe("");
+  render(<CameraPhotoGallery name="Test camera" photos={photos} />);
+  expect(screen.queryByText(/View all/)).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Enlarge photo 2: back view" }));
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByRole("img").getAttribute("alt")).toBe("back view");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Next photo" }));
+  expect(within(dialog).getByRole("img").getAttribute("alt")).toBe("kit view");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Close enlarged photo" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("button", { name: "Enlarge photo 3 of Test camera" })).toBeTruthy();
+});
+it("shows a useful empty photo state", () => {
+  render(<CameraPhotoGallery name="Empty" photos={[]} />);
+  expect(screen.getByText("No photo available for Empty")).toBeTruthy();
 });
