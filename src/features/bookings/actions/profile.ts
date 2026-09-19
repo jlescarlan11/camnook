@@ -62,6 +62,6 @@ export async function saveProfile(
   }
 
   revalidatePath("/account");
-  revalidatePath("/account/bookings/new");
+  revalidatePath("/checkout");
   return { status: "success" };
 }

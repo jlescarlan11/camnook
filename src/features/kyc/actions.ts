@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/auth/require-user";
+import { sanitizeReturnTo } from "@/lib/auth/routes";
 
 import { formatResidentialLine1 } from "./types";
 
@@ -105,7 +106,9 @@ function dateYearsAgo(years: number) {
 }
 
 function safeReturnTo(value: string) {
-  return value.startsWith("/account") && !value.startsWith("//") ? value : "/account";
+  // Account editing intentionally returns to this section; login strips anchors.
+  if (value === "/account#default-address") return value;
+  return sanitizeReturnTo(value);
 }
 
 export async function saveKycProfile(
@@ -230,7 +233,7 @@ export async function saveKycProfile(
   }
 
   revalidatePath("/account");
-  revalidatePath("/account/bookings/new");
+  revalidatePath("/checkout");
   redirect(safeReturnTo(parsed.data.returnTo));
 }
 

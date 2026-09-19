@@ -8,9 +8,9 @@ import type { QuoteActionState } from "./actions/quote-booking";
 
 const quoteErrorMessages = {
   invalid_input: "Correct the highlighted fields and try again.",
-  not_quotable: "This camera or rental period can’t be quoted right now.",
+  not_quotable: "An estimate is unavailable for this camera or rental period.",
   retryable:
-    "We couldn’t get a quote. Your entries are preserved; please retry.",
+    "We couldn’t get an estimate. Your entries are preserved; please retry.",
   schedule_changed:
     "The lender’s handoff schedule changed. Refresh the listing and choose again.",
   unavailable:
@@ -37,11 +37,11 @@ export function scheduleQuoteFormPresentation(
     canContinue: isCurrent && !pending,
     disableQuoteSubmit: pending,
     liveMessage: pending
-      ? "Getting the authoritative quote…"
+      ? "Updating your estimate…"
       : state.error
         ? quoteErrorMessages[state.error]
         : isCurrent
-          ? "Quote ready."
+          ? "Estimate ready."
           : undefined,
     quote: isCurrent ? state.quote! : null,
   };
@@ -63,11 +63,11 @@ export function quoteFormPresentation(
     canContinue: isCurrent && !pending,
     disableQuoteSubmit: pending,
     liveMessage: pending
-      ? "Getting the authoritative quote…"
+      ? "Updating your estimate…"
       : state.error
         ? quoteErrorMessages[state.error]
         : isCurrent
-          ? "Quote ready."
+          ? "Estimate ready."
           : undefined,
     quote: isCurrent ? state.quote! : null,
   };

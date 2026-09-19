@@ -6,10 +6,10 @@ export async function checkScheduleReselection(tab, { pickupLabel, returnLabel }
   await tab.ax.write();
   await tab.playwright.getByRole("button", { name: `${returnLabel}, available`, exact: true }).click();
   await tab.ax.write();
-  const time = tab.playwright.getByRole("combobox", { name: "Choose handoff time", exact: true });
+  const time = tab.playwright.getByRole("combobox", { name: "Handoff time", exact: true });
   await time.selectOption({ label: "9:00 AM" });
   await tab.ax.write();
-  const continuation = tab.playwright.getByRole("link", { name: "Continue to request", exact: true });
+  const continuation = tab.playwright.getByRole("link", { name: "Continue to checkout", exact: true });
   await continuation.waitFor({ state: "visible", timeoutMs: 5000 });
   const originalHref = await continuation.getAttribute("href");
   await tab.playwright.getByRole("button", { name: `${pickupLabel}, selected pickup`, exact: true }).click();

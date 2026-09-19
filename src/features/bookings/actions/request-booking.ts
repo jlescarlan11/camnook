@@ -161,7 +161,7 @@ export async function requestBooking(
         returnDate: values.returnDate,
       },
     );
-    redirect(loginPath(`/account/bookings/new?${query.toString()}`));
+    redirect(loginPath(`/checkout?${query.toString()}`));
   }
 
   const profileResult = await context.supabase.schema("api").rpc("ensure_profile", {

@@ -137,7 +137,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
   return <section className={compact ? "compact-schedule" : "py-9 sm:py-12"} aria-labelledby="schedule-heading">
     <h2 className={compact ? "text-2xl font-semibold tracking-tight" : "page-title"} id="schedule-heading">{compact ? "Plan your rental" : "Choose your dates"}</h2>
     {compact ? <p className="mt-2 text-sm leading-6 text-[#58677d]">Choose your pickup and return dates, then select a handoff time.</p> : null}
-    <span className="sr-only">Choose your schedule. Step 2 of 4.</span>
+    <span className="sr-only">Choose your schedule.</span>
 
     <div className={compact ? "mt-7" : "mt-8 grid gap-10 xl:grid-cols-[minmax(0,1fr)_25rem] xl:gap-12"}>
       <form className="min-w-0" onSubmit={(event) => {
@@ -182,7 +182,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
         </div>
         <details className={`${compact ? "hidden" : ""} mt-5 text-xs leading-5 text-[#58677d]`}><summary className="cursor-pointer font-semibold text-[#0b4f9c]">Calendar key</summary><p className="mt-2">Blue marks your rental. Amber days can be included but not used for handoff. Dimmed dates cannot be selected.</p></details>
         {overlap ? <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" id="overlap-error" role="alert">This range overlaps a currently unavailable period. Choose another range.</p> : null}
-        <button aria-hidden="true" className="sr-only" tabIndex={-1} disabled={!complete || presentation.disableQuoteSubmit} type="submit">Calculate quote</button>
+        <button aria-hidden="true" className="sr-only" tabIndex={-1} disabled={!complete || presentation.disableQuoteSubmit} type="submit">Calculate estimate</button>
       </form>
 
       <aside className={compact ? "compact-estimate" : "border-t border-[#d8e0ea] pt-8 xl:border-l xl:border-t-0 xl:pl-10 xl:pt-0"} aria-labelledby="schedule-summary-heading">
@@ -199,9 +199,9 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
           <h4 className="text-lg font-semibold" id="schedule-quote-heading">Estimate</h4>
           <dl className="mt-3"><QuoteValue label="Billable days" value={`${presentation.quote.billableDays} ${presentation.quote.billableDays === 1 ? "day" : "days"}`} /><QuoteValue label="Rental subtotal" value={phpFormatter.format(presentation.quote.rentalAmount)} /><QuoteValue label="Security deposit" value={phpFormatter.format(presentation.quote.securityDeposit)} /><QuoteValue label="Estimated total" value={phpFormatter.format(presentation.quote.totalDue)} strong /></dl>
           <p className="mt-4 text-xs text-[#754000]">Estimate only—not reserved.</p>
-          {presentation.canContinue ? <Link className="button-primary mt-5 w-full" href={`/account/bookings/new?${requestQuery}`}>{compact ? "Continue" : "Request this camera"}</Link> : null}
+          {presentation.canContinue ? <Link className="button-primary mt-5 w-full" href={`/checkout?${requestQuery}`}>Continue to checkout</Link> : null}
         </section> : <p className="mt-7 border-t border-[#d8e0ea] pt-6 text-sm text-[#58677d]">{compact ? "Choose dates and a time to see your estimate." : "Your estimate appears after you choose dates and a time. It does not reserve the camera."}</p>}
-        {compact && !presentation.canContinue ? <button className="button-primary mt-6 w-full" type="button" disabled>Continue</button> : null}
+        {compact && !presentation.canContinue ? <button className="button-primary mt-6 w-full" type="button" disabled>Continue to checkout</button> : null}
       </aside>
     </div>
   </section>;

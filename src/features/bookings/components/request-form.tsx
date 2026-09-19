@@ -80,6 +80,10 @@ export function RequestForm({
       <input name="policyVersion" type="hidden" value={schedule.policyVersion} />
       <input name="returnDate" type="hidden" value={schedule.returnDate} />
 
+        <ol className="flex gap-5 text-sm font-semibold text-[#0b4f9c]" aria-label="Checkout progress">
+          <li aria-current={!reviewing ? "step" : undefined}>1. Details</li>
+          <li aria-current={reviewing ? "step" : undefined}>2. Review</li>
+        </ol>
         <section aria-labelledby="details-heading" hidden={reviewing}>
           <h2 className="text-2xl font-semibold" id="details-heading" ref={detailsHeadingRef} tabIndex={-1}>Your details</h2>
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -128,18 +132,17 @@ export function RequestForm({
           </div>
           <button className="button-primary mt-7 w-full" onClick={() => {
             if (formRef.current?.reportValidity()) setReviewing(true);
-          }} type="button">Continue to review</button>
+          }} type="button">Review rental request</button>
         </section>
         <section aria-labelledby="review-heading" hidden={!reviewing}>
-          <p className="text-sm font-semibold text-[#0b4f9c]">Step 4 of 4</p>
           <h2 className="mt-2 text-2xl font-semibold" id="review-heading" ref={reviewHeadingRef} tabIndex={-1}>Review</h2>
           <dl className="mt-6 grid gap-3 sm:grid-cols-2">
             <ReviewValue label="Camera" value={summary.cameraName} />
             <ReviewValue label="Dates" value={summary.dates} />
             <ReviewValue label="Handoff time" value={summary.handoffTime} />
             <ReviewValue label="Rental subtotal" value={summary.rentalAmount} />
-            <ReviewValue label="Deposit" value={summary.securityDeposit} />
-            <ReviewValue label="Total" value={summary.totalDue} />
+            <ReviewValue label="Security deposit" value={summary.securityDeposit} />
+            <ReviewValue label="Estimated total" value={summary.totalDue} />
             <ReviewValue label="Preferred meetup area" value={values.preferredMeetupArea} />
             <ReviewValue label="Name" value={values.legalName} />
             <ReviewValue label="Phone" value={values.phone} />
@@ -152,8 +155,9 @@ export function RequestForm({
               {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "kyc_required" ? <>Your KYC details need attention. <Link className="font-semibold underline" href="/account#default-address">Review your KYC profile</Link>.</> : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? <>We couldn’t confirm the request. <Link className="font-semibold underline" href="/account">Check your bookings</Link> before retrying.</> : "Check your details and try again."}
             </div>
           ) : null}
+          <p className="mt-5 text-sm text-[#754000]">Estimate only—not reserved. Submitting sends a rental request for owner review; no payment is taken here.</p>
           <button className="button-primary mt-6 w-full disabled:opacity-60" disabled={pending} type="submit">
-            {pending ? "Requesting rental…" : "Request rental"}
+            {pending ? "Requesting rental…" : "Submit rental request"}
           </button>
         </section>
     </form>

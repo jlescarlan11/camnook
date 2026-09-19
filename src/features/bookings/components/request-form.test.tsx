@@ -34,7 +34,7 @@ describe("RequestForm", () => {
     expect(markup).toContain('autoComplete="address-level2"');
     expect(markup).toContain('name="legalName"');
     expect(markup).toContain('name="phone"');
-    expect(markup).toContain("Continue to review");
+    expect(markup).toContain("Review rental request");
     expect(markup).not.toContain('name="latitude"');
     expect(markup).not.toContain('name="longitude"');
     expect(markup).not.toContain("Geoapify");

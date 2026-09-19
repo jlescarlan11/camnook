@@ -53,6 +53,10 @@ function snapshot() {
 }
 
 describe("booking request page context", () => {
+  it.each(["40001", "23P01", "22023", "XX000"])("rejects failed current estimates (%s) without exposing private errors", async (code) => {
+    const fixture = bookingRequestClient(null, { code, message: "private database detail" });
+    await expect(loadBookingRequestPageContext(fixture.context, values)).resolves.toEqual({ status: "error" });
+  });
   it("loads the selected camera, profile, and quote through one RPC", async () => {
     const fixture = bookingRequestClient(snapshot());
 

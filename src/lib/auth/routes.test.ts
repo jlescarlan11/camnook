@@ -11,6 +11,7 @@ describe("authentication route policy", () => {
     "/account",
     "/account/bookings",
     "/account/bookings/new",
+    "/checkout",
     "/account/bookings/22222222-2222-4222-8222-222222222222",
     "/admin",
     "/admin/bookings/22222222-2222-4222-8222-222222222222",
@@ -22,7 +23,7 @@ describe("authentication route policy", () => {
     },
   );
 
-  it.each(["/", "/login", "/administrator", "/accounts"])(
+  it.each(["/", "/login", "/administrator", "/accounts", "/checkouts", "/checkout-evil"])(
     "does not overmatch %s",
     (pathname) => {
       expect(isProtectedRoute(pathname)).toBe(false);
@@ -74,6 +75,12 @@ describe("authentication route policy", () => {
     "/login",
     "/administrator",
     "javascript:alert(1)",
+    "/checkouts",
+    "/checkout-evil",
+    "/checkout?bad=%zz",
+    "//camnook.invalid/checkout",
+    "/\\evil.test/checkout",
+    "/checkout\n",
   ])("replaces an unsafe return destination: %s", (candidate) => {
     expect(sanitizeReturnTo(candidate)).toBe("/account");
   });
@@ -82,6 +89,12 @@ describe("authentication route policy", () => {
     expect(loginPath("/admin?tab=payments")).toBe(
       "/login?next=%2Fadmin%3Ftab%3Dpayments",
     );
+  });
+
+  it("preserves the complete checkout schedule through login", () => {
+    const destination = "/checkout?camera=11111111-1111-4111-8111-111111111111&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3";
+    expect(sanitizeReturnTo(destination)).toBe(destination);
+    expect(new URL(loginPath(destination), "https://camnook.test").searchParams.get("next")).toBe(destination);
   });
 
   it("replaces return destinations that would overflow redirect or cookie limits", () => {

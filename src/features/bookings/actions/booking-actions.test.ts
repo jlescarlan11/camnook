@@ -43,6 +43,24 @@ function rpcClient(rpc: ReturnType<typeof vi.fn>) {
 describe("booking actions", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("returns an expired session to checkout with the complete schedule", async () => {
+    vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
+    await expect(requestBooking({ status: "idle" }, fields({}))).rejects.toThrow("redirect:/login?next=%2Fcheckout%3F");
+    expect(createSupabaseAdminClient).not.toHaveBeenCalled();
+  });
+
+  it.each([["40001", "schedule_changed"], ["23P01", "unavailable"], ["55000", "unavailable"]])("rejects stale or unavailable checkout on %s", async (code, error) => {
+    const profileRpc = vi.fn().mockResolvedValue({ data: { account_status: "active" }, error: null });
+    const requestRpc = vi.fn().mockResolvedValue({ data: null, error: { code } });
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({ supabase: rpcClient(profileRpc), user: { id: "renter" } } as never);
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(rpcClient(requestRpc) as never);
+    const result = await requestBooking({ status: "idle" }, fields({ totalDue: "0", renterId: "other" }));
+    expect(result).toMatchObject({ status: "error", error, values: { intendedUse: "Family portraits" } });
+    expect(requestRpc.mock.calls[0][1]).toEqual({
+      p_camera_id: CAMERA_ID, p_expected_location: "Cebu City", p_handoff_time: "09:00", p_intended_use: "Family portraits", p_pickup_date: "2099-08-24", p_policy_version: 3, p_preferred_meetup_area: "IT Park, Cebu City", p_renter_id: "renter", p_return_date: "2099-08-26", p_operation_id: "33333333-3333-4333-8333-333333333333",
+    });
+  });
+
   it("quotes only a complete schedule", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: [{ billable_days: 2, camera_id: CAMERA_ID, currency: "PHP", daily_rate: 750, pickup_at: "2099-08-24T01:00:00Z", rental_amount: 1500, return_at: "2099-08-26T01:00:00Z", security_deposit: 3000, total_due: 4500 }], error: null });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(rpcClient(rpc) as never);

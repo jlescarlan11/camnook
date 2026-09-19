@@ -24,7 +24,7 @@ describe("quote form presentation", () => {
     expect(quoteFormPresentation({ status: "idle" }, input, true, 0)).toEqual({
       canContinue: false,
       disableQuoteSubmit: true,
-      liveMessage: "Getting the authoritative quote…",
+      liveMessage: "Updating your estimate…",
       quote: null,
     });
   });
@@ -178,8 +178,8 @@ describe("quote form presentation", () => {
 
   it.each([
     ["invalid_input", "Correct the highlighted fields and try again."],
-    ["not_quotable", "This camera or rental period can’t be quoted right now."],
-    ["retryable", "We couldn’t get a quote. Your entries are preserved; please retry."],
+    ["not_quotable", "An estimate is unavailable for this camera or rental period."],
+    ["retryable", "We couldn’t get an estimate. Your entries are preserved; please retry."],
   ] as const)("maps %s to constrained recovery copy", (error, message) => {
     expect(
       quoteFormPresentation({ error, status: "error" }, input, false, 0),

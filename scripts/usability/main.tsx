@@ -111,7 +111,7 @@ function Harness() {
   if (window.location.pathname === "/past-pickup") {
     return <main className="page-shell"><p>Synthetic unreviewed request with a past pickup. No hosted booking is changed.</p><BookingActionCard booking={{ camera: { name: "Test camera" }, pickupAt: "2020-01-06T09:00:00+08:00", returnAt: "2020-01-07T09:00:00+08:00", requestedAt: "2020-01-01T09:00:00+08:00", state: "FOR_REVIEW" }} /></main>;
   }
-  if (window.location.pathname === "/account/bookings/new" && initialSchedule) {
+  if (window.location.pathname === "/checkout" && initialSchedule) {
     return <main><h1>Test request review</h1><p>Local navigation check only. No request is submitted.</p><a href={scheduleEditHref("test-camera", initialSchedule)}>Change dates</a></main>;
   }
   return <>
