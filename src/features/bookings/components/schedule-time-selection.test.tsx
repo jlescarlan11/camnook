@@ -1,44 +1,53 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
 const { quote } = vi.hoisted(() => ({ quote: vi.fn() }));
 vi.mock("../actions/quote-booking", () => ({ quoteBooking: quote }));
 vi.mock("../calendar", async (original) => ({ ...await original<typeof import("../calendar")>(), getManilaToday: () => "2099-08-01" }));
-import { normalizeScheduleQuoteInputKey } from "../manila-time";
-import { initialQuoteActionState } from "../form-state";
 import { ScheduleQuoteForm } from "./schedule-quote-form";
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-it("quotes the sole valid handoff time and requires a new choice when a later range has multiple times", async () => {
-  quote.mockResolvedValue(initialQuoteActionState);
+it.each([
+  { pickupDate: "2099-08-24", returnDate: "2099-08-26", handoffTime: "12:00" },
+  { pickupDate: "2099-08-26", returnDate: "2099-08-24", handoffTime: "09:00" },
+  { pickupDate: "2020-08-24", returnDate: "2020-08-26", handoffTime: "09:00" },
+])("blocks invalid restored selection $pickupDate / $returnDate / $handoffTime", (initialSchedule) => {
+  render(<ScheduleQuoteForm compact cameraId="11111111-1111-4111-8111-111111111111" cameraName="Test camera" availability={[]} initialSchedule={initialSchedule} policy={{ allowedWeekdays: [0, 1, 2, 3, 4, 5, 6], approvedTimes: ["09:00", "17:00"], approximationLevel: "city_centroid", cityLabel: "Cebu City", enabled: true, timezone: "Asia/Manila", version: 1 }} />);
+  expect(screen.queryByRole("link", { name: "Continue to checkout" })).toBeNull();
+  expect((screen.getByRole("button", { name: "Continue to checkout" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(quote).not.toHaveBeenCalled();
+});
+
+it("blocks a restored range that crosses unavailable dates", () => {
+  render(<ScheduleQuoteForm compact cameraId="11111111-1111-4111-8111-111111111111" cameraName="Test camera" availability={[{startsAt:"2099-08-25T09:00:00+08:00",endsAt:"2099-08-25T17:00:00+08:00"}]} initialSchedule={{pickupDate:"2099-08-24",returnDate:"2099-08-26",handoffTime:"09:00"}} policy={{ allowedWeekdays: [0, 1, 2, 3, 4, 5, 6], approvedTimes: ["09:00"], approximationLevel: "city_centroid", cityLabel: "Cebu City", enabled: true, timezone: "Asia/Manila", version: 1 }} />);
+  expect(screen.queryByRole("link", { name: "Continue to checkout" })).toBeNull();
+  expect(screen.getByRole("alert").textContent).toContain("overlaps");
+});
+
+it("continues immediately with the sole valid time without quoting, and resets an edited range", async () => {
   render(<ScheduleQuoteForm cameraId="11111111-1111-4111-8111-111111111111" cameraName="Test camera" availability={[{ startsAt: "2099-08-24T08:00:00+08:00", endsAt: "2099-08-24T12:00:00+08:00" }]} policy={{ allowedWeekdays: [0, 1, 2, 3, 4, 5, 6], approvedTimes: ["09:00", "17:00"], approximationLevel: "city_centroid", cityLabel: "Cebu City", enabled: true, timezone: "Asia/Manila", version: 1 }} />);
   await userEvent.click(screen.getByRole("button", { name: /August 24, 2099, available/ }));
   expect(quote).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: /August 26, 2099, available/ }));
-  await waitFor(() => expect(quote).toHaveBeenCalledOnce());
-  expect((quote.mock.calls[0][1] as FormData).get("handoffTime")).toBe("17:00");
+  expect(screen.getByRole("link", { name: "Continue to checkout" }).getAttribute("href")).toContain("handoffTime=17%3A00");
+  expect(quote).not.toHaveBeenCalled();
   const time = screen.getByRole("combobox", { name: "Handoff time" }) as HTMLSelectElement;
   expect(time.value).toBe("17:00");
   await userEvent.click(screen.getByRole("button", { name: /August 27, 2099, available/ }));
   await userEvent.click(screen.getByRole("button", { name: /August 28, 2099, available/ }));
   expect(time.value).toBe("");
-  expect(quote).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("link", { name: "Continue to checkout" })).toBeNull();
   await userEvent.selectOptions(time, "09:00");
-  await waitFor(() => expect(quote).toHaveBeenCalledTimes(2));
-  expect((quote.mock.calls[1][1] as FormData).get("handoffTime")).toBe("09:00");
+  expect(screen.getByRole("link", { name: "Continue to checkout" }).getAttribute("href")).toContain("handoffTime=09%3A00");
+  expect(quote).not.toHaveBeenCalled();
 });
 
 it("opens a shared calendar, retains dates after close, and edits only the return endpoint", async () => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
-  quote.mockImplementation(async (_state, data: FormData) => ({
-    status: "success", submissionGeneration: Number(data.get("generation")),
-    inputKey: normalizeScheduleQuoteInputKey({ camera: String(data.get("camera")), pickupDate: String(data.get("pickupDate")), returnDate: String(data.get("returnDate")), handoffTime: String(data.get("handoffTime")), policyVersion: String(data.get("policyVersion")) }),
-    quote: { cameraId: String(data.get("camera")), currency: "PHP", billableDays: 2, dailyRate: 450, rentalAmount: 900, securityDeposit: 1000, totalDue: 1900, pickupAt: "2099-08-24T09:00:00+08:00", returnAt: "2099-08-26T09:00:00+08:00" },
-  }));
   render(<ScheduleQuoteForm compact cameraId="11111111-1111-4111-8111-111111111111" cameraName="Test camera" availability={[]} policy={{ allowedWeekdays: [0, 1, 2, 3, 4, 5, 6], approvedTimes: ["09:00", "17:00"], approximationLevel: "city_centroid", cityLabel: "Cebu City", enabled: true, timezone: "Asia/Manila", version: 1 }} />);
   expect(screen.queryByRole("dialog")).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Pickup date Choose date" }));
@@ -47,7 +56,11 @@ it("opens a shared calendar, retains dates after close, and edits only the retur
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("button", { name: /Pickup date Aug 24, 2099/ })).toBeTruthy();
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "Handoff time" }), "09:00");
-  await waitFor(() => expect(quote).toHaveBeenCalledOnce());
+  expect(quote).not.toHaveBeenCalled();
+  expect(screen.queryByRole("heading", { name: "Estimate" })).toBeNull();
+  expect(screen.queryByText("Estimate ready.")).toBeNull();
+  expect(screen.queryByText("Estimated total")).toBeNull();
+  expect(screen.queryByText("Rental subtotal")).toBeNull();
   const continuation = await screen.findByRole("link", { name: "Continue to checkout" });
   const destination = new URL(continuation.getAttribute("href")!, "https://camnook.test");
   expect(destination.pathname).toBe("/checkout");

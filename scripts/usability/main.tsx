@@ -13,7 +13,6 @@ import { createRoot } from "react-dom/client";
 import { useEffect, useState } from "react";
 import "../../src/app/globals.css";
 import { ScheduleQuoteForm } from "../../src/features/bookings/components/schedule-quote-form";
-import { failNextQuote, useFractionalPrices } from "./quote";
 import { restoreScheduleSelection, scheduleEditHref } from "../../src/features/bookings/schedule-navigation";
 import { BookingActionCard } from "../../src/features/bookings/components/booking-action-card";
 import { PsgcAreaSelector } from "../../src/features/locations/psgc-area-selector";
@@ -115,8 +114,7 @@ function Harness() {
     return <main><h1>Test request review</h1><p>Local navigation check only. No request is submitted.</p><a href={scheduleEditHref("test-camera", initialSchedule)}>Change dates</a></main>;
   }
   return <>
-  <p>Local regression harness — real component, synthetic quote responses; no booking is created.</p>
-  <button onClick={useFractionalPrices} type="button">Use fractional prices</button><button onClick={failNextQuote}>Simulate next quote failure</button>
+  <p>Local regression harness — real schedule component; pricing starts at checkout and no booking is created.</p>
   <a href="/past-pickup">View past pickup fixture</a>
   <label>Calendar scenario <select className="max-w-full" value={scenario} onChange={event => setScenario(event.target.value)}>
     <option value="available">All handoff times available</option>

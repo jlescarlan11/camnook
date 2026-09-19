@@ -2,11 +2,9 @@
 
 import Link from "next/link";
 import { CalendarIcon, ChevronDownIcon, Cross2Icon } from "@radix-ui/react-icons";
-import { phpFormatter } from "@/features/bookings/currency";
-import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { PublicHandoffPolicy } from "@/features/listings/handoff-types";
-import { quoteBooking } from "../actions/quote-booking";
 import {
   buildCalendarMonth,
   calendarDateStatus,
@@ -19,9 +17,6 @@ import {
   shiftCalendarMonth,
   type CalendarAvailability,
 } from "../calendar";
-import { initialQuoteActionState } from "../form-state";
-import { formatManilaDateTime } from "../manila-time";
-import { nextQuoteEditGeneration, scheduleQuoteFormPresentation } from "../presenter";
 import { canScheduleRental } from "../scheduling";
 import type { ScheduleSelection } from "../schedule-navigation";
 
@@ -45,25 +40,13 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
   const [pickupDate, setPickupDate] = useState(initialSchedule?.pickupDate ?? "");
   const [returnDate, setReturnDate] = useState(initialSchedule?.returnDate ?? "");
   const [handoffTime, setHandoffTime] = useState(initialSchedule?.handoffTime ?? (policy?.approvedTimes.length === 1 ? policy.approvedTimes[0] : ""));
-  const [editGeneration, setEditGeneration] = useState(0);
-  const [state, formAction, pending] = useActionState(quoteBooking, initialQuoteActionState);
   const calendarDialog = useRef<HTMLDialogElement>(null);
   const [calendarTarget, setCalendarTarget] = useState<"pickup" | "return">("pickup");
-  const formRef = useRef<HTMLFormElement>(null);
-  const lastAutoQuoteKey = useRef("");
   const days = useMemo(() => buildCalendarMonth(visibleMonth), [visibleMonth]);
-  // Restoring the same values after an edit still needs a fresh quote generation.
-  const autoQuoteKey = `${cameraId}|${policy?.version ?? 0}|${pickupDate}|${returnDate}|${handoffTime}|${editGeneration}`;
   const validHandoffTimes = useMemo(
     () => handoffTimesForRange(policy, availability, pickupDate, returnDate),
     [availability, pickupDate, policy, returnDate],
   );
-
-  useEffect(() => {
-    if (!pickupDate || !returnDate || !handoffTime || pending || lastAutoQuoteKey.current === autoQuoteKey) return;
-    lastAutoQuoteKey.current = autoQuoteKey;
-    formRef.current?.requestSubmit();
-  }, [autoQuoteKey, handoffTime, pending, pickupDate, returnDate]);
 
   if (!canScheduleRental(policy, requestable)) {
     return <section aria-labelledby="schedule-unavailable-heading" className="mt-8 border-y border-[#d8e0ea] py-10">
@@ -75,11 +58,10 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
 
   const activePolicy = policy;
   const input = { camera: cameraId, handoffTime, pickupDate, policyVersion: String(activePolicy.version), returnDate };
-  const presentation = scheduleQuoteFormPresentation(state, input, pending, editGeneration);
   const selectedPickupStatus = pickupDate ? endpointStatus({ allowedWeekdays: activePolicy.allowedWeekdays, availability, date: pickupDate, role: "pickup", time: handoffTime }) : null;
   const selectedReturnStatus = returnDate ? endpointStatus({ allowedWeekdays: activePolicy.allowedWeekdays, availability, date: returnDate, role: "return", selectedPickup: pickupDate, time: handoffTime }) : null;
   const overlap = Boolean(pickupDate && returnDate && handoffTime) && periodOverlapsAvailability(pickupDate, returnDate, handoffTime, availability);
-  const complete = Boolean(pickupDate && returnDate && handoffTime && !overlap && selectedPickupStatus && !selectedPickupStatus.disabled && selectedReturnStatus && !selectedReturnStatus.disabled);
+  const complete = Boolean(pickupDate && returnDate && validHandoffTimes.includes(handoffTime) && !overlap && selectedPickupStatus && !selectedPickupStatus.disabled && selectedReturnStatus && !selectedReturnStatus.disabled);
   const requestQuery = new URLSearchParams(input).toString();
   const monthDate = new Date(`${visibleMonth}-01T00:00:00Z`);
 
@@ -93,7 +75,6 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
     if (compact) return calendarTarget === "return" && pickupDate && date > pickupDate ? "return" : "pickup";
     return calendarEndpointRole({ date, pickupDate, returnDate });
   }
-  function markEdited() { setEditGeneration(nextQuoteEditGeneration); }
   function chooseDate(date: string) {
     const role = dateRole(date);
     const status = calendarDateStatus({ allowedWeekdays: activePolicy.allowedWeekdays, approvedTimes: activePolicy.approvedTimes, availability, date, role, selectedPickup: pickupDate });
@@ -102,7 +83,6 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
     else { setPickupDate(date); setReturnDate(""); }
     const times = role === "return" ? handoffTimesForRange(activePolicy, availability, pickupDate, date) : [];
     setHandoffTime(times.length === 1 ? times[0] : "");
-    markEdited();
     if (compact) {
       if (role === "return") calendarDialog.current?.close();
       else setCalendarTarget("return");
@@ -140,17 +120,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
     <span className="sr-only">Choose your schedule.</span>
 
     <div className={compact ? "mt-7" : "mt-8 grid gap-10 xl:grid-cols-[minmax(0,1fr)_25rem] xl:gap-12"}>
-      <form className="min-w-0" onSubmit={(event) => {
-        event.preventDefault();
-        // A quote is a read operation: preserve the schedule instead of resetting it.
-        const data = new FormData(event.currentTarget);
-        startTransition(() => formAction(data));
-      }} ref={formRef}>
-        <input name="camera" type="hidden" value={cameraId} />
-        <input name="generation" type="hidden" value={editGeneration} />
-        <input name="pickupDate" type="hidden" value={pickupDate} />
-        <input name="policyVersion" type="hidden" value={activePolicy.version} />
-        <input name="returnDate" type="hidden" value={returnDate} />
+      <div className="min-w-0">
 
         {compact ? <>
           <div className="rental-date-fields">
@@ -174,7 +144,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
 
         <div className="mt-7 max-w-xl">
           <label className="block font-semibold" htmlFor="handoff-time">Handoff time</label>
-          <select aria-describedby="handoff-time-help" className="mt-3 min-h-12 w-full rounded-lg border border-[#b9c6d6] bg-white px-4 text-base outline-none focus:border-[#0b4f9c] disabled:bg-[#f2f4f7]" disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0} id="handoff-time" name="handoffTime" onChange={(event) => { setHandoffTime(event.target.value); markEdited(); }} required value={handoffTime}>
+          <select aria-describedby="handoff-time-help" className="mt-3 min-h-12 w-full rounded-lg border border-[#b9c6d6] bg-white px-4 text-base outline-none focus:border-[#0b4f9c] disabled:bg-[#f2f4f7]" disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0} id="handoff-time" name="handoffTime" onChange={(event) => setHandoffTime(event.target.value)} required value={handoffTime}>
             <option value="">{pickupDate && returnDate ? "Choose a time" : "Choose dates first"}</option>
             {validHandoffTimes.map((time) => <option key={time} value={time}>{formatHandoffTime(time)}</option>)}
           </select>
@@ -182,26 +152,19 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
         </div>
         <details className={`${compact ? "hidden" : ""} mt-5 text-xs leading-5 text-[#58677d]`}><summary className="cursor-pointer font-semibold text-[#0b4f9c]">Calendar key</summary><p className="mt-2">Blue marks your rental. Amber days can be included but not used for handoff. Dimmed dates cannot be selected.</p></details>
         {overlap ? <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" id="overlap-error" role="alert">This range overlaps a currently unavailable period. Choose another range.</p> : null}
-        <button aria-hidden="true" className="sr-only" tabIndex={-1} disabled={!complete || presentation.disableQuoteSubmit} type="submit">Calculate estimate</button>
-      </form>
+      </div>
 
       <aside className={compact ? "compact-estimate" : "border-t border-[#d8e0ea] pt-8 xl:border-l xl:border-t-0 xl:pl-10 xl:pt-0"} aria-labelledby="schedule-summary-heading">
         <h3 className={compact ? "sr-only" : "section-heading"} id="schedule-summary-heading">Your schedule</h3>
         <dl className={compact ? "sr-only" : "mt-5"}>
-          <QuoteValue label="Pickup" value={presentation.quote ? formatManilaDateTime(presentation.quote.pickupAt) : pickupDate || "Choose a date"} />
-          <QuoteValue label="Return" value={presentation.quote ? formatManilaDateTime(presentation.quote.returnAt) : returnDate || "Choose a date"} />
+          <QuoteValue label="Pickup" value={pickupDate || "Choose a date"} />
+          <QuoteValue label="Return" value={returnDate || "Choose a date"} />
           <QuoteValue label="Handoff time" value={handoffTime ? `${formatHandoffTime(handoffTime)} PHT` : "Choose a time"} />
           <QuoteValue label="Meetup area" value={`${activePolicy.cityLabel} (${activePolicy.approximationLevel === "barangay_centroid" ? "barangay-level approximation" : activePolicy.approximationLevel === "precise" ? "precise origin kept private" : "city-level approximation"})`} />
         </dl>
-        {presentation.liveMessage ? <p aria-live="polite" className={`mt-5 rounded-lg px-4 py-3 text-sm ${state.error ? "border border-red-200 bg-red-50 text-red-800" : "bg-[#f2f7ff] text-[#082d5d]"}`} role={state.error ? "alert" : "status"}>{presentation.liveMessage}</p> : null}
-        {state.error === "retryable" ? <button className="button-secondary mt-4" disabled={!complete || pending} onClick={() => formRef.current?.requestSubmit()} type="button">{pending ? "Retrying estimate…" : "Retry estimate"}</button> : null}
-        {presentation.quote ? <section aria-labelledby="schedule-quote-heading" className="mt-7 border-t border-[#d8e0ea] pt-6">
-          <h4 className="text-lg font-semibold" id="schedule-quote-heading">Estimate</h4>
-          <dl className="mt-3"><QuoteValue label="Billable days" value={`${presentation.quote.billableDays} ${presentation.quote.billableDays === 1 ? "day" : "days"}`} /><QuoteValue label="Rental subtotal" value={phpFormatter.format(presentation.quote.rentalAmount)} /><QuoteValue label="Security deposit" value={phpFormatter.format(presentation.quote.securityDeposit)} /><QuoteValue label="Estimated total" value={phpFormatter.format(presentation.quote.totalDue)} strong /></dl>
-          <p className="mt-4 text-xs text-[#754000]">Estimate only—not reserved.</p>
-          {presentation.canContinue ? <Link className="button-primary mt-5 w-full" href={`/checkout?${requestQuery}`}>Continue to checkout</Link> : null}
-        </section> : <p className="mt-7 border-t border-[#d8e0ea] pt-6 text-sm text-[#58677d]">{compact ? "Choose dates and a time to see your estimate." : "Your estimate appears after you choose dates and a time. It does not reserve the camera."}</p>}
-        {compact && !presentation.canContinue ? <button className="button-primary mt-6 w-full" type="button" disabled>Continue to checkout</button> : null}
+        <p aria-live="polite" className="mt-6 text-sm text-[#58677d]">{complete ? "Review pricing and rental details at checkout." : "Choose dates and a handoff time to continue."}</p>
+        {complete ? <Link className="button-primary mt-5 w-full" prefetch={false} href={`/checkout?${requestQuery}`}>Continue to checkout</Link> : <button className="button-primary mt-5 w-full" type="button" disabled>Continue to checkout</button>}
+        <p className="mt-3 text-xs text-[#58677d]">Continuing does not reserve the camera.</p>
       </aside>
     </div>
   </section>;
