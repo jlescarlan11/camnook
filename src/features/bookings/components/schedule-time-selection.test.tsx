@@ -48,7 +48,10 @@ it("opens a shared calendar, retains dates after close, and edits only the retur
   expect(screen.getByRole("button", { name: /Pickup date Aug 24, 2099/ })).toBeTruthy();
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "Handoff time" }), "09:00");
   await waitFor(() => expect(quote).toHaveBeenCalledOnce());
-  const continuation = await screen.findByRole("link", { name: "Continue" });
+  const continuation = await screen.findByRole("link", { name: "Continue to checkout" });
+  const destination = new URL(continuation.getAttribute("href")!, "https://camnook.test");
+  expect(destination.pathname).toBe("/checkout");
+  expect(Object.fromEntries(destination.searchParams)).toEqual({ camera: "11111111-1111-4111-8111-111111111111", pickupDate: "2099-08-24", returnDate: "2099-08-26", handoffTime: "09:00", policyVersion: "1" });
   expect(continuation.getAttribute("href")).toContain("pickupDate=2099-08-24");
   expect(continuation.getAttribute("href")).toContain("returnDate=2099-08-26");
   await userEvent.click(screen.getByRole("button", { name: /Return date Aug 26, 2099/ }));
@@ -56,5 +59,5 @@ it("opens a shared calendar, retains dates after close, and edits only the retur
   expect(screen.getByRole("button", { name: /Pickup date Aug 24, 2099/ })).toBeTruthy();
   expect(screen.getByRole("button", { name: /Return date Aug 28, 2099/ })).toBeTruthy();
   expect((screen.getByRole("combobox", { name: "Handoff time" }) as HTMLSelectElement).value).toBe("");
-  expect(screen.queryByRole("link", { name: "Continue" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Continue to checkout" })).toBeNull();
 });

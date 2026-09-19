@@ -57,17 +57,30 @@ describe("Supabase session proxy", () => {
     );
   });
 
+  it("round-trips the current checkout schedule for signed-out and signed-in login", async () => {
+    const checkout = "/checkout?camera=11111111-1111-4111-8111-111111111111&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3";
+    mockClaims(null);
+    const signedOut = await updateSupabaseSession(new NextRequest(`https://camnook.test${checkout}`));
+    const login = new URL(signedOut.headers.get("location")!);
+    expect(login.pathname).toBe("/login");
+    expect(login.searchParams.get("next")).toBe(checkout);
+    mockClaims({ sub: "renter" }, true);
+    const signedIn = await updateSupabaseSession(new NextRequest(login));
+    expect(signedIn.headers.get("location")).toBe(`https://camnook.test${checkout}`);
+    expect(signedIn.headers.get("cache-control")).toBe("private, no-store");
+  });
+
   it("preserves the exact nested booking path and non-sensitive query", async () => {
     mockClaims(null);
 
     const response = await updateSupabaseSession(
       new NextRequest(
-        "https://camnook.test/account/bookings/new?camera=11111111-1111-4111-8111-111111111111&pickup=2099-08-14T09%3A00&return=2099-08-15T09%3A00",
+        "https://camnook.test/checkout?camera=11111111-1111-4111-8111-111111111111&pickup=2099-08-14T09%3A00&return=2099-08-15T09%3A00",
       ),
     );
 
     expect(response.headers.get("location")).toBe(
-      "https://camnook.test/login?next=%2Faccount%2Fbookings%2Fnew%3Fcamera%3D11111111-1111-4111-8111-111111111111%26pickup%3D2099-08-14T09%253A00%26return%3D2099-08-15T09%253A00",
+      "https://camnook.test/login?next=%2Fcheckout%3Fcamera%3D11111111-1111-4111-8111-111111111111%26pickup%3D2099-08-14T09%253A00%26return%3D2099-08-15T09%253A00",
     );
   });
 

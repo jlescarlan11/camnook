@@ -24,7 +24,7 @@ it("requires explicit confirmation and submits reviewed details, including edits
   await userEvent.keyboard("{Enter}");
   expect(action).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Review" }));
-  await userEvent.click(screen.getByRole("button", { name: "Request rental" }));
+  await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
   await waitFor(() => expect(submissions).toHaveLength(1));
   expect(screen.getByRole("link", { name: "Check your bookings" }).getAttribute("href")).toBe("/account");
   expect(submissions[0]).toMatchObject({
@@ -37,9 +37,9 @@ it("requires explicit confirmation and submits reviewed details, including edits
   const purpose = screen.getByRole("textbox", { name: "Purpose" });
   await userEvent.clear(purpose);
   await userEvent.type(purpose, "Landscape practice");
-  await userEvent.click(screen.getByRole("button", { name: "Continue to review" }));
+  await userEvent.click(screen.getByRole("button", { name: "Review rental request" }));
   expect(submissions).toHaveLength(1);
-  await userEvent.click(screen.getByRole("button", { name: "Request rental" }));
+  await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
   await waitFor(() => expect(submissions).toHaveLength(2));
   expect(submissions[1]).toMatchObject({ intendedUse: "Landscape practice", operationId: submissions[0].operationId });
 });
@@ -51,16 +51,16 @@ it("opens the details step when validation rejects a field, preserving the draft
   await userEvent.type(screen.getByRole("textbox", { name: /Preferred meetup area/ }), "IT Park");
   await userEvent.type(screen.getByRole("textbox", { name: "Purpose" }), "Portrait practice");
   await userEvent.type(screen.getByRole("textbox", { name: "Shooting city" }), "Cebu City");
-  await userEvent.click(screen.getByRole("button", { name: "Continue to review" }));
-  await userEvent.click(screen.getByRole("button", { name: "Request rental" }));
+  await userEvent.click(screen.getByRole("button", { name: "Review rental request" }));
+  await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
   await screen.findByRole("textbox", { name: /Name/ });
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Your details" }));
   expect((await screen.findByRole("alert")).textContent).toBe("Enter your name.");
   expect((screen.getByRole("textbox", { name: "Purpose" }) as HTMLTextAreaElement).value).toBe("Portrait practice");
   await userEvent.type(screen.getByRole("textbox", { name: /Name/ }), "lex");
-  await userEvent.click(screen.getByRole("button", { name: "Continue to review" }));
+  await userEvent.click(screen.getByRole("button", { name: "Review rental request" }));
   expect(action).toHaveBeenCalledTimes(1);
-  await userEvent.click(screen.getByRole("button", { name: "Request rental" }));
+  await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
   await waitFor(() => expect(action).toHaveBeenCalledTimes(2));
   expect((action.mock.calls[1][1] as FormData).get("legalName")).toBe("Alex");
 });

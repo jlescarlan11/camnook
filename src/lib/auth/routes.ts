@@ -1,6 +1,6 @@
 const DEFAULT_AUTHENTICATED_ROUTE = "/account";
 const MAX_RETURN_TO_LENGTH = 1_024;
-const PROTECTED_ROUTE_ROOTS = ["/account", "/admin"] as const;
+const PROTECTED_ROUTE_ROOTS = ["/account", "/admin", "/checkout"] as const;
 
 function isRouteWithin(pathname: string, root: string) {
   return pathname === root || pathname.startsWith(`${root}/`);
@@ -14,7 +14,7 @@ export function sanitizeReturnTo(candidate: string | null | undefined) {
   if (!candidate) {
     return DEFAULT_AUTHENTICATED_ROUTE;
   }
-  if (candidate.length > MAX_RETURN_TO_LENGTH) {
+  if (candidate.length > MAX_RETURN_TO_LENGTH || !candidate.startsWith("/") || candidate.startsWith("//") || /[\\\u0000-\u0020]/.test(candidate) || /%(?![0-9a-f]{2})/i.test(candidate)) {
     return DEFAULT_AUTHENTICATED_ROUTE;
   }
 

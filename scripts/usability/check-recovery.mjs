@@ -5,11 +5,11 @@ export async function checkQuoteRecovery(tab, { pickupLabel, returnLabel }) {
   await tab.ax.write();
   await tab.playwright.getByRole("button", { name: `${returnLabel}, available`, exact: true }).click();
   await tab.ax.write();
-  await tab.playwright.getByRole("combobox", { name: "Choose handoff time", exact: true }).selectOption({ label: "9:00 AM" });
+  await tab.playwright.getByRole("combobox", { name: "Handoff time", exact: true }).selectOption({ label: "9:00 AM" });
   await tab.ax.write();
   const retry = tab.playwright.getByRole("button", { name: "Retry estimate", exact: true });
   await retry.waitFor({ state: "visible", timeoutMs: 5000 });
-  const continuation = tab.playwright.getByRole("link", { name: "Continue to request", exact: true });
+  const continuation = tab.playwright.getByRole("link", { name: "Continue to checkout", exact: true });
   if (await continuation.count()) throw new Error("Failed quote permits continuation");
   await retry.click();
   await tab.ax.write();

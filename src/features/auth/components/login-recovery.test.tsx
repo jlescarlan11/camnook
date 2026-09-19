@@ -16,7 +16,7 @@ it("retains the email and return destination when retrying a failed sign-in requ
     submissions.push(Object.fromEntries(data));
     return { status: "error", message: "Temporary failure. Retry." };
   });
-  const returnTo = "/account/bookings/new?pickupDate=2099-08-24";
+  const returnTo = "/checkout?pickupDate=2099-08-24";
   render(<LoginForm captchaSiteKey={null} returnTo={returnTo} />);
   const email = screen.getByRole("textbox", { name: "Email address" });
   await userEvent.type(email, "renter@example.test");

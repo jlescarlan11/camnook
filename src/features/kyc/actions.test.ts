@@ -30,7 +30,7 @@ function fields(overrides: Record<string, string> = {}) {
     postalCode: "6000",
     psgcAreaCode: "0722170010",
     psgcRelease: "2026-q2",
-    returnTo: "/account/bookings/new?camera=example",
+    returnTo: "/checkout?camera=example",
     streetName: "123 Mango Avenue",
     ...overrides,
   }).forEach(([key, value]) => data.set(key, value));
@@ -40,6 +40,19 @@ function fields(overrides: Record<string, string> = {}) {
 describe("renter KYC action", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it.each([
+    ["/checkout?camera=test&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3", "/checkout?camera=test&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3"],
+    ["/account#default-address", "/account#default-address"],
+    ["/account/bookings/new?camera=test", "/account/bookings/new?camera=test"],
+    ["//evil.test/checkout", "/account"],
+    ["/accounts", "/account"],
+    ["/checkout?bad=%zz", "/account"],
+  ])("returns KYC save safely from %s", async (returnTo, expected) => {
+    const rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
+    vi.mocked(requireUser).mockResolvedValue({ supabase: { schema: () => ({ rpc }) }, user: { id: "renter" } } as never);
+    await expect(saveKycProfile({ status: "idle" }, fields({ returnTo }))).rejects.toThrow(`redirect:${expected}`);
+  });
+
   it("saves minimum KYC fields through the actor-owned RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
     vi.mocked(requireUser).mockResolvedValue({
@@ -48,7 +61,7 @@ describe("renter KYC action", () => {
     } as never);
 
     await expect(saveKycProfile({ status: "idle" }, fields())).rejects.toThrow(
-      "redirect:/account/bookings/new?camera=example",
+      "redirect:/checkout?camera=example",
     );
     expect(rpc).toHaveBeenCalledWith("save_my_kyc_profile_v2", {
       p_input: {
