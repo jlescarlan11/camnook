@@ -1,4 +1,4 @@
-# Structured residential address and optional pin
+# Complete residential address and private pin
 
 Reviewed: 2026-09-09. The structured address and written-address fallback are
 live in Production. The residential map remains unavailable until its dedicated
@@ -38,12 +38,17 @@ technical request metadata to Geoapify; attribution remains visible on the map.
 ## Stored data and access
 
 The required written KYC address is stored in structured fields plus a derived
-compatibility line. Postal code remains renter-entered; it is not inferred from
-PSGC. Existing unsplit addresses remain version 1 until the renter explicitly
-saves structured details. New booking snapshots copy the written components;
-old snapshots and issued contracts are immutable.
+compatibility line. A four-digit postal code remains renter-entered; it is not
+inferred from PSGC. A named-street address requires a house or lot number, or a
+building name together with unit details. An unnamed-road address requires
+subdivision, sitio, or landmark details and a confirmed private residential pin.
+Existing unsplit addresses remain version 1 until the renter explicitly saves
+structured details; their next save must meet the structured requirements. New
+booking snapshots copy the written components; old snapshots and issued
+contracts are immutable.
 
-The optional pin is purpose-separated in `private.renter_residential_pins`.
+The pin is purpose-separated in `private.renter_residential_pins`. It is optional
+for a complete named-street address and required for an unnamed-road address.
 Only actor-owned security-definer RPCs project or mutate it; the table has RLS
 enabled and no API-role grants. Application admins receive no pin API. Pin
 records contain coordinates, selection source, optional device accuracy,
@@ -97,7 +102,9 @@ address path available.
 ## Failure and recovery
 
 Missing configuration, budget denial, timeout, quota, network, malformed, empty,
-or tile failure never fabricates a pin and never blocks written-address saving.
+or tile failure never fabricates a pin. A complete named-street address remains
+saveable without the map; an unnamed-road address remains blocked until the
+renter can confirm its required private pin.
 An unconfirmed draft remains client-only. An uncertain save is resolved by a
 fresh actor-owned read. Address/pin persistence is one database transaction.
 

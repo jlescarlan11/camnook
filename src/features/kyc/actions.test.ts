@@ -87,22 +87,49 @@ describe("renter KYC action", () => {
     });
   });
 
-  it("preserves an unsplit legacy address when no structured field is entered", async () => {
+  it("requires a complete structured address and Philippine postal code", async () => {
+    await expect(saveKycProfile({ status: "idle" }, fields({
+      addressDetails: "", building: "", houseNumber: "",
+      legacyAddressLine1: "Sitio Riverside, unnamed road",
+      postalCode: "", streetName: "",
+    }))).resolves.toMatchObject({
+      error: "invalid",
+      fieldErrors: {
+        addressDetails: expect.any(String),
+        postalCode: expect.any(String),
+        residentialPin: expect.any(String),
+      },
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it("requires premises details for a named street", async () => {
+    await expect(saveKycProfile({ status: "idle" }, fields({
+      addressDetails: "", building: "", houseNumber: "",
+    }))).resolves.toMatchObject({
+      error: "invalid",
+      fieldErrors: { houseNumber: expect.any(String) },
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it("allows an unnamed-road address only with locality details and a confirmed pin", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
     vi.mocked(requireUser).mockResolvedValue({
       supabase: { schema: vi.fn(() => ({ rpc })) },
       user: { id: "11111111-1111-4111-8111-111111111111" },
     } as never);
-    const data = fields({
-      addressDetails: "", building: "", houseNumber: "",
-      legacyAddressLine1: "Sitio Riverside, unnamed road",
-      postalCode: "", streetName: "",
-    });
-    await expect(saveKycProfile({ status: "idle" }, data)).rejects.toThrow("redirect:");
+    await expect(saveKycProfile({ status: "idle" }, fields({
+      addressDetails: "Sitio Riverside, near the barangay hall",
+      building: "", houseNumber: "", streetName: "",
+      pinLatitude: "10.3157", pinLongitude: "123.8854",
+      pinOperation: "set", pinSource: "map_pin",
+    }))).rejects.toThrow("redirect:");
     expect(rpc).toHaveBeenCalledWith("save_my_kyc_profile_v2", {
       p_input: expect.objectContaining({
-        address_details: null,
-        legacy_address_line1: "Sitio Riverside, unnamed road",
+        address_details: "Sitio Riverside, near the barangay hall",
+        pin_operation: "set",
+        street_name: null,
       }),
     });
   });

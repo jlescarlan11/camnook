@@ -29,11 +29,11 @@ export default function GovernmentIdPrivacyNoticePage() {
 
             <section>
               <h2 className="text-xl font-semibold text-stone-950">What CamNook collects before booking</h2>
-              <p className="mt-2">CamNook stores the renter’s full legal name, birthdate, mobile number, and written residential address. These details establish adult eligibility, prepare the rental contract, support booking coordination, and reduce equipment-loss risk. A renter may also choose to save a private residential map pin. The pin is not required, is not included in the rental contract, and does not change meetup suggestions. SMS verification is not used.</p>
+              <p className="mt-2">CamNook stores the renter’s full legal name, birthdate, mobile number, and complete written residential address. These details establish adult eligibility, prepare the rental contract, support booking coordination, and reduce equipment-loss risk. A private residential map pin is optional for a complete named-street address and required when the residence is on an unnamed road. The pin is not included in the rental contract and does not change meetup suggestions. SMS verification is not used.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-stone-950">Optional residential map pin</h2>
+              <h2 className="text-xl font-semibold text-stone-950">Private residential map pin</h2>
               <p className="mt-2">The map loads only after the renter asks to add or adjust a pin. Address search or reverse lookup sends the entered query or selected coordinates to Geoapify. Choosing “Use my location” also requires the browser’s permission. CamNook stores only a confirmed pin with its selection method, optional device accuracy, and confirmation time.</p>
               <p className="mt-2">The application exposes the pin only to the signed-in renter; restricted database operators and backup systems may process it for service operation and recovery. Removing it hard-deletes the active pin record. Infrastructure backups may retain an earlier copy until the configured Supabase backup lifecycle expires. CamNook does not expose the pin in public profiles, booking responses, rental agreements, meetup routing, analytics, or ordinary logs.</p>
             </section>

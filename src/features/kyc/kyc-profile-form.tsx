@@ -65,10 +65,13 @@ export function KycProfileForm({
   const [addressChanged, setAddressChanged] = useState(false);
   const submitted = state.values;
   const legacyAddress = kyc?.addressFormatVersion === 1 ? kyc.addressLine1 : "";
+  const initialStreetName = submitted?.streetName ?? kyc?.streetName ?? "";
+  const [requiresPrivatePin, setRequiresPrivatePin] = useState(!initialStreetName.trim());
 
   function trackAddressChange(event: FormEvent<HTMLFormElement>) {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
+    if (target.name === "streetName") setRequiresPrivatePin(!target.value.trim());
     if ([
       "addressDetails", "building", "houseNumber", "legacyAddressLine1",
       "postalCode", "psgcAreaCode", "streetName",
@@ -110,32 +113,33 @@ export function KycProfileForm({
         <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
           <legend className="px-1 font-semibold">Residential address details</legend>
           {legacyAddress ? (
-            <Field error={state.fieldErrors?.legacyAddressLine1} help="This preserves your existing unsplit address until you add structured details." label="Existing address details">
-              <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.legacyAddressLine1 ?? legacyAddress} maxLength={500} name="legacyAddressLine1" />
+            <Field error={state.fieldErrors?.legacyAddressLine1} help="For reference only. Complete the structured address fields below before saving." label="Existing address details">
+              <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.legacyAddressLine1 ?? legacyAddress} maxLength={500} name="legacyAddressLine1" readOnly />
             </Field>
           ) : <input name="legacyAddressLine1" type="hidden" value="" />}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field error={state.fieldErrors?.houseNumber} label="House or lot number (optional)">
-              <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" />
+            <Field error={state.fieldErrors?.houseNumber} help="Required unless you provide both a building name and unit details." label="House or lot number">
+              <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" placeholder="e.g. 12 or Lot 4 Block 2" />
             </Field>
-            <Field error={state.fieldErrors?.streetName} label="Street name (optional)">
-              <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.streetName ?? kyc?.streetName ?? ""} maxLength={160} name="streetName" />
+            <Field error={state.fieldErrors?.streetName} help="Leave blank only when the road has no official name; a private map pin will then be required." label="Street name">
+              <input autoComplete="address-line1" className={inputClass} defaultValue={initialStreetName} maxLength={160} name="streetName" placeholder="e.g. Gorordo Avenue" />
             </Field>
             <Field error={state.fieldErrors?.building} label="Building name (optional)">
               <input className={inputClass} defaultValue={submitted?.building ?? kyc?.building ?? ""} maxLength={160} name="building" />
             </Field>
-            <Field error={state.fieldErrors?.postalCode} label="Postal code (optional)">
-              <input autoComplete="postal-code" className={inputClass} defaultValue={submitted?.postalCode ?? kyc?.postalCode ?? ""} maxLength={16} name="postalCode" />
+            <Field error={state.fieldErrors?.postalCode} label="Postal code">
+              <input autoComplete="postal-code" className={inputClass} defaultValue={submitted?.postalCode ?? kyc?.postalCode ?? ""} inputMode="numeric" maxLength={4} minLength={4} name="postalCode" pattern="[0-9]{4}" placeholder="e.g. 6000" required title="Enter a four-digit Philippine postal code" />
             </Field>
           </div>
-          <Field error={state.fieldErrors?.addressDetails} label="Unit, subdivision, sitio, or landmark (optional)">
-            <input autoComplete="address-line2" className={inputClass} defaultValue={submitted?.addressDetails ?? kyc?.addressDetails ?? ""} maxLength={200} name="addressDetails" />
+          <Field error={state.fieldErrors?.addressDetails} help="Required for a building address or an unnamed road. Include enough detail to find the residence." label="Unit, subdivision, sitio, or landmark">
+            <input autoComplete="address-line2" className={inputClass} defaultValue={submitted?.addressDetails ?? kyc?.addressDetails ?? ""} maxLength={200} name="addressDetails" placeholder="e.g. Unit 4, Sitio Riverside, near the barangay hall" />
           </Field>
         </fieldset>
         <ResidentialPinPicker
           addressChanged={addressChanged}
           error={state.fieldErrors?.residentialPin}
           initialPin={kyc?.residentialPin ?? null}
+          required={requiresPrivatePin}
         />
       </div>
       <p className={checkout ? "checkout-id-note" : "text-sm text-stone-600"}>{checkout ? "Bring your original ID to pickup. " : "No SMS or ID upload. Bring the original ID to pickup. "}<Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id">Privacy details</Link></p>

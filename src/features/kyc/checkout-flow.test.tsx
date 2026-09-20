@@ -28,6 +28,12 @@ async function fillDetails() {
   await userEvent.type(screen.getByLabelText("Mobile number"), "+639170000000");
 }
 
+async function fillAddress() {
+  await userEvent.type(screen.getByLabelText(/^House or lot number/), "12");
+  await userEvent.type(screen.getByLabelText(/^Street name/), "Test Street");
+  await userEvent.type(screen.getByLabelText("Postal code"), "6000");
+}
+
 it("validates details before changing steps and never saves on the first continue", async () => {
   setup();
   await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
@@ -43,11 +49,11 @@ it("preserves both steps on back navigation and submits all fields with the orig
   setup();
   await fillDetails();
   await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
-  await userEvent.type(screen.getByLabelText("Street name (optional)"), "Test Street");
+  await fillAddress();
   await userEvent.click(screen.getByRole("button", { name: "Details" }));
   expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("Test Renter");
   await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
-  expect((screen.getByLabelText("Street name (optional)") as HTMLInputElement).value).toBe("Test Street");
+  expect((screen.getByLabelText(/^Street name/) as HTMLInputElement).value).toBe("Test Street");
   await userEvent.click(screen.getByRole("button", { name: "Save and continue to review" }));
   await waitFor(() => expect(saveKycProfile).toHaveBeenCalledTimes(1));
   const data = vi.mocked(saveKycProfile).mock.calls[0][1];
@@ -63,6 +69,7 @@ it("returns to the Details step when server validation rejects a personal field"
   setup();
   await fillDetails();
   await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
+  await fillAddress();
   await userEvent.click(screen.getByRole("button", { name: "Save and continue to review" }));
   await waitFor(() => expect(screen.getByRole("heading", { name: "Your details" })).toBeTruthy());
   expect(screen.getByText("Check your mobile number.").closest("[hidden]")).toBeNull();
