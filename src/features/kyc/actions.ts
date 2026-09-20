@@ -36,6 +36,7 @@ const inputSchema = z.object({
   areaCode: z.string().regex(/^\d{10}$/),
   birthDate: z.iso.date(),
   building: text(160),
+  expectedAddressRevision: z.union([z.literal(""), z.uuid()]),
   houseNumber: text(80),
   legalName: z.string().trim().min(2).max(160),
   legacyAddressLine1: text(500),
@@ -45,18 +46,47 @@ const inputSchema = z.object({
   pinOperation: z.enum(["keep", "remove", "set"]),
   pinSource: z.enum(["", "device_gps", "map_pin"]),
   phone: z.string().trim().min(7).max(32),
-  postalCode: text(16),
+  postalCode: z.string().trim().regex(/^\d{4}$/, "Enter a four-digit Philippine postal code."),
   release: z.string().regex(/^\d{4}-q[1-4]$/),
   returnTo: z.string().max(1000),
   streetName: text(160),
 }).superRefine((data, context) => {
   const structuredLine = formatResidentialLine1(data);
-  if (!structuredLine && data.legacyAddressLine1.length < 3) {
+  if (!structuredLine) {
     context.addIssue({
       code: "custom",
-      message: "Enter enough address detail to locate your residence.",
+      message: "Enter your current residential address using the structured fields.",
       path: ["addressDetails"],
     });
+  }
+  if (data.streetName) {
+    const hasNumberedPremises = Boolean(data.houseNumber);
+    const hasBuildingAndUnit = Boolean(data.building && data.addressDetails);
+    if (!hasNumberedPremises && !hasBuildingAndUnit) {
+      context.addIssue({
+        code: "custom",
+        message: "Enter a house or lot number, or enter both a building name and unit details.",
+        path: ["houseNumber"],
+      });
+    }
+  } else {
+    if (!data.addressDetails) {
+      context.addIssue({
+        code: "custom",
+        message: "For an unnamed road, enter a subdivision, sitio, and nearby landmark.",
+        path: ["addressDetails"],
+      });
+    }
+    if (
+      data.pinOperation === "remove" ||
+      (data.pinOperation === "keep" && data.expectedAddressRevision === "")
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Add and confirm a private map pin because this address has no street name.",
+        path: ["pinLatitude"],
+      });
+    }
   }
   if (structuredLine.length > 500) {
     context.addIssue({
@@ -135,12 +165,6 @@ export async function saveKycProfile(
     returnTo: value(formData, "returnTo"),
     streetName: value(formData, "streetName"),
   };
-  const expectedRevision = z.union([z.literal(""), z.uuid()]).safeParse(
-    raw.expectedAddressRevision,
-  );
-  if (!expectedRevision.success) {
-    return { error: "invalid", status: "error", values: pickFormValues(raw) };
-  }
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) {
     const errors = z.flattenError(parsed.error).fieldErrors;
@@ -198,7 +222,7 @@ export async function saveKycProfile(
       area_code: parsed.data.areaCode,
       birth_date: parsed.data.birthDate,
       building: parsed.data.building || null,
-      expected_address_revision: expectedRevision.data || null,
+      expected_address_revision: parsed.data.expectedAddressRevision || null,
       house_number: parsed.data.houseNumber || null,
       legacy_address_line1: hasStructuredAddress || parsed.data.postalCode
         ? null

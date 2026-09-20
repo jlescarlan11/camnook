@@ -19,9 +19,11 @@ describe("KycProfileForm", () => {
     expect(markup).toContain('name="streetName"');
     expect(markup).toContain('name="building"');
     expect(markup).toContain('name="postalCode"');
+    expect(markup).toContain('pattern="[0-9]{4}"');
+    expect(markup).toContain('inputMode="numeric"');
     expect(markup).toContain('name="addressDetails"');
     expect(markup).toContain("Add map pin");
-    expect(markup).toContain("optional");
+    expect(markup).toContain("required for an unnamed road");
     expect(markup).toContain('name="psgcAreaCode"');
     expect(markup).toContain("No SMS or ID upload");
     expect(markup).not.toContain('type="file"');

@@ -22,10 +22,12 @@ export function ResidentialPinPicker({
   addressChanged,
   error,
   initialPin,
+  required = false,
 }: {
   addressChanged: boolean;
   error?: string;
   initialPin: KycProfile["residentialPin"];
+  required?: boolean;
 }) {
   const initial = initialPin ? {
     accuracyMeters: initialPin.accuracyMeters,
@@ -55,7 +57,7 @@ export function ResidentialPinPicker({
       <input name="pinSource" type="hidden" value={operation === "set" && selected ? selected.source : ""} />
       <input name="pinAccuracyMeters" type="hidden" value={operation === "set" && selected?.accuracyMeters ? selected.accuracyMeters : ""} />
 
-      <h3 className="font-semibold" id="residential-pin-heading">Residential map pin <span className="font-normal text-stone-500">(optional)</span></h3>
+      <h3 className="font-semibold" id="residential-pin-heading">Residential map pin <span className="font-normal text-stone-500">{required ? "(required for an unnamed road)" : "(optional)"}</span></h3>
       <p className="mt-1 text-sm text-stone-600">Private and not included in your contract.</p>
 
       {selected && operation !== "remove" ? (
@@ -79,7 +81,7 @@ export function ResidentialPinPicker({
         >
           {selected && operation !== "remove" ? "Adjust map pin" : "Add map pin"}
         </button>
-        {selected && operation !== "remove" ? (
+        {selected && operation !== "remove" && !required ? (
           <button
             className="min-h-11 rounded-xl px-4 py-2 font-medium text-red-800 underline"
             onClick={() => { setSelected(null); setDraft(null); setOperation("remove"); closeEditor(); }}
