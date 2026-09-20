@@ -96,27 +96,13 @@ async function verifyResidentialMapKeyBoundary(serverApiKey: string) {
     await cancelBody(productionTile);
     if (!productionTile.ok || !isPng) return false;
 
-    const disallowedTileUrl = new URL(PUBLIC_CEBU_TILE_URL);
-    disallowedTileUrl.searchParams.set("apiKey", browserMapKey);
-    const disallowedTile = await fetch(disallowedTileUrl, {
-      cache: "no-store",
-      headers: {
-        Origin: DISALLOWED_ORIGIN,
-        Referer: `${DISALLOWED_ORIGIN}/`,
-      },
-      signal: AbortSignal.timeout(15_000),
-    });
-    const disallowedOriginDenied = isProviderDenial(disallowedTile);
-    await cancelBody(disallowedTile);
-    if (!disallowedOriginDenied) return false;
-
     const geocodingUrl = new URL(PUBLIC_GEOCODING_PROBE_URL);
     geocodingUrl.searchParams.set("apiKey", browserMapKey);
     const geocoding = await fetch(geocodingUrl, {
       cache: "no-store",
       headers: {
-        Origin: PRODUCTION_ORIGIN,
-        Referer: `${PRODUCTION_ORIGIN}/account`,
+        Origin: DISALLOWED_ORIGIN,
+        Referer: `${DISALLOWED_ORIGIN}/`,
       },
       signal: AbortSignal.timeout(15_000),
     });
@@ -144,10 +130,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "configuration_unavailable" }, { status: 503 });
   }
 
-  // Three browser-key boundary probes, one reverse lookup, one matrix, and one
+  // Two browser-key boundary probes, one reverse lookup, one matrix, and one
   // search per category.
-  const providerRequestCount = 5 + providerConfig.allowedCategories.length;
-  if (providerRequestCount > 9) {
+  const providerRequestCount = 4 + providerConfig.allowedCategories.length;
+  if (providerRequestCount > 8) {
     return Response.json({ error: "provider_plan_unbounded" }, { status: 503 });
   }
 

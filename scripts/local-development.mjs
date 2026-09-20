@@ -140,7 +140,7 @@ async function check(env) {
   else console.log("Live Geoapify search returned places with coordinates.");
   if (!env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY)
     problems.push(
-      "Missing NEXT_PUBLIC_GEOAPIFY_MAP_KEY: configure a separate maps-only development key allowing localhost and 127.0.0.1.",
+      "Missing NEXT_PUBLIC_GEOAPIFY_MAP_KEY: configure a separate development browser key allowing localhost and 127.0.0.1.",
     );
   else
     for (const origin of ["http://localhost:3000", "http://127.0.0.1:3000"]) {
@@ -161,22 +161,6 @@ async function check(env) {
       await result.body?.cancel();
     }
   if (env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY) {
-    const tile = new URL(
-      "https://maps.geoapify.com/v1/tile/osm-bright/12/3457/1929.png",
-    );
-    tile.searchParams.set("apiKey", env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY);
-    const disallowedTile = await request(tile, {
-      headers: {
-        Origin: "https://example.com",
-        Referer: "https://example.com/",
-      },
-    });
-    if (![401, 403].includes(disallowedTile.status))
-      problems.push(
-        "Browser map key accepted an unapproved origin; restrict it to reviewed web origins.",
-      );
-    await disallowedTile.body?.cancel();
-
     const geocoding = new URL(
       "https://api.geoapify.com/v1/geocode/search",
     );
@@ -188,13 +172,13 @@ async function check(env) {
     }).toString();
     const geocodingResult = await request(geocoding, {
       headers: {
-        Origin: "http://localhost:3000",
-        Referer: "http://localhost:3000/",
+        Origin: "https://example.com",
+        Referer: "https://example.com/",
       },
     });
     if (![401, 403].includes(geocodingResult.status))
       problems.push(
-        "Browser map key can call Geoapify geocoding; restrict it to Maps only.",
+        "Browser map key accepted an unapproved origin; restrict it to reviewed web origins.",
       );
     await geocodingResult.body?.cancel();
   }

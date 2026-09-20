@@ -133,7 +133,7 @@ describe("immutable release workflow policy", () => {
 
   it("gates promotion on residential providers and a synthetic actor smoke", () => {
     expect(workflow).toContain(
-      'test "$RESIDENTIAL_MAP_KEY_REVIEWED" = "maps-only-origin-reviewed-v1"',
+      'test "$RESIDENTIAL_MAP_KEY_REVIEWED" = "origin-referrer-reviewed-v2"',
     );
     expect(workflow).toContain('.residentialMapKeyBoundary == "passed"');
     expect(workflow).toContain('.residentialKyc == "passed"');

@@ -71,14 +71,14 @@ describe("Production meetup provider readiness", () => {
       const url = String(input);
       const origin = new Headers(init?.headers).get("origin");
       if (url.startsWith("https://maps.geoapify.com/")) {
-        return Promise.resolve(origin === "https://example.com"
-          ? new Response("forbidden", { status: 403 })
-          : new Response(new Uint8Array([137, 80, 78, 71]), {
-            headers: { "content-type": "image/png" },
-          }));
+        return Promise.resolve(new Response(new Uint8Array([137, 80, 78, 71]), {
+          headers: { "content-type": "image/png" },
+        }));
       }
       if (url.startsWith("https://api.geoapify.com/v1/geocode/search")) {
-        return Promise.resolve(new Response("forbidden", { status: 403 }));
+        return Promise.resolve(origin === "https://example.com"
+          ? new Response("forbidden", { status: 403 })
+          : new Response("{}"));
       }
       return Promise.resolve(new Response("{}"));
     }));
@@ -164,7 +164,7 @@ describe("Production meetup provider readiness", () => {
     });
   });
 
-  it("fails closed when an unapproved origin can use the browser map key", async () => {
+  it("fails closed when an unapproved origin can use the browser key", async () => {
     vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       return Promise.resolve(url.startsWith("https://maps.geoapify.com/")
@@ -180,29 +180,6 @@ describe("Production meetup provider readiness", () => {
     });
   });
 
-  it("fails closed when the browser map key can call geocoding", async () => {
-    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      const origin = new Headers(init?.headers).get("origin");
-      if (url.startsWith("https://maps.geoapify.com/")) {
-        return Promise.resolve(origin === "https://example.com"
-          ? new Response("forbidden", { status: 403 })
-          : new Response(new Uint8Array([137, 80, 78, 71]), {
-              headers: { "content-type": "image/png" },
-            }));
-      }
-      if (url.startsWith("https://api.geoapify.com/v1/geocode/search")) {
-        return Promise.resolve(new Response("{}"));
-      }
-      return Promise.resolve(new Response("{}"));
-    });
-    const response = await POST(request());
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
-      error: "residential_map_configuration_unavailable",
-    });
-  });
-
   it("returns only bounded aggregate provider evidence", async () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
@@ -210,7 +187,7 @@ describe("Production meetup provider readiness", () => {
     expect(body).toEqual({
       geoapify: "passed",
       mapbox: "passed",
-      providerRequestCount: 9,
+      providerRequestCount: 8,
       residentialKyc: "passed",
       residentialMapKeyBoundary: "passed",
       routeElementCount: 6,
@@ -231,8 +208,8 @@ describe("Production meetup provider readiness", () => {
       expect.objectContaining({ hostname: "api.geoapify.com" }),
       expect.objectContaining({
         headers: {
-          Origin: "https://camnook.shop",
-          Referer: "https://camnook.shop/account",
+          Origin: "https://example.com",
+          Referer: "https://example.com/",
         },
       }),
     );
