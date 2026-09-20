@@ -408,6 +408,12 @@ echo "running structured residential address invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/022_structured_residential_addresses.sql"
 
+echo "running lender meetup place and snapshot invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/024_lender_meetup_places.sql"
+
 "$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
   -c 'create database camnook_hosted_compat template postgres' >/dev/null
 
@@ -1174,6 +1180,23 @@ insert into public.cameras (
   'draft',
   1000,
   3000
+);
+
+-- Keep the photo-archive race focused on its locking invariant: publication
+-- now also requires an owner-confirmed place before reaching the photo check.
+insert into public.meetup_places (
+  id, name, address, city, latitude, longitude, source, created_by, updated_by
+) values (
+  '26000000-0000-4000-8000-000000000010',
+  'Concurrency test public entrance', 'Test public entrance, Cebu City',
+  'Cebu City', 10.315712, 123.885423, 'manual_pin',
+  '20000000-0000-4000-8000-000000000001',
+  '20000000-0000-4000-8000-000000000001'
+);
+insert into public.camera_meetup_places (camera_id, place_id, display_order)
+values (
+  '26000000-0000-4000-8000-000000000006',
+  '26000000-0000-4000-8000-000000000010', 0
 );
 
 insert into private.catalog_photo_publications (
