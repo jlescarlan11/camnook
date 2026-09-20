@@ -13,6 +13,7 @@ import { stringFormValue, type ActionStatus } from "./state";
 
 export type RequestBookingActionState = {
   error?:
+    | "meetup_changed"
     | "invalid_input"
     | "kyc_required"
     | "profile_required"
@@ -26,7 +27,7 @@ export type RequestBookingActionState = {
     expectedLocation?: string;
     legalName?: string;
     phone?: string;
-    preferredMeetupArea?: string;
+    meetupPlace?: string;
     intendedUse?: string;
     handoffTime?: string;
     pickup?: string;
@@ -41,7 +42,8 @@ export type RequestBookingActionState = {
     intendedUse: string;
     legalName: string;
     phone: string;
-    preferredMeetupArea: string;
+    meetupPlaceId: string;
+    meetupPlaceVersion: string;
   };
 };
 
@@ -51,7 +53,8 @@ const bookingFieldsSchema = z.object({
   intendedUse: z.string().trim().min(2).max(1000),
   legalName: z.string().trim().min(2).max(160),
   phone: z.string().trim().min(7).max(32),
-  preferredMeetupArea: z.string().trim().min(2).max(160),
+  meetupPlaceId: z.uuid(),
+  meetupPlaceVersion: z.string().regex(/^[1-9][0-9]*$/).transform(Number).pipe(z.number().int().positive().safe()),
 });
 
 function reportBookingRequestRpcFailure(
@@ -75,7 +78,8 @@ export async function requestBooking(
     intendedUse: stringFormValue(formData, "intendedUse"),
     legalName: stringFormValue(formData, "legalName"),
     phone: stringFormValue(formData, "phone"),
-    preferredMeetupArea: stringFormValue(formData, "preferredMeetupArea"),
+    meetupPlaceId: stringFormValue(formData, "meetupPlaceId"),
+    meetupPlaceVersion: stringFormValue(formData, "meetupPlaceVersion"),
     pickup: stringFormValue(formData, "pickup"),
     pickupDate: stringFormValue(formData, "pickupDate"),
     handoffTime: stringFormValue(formData, "handoffTime"),
@@ -98,7 +102,8 @@ export async function requestBooking(
     intendedUse: values.intendedUse,
     legalName: values.legalName,
     phone: values.phone,
-    preferredMeetupArea: values.preferredMeetupArea,
+    meetupPlaceId: values.meetupPlaceId,
+    meetupPlaceVersion: values.meetupPlaceVersion,
   };
   if (!fields.success) {
     const flattened = z.flattenError(fields.error).fieldErrors;
@@ -113,8 +118,8 @@ export async function requestBooking(
     }
     if (flattened.legalName) fieldErrors.legalName = "Enter your name.";
     if (flattened.phone) fieldErrors.phone = "Enter a valid phone number.";
-    if (flattened.preferredMeetupArea) {
-      fieldErrors.preferredMeetupArea = "Enter your preferred meetup area.";
+    if (flattened.meetupPlaceId || flattened.meetupPlaceVersion) {
+      fieldErrors.meetupPlace = "Choose a current meetup place.";
     }
   }
 
@@ -181,14 +186,15 @@ export async function requestBooking(
   } catch {
     return { error: "request_failed", status: "error", values: preservedValues };
   }
-  const result = await admin.schema("api").rpc("request_booking_with_preference_idempotent", {
+  const result = await admin.schema("api").rpc("request_booking_with_place_idempotent", {
     p_camera_id: fields.data.camera,
     p_expected_location: fields.data.expectedLocation,
     p_handoff_time: values.handoffTime,
     p_intended_use: fields.data.intendedUse,
     p_pickup_date: values.pickupDate,
     p_policy_version: policyVersion!,
-    p_preferred_meetup_area: fields.data.preferredMeetupArea,
+    p_place_id: fields.data.meetupPlaceId,
+    p_place_version: fields.data.meetupPlaceVersion,
     p_renter_id: context.user.id,
     p_return_date: values.returnDate,
     p_operation_id: operationId.data,
@@ -199,7 +205,7 @@ export async function requestBooking(
     reportBookingRequestRpcFailure(error, data);
     return {
       error:
-        error?.code === "42501" && error.message === "booking_profile_required"
+        error?.message === "meetup_changed" ? "meetup_changed" : error?.code === "42501" && error.message === "booking_profile_required"
           ? "profile_required"
           : error?.code === "42501" && error.message === "booking_kyc_required"
             ? "kyc_required"

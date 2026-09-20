@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "prepare": "node scripts/install-git-hooks.mjs",
-    "dev": "next dev",
+    "dev": "node scripts/local-development.mjs start",
     "build": "next build",
     "catalog:photos": "node scripts/catalog-photo-publication.mjs",
     "launch:verify": "node scripts/production-launch-readiness.mjs",
@@ -25,7 +25,12 @@
     "db:test": "pnpm dlx supabase@2.114.0 test db",
     "db:test:concurrency": "bash supabase/tests/database/003_approval_concurrency.sh",
     "db:types": "pnpm dlx supabase@2.114.0 gen types typescript --local --schema public,api > src/types/database.generated.ts",
-    "db:types:linked": "pnpm dlx supabase@2.114.0 gen types typescript --linked --schema public,api > src/types/database.generated.ts"
+    "db:types:linked": "pnpm dlx supabase@2.114.0 gen types typescript --linked --schema public,api > src/types/database.generated.ts",
+    "dev:setup": "node scripts/local-development.mjs setup",
+    "dev:check": "node scripts/local-development.mjs check",
+    "dev:real": "node scripts/local-development.mjs start",
+    "dev:session": "node scripts/development-session.mjs",
+    "dev:renter": "node scripts/development-renter.mjs"
   },
   "dependencies": {
     "@radix-ui/react-icons": "1.3.2",

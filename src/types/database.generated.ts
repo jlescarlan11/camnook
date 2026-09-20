@@ -20,6 +20,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      request_booking_with_place_idempotent: {
+        Args: {
+          p_camera_id: string
+          p_expected_location: string
+          p_handoff_time: string
+          p_intended_use: string
+          p_operation_id: string
+          p_pickup_date: string
+          p_place_id: string
+          p_place_version: number
+          p_policy_version: number
+          p_renter_id: string
+          p_return_date: string
+        }
+        Returns: string
+      }
+      get_camera_meetup_places: { Args: { p_camera_id: string }; Returns: Json }
+      assign_camera_meetup_places: {
+        Args: { p_camera_id: string; p_place_ids: string[] }
+        Returns: undefined
+      }
+      archive_meetup_place: {
+        Args: { p_place_id: string; p_version: number }
+        Returns: undefined
+      }
+      save_meetup_place: { Args: { p_input: Json }; Returns: string }
       get_my_kyc_profile: { Args: never; Returns: Json }
       get_my_kyc_profile_v2: { Args: never; Returns: Json }
       get_owner_cameras: { Args: never; Returns: Json }
@@ -951,6 +977,100 @@ export type Database = {
   }
   public: {
     Tables: {
+      camera_meetup_places: {
+        Row: {
+          camera_id: string
+          display_order: number
+          place_id: string
+        }
+        Insert: {
+          camera_id: string
+          display_order: number
+          place_id: string
+        }
+        Update: {
+          camera_id?: string
+          display_order?: number
+          place_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_meetup_places_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: false
+            referencedRelation: "cameras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camera_meetup_places_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: false
+            referencedRelation: "public_cameras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camera_meetup_places_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: false
+            referencedRelation: "meetup_places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetup_places: {
+        Row: {
+          address: string
+          archived_at: string | null
+          arrival_instructions: string
+          attribution: string | null
+          city: string
+          created_at: string
+          created_by: string
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          source: string
+          updated_at: string
+          updated_by: string
+          version: number
+        }
+        Insert: {
+          address: string
+          archived_at?: string | null
+          arrival_instructions?: string
+          attribution?: string | null
+          city: string
+          created_at?: string
+          created_by: string
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          source: string
+          updated_at?: string
+          updated_by: string
+          version?: number
+        }
+        Update: {
+          address?: string
+          archived_at?: string | null
+          arrival_instructions?: string
+          attribution?: string | null
+          city?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          source?: string
+          updated_at?: string
+          updated_by?: string
+          version?: number
+        }
+        Relationships: []
+      }
       availability_blocks: {
         Row: {
           booking_id: string | null
@@ -1281,13 +1401,16 @@ export type Database = {
           area_code: string | null
           area_label: string | null
           area_release: string | null
+          arrival_instructions: string | null
           attribution: string | null
           booking_id: string
           created_at: string
           plan_kind: string
           provider: string | null
           provider_config_version: string | null
-          renter_city_label: string
+          renter_city_label: string | null
+          source_place_id: string | null
+          source_place_version: number | null
           venue_address: string | null
           venue_city: string | null
           venue_latitude: number | null
@@ -1298,13 +1421,16 @@ export type Database = {
           area_code?: string | null
           area_label?: string | null
           area_release?: string | null
+          arrival_instructions?: string | null
           attribution?: string | null
           booking_id: string
           created_at?: string
           plan_kind?: string
           provider?: string | null
           provider_config_version?: string | null
-          renter_city_label: string
+          renter_city_label?: string | null
+          source_place_id?: string | null
+          source_place_version?: number | null
           venue_address?: string | null
           venue_city?: string | null
           venue_latitude?: number | null
@@ -1315,13 +1441,16 @@ export type Database = {
           area_code?: string | null
           area_label?: string | null
           area_release?: string | null
+          arrival_instructions?: string | null
           attribution?: string | null
           booking_id?: string
           created_at?: string
           plan_kind?: string
           provider?: string | null
           provider_config_version?: string | null
-          renter_city_label?: string
+          renter_city_label?: string | null
+          source_place_id?: string | null
+          source_place_version?: number | null
           venue_address?: string | null
           venue_city?: string | null
           venue_latitude?: number | null
@@ -1334,6 +1463,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: true
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_meetup_plans_source_place_id_fkey"
+            columns: ["source_place_id"]
+            isOneToOne: false
+            referencedRelation: "meetup_places"
             referencedColumns: ["id"]
           },
         ]

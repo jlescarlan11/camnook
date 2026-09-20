@@ -823,6 +823,25 @@ set local "request.jwt.claim.sub" = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 do $$
 begin
+  begin
+    perform api.publish_camera(
+      'dddddddd-dddd-4ddd-8ddd-ddddddddddde',
+      'f2000000-0000-4000-8000-000000000028'
+    );
+    raise exception 'camera without a meetup place was published';
+  exception when invalid_parameter_value then
+    if sqlerrm <> 'camera_meetup_required' then raise; end if;
+  end;
+
+  perform api.assign_camera_meetup_places(
+    'dddddddd-dddd-4ddd-8ddd-ddddddddddde',
+    array[api.save_meetup_place(jsonb_build_object(
+      'name', 'Publication test public entrance',
+      'address', 'Test public entrance, Cebu City', 'city', 'Cebu City',
+      'latitude', 10.315712, 'longitude', 123.885423, 'source', 'manual_pin'
+    ))]
+  );
+
   if (
     api.publish_camera(
       'dddddddd-dddd-4ddd-8ddd-ddddddddddde',

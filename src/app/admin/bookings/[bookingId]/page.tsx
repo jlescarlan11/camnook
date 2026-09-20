@@ -1,3 +1,4 @@
+import { MeetupDetails } from "@/features/meetups/meetup-details";
 import { BookingBackLink } from "@/features/bookings/admin/booking-back-link";
 import { randomUUID } from "node:crypto";
 
@@ -152,18 +153,8 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
             {result.booking.meetup ? (
               <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="admin-meetup-heading">
                 <h2 className="text-xl font-semibold" id="admin-meetup-heading">Meetup preference</h2>
-                <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <DetailValue label="Preferred meetup area" value={result.booking.meetup.renterCity} />
-                  {result.booking.meetup.kind === "public_venue" ? <>
-                    <DetailValue label="Public venue" value={result.booking.meetup.name} />
-                    <DetailValue label="Venue address" value={result.booking.meetup.address} />
-                    <DetailValue label="Venue city" value={result.booking.meetup.city} />
-                  </> : (
-                    <DetailValue label="Venue status" value="Exact public venue pending owner confirmation" />
-                  )}
-                </dl>
-                {result.booking.meetup.kind === "public_venue" ? <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p> : null}
-              </section>
+                <MeetupDetails meetup={result.booking.meetup} />
+                </section>
             ) : null}
 
             <section className="mt-7 border-t border-stone-200 pt-6">

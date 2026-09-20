@@ -1,68 +1,15 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("server-only", () => ({}));
-
-import { RequestForm } from "./request-form";
-
-const schedule = {
-  handoffTime: "09:00",
-  pickupDate: "2099-08-24",
-  policyVersion: "3",
-  returnDate: "2099-08-26",
-};
-
-describe("RequestForm", () => {
-  it("collects only renter details needed for review and defers exact meetup selection", () => {
-    const markup = renderToStaticMarkup(
-      <RequestForm
-        camera="11111111-1111-4111-8111-111111111111"
-        schedule={schedule}
-        summary={{
-          cameraName: "Canon R50",
-          dates: "Aug 24 – Aug 26",
-          handoffTime: "9:00 AM PHT",
-          rentalAmount: "₱1,500",
-          securityDeposit: "₱3,000",
-          totalDue: "₱4,500",
-        }}
-      />,
-    );
-    expect(markup).toContain("Your details");
-    expect(markup).toContain("Preferred meetup area");
-    expect(markup).toContain("exact public meetup location");
-    expect(markup).toContain('autoComplete="address-level2"');
-    expect(markup).toContain('name="legalName"');
-    expect(markup).toContain('name="phone"');
-    expect(markup).toContain("Review rental request");
-    expect(markup).not.toContain('name="latitude"');
-    expect(markup).not.toContain('name="longitude"');
-    expect(markup).not.toContain("Geoapify");
-  });
-
-  it("offers the saved default address as a meetup-area suggestion", () => {
-    const markup = renderToStaticMarkup(
-      <RequestForm
-        camera="11111111-1111-4111-8111-111111111111"
-        profile={{
-          defaultAddress: { areaName: "Lahug, Cebu City", valid: true },
-          legalName: "Maria Santos",
-          phone: "+63 917 123 4567",
-        }}
-        schedule={schedule}
-        summary={{
-          cameraName: "Canon R50",
-          dates: "Aug 24 – Aug 26",
-          handoffTime: "9:00 AM PHT",
-          rentalAmount: "₱1,500",
-          securityDeposit: "₱3,000",
-          totalDue: "₱4,500",
-        }}
-      />,
-    );
-
-    expect(markup).toContain("Suggested from your default address");
-    expect(markup).toContain("Lahug, Cebu City");
-    expect(markup).toContain('list="preferred-meetup-suggestions"');
-  });
+import { renderToStaticMarkup } from 'react-dom/server';
+import { expect,it,vi } from 'vitest';
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock('@/features/bookings/actions/request-booking',()=>({requestBooking:vi.fn()}));
+import { RequestForm } from './request-form';
+import { testMeetupPlace } from '@/features/meetups/place-fixture.test-helper';
+const props={camera:'11111111-1111-4111-8111-111111111111',schedule:{pickupDate:'2099-08-24',returnDate:'2099-08-26',handoffTime:'09:00',policyVersion:'1'},summary:{cameraName:'Camera',dates:'Dates',handoffTime:'9 AM',rentalAmount:'₱900',securityDeposit:'₱1000',totalDue:'₱1900'}};
+it('offers explicit saved-place selection with a coordinate-based map link',()=>{
+ const html=renderToStaticMarkup(<RequestForm {...props} meetupPlaces={[testMeetupPlace]}/>);
+ expect(html).toContain('Choose your meetup place');expect(html).toContain('Public mall entrance');expect(html).toContain('10.315712%2C123.885423');expect(html).not.toContain('Preferred meetup area');expect(html).not.toContain('checked=""');
+});
+it('distinguishes unavailable reads from no configured places',()=>{
+ expect(renderToStaticMarkup(<RequestForm {...props} meetupPlaces={null}/>)).toContain('could not be loaded');
+ expect(renderToStaticMarkup(<RequestForm {...props} meetupPlaces={[]}/>)).toContain('no meetup places available');
 });
