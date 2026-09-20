@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, type FormEvent, type ReactNode } from "react";
+import { ArrowRightIcon } from "@radix-ui/react-icons";
+import { CheckoutProgress } from "@/features/bookings/components/checkout-progress";
+import { useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
@@ -22,12 +24,44 @@ export function KycProfileForm({
   kyc,
   profile,
   returnTo,
+  checkout = false,
+  initialStep = 1,
 }: {
+  checkout?: boolean;
+  initialStep?: 1 | 2;
   kyc: KycProfile | null;
   profile: null | { legalName: string; phone: string };
   returnTo: string;
 }) {
-  const [state, action, pending] = useActionState(saveKycProfile, initialState);
+  const [step, setStep] = useState<1 | 2>(initialStep);
+  const [state, action, pending] = useActionState(async (previous: KycActionState, data: FormData) => {
+    const result = await saveKycProfile(previous, data);
+    if (checkout && result.status === "error") {
+      setStep(result.error === "underage" || result.fieldErrors?.legalName || result.fieldErrors?.birthDate || result.fieldErrors?.phone ? 1 : 2);
+    }
+    return result;
+  }, initialState);
+  const personalFields = useRef<HTMLDivElement>(null);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const previousStep = useRef(step);
+  useEffect(() => {
+    if (previousStep.current !== step) {
+      previousStep.current = step;
+      stepHeading.current?.focus();
+    }
+  }, [step]);
+
+  function validateDetails() {
+    const inputs = personalFields.current?.querySelectorAll("input") ?? [];
+    for (const input of inputs) {
+      if (!input.checkValidity()) {
+        setStep(1);
+        requestAnimationFrame(() => input.reportValidity());
+        return false;
+      }
+    }
+    return true;
+  }
   const [addressChanged, setAddressChanged] = useState(false);
   const submitted = state.values;
   const legacyAddress = kyc?.addressFormatVersion === 1 ? kyc.addressLine1 : "";
@@ -42,62 +76,78 @@ export function KycProfileForm({
   }
 
   return (
-    <form action={action} className="mt-6 space-y-5" onChange={trackAddressChange}>
+    <form action={action} className={checkout ? "checkout-kyc" : "mt-6 space-y-5"} onChange={trackAddressChange}
+      noValidate={checkout} onSubmit={(event) => {
+        if (!checkout) return;
+        if (step === 1) {
+          event.preventDefault();
+          if (validateDetails()) setStep(2);
+        } else if (!validateDetails() || !event.currentTarget.reportValidity()) event.preventDefault();
+      }}>
+      {checkout ? <>
+        <CheckoutProgress step={step} onDetails={() => setStep(1)} />
+        <h2 className="checkout-section-title" ref={stepHeading} tabIndex={-1}>{step === 1 ? "Your details" : "Your address"}</h2>
+        <p className="checkout-section-intro">{step === 1 ? "Required for eligibility and your rental contract." : "Add your Philippine residence for your rental contract."}</p>
+      </> : null}
       <input name="returnTo" type="hidden" value={returnTo} />
       <input name="expectedAddressRevision" type="hidden" value={kyc?.addressRevision ?? ""} />
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div ref={personalFields} hidden={checkout && step !== 1} className={checkout ? "checkout-personal-fields" : "grid gap-5 sm:grid-cols-2"}>
         <Field error={state.fieldErrors?.legalName} label="Full legal name">
-          <input autoComplete="name" className={inputClass} defaultValue={submitted?.legalName ?? profile?.legalName ?? ""} maxLength={160} name="legalName" required />
+          <input autoComplete="name" className={inputClass} defaultValue={submitted?.legalName ?? profile?.legalName ?? ""} maxLength={160} name="legalName" minLength={2} placeholder={checkout ? "Enter your full legal name" : undefined} required />
         </Field>
         <Field error={state.fieldErrors?.birthDate} label="Birthdate">
           <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={adultCutoff()} name="birthDate" required type="date" />
         </Field>
         <Field error={state.fieldErrors?.phone} label="Mobile number">
-          <input autoComplete="tel" className={inputClass} defaultValue={submitted?.phone ?? profile?.phone ?? ""} maxLength={32} minLength={7} name="phone" required type="tel" />
+          <input autoComplete="tel" className={inputClass} defaultValue={submitted?.phone ?? profile?.phone ?? ""} maxLength={32} minLength={7} name="phone" placeholder={checkout ? "+63 9XX XXX XXXX" : undefined} required type="tel" />
         </Field>
       </div>
-      <div aria-describedby={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined}>
-        <PsgcAreaSelector initialPath={kyc?.path} />
-        {state.fieldErrors?.psgcAreaCode ? <p className="mt-2 text-sm text-red-700" id="kyc-area-error" role="alert">{state.fieldErrors.psgcAreaCode}</p> : null}
-      </div>
-      <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
-        <legend className="px-1 font-semibold">Residential address details</legend>
-        {legacyAddress ? (
-          <Field error={state.fieldErrors?.legacyAddressLine1} help="This preserves your existing unsplit address until you add structured details." label="Existing address details">
-            <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.legacyAddressLine1 ?? legacyAddress} maxLength={500} name="legacyAddressLine1" />
-          </Field>
-        ) : <input name="legacyAddressLine1" type="hidden" value="" />}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field error={state.fieldErrors?.houseNumber} label="House or lot number (optional)">
-            <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" />
-          </Field>
-          <Field error={state.fieldErrors?.streetName} label="Street name (optional)">
-            <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.streetName ?? kyc?.streetName ?? ""} maxLength={160} name="streetName" />
-          </Field>
-          <Field error={state.fieldErrors?.building} label="Building name (optional)">
-            <input className={inputClass} defaultValue={submitted?.building ?? kyc?.building ?? ""} maxLength={160} name="building" />
-          </Field>
-          <Field error={state.fieldErrors?.postalCode} label="Postal code (optional)">
-            <input autoComplete="postal-code" className={inputClass} defaultValue={submitted?.postalCode ?? kyc?.postalCode ?? ""} maxLength={16} name="postalCode" />
-          </Field>
+      <div hidden={checkout && step !== 2} className={checkout ? "checkout-address-fields" : "space-y-5"}>
+        <div aria-describedby={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined}>
+          <PsgcAreaSelector initialPath={kyc?.path} />
+          {state.fieldErrors?.psgcAreaCode ? <p className="mt-2 text-sm text-red-700" id="kyc-area-error" role="alert">{state.fieldErrors.psgcAreaCode}</p> : null}
         </div>
-        <Field error={state.fieldErrors?.addressDetails} label="Unit, subdivision, sitio, or landmark (optional)">
-          <input autoComplete="address-line2" className={inputClass} defaultValue={submitted?.addressDetails ?? kyc?.addressDetails ?? ""} maxLength={200} name="addressDetails" />
-        </Field>
-      </fieldset>
-      <ResidentialPinPicker
-        addressChanged={addressChanged}
-        error={state.fieldErrors?.residentialPin}
-        initialPin={kyc?.residentialPin ?? null}
-      />
-      <p className="text-sm text-stone-600">No SMS or ID upload. Bring the original ID to pickup. <Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id">Privacy details</Link></p>
+        <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
+          <legend className="px-1 font-semibold">Residential address details</legend>
+          {legacyAddress ? (
+            <Field error={state.fieldErrors?.legacyAddressLine1} help="This preserves your existing unsplit address until you add structured details." label="Existing address details">
+              <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.legacyAddressLine1 ?? legacyAddress} maxLength={500} name="legacyAddressLine1" />
+            </Field>
+          ) : <input name="legacyAddressLine1" type="hidden" value="" />}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field error={state.fieldErrors?.houseNumber} label="House or lot number (optional)">
+              <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" />
+            </Field>
+            <Field error={state.fieldErrors?.streetName} label="Street name (optional)">
+              <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.streetName ?? kyc?.streetName ?? ""} maxLength={160} name="streetName" />
+            </Field>
+            <Field error={state.fieldErrors?.building} label="Building name (optional)">
+              <input className={inputClass} defaultValue={submitted?.building ?? kyc?.building ?? ""} maxLength={160} name="building" />
+            </Field>
+            <Field error={state.fieldErrors?.postalCode} label="Postal code (optional)">
+              <input autoComplete="postal-code" className={inputClass} defaultValue={submitted?.postalCode ?? kyc?.postalCode ?? ""} maxLength={16} name="postalCode" />
+            </Field>
+          </div>
+          <Field error={state.fieldErrors?.addressDetails} label="Unit, subdivision, sitio, or landmark (optional)">
+            <input autoComplete="address-line2" className={inputClass} defaultValue={submitted?.addressDetails ?? kyc?.addressDetails ?? ""} maxLength={200} name="addressDetails" />
+          </Field>
+        </fieldset>
+        <ResidentialPinPicker
+          addressChanged={addressChanged}
+          error={state.fieldErrors?.residentialPin}
+          initialPin={kyc?.residentialPin ?? null}
+        />
+      </div>
+      <p className={checkout ? "checkout-id-note" : "text-sm text-stone-600"}>{checkout ? "Bring your original ID to pickup. " : "No SMS or ID upload. Bring the original ID to pickup. "}<Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id">Privacy details</Link></p>
+
       {state.status === "error" ? (
         <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
           {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm or remove the pin, or reload if you edited this profile elsewhere." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}
         </p>
       ) : null}
-      <button className="min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={pending} type="submit">
-        {pending ? "Saving KYC…" : kyc ? "Update KYC details" : "Save KYC details"}
+      <button className={checkout ? "checkout-primary" : "min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-60"} disabled={pending} type="submit">
+        {checkout ? pending ? "Saving your details…" : step === 1 ? "Continue to address" : "Save and continue to review" : pending ? "Saving KYC…" : kyc ? "Update KYC details" : "Save KYC details"}
+        {checkout && !pending ? <ArrowRightIcon aria-hidden="true" /> : null}
       </button>
     </form>
   );

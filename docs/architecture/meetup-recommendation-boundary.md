@@ -95,8 +95,7 @@ unreachable—the same eligible shortlist produces up to five deterministic
 Geoapify-ranked options with no travel-time claim. Geoapify failure remains hard
 unavailable and never fabricates a venue.
 
-Checkout initially renders only the first three choices. A semantic button
-reveals choices four and five when present; no ordinal “best” claim is shown.
+The earlier renter recommendation UI is no longer the checkout path. New checkout requests select from owner-confirmed public places assigned to the camera; see `lender-managed-meetup-places.md`. The existing provider adapter supplies optional owner place search. Saved-place checkout requires no geocoding or routing call.
 
 ## Failure contract
 

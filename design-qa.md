@@ -1,78 +1,53 @@
-# CamNook spotlight redesign — visual QA
+# Checkout design QA
+
+Date: 2026-09-19
 
 final result: passed
 
-## Source and evidence
+Scope: selected option 3, implemented in the existing checkout. This result covers frontend fidelity and local interaction checks; it does not indicate a production deployment.
 
-- Source visual truth: `/Users/johnlesterescarlan/.codex/generated_images/01a09874-7f76-7901-b424-414423218f25/exec-9b82daeb-4be8-4d75-8f56-b86c876167e0.png` (first displayed concept selected by the user).
-- Implementation: `http://localhost:3000/`.
-- Final desktop screenshot: `/Users/johnlesterescarlan/.codex/visualizations/2026/09/13/01a09874-7f76-7901-b424-414423218f25/implementation-desktop-final.png`.
-- Mobile screenshot: `/Users/johnlesterescarlan/.codex/visualizations/2026/09/13/01a09874-7f76-7901-b424-414423218f25/implementation-mobile.png`.
-- Desktop requested CSS viewport: 1488 × 1058; source raster 1487 × 1058; browser screenshot raster 1473 × 1047. Browser image export slightly scales the viewport; comparisons used corresponding proportional positions rather than claiming exact pixel equality. Mobile CSS viewport: 390 × 844.
-- State: catalog, first camera. Development has two listings, disabled rental requests, and Cebu City pickup, while the concept reflects the one published Production listing, active requests, and Lahug pickup. These business-data differences are expected; no settings or inventory were changed to force a visual match.
-- Source and final implementation were opened together in the same image comparison tool result. Whole-screen images resolved the typography, photo, price, action, and inclusion regions; separate cropped comparisons were unnecessary.
+## Reference and comparison
 
-## Comparison history
+Selected reference: `/Users/johnlesterescarlan/.codex/generated_images/01a0b8f6-046e-70e3-a11d-6e9aeaa756af/exec-ec29273b-970f-4c26-878b-abfc9397b01f.png`.
 
-1. Initial rendering: P2 camera photo too small because the supplied photograph includes substantial white padding. Changed spotlight image fit and increased its desktop frame width from 720px to 1000px. Kept the actual catalog photograph instead of generating a replacement representation of rental inventory.
-2. Final rendering: camera now dominates the center, with headline, model, price, action and inclusions in the selected order. All product edges remain visible for the current camera. No remaining actionable P0/P1/P2 visual issues.
-3. Navigation links were given 44px minimum touch height. Header spacing preserves the compact desktop and mobile presentation.
+Evidence directory: `/Users/johnlesterescarlan/.codex/visualizations/2026/09/19/camnook-checkout-preview/`.
 
-## Fidelity surfaces
+- `desktop.png`: implemented Details view at 1488 × 1058.
+- `comparison.png`: selected reference and implementation shown side by side.
+- `comparison-focus.png`: focused comparison of form typography and spacing.
+- `mobile-details.png`: viewport capture at 390 × 844.
+- `mobile-review-top.png`: mobile review and submission controls.
 
-- Typography: existing Geist sans-serif, bold tightly tracked display heading, responsive model heading, subdued body copy and prominent prices match the concept hierarchy. Long catalog names can wrap.
-- Spacing/layout: open white page, centered product, paired prices with a light separator, pill action, quiet inclusion divider. Mobile wraps the heading and description with no horizontal overflow.
-- Colors/tokens: white base, navy-charcoal ink, muted blue-gray copy and blue primary actions. Disabled-request listings intentionally use the secondary action style. Existing semantic warning colors preserved.
-- Images: published catalog asset, responsive Next Image sizing and preload on first photo. The real photo differs in perspective and sharpness from the generated concept; retaining the real rental representation is intentional. Missing images retain an explicit accessible message.
-- Copy: selected headline and subtitle implemented; price, deposit, kit description, location and action eligibility remain catalog-derived.
+Desktop retains the reference's equal-width split, pale rental summary, white form, prominent camera image, navy type and primary action, and three-step navigation. The production camera image replaces the generated camera. Existing CamNook Geist typography and brand colors are preserved.
 
-## Verification
+Mobile adapts the summary into an expandable section, keeping the estimated total visible while providing space for the form. No horizontal overflow was observed at 390px.
 
-- Browser: catalog to camera details, kit disclosure expansion, back to catalog, and Your rentals navigation passed. Existing signed-in rentals page rendered on mobile. No forms submitted or bookings created.
-- No browser console errors returned during inspection.
-- Typecheck and scoped ESLint passed; git diff whitespace check passed.
-- Test suite: 87 files passed, 2 skipped; 706 tests passed, 2 skipped.
-- Production build passed.
-- Scope: catalog layout, shared header/photo presentation and shared visual tokens/buttons. Existing local edits preserved.
+## Findings and resolution
 
-## Gaps and follow-up polish
+- Camera was initially too small with a visible rectangular backdrop: corrected framing and background blending; verified in the final comparison.
+- Preview initially loaded the wrong font file: corrected the isolated preview to match the application's existing Geist font.
+- Small differences in native date-control styling and vertical spacing remain acceptable platform adaptations.
+- Added Change dates and privacy navigation retain useful production functionality. Owner review and estimated-price language remain visible.
+- No unresolved blocking visual findings.
 
-- Active date selection cannot be browser-tested against current Development inventory because requests are disabled; existing automated booking tests passed. Production was not deployed or changed.
-- The concept's decorative action arrow is omitted; the action label remains explicit.
-- Recheck spotlight crop when new inventory with differently composed photography is published.
-- No claim of a complete visual audit of every authenticated owner workflow.
+## Interaction and implementation checks
 
-## Approved follow-up refinements
+- Required personal fields prevent advancing when empty.
+- Details and address values survive backward navigation.
+- Cascading address selectors and final review work in the local sample preview.
+- Server validation returns users to the appropriate form step.
+- Editing rental answers preserves values; the booking action runs only on final submission.
+- Corrected the meetup field label association.
+- Existing authenticated checkout, authoritative quote, eligibility checks, policy version, and server actions remain in place.
+- Mobile summary expands and collapses; step changes move focus to the form heading.
+- Local browser check reported no console errors or warnings.
 
-The user subsequently requested an icon tooltip beside the camera name. The final UI uses a 16px information icon with a 44px hit target; both kit description and pickup location are inside the tooltip. It supports hover, keyboard focus, tap, outside-click dismissal, and Escape. The former inclusion divider and standalone pickup line were removed. Browser inspection confirmed the final tooltip and its pickup content; TypeScript and scoped ESLint passed. Earlier screenshots above document the original selected layout, before these explicitly requested refinements.
+Validation passed: 43 tests across 10 relevant files, repository lint, TypeScript check, production build, and git diff whitespace checks.
 
-Before push, changes were integrated with current main's recovery fixes, preserving saved form values, camera setup validation, camera gallery fit, queue destinations, and retry controls.
+## Preview limitation
 
-## Camera detail redesign — 2026-09-14
+The isolated preview at `http://127.0.0.1:4173/checkout` imports the actual checkout components but supplies sample data and simulated server actions. No real rental request was created. Authenticated live backend submission was not browser-tested, and these changes have not been deployed.
 
-Source visual truth: `/Users/johnlesterescarlan/.codex/generated_images/01a09874-7f76-7901-b424-414423218f25/exec-f24c7d01-1b0c-4ff1-b137-9ac341661c4a.png` (third displayed alternative).
+## Meetup-place implementation follow-up — 2026-09-20
 
-Implementation screenshot: `/Users/johnlesterescarlan/.codex/visualizations/camnook-detail-2026-09-14/desktop-final.png`.
-
-Viewport: desktop 1487 × 1058 CSS pixels; source and implementation 1487 × 1058 pixels, no density normalization required. Mobile 390 × 844. State: empty schedule, first gallery image, calendar closed. Temporary local test fixture supplied a schedule policy because the Development listing currently has rentals disabled; no catalog records or settings changed. Fixture was removed after verification.
-
-Full-view comparison: source and rendered implementation emitted together in the same comparison tool result. Initial comparison (`desktop-before.png`) found an undersized camera subject and smaller supporting heading/body text. Enlarged the gallery presentation and increased rental heading/body typography. Post-fix evidence `desktop-final.png` resolves those findings. Real catalog photos replace generated camera angles; existing shared header width, back link, and security-deposit terminology are intentional product constraints. Development source photos have lower intrinsic sharpness than the generated mock; no fabricated product photos substituted.
-
-Focused interaction evidence: `lightbox.png`, `mobile.png`, `mobile-calendar.png`, `mobile-details.png` in the same evidence directory. Calendar day button bounds checked: regular 46.57px widths at mobile, no horizontal document overflow. Tooltip fits viewport and includes pickup. Desktop text and controls were legible in the full-resolution paired comparison, so extra region crops were unnecessary.
-
-Required fidelity surfaces:
-- Typography: existing sans font, bold navy title, 28px rental heading, 16px descriptive text, readable input labels. Title and icon have distinct sizes.
-- Layout: large photo left, compact booking column right, three thumbnail buttons, no permanent calendar. Stacked mobile layout and bottom sheet preserve access to controls.
-- Tokens: existing navy/gray/blue palette and pill buttons retained, white base surface, subtle borders.
-- Assets: real ordered camera photos and Radix icons; lightbox uses contain fitting for full-image access. No generated replacements or hand-drawn icons.
-- Copy: pickup information in details tooltip, daily rate and deposit visible, shared handoff time clarified. Existing estimate and availability rules retained.
-
-Verification:
-- Browser: calendar opens from date field; pickup then return selection closes it and retains values; focus returns to trigger. Thumbnail opens selected photo; right arrow advances; Escape closes and returns focus. Mobile sheet and details tooltip inspected. Browser error log empty.
-- Automated interaction tests: thumbnail selection/navigation/close, empty gallery, shared calendar close, return-only edit, authoritative quote enables Continue with selected query, editing invalidates continuation. Existing availability and recovery tests retained.
-- Full suite: 744 passed, 2 skipped. Lint passed. Type check and build recorded in task verification.
-- Limitation: successful authoritative quote was checked with a mocked action in component tests; the local catalog's disabled rental state prevents a real successful booking estimate. No rental request was submitted.
-
-Findings: no outstanding P0/P1/P2 visual or interaction findings. P3: improve source catalog photo resolution separately if desired.
-
-final result: passed
+Replaced the default-address/free-text meetup area with explicit owner-defined place cards. Verified mobile selection, map URL precision, review and edit preservation, and owner coordinate entry/reconfirmation in the sample browser preview. Evidence: `meetup-mobile.png` in the existing preview evidence directory. Real database and action verification are documented in `docs/operations/lender-meetup-places.md`. No new blocking visual findings. Live provider search/map tiles were not tested because the local keys are absent; the manual-coordinate fallback and map links were checked. No deployment performed.

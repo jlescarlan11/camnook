@@ -1,3 +1,4 @@
+import { meetupMapUrl } from "@/features/meetups/places";
 import type { ContractHistoryDTO } from "../data";
 import { formatManilaDateTime } from "../../bookings/manila-time";
 
@@ -119,8 +120,8 @@ export function ContractDetails({
             Planned pickup and return meetup
           </h3>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-            <Detail label="Renter city" value={snapshot.meetup.renter_city} />
-            {snapshot.meetup.kind === "public_venue" ? <>
+            {"renter_city" in snapshot.meetup ? <Detail label="Renter city" value={snapshot.meetup.renter_city} /> : null}
+            {(snapshot.meetup.kind === "public_venue" || snapshot.meetup.kind === "lender_place") ? <>
               <Detail label="Public venue" value={snapshot.meetup.venue_name} />
               <Detail label="Venue address" value={snapshot.meetup.venue_address} />
               <Detail label="Venue city" value={snapshot.meetup.venue_city} />
@@ -128,7 +129,9 @@ export function ContractDetails({
               <Detail label="Venue status" value="Exact public venue pending owner confirmation" />
             )}
           </dl>
-          {snapshot.meetup.kind === "public_venue" ? <p className="mt-3 text-xs text-stone-500">{snapshot.meetup.attribution}</p> : null}
+          {snapshot.meetup.kind === "lender_place" ? <p className="mt-3">{snapshot.meetup.arrival_instructions}</p> : null}
+          {"venue_latitude" in snapshot.meetup ? <a className="inline-flex min-h-11 items-center underline" href={meetupMapUrl(snapshot.meetup.venue_latitude,snapshot.meetup.venue_longitude,true)} target="_blank" rel="noreferrer">Directions</a> : null}
+          {(snapshot.meetup.kind === "public_venue" || snapshot.meetup.kind === "lender_place") ? <p className="mt-3 text-xs text-stone-500">{snapshot.meetup.attribution}</p> : null}
         </section>
       ) : null}
 

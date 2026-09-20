@@ -1,3 +1,4 @@
+import { MeetupDetails } from "@/features/meetups/meetup-details";
 import { randomUUID } from "node:crypto";
 
 import type { Metadata } from "next";
@@ -83,15 +84,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
               {result.booking.meetup ? (
                 <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="planned-meetup-heading">
                   <h2 className="text-lg font-semibold" id="planned-meetup-heading">Meetup</h2>
-                  <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {result.booking.meetup.kind === "public_venue" ? <>
-                      <DetailValue label="Venue" value={result.booking.meetup.name} />
-                      <DetailValue label="Address" value={result.booking.meetup.address} />
-                    </> : (
-                      <DetailValue label="Venue" value="Pending owner confirmation" />
-                    )}
-                  </dl>
-                  {result.booking.meetup.kind === "public_venue" ? <p className="mt-3 text-xs text-stone-500">{result.booking.meetup.attribution}</p> : null}
+                  <MeetupDetails meetup={result.booking.meetup} />
                 </section>
               ) : null}
               <details className="mt-7 border-t border-stone-200 pt-6 text-sm"><summary className="cursor-pointer font-semibold text-[#0b4f9c]">Request details</summary><dl className="mt-3 grid gap-3 sm:grid-cols-2"><DetailValue label="Requested" value={formatManilaDateTime(result.booking.requestedAt)} /><DetailValue label="Shooting city" value={result.booking.expectedLocation} /></dl><h2 className="mt-4 font-semibold">Purpose</h2><PersistedIntendedUse value={result.booking.intendedUse} /></details>

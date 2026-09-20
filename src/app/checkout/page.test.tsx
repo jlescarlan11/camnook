@@ -2,11 +2,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/features/bookings/data/catalog", () => ({ loadPublicCamera: vi.fn().mockResolvedValue({ status: "missing" }) }));
 vi.mock("@/lib/auth/require-user", () => ({ requirePageUser: vi.fn() }));
 vi.mock("@/features/bookings/data/booking-request-page", () => ({ loadBookingRequestPageContext: vi.fn() }));
 vi.mock("@/features/kyc/kyc-profile-form", () => ({ KycProfileForm: ({ returnTo }: { returnTo: string }) => <form data-kyc-return={returnTo} /> }));
 vi.mock("@/features/bookings/actions/request-booking", () => ({ requestBooking: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(`redirect:${url}`); } }));
+vi.mock("@/features/meetups/place-data", () => ({ loadCameraMeetupPlaces: vi.fn().mockResolvedValue([]) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), redirect: (url: string) => { throw new Error(`redirect:${url}`); } }));
 
 import { requirePageUser } from "@/lib/auth/require-user";
 import { loadBookingRequestPageContext } from "@/features/bookings/data/booking-request-page";

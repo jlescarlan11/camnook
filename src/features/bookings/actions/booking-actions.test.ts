@@ -29,7 +29,7 @@ function fields(values: Record<string, string>) {
     phone: "+63 917 123 4567",
     pickupDate: "2099-08-24",
     policyVersion: "3",
-    preferredMeetupArea: "IT Park, Cebu City",
+    meetupPlaceId: "44444444-4444-4444-8444-444444444444", meetupPlaceVersion: "1",
     returnDate: "2099-08-26",
     ...values,
   }).forEach(([name, value]) => data.set(name, value));
@@ -57,7 +57,7 @@ describe("booking actions", () => {
     const result = await requestBooking({ status: "idle" }, fields({ totalDue: "0", renterId: "other" }));
     expect(result).toMatchObject({ status: "error", error, values: { intendedUse: "Family portraits" } });
     expect(requestRpc.mock.calls[0][1]).toEqual({
-      p_camera_id: CAMERA_ID, p_expected_location: "Cebu City", p_handoff_time: "09:00", p_intended_use: "Family portraits", p_pickup_date: "2099-08-24", p_policy_version: 3, p_preferred_meetup_area: "IT Park, Cebu City", p_renter_id: "renter", p_return_date: "2099-08-26", p_operation_id: "33333333-3333-4333-8333-333333333333",
+      p_camera_id: CAMERA_ID, p_expected_location: "Cebu City", p_handoff_time: "09:00", p_intended_use: "Family portraits", p_pickup_date: "2099-08-24", p_policy_version: 3, p_place_id: "44444444-4444-4444-8444-444444444444", p_place_version: 1, p_renter_id: "renter", p_return_date: "2099-08-26", p_operation_id: "33333333-3333-4333-8333-333333333333",
     });
   });
 
@@ -76,23 +76,23 @@ describe("booking actions", () => {
     expect(rpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+63 917 123 4567" });
   });
 
-  it("silently saves name and phone before creating a preferred-area request", async () => {
+  it("silently saves name and phone before creating a saved-place request", async () => {
     const profileRpc = vi.fn().mockResolvedValue({ data: { account_status: "active" }, error: null });
     const requestRpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
     vi.mocked(getAuthenticatedUser).mockResolvedValue({ supabase: rpcClient(profileRpc), user: { id: "user-1" } } as never);
     vi.mocked(createSupabaseAdminClient).mockReturnValue(rpcClient(requestRpc) as never);
     await expect(requestBooking({ status: "idle" }, fields({}))).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
     expect(profileRpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+63 917 123 4567" });
-    expect(requestRpc).toHaveBeenCalledWith("request_booking_with_preference_idempotent", expect.objectContaining({
+    expect(requestRpc).toHaveBeenCalledWith("request_booking_with_place_idempotent", expect.objectContaining({
       p_expected_location: "Cebu City",
       p_intended_use: "Family portraits",
-      p_preferred_meetup_area: "IT Park, Cebu City",
+      p_place_id: "44444444-4444-4444-8444-444444444444", p_place_version: 1,
     }));
   });
 
   it("rejects incomplete renter details before authentication", async () => {
-    const result = await requestBooking({ status: "idle" }, fields({ legalName: "", preferredMeetupArea: "" }));
-    expect(result).toMatchObject({ error: "invalid_input", fieldErrors: { legalName: expect.any(String), preferredMeetupArea: expect.any(String) } });
+    const result = await requestBooking({ status: "idle" }, fields({ legalName: "", meetupPlaceId: "" }));
+    expect(result).toMatchObject({ error: "invalid_input", fieldErrors: { legalName: expect.any(String), meetupPlace: expect.any(String) } });
     expect(getAuthenticatedUser).not.toHaveBeenCalled();
   });
 });

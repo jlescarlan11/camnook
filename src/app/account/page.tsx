@@ -66,7 +66,7 @@ export default async function AccountPage() {
                             <h3 className="text-lg font-semibold">{booking.camera.name}</h3>
                             <p className="mt-1 text-sm font-medium text-[#0b4f9c]">{status.label}</p>
                             <p className="mt-2 max-w-xl text-sm text-stone-600">{status.nextStep}</p>
-                            {booking.meetup ? <p className="mt-2 text-sm text-stone-600">Meetup: {booking.meetup.kind === "public_venue" ? `${booking.meetup.name} — ${booking.meetup.address}` : `${booking.meetup.areaLabel} — venue pending`}</p> : null}
+                            {booking.meetup ? <p className="mt-2 text-sm text-stone-600">Meetup: {booking.meetup.kind !== "canonical_area" ? `${booking.meetup.name} — ${booking.meetup.address}` : `${booking.meetup.areaLabel} — venue pending`}</p> : null}
                           </div>
                           <Link className="button-secondary whitespace-nowrap" href={`/account/bookings/${booking.id}`}>Open booking</Link>
                         </div>

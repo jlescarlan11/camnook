@@ -41,7 +41,7 @@ export function RenterPickupStatus({
               <Value label="Schedule" value={formatManilaDateTime(pickup.pickup_at)} />
               <Value
                 label="Location"
-                value={meetup?.kind === "public_venue"
+                value={meetup && meetup.kind !== "canonical_area"
                   ? `${meetup.name} — ${meetup.address}`
                   : meetup?.kind === "canonical_area"
                     ? `${meetup.areaLabel} — exact public venue pending owner confirmation`
@@ -69,7 +69,7 @@ export function RenterPickupStatus({
             {meetup ? (
               <Value
                 label="Return meetup"
-                value={meetup.kind === "public_venue"
+                value={meetup.kind !== "canonical_area"
                   ? `${meetup.name} — ${meetup.address}`
                   : `${meetup.areaLabel} — exact public venue pending owner confirmation`}
               />

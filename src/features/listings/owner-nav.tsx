@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-type OwnerPage = "dashboard" | "cameras" | "bookings" | "reports" | "settings";
+type OwnerPage = "dashboard" | "cameras" | "bookings" | "reports" | "settings" | "meetups";
 
 export function OwnerNav({ current }: { current: OwnerPage }) {
   const links = [
     ["dashboard", "/admin", "Today"],
     ["bookings", "/admin/bookings", "Bookings"],
     ["cameras", "/admin/cameras", "Cameras"],
+    ["meetups", "/admin/meetup-places", "Meetup places"],
     ["reports", "/admin/reports", "Reports"],
     ["settings", "/admin/settings", "Settings"],
   ] as const;
