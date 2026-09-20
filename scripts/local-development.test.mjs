@@ -54,3 +54,20 @@ test("ignores downloaded production public credentials and unrelated secrets", (
   assert.equal(result.VERCEL_OIDC_TOKEN, undefined);
   assert.equal(result.CRON_SECRET, undefined);
 });
+test("prefers the reviewed Vercel Development map key over the local fallback", () => {
+  const result = composeDevelopment(
+    {
+      NEXT_PUBLIC_SUPABASE_URL: developmentUrl,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "dev-public",
+    },
+    {
+      ...valid,
+      NEXT_PUBLIC_GEOAPIFY_MAP_KEY: "vercel-development-browser-key",
+    },
+    { NEXT_PUBLIC_GEOAPIFY_MAP_KEY: "older-local-browser-key" },
+  );
+  assert.equal(
+    result.NEXT_PUBLIC_GEOAPIFY_MAP_KEY,
+    "vercel-development-browser-key",
+  );
+});

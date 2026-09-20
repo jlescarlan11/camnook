@@ -1,17 +1,15 @@
 # Complete residential address and private pin
 
-Reviewed: 2026-09-09. The structured address and written-address fallback are
-live in Production. The residential map remains unavailable until its dedicated
-browser key passes the automated release gate below.
+Reviewed: 2026-09-20. The structured address and written-address fallback are
+live in Production. Dedicated browser keys are configured for Development,
+Preview, and Production and must pass the automated boundary checks below.
 
-The 9 September 2026 environment inventory confirmed the existing server-side
-Geoapify and Mapbox credentials. `RESIDENTIAL_GEOCODING_TIMEOUT_MS=4000` is
-configured for Development, Preview, and Production. The inventory did not
-contain `NEXT_PUBLIC_GEOAPIFY_MAP_KEY`. Vercel does not expose provider-side
-product or origin restrictions, so the Geoapify Maps scope and reviewed origins
-also remain a release check. The workflow refuses promotion unless that key is
-provisioned, differs from the server key, and returns a Cebu PNG tile when
-called with the Production origin and referrer.
+The 20 September 2026 audit found a browser key in Production and in the local
+Development fallback, but both accepted `https://example.com` and both could
+call Geoapify APIs from that origin. The keys were subsequently split by
+environment and restricted: Development allows localhost and 127.0.0.1,
+Preview uses a dedicated key limited to CamNook deployment referrers under the
+Vercel team domain, and Production allows `https://camnook.shop`.
 
 ## Provider and purpose boundary
 
@@ -29,11 +27,20 @@ reach the browser. Do not log request bodies, provider payloads, addresses, or
 coordinates.
 
 Map tiles use a separate browser-visible `NEXT_PUBLIC_GEOAPIFY_MAP_KEY`. It must
-be restricted in Geoapify to Maps only and to the exact Development, Preview,
-and Production web origins that need it. Never put `GEOAPIFY_API_KEY`, the
-Mapbox token, a Supabase secret key, or another privileged credential in this
-variable. Tile requests necessarily disclose requested tile coordinates and
-technical request metadata to Geoapify; attribution remains visible on the map.
+be separate from the server key and restricted in Geoapify to the reviewed
+Development, Preview, or Production referrers and origins that need it. Never
+put `GEOAPIFY_API_KEY`, the Mapbox token, a Supabase secret key, or another
+privileged credential in this variable. Tile requests necessarily disclose
+requested tile coordinates and technical request metadata to Geoapify;
+attribution remains visible on the map.
+
+Geoapify does not expose per-API product scopes for keys, and its public map
+tile endpoint continues to return tiles when called with another origin. The
+origin/referrer controls do deny Geoapify API calls made by a browser from an
+unapproved origin, but they cannot make a browser key secret or prevent a
+server-side caller from spoofing or omitting browser headers. Separate keys
+limit rotation blast radius; provider usage monitoring and quotas remain the
+controls for public-key abuse.
 
 ## Stored data and access
 
@@ -67,22 +74,29 @@ Configure in each applicable Vercel environment:
 
 - `GEOAPIFY_API_KEY` — existing server-only lookup key.
 - `RESIDENTIAL_GEOCODING_TIMEOUT_MS=4000` — allowed range 500–10000.
-- `NEXT_PUBLIC_GEOAPIFY_MAP_KEY` — origin- and Maps-restricted public key.
+- `NEXT_PUBLIC_GEOAPIFY_MAP_KEY` — environment-specific, origin/referrer-
+  restricted public browser key.
 
-Configure the GitHub `production` environment once:
+After the Geoapify dashboard restrictions are configured and the checks below
+pass, configure the GitHub `production` environment:
 
-- `RESIDENTIAL_MAP_KEY_REVIEWED=maps-only-origin-reviewed-v1` — an authorized
-  operator's attestation that the public key is limited to Maps and the reviewed
-  Development, Preview, and Production origins.
+- `RESIDENTIAL_MAP_KEY_REVIEWED=origin-referrer-reviewed-v2` — an authorized
+  operator's attestation that separate public keys and their reviewed
+  Development, Preview, and Production referrer/origin rules are configured.
 
 The Production candidate gate calls the internal provider-readiness route with
-the Supabase management credential. The route verifies the browser key against
-a public Cebu tile and returns aggregate status only; the key and request URL
-never enter release evidence. Use synthetic or public Cebu fixtures for
-provider checks. Never put a real home address or coordinate in CI, release
-evidence, screenshots, issues, or logs. Verify search, reverse lookup, map
-tiles, visible attribution, denied browser permission, manual keyboard
-placement, and provider failure fallback.
+the Supabase management credential. The route requires a public Cebu tile from
+the Production origin and a 401/403 denial when an unapproved browser origin
+attempts Geoapify geocoding. It returns aggregate status only; the key and
+request URLs never enter release evidence. The local Development check applies
+the same API-origin denial and also requires tiles from localhost and
+127.0.0.1. `pnpm dev:setup` imports the Vercel Development browser key when
+present and otherwise preserves the ignored local fallback. Use synthetic or
+public Cebu fixtures for provider checks.
+Never put a real home address or coordinate in CI, release evidence,
+screenshots, issues, or logs. Verify search, reverse lookup, map tiles, visible
+attribution, denied browser permission, manual keyboard placement, and provider
+failure fallback.
 
 Before promotion, the protected readiness route creates or rotates credentials
 for one dedicated synthetic renter, signs in through the public Auth boundary,
