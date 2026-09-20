@@ -23,7 +23,9 @@ describe("KycProfileForm", () => {
     expect(markup).toContain('inputMode="numeric"');
     expect(markup).toContain('name="addressDetails"');
     expect(markup).toContain("Add map pin");
-    expect(markup).toContain("required for an unnamed road");
+    expect(markup).toContain("Residential map pin");
+    expect(markup).toContain("(required)");
+    expect(markup).not.toMatch(/Residential map pin.*\(optional\)/);
     expect(markup).toContain('name="psgcAreaCode"');
     expect(markup).toContain("No SMS or ID upload");
     expect(markup).not.toContain('type="file"');

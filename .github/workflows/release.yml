@@ -207,7 +207,7 @@ jobs:
             .providerRequestCount <= 8 and
             .routeElementCount == 6
           ' <<<"$response" >/dev/null
-          printf '### Production location and residential KYC verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Residential map key: `Production tile passed; unapproved-origin API request denied`\n- Structured save/reload: `passed`\n- Pin save/reload/removal: `passed`\n- Identity: `dedicated synthetic renter`\n- Coordinates: `public Cebu fixtures only`\n' \
+          printf '### Production location and residential KYC verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Residential map key: `Production tile passed; unapproved-origin API request denied`\n- Structured save/reload: `passed`\n- Required pin save/reload/reconfirmation: `passed`\n- Identity: `dedicated synthetic renter`\n- Coordinates: `public Cebu fixtures only`\n' \
             "$RELEASE_SHA" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Link exact Production project
@@ -376,7 +376,7 @@ jobs:
           for issue in 132 133; do
             if [[ "$(gh issue view "$issue" --repo "$GITHUB_REPOSITORY" --json state --jq .state)" == "OPEN" ]]; then
               gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --reason completed \
-                --comment "Verified in Production at commit \`$RELEASE_SHA\`. Exact-SHA release, residential provider readiness, structured save/reload, and pin save/reload/removal passed: $release_url"
+                --comment "Verified in Production at commit \`$RELEASE_SHA\`. Exact-SHA release, residential provider readiness, structured save/reload, and required pin save/reload/reconfirmation passed: $release_url"
             fi
           done
 
