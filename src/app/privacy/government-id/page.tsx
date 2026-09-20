@@ -29,7 +29,7 @@ export default function GovernmentIdPrivacyNoticePage() {
 
             <section>
               <h2 className="text-xl font-semibold text-stone-950">What CamNook collects before booking</h2>
-              <p className="mt-2">CamNook stores the renter’s full legal name, birthdate, mobile number, and complete written residential address. These details establish adult eligibility, prepare the rental contract, support booking coordination, and reduce equipment-loss risk. A private residential map pin is optional for a complete named-street address and required when the residence is on an unnamed road. The pin is not included in the rental contract and does not change meetup suggestions. SMS verification is not used.</p>
+              <p className="mt-2">CamNook stores the renter’s full legal name, birthdate, mobile number, complete written residential address, and a required private residential map pin. These details establish adult eligibility, prepare the rental contract, support booking coordination, and reduce equipment-loss risk. The pin is not included in the rental contract and does not change meetup suggestions. SMS verification is not used.</p>
             </section>
 
             <section>

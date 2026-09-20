@@ -165,8 +165,8 @@ begin
 end;
 $$;
 
--- Recreate structured data without a pin, then prove booking history freezes the
--- address fields and never receives residential coordinates.
+-- Recreate structured data with its required private pin, then prove booking
+-- history freezes the written fields and never receives residential coordinates.
 select api.save_my_kyc_profile_v2(jsonb_build_object(
   'legal_name', 'Address Renter Updated', 'phone', '+639220000009',
   'birth_date', '1990-03-15', 'legacy_address_line1', null,
@@ -174,9 +174,9 @@ select api.save_my_kyc_profile_v2(jsonb_build_object(
   'building', 'Tower A', 'address_details', 'Unit 4', 'postal_code', '6000',
   'expected_address_revision', (api.get_my_kyc_profile_v2() ->> 'address_revision'),
   'release_key', '2026-q2', 'area_code', '0730600041',
-  'pin_operation', 'remove', 'pin_source', null, 'pin_latitude', null,
-  'pin_longitude', null, 'pin_accuracy_meters', null,
-  'pin_consent_version', null
+  'pin_operation', 'set', 'pin_source', 'map_pin',
+  'pin_latitude', '10.31570', 'pin_longitude', '123.88540',
+  'pin_accuracy_meters', null, 'pin_consent_version', 'residential-pin-v1'
 ));
 
 reset role;
@@ -222,6 +222,6 @@ do $$ begin
   end;
 end; $$;
 
-select 'ok 1 - structured residential addresses and optional pins are actor-owned, atomic, private, legacy-safe, and snapshotted';
+select 'ok 1 - structured residential addresses and required pins are actor-owned, atomic, private, legacy-safe, and snapshotted';
 
 rollback;

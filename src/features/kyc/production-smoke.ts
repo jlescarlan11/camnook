@@ -31,11 +31,11 @@ type SmokeProfile = {
   house_number?: unknown;
   postal_code?: unknown;
   release?: unknown;
-  residential_pin?: null | { source?: unknown };
+  residential_pin?: { source?: unknown };
   street_name?: unknown;
 };
 
-function assertProfile(value: unknown, expectedPin: boolean) {
+function assertProfile(value: unknown) {
   const profile = value as SmokeProfile | null;
   if (
     !profile || profile.address_details !== fixture.address_details ||
@@ -43,7 +43,7 @@ function assertProfile(value: unknown, expectedPin: boolean) {
     profile.house_number !== fixture.house_number || profile.postal_code !== fixture.postal_code ||
     profile.release !== fixture.release_key || profile.street_name !== fixture.street_name ||
     typeof profile.address_revision !== "string" ||
-    (expectedPin ? profile.residential_pin?.source !== "map_pin" : profile.residential_pin !== null)
+    profile.residential_pin?.source !== "map_pin"
   ) throw new Error("Residential Production smoke returned an unexpected projection");
   return profile;
 }
@@ -108,8 +108,6 @@ export async function runResidentialProductionSmoke({
     return result.data;
   };
 
-  let latestRevision: string | null = null;
-  let pinWasSet = false;
   try {
     const existing = await rpc("get_my_kyc_profile_v2") as SmokeProfile | null;
     const saved = assertProfile(await rpc("save_my_kyc_profile_v2", {
@@ -120,25 +118,16 @@ export async function runResidentialProductionSmoke({
       pin_accuracy_meters: null, pin_consent_version: "residential-pin-v1",
       pin_latitude: "10.31570", pin_longitude: "123.88540",
       pin_operation: "set", pin_source: "map_pin",
-    }), true);
-    pinWasSet = true;
-    latestRevision = saved.address_revision as string;
-    assertProfile(await rpc("get_my_kyc_profile_v2"), true);
+    }));
+    assertProfile(await rpc("get_my_kyc_profile_v2"));
     assertProfile(await rpc("save_my_kyc_profile_v2", {
-      ...fixture, expected_address_revision: latestRevision,
-      pin_accuracy_meters: null, pin_consent_version: null,
-      pin_latitude: null, pin_longitude: null, pin_operation: "remove", pin_source: null,
-    }), false);
-    pinWasSet = false;
-    assertProfile(await rpc("get_my_kyc_profile_v2"), false);
+      ...fixture, expected_address_revision: saved.address_revision as string,
+      pin_accuracy_meters: null, pin_consent_version: "residential-pin-v1",
+      pin_latitude: "10.31580", pin_longitude: "123.88550",
+      pin_operation: "set", pin_source: "map_pin",
+    }));
+    assertProfile(await rpc("get_my_kyc_profile_v2"));
   } finally {
-    if (pinWasSet && latestRevision) {
-      await actor.schema("api").rpc("save_my_kyc_profile_v2", { p_input: {
-        ...fixture, expected_address_revision: latestRevision,
-        pin_accuracy_meters: null, pin_consent_version: null,
-        pin_latitude: null, pin_longitude: null, pin_operation: "remove", pin_source: null,
-      } });
-    }
     await actor.auth.signOut();
   }
 }

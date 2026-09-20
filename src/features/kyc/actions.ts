@@ -49,6 +49,7 @@ const inputSchema = z.object({
   postalCode: z.string().trim().regex(/^\d{4}$/, "Enter a four-digit Philippine postal code."),
   release: z.string().regex(/^\d{4}-q[1-4]$/),
   returnTo: z.string().max(1000),
+  savedPinPresent: z.enum(["0", "1"]),
   streetName: text(160),
 }).superRefine((data, context) => {
   const structuredLine = formatResidentialLine1(data);
@@ -77,16 +78,16 @@ const inputSchema = z.object({
         path: ["addressDetails"],
       });
     }
-    if (
-      data.pinOperation === "remove" ||
-      (data.pinOperation === "keep" && data.expectedAddressRevision === "")
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Add and confirm a private map pin because this address has no street name.",
-        path: ["pinLatitude"],
-      });
-    }
+  }
+  if (
+    data.pinOperation === "remove" ||
+    (data.pinOperation === "keep" && data.savedPinPresent === "0")
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Add and confirm your private residential map pin.",
+      path: ["pinLatitude"],
+    });
   }
   if (structuredLine.length > 500) {
     context.addIssue({
@@ -163,6 +164,7 @@ export async function saveKycProfile(
     postalCode: value(formData, "postalCode"),
     release: value(formData, "psgcRelease"),
     returnTo: value(formData, "returnTo"),
+    savedPinPresent: value(formData, "savedPinPresent"),
     streetName: value(formData, "streetName"),
   };
   const parsed = inputSchema.safeParse(raw);
