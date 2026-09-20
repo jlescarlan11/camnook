@@ -1,17 +1,15 @@
 # Complete residential address and private pin
 
-Reviewed: 2026-09-09. The structured address and written-address fallback are
+Reviewed: 2026-09-20. The structured address and written-address fallback are
 live in Production. The residential map remains unavailable until its dedicated
-browser key passes the automated release gate below.
+browser key passes the automated boundary checks below.
 
-The 9 September 2026 environment inventory confirmed the existing server-side
-Geoapify and Mapbox credentials. `RESIDENTIAL_GEOCODING_TIMEOUT_MS=4000` is
-configured for Development, Preview, and Production. The inventory did not
-contain `NEXT_PUBLIC_GEOAPIFY_MAP_KEY`. Vercel does not expose provider-side
-product or origin restrictions, so the Geoapify Maps scope and reviewed origins
-also remain a release check. The workflow refuses promotion unless that key is
-provisioned, differs from the server key, and returns a Cebu PNG tile when
-called with the Production origin and referrer.
+The 20 September 2026 audit found a browser key in Production and in the local
+Development fallback, but both accepted `https://example.com` and both could
+call Geoapify geocoding. They therefore did not satisfy the required Maps-only,
+reviewed-origin boundary. The Production GitHub attestation was reset to
+`review-required`; Development and Preview Vercel configuration still need a
+reviewed browser key. Do not copy either audited key into another environment.
 
 ## Provider and purpose boundary
 
@@ -69,20 +67,26 @@ Configure in each applicable Vercel environment:
 - `RESIDENTIAL_GEOCODING_TIMEOUT_MS=4000` — allowed range 500–10000.
 - `NEXT_PUBLIC_GEOAPIFY_MAP_KEY` — origin- and Maps-restricted public key.
 
-Configure the GitHub `production` environment once:
+After the Geoapify dashboard restrictions are configured and the checks below
+pass, configure the GitHub `production` environment:
 
 - `RESIDENTIAL_MAP_KEY_REVIEWED=maps-only-origin-reviewed-v1` — an authorized
   operator's attestation that the public key is limited to Maps and the reviewed
   Development, Preview, and Production origins.
 
 The Production candidate gate calls the internal provider-readiness route with
-the Supabase management credential. The route verifies the browser key against
-a public Cebu tile and returns aggregate status only; the key and request URL
-never enter release evidence. Use synthetic or public Cebu fixtures for
-provider checks. Never put a real home address or coordinate in CI, release
-evidence, screenshots, issues, or logs. Verify search, reverse lookup, map
-tiles, visible attribution, denied browser permission, manual keyboard
-placement, and provider failure fallback.
+the Supabase management credential. The route requires a public Cebu tile from
+the Production origin, a 401/403 denial for the same tile from an unapproved
+origin, and a 401/403 denial when the browser key attempts Geoapify geocoding.
+It returns aggregate status only; the key and request URLs never enter release
+evidence. The local Development check applies the same negative boundaries and
+also requires tiles from localhost and 127.0.0.1. `pnpm dev:setup` imports a
+Vercel Development browser key when present and otherwise preserves the ignored
+local fallback. Use synthetic or public Cebu fixtures for provider checks.
+Never put a real home address or coordinate in CI, release evidence,
+screenshots, issues, or logs. Verify search, reverse lookup, map tiles, visible
+attribution, denied browser permission, manual keyboard placement, and provider
+failure fallback.
 
 Before promotion, the protected readiness route creates or rotates credentials
 for one dedicated synthetic renter, signs in through the public Auth boundary,

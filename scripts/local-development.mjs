@@ -55,7 +55,10 @@ export function composeDevelopment(publicEnv, downloaded, prior) {
     )
       result[name] = value;
   }
-  if (prior.NEXT_PUBLIC_GEOAPIFY_MAP_KEY)
+  if (downloaded.NEXT_PUBLIC_GEOAPIFY_MAP_KEY)
+    result.NEXT_PUBLIC_GEOAPIFY_MAP_KEY =
+      downloaded.NEXT_PUBLIC_GEOAPIFY_MAP_KEY;
+  else if (prior.NEXT_PUBLIC_GEOAPIFY_MAP_KEY)
     result.NEXT_PUBLIC_GEOAPIFY_MAP_KEY = prior.NEXT_PUBLIC_GEOAPIFY_MAP_KEY;
   assertDevelopment(result);
   return result;
@@ -157,6 +160,44 @@ async function check(env) {
         );
       await result.body?.cancel();
     }
+  if (env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY) {
+    const tile = new URL(
+      "https://maps.geoapify.com/v1/tile/osm-bright/12/3457/1929.png",
+    );
+    tile.searchParams.set("apiKey", env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY);
+    const disallowedTile = await request(tile, {
+      headers: {
+        Origin: "https://example.com",
+        Referer: "https://example.com/",
+      },
+    });
+    if (![401, 403].includes(disallowedTile.status))
+      problems.push(
+        "Browser map key accepted an unapproved origin; restrict it to reviewed web origins.",
+      );
+    await disallowedTile.body?.cancel();
+
+    const geocoding = new URL(
+      "https://api.geoapify.com/v1/geocode/search",
+    );
+    geocoding.search = new URLSearchParams({
+      text: "Ayala Center Cebu",
+      format: "json",
+      limit: "1",
+      apiKey: env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY,
+    }).toString();
+    const geocodingResult = await request(geocoding, {
+      headers: {
+        Origin: "http://localhost:3000",
+        Referer: "http://localhost:3000/",
+      },
+    });
+    if (![401, 403].includes(geocodingResult.status))
+      problems.push(
+        "Browser map key can call Geoapify geocoding; restrict it to Maps only.",
+      );
+    await geocodingResult.body?.cancel();
+  }
   if (problems.length) throw new Error(problems.join("\n"));
   console.log(
     "Development dependencies ready. Browser flow verification is still a separate check.",

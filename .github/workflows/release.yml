@@ -118,7 +118,7 @@ jobs:
           node-version: 24
 
       - name: Install pinned Vercel CLI
-        run: npm install --global vercel@59.13.1
+        run: npm install --global vercel@59.23.2
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
@@ -201,13 +201,13 @@ jobs:
           jq -e '
             .geoapify == "passed" and
             .mapbox == "passed" and
-            .residentialMapTiles == "passed" and
+            .residentialMapKeyBoundary == "passed" and
             .residentialKyc == "passed" and
             .providerRequestCount >= 4 and
-            .providerRequestCount <= 7 and
+            .providerRequestCount <= 9 and
             .routeElementCount == 6
           ' <<<"$response" >/dev/null
-          printf '### Production location and residential KYC verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Residential map tiles: `passed`\n- Structured save/reload: `passed`\n- Pin save/reload/removal: `passed`\n- Identity: `dedicated synthetic renter`\n- Coordinates: `public Cebu fixtures only`\n' \
+          printf '### Production location and residential KYC verified\n- SHA: `%s`\n- Geoapify: `passed`\n- Mapbox: `passed`\n- Residential map key: `allowed origin passed; disallowed origin and geocoding denied`\n- Structured save/reload: `passed`\n- Pin save/reload/removal: `passed`\n- Identity: `dedicated synthetic renter`\n- Coordinates: `public Cebu fixtures only`\n' \
             "$RELEASE_SHA" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Link exact Production project

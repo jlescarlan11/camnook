@@ -67,13 +67,20 @@ describe("Production meetup provider readiness", () => {
     process.env.VERCEL_ENV = "production";
     process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY =
       "dedicated-browser-map-key-value";
-    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: RequestInfo | URL) => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      return Promise.resolve(url.startsWith("https://maps.geoapify.com/")
-        ? new Response(new Uint8Array([137, 80, 78, 71]), {
+      const origin = new Headers(init?.headers).get("origin");
+      if (url.startsWith("https://maps.geoapify.com/")) {
+        return Promise.resolve(origin === "https://example.com"
+          ? new Response("forbidden", { status: 403 })
+          : new Response(new Uint8Array([137, 80, 78, 71]), {
             headers: { "content-type": "image/png" },
-          })
-        : new Response("{}"));
+          }));
+      }
+      if (url.startsWith("https://api.geoapify.com/v1/geocode/search")) {
+        return Promise.resolve(new Response("forbidden", { status: 403 }));
+      }
+      return Promise.resolve(new Response("{}"));
     }));
     mocks.getMeetupProviderConfig.mockReturnValue(providerConfig);
     mocks.getMeetupRoutingConfig.mockReturnValue(routingConfig);
@@ -157,6 +164,45 @@ describe("Production meetup provider readiness", () => {
     });
   });
 
+  it("fails closed when an unapproved origin can use the browser map key", async () => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      return Promise.resolve(url.startsWith("https://maps.geoapify.com/")
+        ? new Response(new Uint8Array([137, 80, 78, 71]), {
+            headers: { "content-type": "image/png" },
+          })
+        : new Response("{}"));
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "residential_map_configuration_unavailable",
+    });
+  });
+
+  it("fails closed when the browser map key can call geocoding", async () => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const origin = new Headers(init?.headers).get("origin");
+      if (url.startsWith("https://maps.geoapify.com/")) {
+        return Promise.resolve(origin === "https://example.com"
+          ? new Response("forbidden", { status: 403 })
+          : new Response(new Uint8Array([137, 80, 78, 71]), {
+              headers: { "content-type": "image/png" },
+            }));
+      }
+      if (url.startsWith("https://api.geoapify.com/v1/geocode/search")) {
+        return Promise.resolve(new Response("{}"));
+      }
+      return Promise.resolve(new Response("{}"));
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "residential_map_configuration_unavailable",
+    });
+  });
+
   it("returns only bounded aggregate provider evidence", async () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
@@ -164,9 +210,9 @@ describe("Production meetup provider readiness", () => {
     expect(body).toEqual({
       geoapify: "passed",
       mapbox: "passed",
-      providerRequestCount: 7,
+      providerRequestCount: 9,
       residentialKyc: "passed",
-      residentialMapTiles: "passed",
+      residentialMapKeyBoundary: "passed",
       routeElementCount: 6,
     });
     expect(fetch).toHaveBeenCalledWith(
@@ -174,6 +220,15 @@ describe("Production meetup provider readiness", () => {
         hostname: "maps.geoapify.com",
         pathname: "/v1/tile/osm-bright/12/3457/1929.png",
       }),
+      expect.objectContaining({
+        headers: {
+          Origin: "https://camnook.shop",
+          Referer: "https://camnook.shop/account",
+        },
+      }),
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      expect.objectContaining({ hostname: "api.geoapify.com" }),
       expect.objectContaining({
         headers: {
           Origin: "https://camnook.shop",

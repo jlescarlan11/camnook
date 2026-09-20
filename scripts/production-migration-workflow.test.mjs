@@ -105,7 +105,7 @@ describe("immutable release workflow policy", () => {
       "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86",
     );
     expect(workflow).toContain('test "$(pnpm --version)" = "10.33.1"');
-    expect(workflow).toContain("vercel@59.13.1");
+    expect(workflow).toContain("vercel@59.23.2");
     expect(workflow).toContain("vercel build --prod");
     expect(workflow).toContain("vercel deploy --prebuilt --prod --skip-domain");
     expect(workflow).toContain('--meta githubCommitSha="$RELEASE_SHA"');
@@ -135,7 +135,7 @@ describe("immutable release workflow policy", () => {
     expect(workflow).toContain(
       'test "$RESIDENTIAL_MAP_KEY_REVIEWED" = "maps-only-origin-reviewed-v1"',
     );
-    expect(workflow).toContain('.residentialMapTiles == "passed"');
+    expect(workflow).toContain('.residentialMapKeyBoundary == "passed"');
     expect(workflow).toContain('.residentialKyc == "passed"');
     expect(position("name: Verify Production meetup providers on candidate")).toBeLessThan(
       position("name: Promote candidate with reconciliation"),

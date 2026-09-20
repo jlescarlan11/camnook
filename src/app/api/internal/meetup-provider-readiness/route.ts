@@ -24,7 +24,10 @@ const PUBLIC_ROUTE_TARGETS = [
 ];
 const PUBLIC_CEBU_TILE_URL =
   "https://maps.geoapify.com/v1/tile/osm-bright/12/3457/1929.png";
+const PUBLIC_GEOCODING_PROBE_URL =
+  "https://api.geoapify.com/v1/geocode/search?text=Ayala%20Center%20Cebu&format=json&limit=1";
 const PRODUCTION_ORIGIN = "https://camnook.shop";
+const DISALLOWED_ORIGIN = "https://example.com";
 
 function bearerToken(request: Request) {
   const authorization = request.headers.get("authorization");
@@ -54,7 +57,20 @@ async function hasProductionManagementAccess(token: string) {
   }
 }
 
-async function verifyResidentialMapTiles(serverApiKey: string) {
+async function cancelBody(response: Response) {
+  if (!response.body) return;
+  try {
+    await response.body.cancel();
+  } catch {
+    // The status and headers remain decisive if the body already closed.
+  }
+}
+
+function isProviderDenial(response: Response) {
+  return response.status === 401 || response.status === 403;
+}
+
+async function verifyResidentialMapKeyBoundary(serverApiKey: string) {
   const browserMapKey = process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY?.trim();
   if (
     !browserMapKey ||
@@ -65,9 +81,9 @@ async function verifyResidentialMapTiles(serverApiKey: string) {
   }
 
   try {
-    const url = new URL(PUBLIC_CEBU_TILE_URL);
-    url.searchParams.set("apiKey", browserMapKey);
-    const response = await fetch(url, {
+    const productionTileUrl = new URL(PUBLIC_CEBU_TILE_URL);
+    productionTileUrl.searchParams.set("apiKey", browserMapKey);
+    const productionTile = await fetch(productionTileUrl, {
       cache: "no-store",
       headers: {
         Origin: PRODUCTION_ORIGIN,
@@ -75,16 +91,38 @@ async function verifyResidentialMapTiles(serverApiKey: string) {
       },
       signal: AbortSignal.timeout(15_000),
     });
-    const isPng = response.headers.get("content-type")
+    const isPng = productionTile.headers.get("content-type")
       ?.toLowerCase().startsWith("image/png") ?? false;
-    if (response.body) {
-      try {
-        await response.body.cancel();
-      } catch {
-        // The status and content type remain decisive if the body closed.
-      }
-    }
-    return response.ok && isPng;
+    await cancelBody(productionTile);
+    if (!productionTile.ok || !isPng) return false;
+
+    const disallowedTileUrl = new URL(PUBLIC_CEBU_TILE_URL);
+    disallowedTileUrl.searchParams.set("apiKey", browserMapKey);
+    const disallowedTile = await fetch(disallowedTileUrl, {
+      cache: "no-store",
+      headers: {
+        Origin: DISALLOWED_ORIGIN,
+        Referer: `${DISALLOWED_ORIGIN}/`,
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const disallowedOriginDenied = isProviderDenial(disallowedTile);
+    await cancelBody(disallowedTile);
+    if (!disallowedOriginDenied) return false;
+
+    const geocodingUrl = new URL(PUBLIC_GEOCODING_PROBE_URL);
+    geocodingUrl.searchParams.set("apiKey", browserMapKey);
+    const geocoding = await fetch(geocodingUrl, {
+      cache: "no-store",
+      headers: {
+        Origin: PRODUCTION_ORIGIN,
+        Referer: `${PRODUCTION_ORIGIN}/account`,
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const geocodingDenied = isProviderDenial(geocoding);
+    await cancelBody(geocoding);
+    return geocodingDenied;
   } catch {
     return false;
   }
@@ -106,15 +144,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "configuration_unavailable" }, { status: 503 });
   }
 
-  // One tile, one reverse lookup, one matrix, and one search per category.
-  const providerRequestCount = 3 + providerConfig.allowedCategories.length;
-  if (providerRequestCount > 7) {
+  // Three browser-key boundary probes, one reverse lookup, one matrix, and one
+  // search per category.
+  const providerRequestCount = 5 + providerConfig.allowedCategories.length;
+  if (providerRequestCount > 9) {
     return Response.json({ error: "provider_plan_unbounded" }, { status: 503 });
   }
 
-  let stage = "residential_map_tiles";
+  let stage = "residential_map_key_boundary";
   try {
-    if (!(await verifyResidentialMapTiles(providerConfig.apiKey))) {
+    if (!(await verifyResidentialMapKeyBoundary(providerConfig.apiKey))) {
       return Response.json(
         { error: "residential_map_configuration_unavailable" },
         { status: 503 },
@@ -170,7 +209,7 @@ export async function POST(request: Request) {
       mapbox: "passed",
       providerRequestCount,
       residentialKyc: "passed",
-      residentialMapTiles: "passed",
+      residentialMapKeyBoundary: "passed",
       routeElementCount: routes.length * 2,
     });
   } catch {
