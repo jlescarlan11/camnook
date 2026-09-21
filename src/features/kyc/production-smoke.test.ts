@@ -17,7 +17,7 @@ const saved = {
 };
 
 describe("residential Production smoke", () => {
-  it("provisions a synthetic actor and verifies set/read/remove/read", async () => {
+  it("provisions a synthetic actor and verifies set/read/reconfirm/read", async () => {
     const createUser = vi.fn().mockResolvedValue({
       data: { user: { id: "smoke-user" } },
       error: null,
@@ -31,8 +31,8 @@ describe("residential Production smoke", () => {
       .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({ data: saved, error: null })
       .mockResolvedValueOnce({ data: saved, error: null })
-      .mockResolvedValueOnce({ data: { ...saved, residential_pin: null }, error: null })
-      .mockResolvedValueOnce({ data: { ...saved, residential_pin: null }, error: null });
+      .mockResolvedValueOnce({ data: saved, error: null })
+      .mockResolvedValueOnce({ data: saved, error: null });
     const signOut = vi.fn().mockResolvedValue({ error: null });
     const actor = {
       auth: {
@@ -67,7 +67,10 @@ describe("residential Production smoke", () => {
       pin_consent_version: "residential-pin-v1",
       pin_operation: "set",
     });
-    expect(rpc.mock.calls[3][1].p_input.pin_operation).toBe("remove");
+    expect(rpc.mock.calls[3][1].p_input).toMatchObject({
+      pin_consent_version: "residential-pin-v1",
+      pin_operation: "set",
+    });
     expect(signOut).toHaveBeenCalledOnce();
   });
 });

@@ -48,6 +48,7 @@ describe("ResidentialPinPicker", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add map pin" }));
 
     expect(hidden(container, "pinOperation")?.value).toBe("keep");
+    expect(hidden(container, "savedPinPresent")?.value).toBe("0");
     expect(hidden(container, "pinLatitude")?.value).toBe("");
     expect(screen.getByText("No residential pin selected.")).toBeTruthy();
   });
@@ -68,7 +69,7 @@ describe("ResidentialPinPicker", () => {
     expect(hidden(container, "pinSource")?.value).toBe("map_pin");
   });
 
-  it("reloads and explicitly removes a saved pin", () => {
+  it("requires a changed address to reconfirm its saved pin", () => {
     const { container } = render(
       <ResidentialPinPicker
         addressChanged
@@ -82,12 +83,9 @@ describe("ResidentialPinPicker", () => {
       />,
     );
 
-    expect(screen.getByText(/Reconfirm or remove/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Remove map pin" }));
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add map pin" }));
-
-    expect(hidden(container, "pinOperation")?.value).toBe("remove");
-    expect(hidden(container, "pinLatitude")?.value).toBe("");
-    expect(screen.getByText("No residential pin selected.")).toBeTruthy();
+    expect(screen.getByText(/Reconfirm the saved pin/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Remove map pin" })).toBeNull();
+    expect(hidden(container, "savedPinPresent")?.value).toBe("1");
+    expect(hidden(container, "pinOperation")?.value).toBe("keep");
   });
 });

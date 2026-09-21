@@ -47,26 +47,28 @@ controls for public-key abuse.
 The required written KYC address is stored in structured fields plus a derived
 compatibility line. A four-digit postal code remains renter-entered; it is not
 inferred from PSGC. A named-street address requires a house or lot number, or a
-building name together with unit details. An unnamed-road address requires
-subdivision, sitio, or landmark details and a confirmed private residential pin.
+building name together with unit details. An unnamed-road address also requires
+subdivision, sitio, or landmark details. Every structured address requires a
+confirmed private residential pin.
 Existing unsplit addresses remain version 1 until the renter explicitly saves
 structured details; their next save must meet the structured requirements. New
 booking snapshots copy the written components; old snapshots and issued
 contracts are immutable.
 
-The pin is purpose-separated in `private.renter_residential_pins`. It is optional
-for a complete named-street address and required for an unnamed-road address.
+The pin is purpose-separated in `private.renter_residential_pins` and is required
+for every structured residential address.
 Only actor-owned security-definer RPCs project or mutate it; the table has RLS
 enabled and no API-role grants. Application admins receive no pin API. Pin
 records contain coordinates, selection source, optional device accuracy,
 consent version, address revision, confirmation time, and audit identities.
 They do not claim that a residence or identity was verified.
 
-Saving a changed written address requires a new pin confirmation or explicit
-pin removal when a pin exists. Pin removal hard-deletes the active row; no
-application history is retained. Supabase infrastructure backups follow the
-configured project backup lifecycle, so privacy responses must not promise
-immediate erasure from already-created backups.
+Saving a changed written address requires a new pin confirmation. The active
+pin cannot be removed while a structured address remains saved; replacing it
+updates the single active row and no application history is retained. Supabase
+infrastructure backups follow the configured project backup lifecycle, so
+privacy responses must not promise immediate erasure from already-created
+backups.
 
 ## Configuration and bounded verification
 
@@ -101,8 +103,8 @@ failure fallback.
 Before promotion, the protected readiness route creates or rotates credentials
 for one dedicated synthetic renter, signs in through the public Auth boundary,
 and uses the actor-owned v2 RPCs to save/reload a structured address, set and
-reload a public-fixture pin, remove it, and confirm removal with a fresh read.
-It leaves the synthetic written address in place and no saved pin. After the
+reload a public-fixture pin, reconfirm it, and reload it again. It leaves the
+synthetic written address and required public-fixture pin in place. After the
 promoted application smoke passes, the workflow closes issues #132 and #133
 with the exact SHA and release-run evidence.
 
@@ -116,9 +118,8 @@ address path available.
 ## Failure and recovery
 
 Missing configuration, budget denial, timeout, quota, network, malformed, empty,
-or tile failure never fabricates a pin. A complete named-street address remains
-saveable without the map; an unnamed-road address remains blocked until the
-renter can confirm its required private pin.
+or tile failure never fabricates a pin. Every new or updated structured address
+remains blocked until the renter confirms its required private pin.
 An unconfirmed draft remains client-only. An uncertain save is resolved by a
 fresh actor-owned read. Address/pin persistence is one database transaction.
 

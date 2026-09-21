@@ -66,12 +66,10 @@ export function KycProfileForm({
   const submitted = state.values;
   const legacyAddress = kyc?.addressFormatVersion === 1 ? kyc.addressLine1 : "";
   const initialStreetName = submitted?.streetName ?? kyc?.streetName ?? "";
-  const [requiresPrivatePin, setRequiresPrivatePin] = useState(!initialStreetName.trim());
 
   function trackAddressChange(event: FormEvent<HTMLFormElement>) {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
-    if (target.name === "streetName") setRequiresPrivatePin(!target.value.trim());
     if ([
       "addressDetails", "building", "houseNumber", "legacyAddressLine1",
       "postalCode", "psgcAreaCode", "streetName",
@@ -121,7 +119,7 @@ export function KycProfileForm({
             <Field error={state.fieldErrors?.houseNumber} help="Required unless you provide both a building name and unit details." label="House or lot number">
               <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" placeholder="e.g. 12 or Lot 4 Block 2" />
             </Field>
-            <Field error={state.fieldErrors?.streetName} help="Leave blank only when the road has no official name; a private map pin will then be required." label="Street name">
+            <Field error={state.fieldErrors?.streetName} help="Leave blank only when the road has no official name." label="Street name">
               <input autoComplete="address-line1" className={inputClass} defaultValue={initialStreetName} maxLength={160} name="streetName" placeholder="e.g. Gorordo Avenue" />
             </Field>
             <Field error={state.fieldErrors?.building} label="Building name (optional)">
@@ -139,14 +137,13 @@ export function KycProfileForm({
           addressChanged={addressChanged}
           error={state.fieldErrors?.residentialPin}
           initialPin={kyc?.residentialPin ?? null}
-          required={requiresPrivatePin}
         />
       </div>
       <p className={checkout ? "checkout-id-note" : "text-sm text-stone-600"}>{checkout ? "Bring your original ID to pickup. " : "No SMS or ID upload. Bring the original ID to pickup. "}<Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id">Privacy details</Link></p>
 
       {state.status === "error" ? (
         <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-          {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm or remove the pin, or reload if you edited this profile elsewhere." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}
+          {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm the pin, or reload if you edited this profile elsewhere." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}
         </p>
       ) : null}
       <button className={checkout ? "checkout-primary" : "min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-60"} disabled={pending} type="submit">
