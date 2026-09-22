@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import {
@@ -101,8 +101,17 @@ export function ResolutionControls({
     decideReturnReview,
     initialState,
   );
+  const [note, setNote] = useState("");
+  const [noteOperationId, setNoteOperationId] = useState(operationIds.issueNote);
   const [noteState, noteAction, notePending] = useActionState(
-    addIssueNote,
+    async (previous: ResolutionActionState, formData: FormData) => {
+      const result = await addIssueNote(previous, formData);
+      if (result.status === "success") {
+        setNote("");
+        setNoteOperationId(crypto.randomUUID());
+      }
+      return result;
+    },
     initialState,
   );
   const [issueState, issueAction, issuePending] = useActionState(
@@ -474,7 +483,7 @@ export function ResolutionControls({
               </ol>
             ) : null}
             <form action={noteAction} className="mt-4 space-y-3">
-              <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.issueNote} />
+              <HiddenIds bookingId={resolution.booking_id} operationId={noteOperationId} />
               <label className="block text-sm font-medium" htmlFor="issue-note">
                 Private issue note
               </label>
@@ -482,11 +491,14 @@ export function ResolutionControls({
                 aria-describedby={noteErrors?.note ? "issue-note-error" : undefined}
                 aria-invalid={noteErrors?.note ? true : undefined}
                 className="min-h-20 w-full rounded-xl border border-stone-300 px-4 py-3"
+                disabled={notePending}
                 id="issue-note"
                 maxLength={2000}
                 minLength={2}
                 name="note"
+                onChange={(event) => setNote(event.target.value)}
                 required
+                value={note}
               />
               <FieldError id="issue-note-error" message={noteErrors?.note} />
               <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={notePending} type="submit">Append private note</button>

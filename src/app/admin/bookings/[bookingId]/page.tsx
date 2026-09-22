@@ -396,6 +396,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
 
             {resolutionData?.status === "success" && resolutionOperationIds ? (
               <ResolutionControls
+                key={resolutionData.resolution.booking_id}
                 actualAt={formatManilaDateTimeInput(
                   new Date().toISOString(),
                   true,
