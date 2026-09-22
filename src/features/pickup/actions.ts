@@ -372,16 +372,17 @@ async function saveConditionPhoto(
     return "unavailable" as const;
   }
 
-  const uploaded = await context.supabase.storage
-    .from("condition-evidence")
-    .upload(intent.data.object_path, bytes, {
-      cacheControl: "0",
-      contentType: photo.type,
-      upsert: false,
-    });
-  if (uploaded.error) {
-    await cleanupPhotoIntent(context, intent.data.id);
-    return "unavailable" as const;
+  try {
+    await context.supabase.storage
+      .from("condition-evidence")
+      .upload(intent.data.object_path, bytes, {
+        cacheControl: "0",
+        contentType: photo.type,
+        upsert: false,
+      });
+  } catch {
+    // The object may exist despite a lost upload acknowledgement. The same
+    // byte/hash verification below decides whether this intent can finalize.
   }
 
   if (!(await storedConditionPhotoMatches(intent.data.object_path, bytes, sha256))) {
