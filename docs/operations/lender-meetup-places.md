@@ -14,6 +14,11 @@ Implemented and verified on 2026-09-20. The migration was applied to the hosted 
 ## Verified behavior
 
 - Owners manage the reusable place library through admin-checked RPCs. Renters only receive eligible camera choices and cannot write the library or inspect unassigned library entries through table reads.
+- New place forms retain a creation reference across failed or interrupted saves.
+  An unchanged retry returns the original place without changing its version.
+  A changed retry or a retry after edit/archive fails stale. After confirmed
+  creation, the form clears and allocates a new reference for the next place.
+  Older callers without a creation reference retain their original create behavior.
 - Checkout requires explicit selection and submits only the place ID and version as location authority. The database reads and copies the venue fields itself.
 - Latitude/longitude are stored to six decimals. Booking and contract snapshots keep the original pin, address, and arrival instructions after library edits or archive.
 - Booking creation and snapshot insertion are atomic. Existing KYC, schedule, account, request-limit, and idempotency checks remain enforced.

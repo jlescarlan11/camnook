@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { requirePageAdmin } from "@/lib/auth/require-admin";
 import { SiteHeader } from "@/features/bookings/components/site-header";
 import { OwnerNav } from "@/features/listings/owner-nav";
@@ -60,7 +62,7 @@ export default async function MeetupPlacesPage() {
             ))}
             <section className="rounded-xl border p-6">
               <h2 className="mb-6 text-2xl font-semibold">Add meetup place</h2>
-              <MeetupPlaceForm />
+              <MeetupPlaceForm creationId={randomUUID()} />
             </section>
           </div>
         )}

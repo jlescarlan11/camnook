@@ -22,6 +22,7 @@ beforeEach(() => {
 function fields() {
   const f = new FormData();
   Object.entries({
+    creationId: "55555555-5555-4555-8555-555555555555",
     name: "Public entrance",
     address: "Public road, Cebu City",
     city: "Cebu City",
@@ -46,6 +47,7 @@ it("saves the confirmed precision and handles a stale edit", async () => {
   });
   expect(rpc).toHaveBeenCalledWith("save_meetup_place", {
     p_input: expect.objectContaining({
+      creation_id: "55555555-5555-4555-8555-555555555555",
       latitude: 10.315712,
       longitude: 123.885423,
       source: "manual_pin",
@@ -72,6 +74,18 @@ it("does not silently turn a missing coordinate into zero", async () => {
   });
   expect(rpc).not.toHaveBeenCalled();
 });
+it("requires a stable creation reference but preserves existing-place editing", async () => {
+  const f = fields();
+  f.delete("creationId");
+  expect(await saveMeetupPlace({ status: "idle" }, f)).toMatchObject({ status: "error" });
+  expect(rpc).not.toHaveBeenCalled();
+  f.set("id", "44444444-4444-4444-8444-444444444444");
+  f.set("version", "1");
+  expect(await saveMeetupPlace({ status: "idle" }, f)).toMatchObject({ status: "success" });
+  expect(rpc).toHaveBeenCalledWith("save_meetup_place", {
+    p_input: expect.objectContaining({ id: "44444444-4444-4444-8444-444444444444", creation_id: null, version: 1 }),
+  });
+});
 it("limits assignments to three places", async () => {
   const f = new FormData();
   f.set("camera", "11111111-1111-4111-8111-111111111111");
@@ -81,4 +95,14 @@ it("limits assignments to three places", async () => {
     status: "error",
   });
   expect(rpc).not.toHaveBeenCalled();
+});
+it("keeps an interrupted creation retryable without exposing transport details", async () => {
+  rpc.mockRejectedValueOnce(new Error("synthetic private transport detail"));
+  const form = fields();
+  const failed = await saveMeetupPlace({ status: "idle" }, form);
+  expect(failed).toMatchObject({ status: "error", message: expect.stringContaining("uncertain") });
+  expect(JSON.stringify(failed)).not.toContain("synthetic private");
+  expect(rpc).toHaveBeenCalledTimes(1);
+  expect(await saveMeetupPlace(failed, form)).toMatchObject({ status: "success" });
+  expect(rpc.mock.calls[0][1]).toEqual(rpc.mock.calls[1][1]);
 });

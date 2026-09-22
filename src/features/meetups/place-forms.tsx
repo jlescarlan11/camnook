@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import {
   archiveMeetupPlace,
   assignCameraMeetupPlaces,
@@ -18,10 +18,12 @@ const initial: PlaceActionState = { status: "idle" };
 const input = "mt-2 w-full rounded-lg border border-stone-300 px-3 py-3";
 export function MeetupPlaceForm({
   place,
+  creationId,
 }: {
   place?: MeetupPlace & { source: string };
+  creationId?: string;
 }) {
-  const [state, action, pending] = useActionState(saveMeetupPlace, initial);
+  const [creationReference, setCreationReference] = useState(creationId ?? "");
   const [values, setValues] = useState({
     name: place?.name ?? "",
     address: place?.address ?? "",
@@ -43,6 +45,18 @@ export function MeetupPlaceForm({
       longitude: number;
     }>
   >([]);
+  const [state, action, pending] = useActionState(async (previous: PlaceActionState, form: FormData) => {
+    const result = await saveMeetupPlace(previous, form);
+    if (result.status === "success" && !place) {
+      setValues({ name: "", address: "", city: "", latitude: "", longitude: "", arrival_instructions: "", source: "manual_pin" });
+      setConfirmed(false);
+      setQuery("");
+      setResults([]);
+      setSearchError("");
+      setCreationReference(crypto.randomUUID());
+    }
+    return result;
+  }, initial);
   const validPin =
     values.latitude.trim() !== "" &&
     values.longitude.trim() !== "" &&
@@ -55,8 +69,14 @@ export function MeetupPlaceForm({
     setConfirmed(false);
   };
   return (
-    <form action={action} className="space-y-5">
+    <form className="space-y-5" onSubmit={(event) => {
+      event.preventDefault();
+      if (pending) return;
+      const form = new FormData(event.currentTarget);
+      startTransition(() => action(form));
+    }}>
       <input type="hidden" name="id" value={place?.id ?? ""} />
+      <input type="hidden" name="creationId" value={creationReference} />
       <input type="hidden" name="version" value={place?.version ?? ""} />
       <input type="hidden" name="source" value={values.source} />
       <div>
