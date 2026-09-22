@@ -12,6 +12,27 @@ import { ResidentialMap } from "./residential-map";
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
+it.each(["click", "dragend"])("rejects an out-of-bounds map %s without changing the selected pin or fetching a label", async (event) => {
+  const first = { accuracyMeters: null, label: "Public Cebu fixture", latitude: 10.31, longitude: 123.89, source: "map_pin" as const };
+  const onDraftChange = vi.fn();
+  const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ label: "Outside bounds" })));
+  vi.stubGlobal("fetch", request);
+  render(<ResidentialMap initialPin={first} mapKey="test-key" onDraftChange={onDraftChange} />);
+  await waitFor(() => expect(leaflet.map).toHaveBeenCalledOnce());
+  if (event === "click") {
+    const click = leaflet.view.on.mock.calls.find(([name]) => name === "click")![1];
+    act(() => click({ latlng: { lat: 35.68, lng: 139.69 } }));
+  } else {
+    leaflet.pin.getLatLng.mockReturnValueOnce({ lat: 35.68, lng: 139.69 });
+    const drag = leaflet.pin.on.mock.calls.find(([name]) => name === "dragend")![1];
+    act(() => drag());
+  }
+  expect(onDraftChange).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+  expect(leaflet.pin.setLatLng).toHaveBeenLastCalledWith([10.31, 123.89]);
+  expect(screen.getByText("Choose a pin within the Philippines.")).toBeTruthy();
+});
+
 it("keeps the latest pin label when reverse lookups finish out of order", async () => {
   const finishes: Array<(response: Response) => void> = [];
   vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => finishes.push(resolve))));
@@ -24,6 +45,21 @@ it("keeps the latest pin label when reverse lookups finish out of order", async 
   await act(async () => finishes[0](new Response(JSON.stringify({ label: "Old public fixture" }))));
   expect(screen.getByText("Selected near Latest public fixture")).toBeTruthy();
   expect(screen.queryByText("Selected near Old public fixture")).toBeNull();
+});
+
+it("restores the latest valid map selection after a rejected drag", async () => {
+  const onDraftChange = vi.fn();
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ label: null }))));
+  render(<ResidentialMap initialPin={null} mapKey="test-key" onDraftChange={onDraftChange} />);
+  await waitFor(() => expect(leaflet.map).toHaveBeenCalledOnce());
+  const click = leaflet.view.on.mock.calls.find(([name]) => name === "click")![1];
+  await act(async () => click({ latlng: { lat: 10.32, lng: 123.90 } }));
+  leaflet.pin.getLatLng.mockReturnValueOnce({ lat: 35.68, lng: 139.69 });
+  const drag = leaflet.pin.on.mock.calls.find(([name]) => name === "dragend")![1];
+  act(() => drag());
+  expect(leaflet.pin.setLatLng).toHaveBeenLastCalledWith([10.32, 123.90]);
+  expect(onDraftChange).toHaveBeenCalledOnce();
+  expect((screen.getByLabelText("Latitude") as HTMLInputElement).value).toBe("10.32000");
 });
 
 it("moves the marker and view without rebuilding the map or tiles", async () => {

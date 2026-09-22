@@ -58,6 +58,7 @@ export function ResidentialMap({
 
   function selectPin(pin: DraftPin) {
     pinRequest.current += 1;
+    latestPin.current = pin;
     setLocating(false);
     setCoordinateError(false);
     if (mapView.current && pinMarker.current) {
@@ -108,17 +109,25 @@ export function ResidentialMap({
         const request = ++pinRequest.current;
         setLocating(false);
         setCoordinateError(false);
+        if (!isPhilippineCoordinate(lat, lng)) {
+          const previous = latestPin.current ?? CEBU_CENTER;
+          marker.setLatLng([previous.latitude, previous.longitude]);
+          setStatus("Choose a pin within the Philippines.");
+          return;
+        }
         setStatus("Pin selected. Confirm the pin below.");
         marker.setLatLng([lat, lng]).addTo(map);
         setLatitude(lat.toFixed(5));
         setLongitude(lng.toFixed(5));
-        callback.current({
+        const pin: DraftPin = {
           accuracyMeters: null,
           label: "Manually selected pin",
           latitude: lat,
           longitude: lng,
           source: "map_pin",
-        });
+        };
+        latestPin.current = pin;
+        callback.current(pin);
         void reverseLabel(lat, lng).then((label) => {
           if (!disposed && request === pinRequest.current && label) {
             setStatus(`Selected near ${label}`);
