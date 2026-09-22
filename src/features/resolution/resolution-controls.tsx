@@ -92,6 +92,7 @@ export function ResolutionControls({
   resolution: ResolutionDetail;
 }) {
   const [returnOperationId] = useState(operationIds.recordReturn);
+  const [issueOperationId] = useState(operationIds.resolveIssue);
   const [initialReturnAt] = useState(actualAt);
   const [cancellationState, cancellationAction, cancellationPending] =
     useActionState(decideCancellation, initialState);
@@ -499,14 +500,19 @@ export function ResolutionControls({
             </form>
             <ActionResult state={noteState} />
           </div>
-          <form action={issueAction} className="space-y-4 border-t border-red-200 pt-5">
-            <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.resolveIssue} />
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            startTransition(() => issueAction(data));
+          }} className="space-y-4 border-t border-red-200 pt-5">
+            <HiddenIds bookingId={resolution.booking_id} operationId={issueOperationId} />
             <h3 className="font-semibold">Explicit issue decision</h3>
             <label className="block text-sm font-medium" htmlFor="issue-kind">Decision kind</label>
             <select
               aria-describedby={issueErrors?.decisionKind ? "issue-kind-error" : undefined}
               aria-invalid={issueErrors?.decisionKind ? true : undefined}
               className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-kind"
               name="decisionKind"
               required
@@ -524,6 +530,7 @@ export function ResolutionControls({
               aria-invalid={issueErrors?.deductionAmount ? true : undefined}
               className="min-h-12 w-full rounded-xl border border-stone-300 px-4"
               defaultValue="0.00"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-deduction"
               min="0"
               name="deductionAmount"
@@ -538,6 +545,7 @@ export function ResolutionControls({
               aria-describedby={issueErrors?.internalReason ? "issue-internal-reason-error" : undefined}
               aria-invalid={issueErrors?.internalReason ? true : undefined}
               className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-internal-reason"
               maxLength={2000}
               minLength={2}
@@ -550,6 +558,7 @@ export function ResolutionControls({
               aria-describedby={issueErrors?.customerExplanation ? "issue-customer-explanation-error" : undefined}
               aria-invalid={issueErrors?.customerExplanation ? true : undefined}
               className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-customer-explanation"
               maxLength={500}
               minLength={2}
@@ -557,7 +566,7 @@ export function ResolutionControls({
               required
             />
             <FieldError id="issue-customer-explanation-error" message={issueErrors?.customerExplanation} />
-            <button className="min-h-12 w-full rounded-xl bg-red-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={issuePending} type="submit">Record decision and complete booking</button>
+            <button className="min-h-12 w-full rounded-xl bg-red-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={issuePending || issueState.status === "success"} type="submit">Record decision and complete booking</button>
           </form>
           <ActionResult state={issueState} />
         </div>
