@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
 import {
   decidePayment,
@@ -145,9 +145,15 @@ export function PaymentReviewControls({
 
       <div className="mt-8 grid gap-5 border-t border-stone-200 pt-7 lg:grid-cols-2">
         <form
-          action={verifyAction}
           className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
-          onSubmit={() => setLastDecision("verify")}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (pending || committed) return;
+            setLastDecision("verify");
+            const formData = new FormData(event.currentTarget);
+            // Returned errors must not reset the observed transfer details.
+            startTransition(() => verifyAction(formData));
+          }}
         >
           <input name="decision" type="hidden" value="verified" />
           <input name="paymentId" type="hidden" value={paymentId} />
@@ -245,9 +251,14 @@ export function PaymentReviewControls({
         </form>
 
         <form
-          action={rejectAction}
           className="rounded-xl border border-red-200 bg-red-50 p-5"
-          onSubmit={() => setLastDecision("reject")}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (pending || committed) return;
+            setLastDecision("reject");
+            const formData = new FormData(event.currentTarget);
+            startTransition(() => rejectAction(formData));
+          }}
         >
           <input name="decision" type="hidden" value="rejected" />
           <input name="paymentId" type="hidden" value={paymentId} />
