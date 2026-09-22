@@ -276,6 +276,42 @@ describe("resolution Server Actions", () => {
     });
   });
 
+  it.each([
+    { amount: 3000, entry_kind: "reversal" },
+    { amount: 2999, entry_kind: "refund" },
+  ])("rejects a refund acknowledgement for different movement facts: %j", async (movement) => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { ...movement, booking_id: BOOKING_ID, created: false,
+        refund_record_id: RECORD_ID, transaction_id: TRANSACTION_ID },
+      error: null,
+    }));
+    const data = form();
+    data.set("amount", "3000.00");
+    data.set("externalMovedAt", "2026-08-16T10:00");
+    data.set("recipientName", "Named Renter");
+    data.set("reference", "REFUND-1234");
+    await expect(recordExternalRefund({ status: "idle" }, data)).resolves.toEqual({
+      error: "indeterminate", status: "error",
+    });
+  });
+
+  it("does not acknowledge a refund as a completed reversal", async () => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { amount: 3000, entry_kind: "refund", booking_id: BOOKING_ID,
+        created: false, refund_record_id: RECORD_ID, transaction_id: TRANSACTION_ID },
+      error: null,
+    }));
+    const data = form();
+    data.set("counterpartyName", "Named Renter");
+    data.set("externalMovedAt", "2026-08-16T11:00");
+    data.set("reason", "The transfer was returned.");
+    data.set("reference", "REVERSAL-1234");
+    data.set("refundRecordId", RECORD_ID);
+    await expect(reverseExternalRefund({ status: "idle" }, data)).resolves.toEqual({
+      error: "indeterminate", status: "error",
+    });
+  });
+
   it("records external refunds and corrections as distinct movements", async () => {
     const rpc = vi.fn(async (name: string) => ({
       data: {

@@ -534,7 +534,12 @@ export async function recordExternalRefund(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.entry_kind !== "refund" ||
+      parsed.data.amount !== amount
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "refund_recorded", status: "success" };
@@ -605,7 +610,11 @@ export async function reverseExternalRefund(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.entry_kind !== "reversal"
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "reversed", status: "success" };

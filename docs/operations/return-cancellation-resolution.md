@@ -142,7 +142,10 @@ incoming reversal and restores the liability.
 
 If a response is indeterminate, refresh the persisted ledger before retrying.
 Reuse the original operation identity when the same browser submission is
-retried. Never create a second movement to make the UI look successful. A
+retried. Refund and reversal retries must match the original movement's kind,
+target, amount where supplied, normalized reference, counterparty, movement time,
+and reversal reason where supplied. Changed facts return a stale result and do
+not modify the saved movement. Never create a second movement to make the UI look successful. A
 database or UI defect is repaired by a reviewed roll-forward change; immutable
 evidence and finance records are not deleted.
 

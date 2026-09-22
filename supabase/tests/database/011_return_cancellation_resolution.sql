@@ -661,6 +661,7 @@ declare
   issue_refund jsonb;
   reversal jsonb;
   detail jsonb;
+  variant integer;
 begin
   clear_refund := api.record_external_refund(
     '90400000-0000-4000-8000-000000000001',
@@ -695,6 +696,59 @@ begin
   then
     raise exception 'refund correction was not an immutable offsetting reversal';
   end if;
+
+  -- The same transfer can be acknowledged again, but changed facts cannot.
+  if (api.record_external_refund(
+    '90400000-0000-4000-8000-000000000001', 4000,
+    'resolution refund clear 001', ' Resolution Renter ', statement_timestamp(),
+    '91000000-0000-4000-8000-000000000001'
+  ) ->> 'refund_record_id') is distinct from clear_refund ->> 'refund_record_id' then
+    raise exception 'identical refund replay lost original identity';
+  end if;
+  if (api.reverse_external_refund(
+    (clear_refund ->> 'refund_record_id')::uuid,
+    'resolution reversal clear 001', ' Resolution Renter ', statement_timestamp(),
+    ' External refund was returned and must be re-sent. ',
+    '91000000-0000-4000-8000-000000000003'
+  ) ->> 'refund_record_id') is distinct from reversal ->> 'refund_record_id' then
+    raise exception 'identical reversal replay lost original identity';
+  end if;
+
+  for variant in 1..7 loop
+    begin
+      perform api.record_external_refund(
+        case when variant = 1 then '90400000-0000-4000-8000-000000000002'::uuid
+          else '90400000-0000-4000-8000-000000000001'::uuid end,
+        case when variant = 2 then 3999 else 4000 end,
+        case when variant = 3 then 'ANOTHER-REFERENCE' else 'RESOLUTION-REFUND-CLEAR-001' end,
+        case when variant = 4 then 'Another Synthetic Renter' else 'Resolution Renter' end,
+        statement_timestamp() - case when variant = 5 then interval '1 minute' else interval '0' end,
+        case when variant = 6 then '91000000-0000-4000-8000-000000000003'::uuid
+          else '91000000-0000-4000-8000-000000000001'::uuid end
+      );
+      -- Variant 7 is the unchanged control and must still succeed.
+      if variant <> 7 then raise exception 'changed refund retry falsely reported success: %', variant; end if;
+    exception when serialization_failure then
+      if variant = 7 then raise; end if;
+    end;
+  end loop;
+
+  for variant in 1..6 loop
+    begin
+      perform api.reverse_external_refund(
+        case when variant = 1 then (issue_refund ->> 'refund_record_id')::uuid
+          else (clear_refund ->> 'refund_record_id')::uuid end,
+        case when variant = 2 then 'ANOTHER-REFERENCE' else 'RESOLUTION-REVERSAL-CLEAR-001' end,
+        case when variant = 3 then 'Another Synthetic Renter' else 'Resolution Renter' end,
+        statement_timestamp() - case when variant = 4 then interval '1 minute' else interval '0' end,
+        case when variant = 5 then 'Different correction reason.' else 'External refund was returned and must be re-sent.' end,
+        case when variant = 6 then '91000000-0000-4000-8000-000000000001'::uuid
+          else '91000000-0000-4000-8000-000000000003'::uuid end
+      );
+      raise exception 'changed reversal retry falsely reported success: %', variant;
+    exception when serialization_failure then null;
+    end;
+  end loop;
 
   detail := api.get_resolution_detail('90400000-0000-4000-8000-000000000002');
   if detail #>> '{booking_state}' <> 'COMPLETED'
