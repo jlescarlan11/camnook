@@ -22,6 +22,35 @@ const transaction: NonNullable<PaymentState["transaction"]> = {
   rejection_reason_code: null, submitted_at: "2026-09-22T00:00:00Z",
 };
 
+it.each(["submit", "proof"])("retains renter inputs when the %s action loses its response", async (kind) => {
+  const action = vi.mocked(kind === "submit" ? submitPayment : uploadPaymentProof);
+  action.mockRejectedValueOnce(new Error("Synthetic private transport failure"))
+    .mockResolvedValue({ status: "success" });
+  render(<PaymentPanel attemptId={attemptId} payment={kind === "submit" ? payment : { ...payment, can_submit: false, booking_state: "PAYMENT_REVIEW", transaction }} />);
+  const user = userEvent.setup();
+  if (kind === "submit") await user.type(screen.getByLabelText("GCash reference"), "SYNTHETIC-001");
+  const file = screen.getByLabelText("Transfer proof") as HTMLInputElement;
+  const photo = new File(["synthetic"], "proof.jpg", { type: "image/jpeg" });
+  await user.upload(file, photo);
+  const form = file.form!;
+  const reset = vi.spyOn(form, "reset");
+  // Native file validity/FormData in jsdom do not observe user-event's FileList.
+  fireEvent.submit(form);
+  await screen.findByText("The persisted outcome could not be confirmed. Refresh before retrying.");
+  expect(file.files?.[0]).toBe(photo);
+  expect(reset).not.toHaveBeenCalled();
+  if (kind === "submit") {
+    expect((screen.getByLabelText("GCash reference") as HTMLInputElement).value).toBe("SYNTHETIC-001");
+    expect(new FormData(form).get("attemptId")).toBe(attemptId);
+  }
+  fireEvent.submit(form);
+  await screen.findByText(kind === "submit"
+    ? "Payment details were accepted for reconciliation. The original deadline remains unchanged."
+    : "The private proof was saved. The payment remains in review.");
+  expect(action).toHaveBeenCalledTimes(2);
+  expect(reset).toHaveBeenCalledOnce();
+});
+
 it("announces the latest proof failure as an error and a later submission as success", async () => {
   vi.mocked(submitPayment).mockResolvedValue({ status: "success" });
   vi.mocked(uploadPaymentProof).mockResolvedValue({ status: "error", error: "invalid" });

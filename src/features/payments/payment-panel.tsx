@@ -15,6 +15,18 @@ import {
 } from "./types";
 
 const initialState: PaymentActionState = { status: "idle" };
+async function submitPaymentAction(
+  action: typeof submitPayment,
+  previous: PaymentActionState,
+  data: FormData,
+): Promise<PaymentActionState> {
+  try {
+    return await action(previous, data);
+  } catch {
+    return { error: "indeterminate", status: "error" };
+  }
+}
+
 const phpFormatter = new Intl.NumberFormat("en-PH", {
   currency: "PHP",
   style: "currency",
@@ -75,11 +87,11 @@ export function PaymentPanel({
   payment: PaymentState;
 }) {
   const [submitState, submitAction, submitPending] = useActionState(
-    submitPayment,
+    (previous: PaymentActionState, data: FormData) => submitPaymentAction(submitPayment, previous, data),
     initialState,
   );
   const [proofState, proofAction, proofPending] = useActionState(
-    uploadPaymentProof,
+    (previous: PaymentActionState, data: FormData) => submitPaymentAction(uploadPaymentProof, previous, data),
     initialState,
   );
   const [lastAction, setLastAction] = useState<"submit" | "proof">("submit");
