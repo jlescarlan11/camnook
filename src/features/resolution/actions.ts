@@ -466,7 +466,11 @@ export async function resolveIssue(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.deduction_amount !== deductionAmount
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "resolved", status: "success" };

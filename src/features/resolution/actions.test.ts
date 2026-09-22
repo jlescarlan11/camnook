@@ -244,14 +244,14 @@ describe("resolution Server Actions", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("submits an explicit manual issue amount and separate renter explanation", async () => {
+  it.each([1000, 999])("accepts an issue decision only when its acknowledged amount %s matches the submitted amount", async (acknowledgedAmount) => {
     const rpc = vi.fn().mockResolvedValue({
       data: {
         booking_id: BOOKING_ID,
         booking_state: "COMPLETED",
         created: true,
         decision_id: DECISION_ID,
-        deduction_amount: 1000,
+        deduction_amount: acknowledgedAmount,
       },
       error: null,
     });
@@ -262,10 +262,9 @@ describe("resolution Server Actions", () => {
     data.set("deductionAmount", "1000.00");
     data.set("internalReason", "Manual repair estimate supported by return evidence.");
 
-    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual({
-      result: "resolved",
-      status: "success",
-    });
+    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual(acknowledgedAmount === 1000
+      ? { result: "resolved", status: "success" }
+      : { error: "indeterminate", status: "error" });
     expect(rpc).toHaveBeenCalledWith("resolve_return_issue", {
       p_booking_id: BOOKING_ID,
       p_customer_explanation: "PHP 1,000 was approved for documented repair.",

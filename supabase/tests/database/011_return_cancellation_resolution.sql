@@ -650,6 +650,8 @@ set constraints all immediate;
 set constraints all deferred;
 
 do $$
+declare
+  variant integer;
 begin
   perform api.add_return_issue_note(
     '90400000-0000-4000-8000-000000000002',
@@ -707,6 +709,32 @@ begin
     'A PHP 1,000 deduction was approved for documented body repair.',
     '90900000-0000-4000-8000-000000000013'
   );
+  for variant in 1..5 loop
+    begin
+      perform api.resolve_return_issue(
+        case when variant = 5 then '90400000-0000-4000-8000-000000000001'::uuid else '90400000-0000-4000-8000-000000000002'::uuid end,
+        case when variant = 2 then 'other' else 'damage' end,
+        case when variant = 1 then 999 else 1000 end,
+        case when variant = 3 then 'Changed synthetic internal reason.' else 'Approved manual deduction for the documented body repair.' end,
+        case when variant = 4 then 'Changed synthetic renter explanation.' else 'A PHP 1,000 deduction was approved for documented body repair.' end,
+        '90900000-0000-4000-8000-000000000013'
+      );
+      raise exception 'changed issue decision retry falsely reported success: %', variant;
+    exception
+      when serialization_failure then null;
+    end;
+  end loop;
+  if (api.resolve_return_issue(
+    '90400000-0000-4000-8000-000000000002',
+    'damage',
+    1000.00,
+    '  Approved manual deduction for the documented body repair.  ',
+    '  A PHP 1,000 deduction was approved for documented body repair.  ',
+    '90900000-0000-4000-8000-000000000013'
+  ) ->> 'created')::boolean then
+    raise exception 'normalized issue decision retry created a duplicate';
+  end if;
+
 end;
 $$;
 
