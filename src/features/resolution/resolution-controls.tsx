@@ -93,6 +93,7 @@ export function ResolutionControls({
 }) {
   const [returnOperationId] = useState(operationIds.recordReturn);
   const [issueOperationId] = useState(operationIds.resolveIssue);
+  const [reviewOperationId] = useState(operationIds.returnReview);
   const [initialReturnAt] = useState(actualAt);
   const [cancellationState, cancellationAction, cancellationPending] =
     useActionState(decideCancellation, initialState);
@@ -424,10 +425,14 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.booking_state === "RETURN_REVIEW" && inspection ? (
-        <form action={reviewAction} className="mt-6 space-y-4 rounded-xl border border-stone-200 p-5">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          startTransition(() => reviewAction(data));
+        }} className="mt-6 space-y-4 rounded-xl border border-stone-200 p-5">
           <HiddenIds
             bookingId={resolution.booking_id}
-            operationId={operationIds.returnReview}
+            operationId={reviewOperationId}
           />
           <h3 className="font-semibold">Decide return review</h3>
           <input name="outcome" type="hidden" value={hasIssue ? "issue" : "clear"} />
@@ -442,6 +447,7 @@ export function ResolutionControls({
             aria-describedby={reviewErrors?.note ? "return-review-note-error" : undefined}
             aria-invalid={reviewErrors?.note ? true : undefined}
             className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+            disabled={reviewPending || reviewState.status === "success"}
             id="return-review-note"
             maxLength={2000}
             minLength={hasIssue ? 2 : undefined}
@@ -452,7 +458,7 @@ export function ResolutionControls({
           <button
             className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
             disabled={
-              reviewPending ||
+              reviewPending || reviewState.status === "success" ||
               ((inspection.camera_has_damage || inspection.has_missing_items) &&
                 inspection.photos.length === 0)
             }
