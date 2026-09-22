@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState } from "react";
 
 import {
   configureGcashRecipient,
@@ -43,7 +43,11 @@ export function GcashConfigurationForm({
           : "Not configured"}
       </p>
 
-      <form action={action} className="mt-5 grid gap-4 sm:grid-cols-2">
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        startTransition(() => action(data));
+      }} className="mt-5 grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium" htmlFor="recipientName">
             Recipient name
@@ -58,6 +62,7 @@ export function GcashConfigurationForm({
             autoComplete="name"
             className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
             defaultValue={configuration.recipient_name ?? ""}
+            disabled={pending}
             id="recipientName"
             maxLength={160}
             minLength={2}
@@ -87,6 +92,7 @@ export function GcashConfigurationForm({
             aria-invalid={state.fieldErrors?.recipientAccount ? true : undefined}
             aria-label="GCash number"
             defaultValue={configuration.recipient_account ?? ""}
+            disabled={pending}
             id="recipientAccount"
             name="recipientAccount"
             required
