@@ -118,10 +118,6 @@ export function ResolutionControls({
     resolveIssue,
     initialState,
   );
-  const [refundState, refundAction, refundPending] = useActionState(
-    recordExternalRefund,
-    initialState,
-  );
   const [reversalState, reversalAction, reversalPending] = useActionState(
     reverseExternalRefund,
     initialState,
@@ -138,7 +134,6 @@ export function ResolutionControls({
   const cancellationErrors = cancellationState.fieldErrors;
   const issueErrors = issueState.fieldErrors;
   const noteErrors = noteState.fieldErrors;
-  const refundErrors = refundState.fieldErrors;
   const reviewErrors = reviewState.fieldErrors;
   const returnErrors = returnState.fieldErrors;
   const hasIssue = Boolean(
@@ -593,16 +588,13 @@ export function ResolutionControls({
             <Value label="Remaining liability" value={phpFormatter.format(resolution.deposit.remaining_refund_liability)} />
           </dl>
           {resolution.deposit.remaining_refund_liability > 0 ? (
-            <form action={refundAction} className="mt-5 grid gap-4 sm:grid-cols-2">
-              <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.refund} />
-              <Field defaultValue={resolution.deposit.remaining_refund_liability.toFixed(2)} error={refundErrors?.amount} errorId="refund-amount-error" label="Actual amount moved (PHP)" name="amount" type="number" />
-              <Field error={refundErrors?.reference} errorId="refund-reference-error" label="Outgoing GCash reference" name="reference" />
-              <Field error={refundErrors?.recipientName} errorId="refund-recipient-name-error" label="Recipient name" name="recipientName" />
-              <Field defaultValue={actualAt} error={refundErrors?.externalMovedAt} errorId="refund-external-moved-at-error" label="Actual movement time (Asia/Manila)" name="externalMovedAt" type="datetime-local" />
-              <button className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:col-span-2" disabled={refundPending} type="submit">Record completed external refund</button>
-            </form>
+            <ExternalRefundControls
+              actualAt={actualAt}
+              bookingId={resolution.booking_id}
+              operationId={operationIds.refund}
+              remainingLiability={resolution.deposit.remaining_refund_liability}
+            />
           ) : null}
-          <ActionResult state={refundState} />
           {resolution.refunds.length > 0 ? (
             <ol className="mt-6 space-y-4 border-t border-stone-200 pt-5">
               {resolution.refunds.map((entry) => {
@@ -741,6 +733,46 @@ function ConditionEvidence({
   );
 }
 
+function ExternalRefundControls({ actualAt, bookingId, operationId, remainingLiability }: {
+  actualAt: string;
+  bookingId: string;
+  operationId: string;
+  remainingLiability: number;
+}) {
+  const [refundOperationId, setRefundOperationId] = useState(operationId);
+  const [refundInputs, setRefundInputs] = useState({
+    amount: remainingLiability.toFixed(2),
+    externalMovedAt: actualAt,
+    recipientName: "",
+    reference: "",
+  });
+  const [refundState, refundAction, refundPending] = useActionState(
+    async (previous: ResolutionActionState, formData: FormData) => {
+      const result = await recordExternalRefund(previous, formData);
+      if (result.status === "success") {
+        setRefundOperationId(crypto.randomUUID());
+        setRefundInputs({ amount: "", externalMovedAt: actualAt, recipientName: "", reference: "" });
+      }
+      return result;
+    },
+    initialState,
+  );
+  const refundErrors = refundState.fieldErrors;
+  return (
+    <>
+      <form action={refundAction} className="mt-5 grid gap-4 sm:grid-cols-2">
+        <HiddenIds bookingId={bookingId} operationId={refundOperationId} />
+        <Field disabled={refundPending} error={refundErrors?.amount} errorId="refund-amount-error" label="Actual amount moved (PHP)" name="amount" onChange={(amount) => setRefundInputs({ ...refundInputs, amount })} type="number" value={refundInputs.amount} />
+        <Field disabled={refundPending} error={refundErrors?.reference} errorId="refund-reference-error" label="Outgoing GCash reference" name="reference" onChange={(reference) => setRefundInputs({ ...refundInputs, reference })} value={refundInputs.reference} />
+        <Field disabled={refundPending} error={refundErrors?.recipientName} errorId="refund-recipient-name-error" label="Recipient name" name="recipientName" onChange={(recipientName) => setRefundInputs({ ...refundInputs, recipientName })} value={refundInputs.recipientName} />
+        <Field disabled={refundPending} error={refundErrors?.externalMovedAt} errorId="refund-external-moved-at-error" label="Actual movement time (Asia/Manila)" name="externalMovedAt" onChange={(externalMovedAt) => setRefundInputs({ ...refundInputs, externalMovedAt })} type="datetime-local" value={refundInputs.externalMovedAt} />
+        <button className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:col-span-2" disabled={refundPending} type="submit">Record completed external refund</button>
+      </form>
+      <ActionResult state={refundState} />
+    </>
+  );
+}
+
 function HiddenIds({ bookingId, operationId }: { bookingId: string; operationId: string }) {
   return (
     <>
@@ -750,12 +782,22 @@ function HiddenIds({ bookingId, operationId }: { bookingId: string; operationId:
   );
 }
 
-function Field({ defaultValue, error, errorId, label, name, type = "text" }: { defaultValue?: number | string; error?: string; errorId?: string; label: string; name: string; type?: "datetime-local" | "number" | "text" }) {
+function Field({ defaultValue, disabled, error, errorId, label, name, onChange, type = "text", value }: {
+  defaultValue?: number | string;
+  disabled?: boolean;
+  error?: string;
+  errorId?: string;
+  label: string;
+  name: string;
+  onChange?: (value: string) => void;
+  type?: "datetime-local" | "number" | "text";
+  value?: string;
+}) {
   return (
     <div>
       <label className="block text-sm font-medium">
         {label}
-        <input aria-describedby={error ? errorId : undefined} aria-invalid={error ? true : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3" defaultValue={defaultValue} min={type === "number" ? 0 : undefined} name={name} required step={type === "number" ? "0.01" : type === "datetime-local" ? "1" : undefined} type={type} />
+        <input aria-describedby={error ? errorId : undefined} aria-invalid={error ? true : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3" defaultValue={defaultValue} disabled={disabled} min={type === "number" ? 0 : undefined} name={name} onChange={onChange ? (event) => onChange(event.target.value) : undefined} required step={type === "number" ? "0.01" : type === "datetime-local" ? "1" : undefined} type={type} value={value} />
       </label>
       {error && errorId ? <FieldError id={errorId} message={error} /> : null}
     </div>
