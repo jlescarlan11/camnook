@@ -206,6 +206,9 @@ describe("email OTP actions", () => {
     expect(JSON.stringify(log.mock.calls)).not.toContain(
       "provider detail must stay private",
     );
+    expect(log).toHaveBeenCalledWith("[auth] email OTP request failed", {
+      code: "unexpected_failure", status: 503,
+    });
   });
 
   it("returns safe feedback when the OTP provider request throws", async () => {
@@ -223,6 +226,30 @@ describe("email OTP actions", () => {
     ).resolves.toMatchObject({ status: "error" });
     expect(setPendingLoginMock).not.toHaveBeenCalled();
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["code", "name", "status"])("keeps arbitrary provider %s content out of authentication logs", async (field) => {
+    createSupabaseServerClientMock.mockResolvedValue(authClient({
+      signInWithOtp: vi.fn().mockResolvedValue({ error: {
+        code: "unexpected_failure", name: "AuthApiError", status: 503,
+        [field]: "synthetic-private@example.com token=synthetic-secret",
+      } }),
+    }));
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await requestEmailOtp(initialAuthFormState, formData({ email: "renter@example.com" }));
+    expect(log).toHaveBeenCalled();
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/synthetic-private|synthetic-secret/);
+  });
+
+  it.each(["not-an-http-status", null, NaN, 999, 429.5])("treats malformed verification status %s as unavailable rather than blaming the code", async (status) => {
+    getPendingLoginMock.mockResolvedValue({ email: "renter@example.com", returnTo: "/account" });
+    createSupabaseServerClientMock.mockResolvedValue(authClient({
+      verifyOtp: vi.fn().mockResolvedValue({ data: { session: null, user: null }, error: { status } }),
+    }));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await expect(verifyEmailOtp(initialAuthFormState, formData({ token: "123456" }))).resolves.toEqual({
+      message: "We couldn’t verify that code right now. Try again in a moment.", status: "error",
+    });
   });
 
   it.each([

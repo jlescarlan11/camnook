@@ -36,25 +36,34 @@ const OTP_VERIFY_UNAVAILABLE_MESSAGE =
   "We couldn’t verify that code right now. Try again in a moment.";
 
 function reportAuthProviderError(operation: string, error: unknown) {
-  const details =
-    error && typeof error === "object"
-      ? {
-          code: "code" in error ? String(error.code) : undefined,
-          name: "name" in error ? String(error.name) : undefined,
-          status: "status" in error ? String(error.status) : undefined,
-        }
-      : undefined;
-
-  console.error(`[auth] ${operation} failed`, details);
+  const { code, status } = authErrorMetadata(error);
+  // SDK codes are extensible strings. Only known categories belong in logs;
+  // unknown codes, names, and messages may contain private provider content.
+  const safeCodes = [
+    "unexpected_failure", "validation_failed", "captcha_failed",
+    "over_request_rate_limit", "over_email_send_rate_limit", "otp_expired",
+    "otp_disabled", "signup_disabled", "user_not_found", "user_banned",
+    "session_not_found", "session_expired", "email_provider_disabled",
+    "email_not_confirmed", "bad_jwt", "refresh_token_not_found",
+    "refresh_token_already_used",
+  ];
+  console.error(`[auth] ${operation} failed`, {
+    code: code && safeCodes.includes(code) ? code : "unknown",
+    status,
+  });
 }
 
 function authErrorMetadata(error: unknown) {
-  return error && typeof error === "object"
-    ? {
-        code: "code" in error ? String(error.code) : undefined,
-        status: "status" in error ? Number(error.status) : undefined,
-      }
-    : {};
+  if (!error || typeof error !== "object") return {};
+  const code = "code" in error ? error.code : undefined;
+  const status = "status" in error ? error.status : undefined;
+  return {
+    code: typeof code === "string" ? code : undefined,
+    status: typeof status === "number" && Number.isInteger(status) &&
+      (status === 0 || (status >= 400 && status <= 599))
+      ? status
+      : undefined,
+  };
 }
 
 function isProviderUnavailable(error: unknown) {
