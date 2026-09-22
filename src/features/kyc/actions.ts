@@ -206,7 +206,7 @@ export async function saveKycProfile(
   try {
     context = await requireUser();
   } catch {
-    return { error: "unauthorized", status: "error" };
+    return { error: "unauthorized", status: "error", values: pickFormValues(raw) };
   }
   const hasStructuredAddress = Boolean(formatResidentialLine1(parsed.data));
   const addressDetails = hasStructuredAddress
