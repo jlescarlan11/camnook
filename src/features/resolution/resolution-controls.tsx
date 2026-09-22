@@ -266,9 +266,12 @@ export function ResolutionControls({
       {resolution.booking_state === "ACTIVE" ? (
         <form onSubmit={(event) => {
           event.preventDefault();
+          if (returnPending || returnState.status === "success") return;
           const data = new FormData(event.currentTarget);
           startTransition(() => returnAction(data));
         }} className="mt-6 space-y-5 rounded-xl border border-stone-200 p-5">
+          <fieldset className="space-y-5" disabled={returnPending || returnState.status === "success"}>
+          <legend className="sr-only">Return inspection</legend>
           <HiddenIds
             bookingId={resolution.booking_id}
             operationId={returnOperationId}
@@ -393,6 +396,7 @@ export function ResolutionControls({
           >
             {returnPending ? "Rechecking and recording…" : "Record return for review"}
           </button>
+          </fieldset>
           <ActionResult state={returnState} />
         </form>
       ) : null}

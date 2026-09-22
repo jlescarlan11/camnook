@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -16,8 +16,9 @@ afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 it.each(["returned", "transport"])("preserves observed return damage and missing accessories across failure and refresh (%s)", async (failure) => {
   const action = vi.mocked(recordReturn);
-  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
-  else action.mockResolvedValueOnce({ error: "indeterminate", status: "error" });
+  let finish!: (value: Awaited<ReturnType<typeof recordReturn>>) => void;
+  let disconnect!: (error: Error) => void;
+  action.mockImplementationOnce(() => new Promise((resolve, reject) => { finish = resolve; disconnect = reject; }));
   action.mockResolvedValue({ result: "recorded", status: "success" });
   const ids: ResolutionOperationIds = {
     cancellation: "unused", conditionPhoto: "unused", issueNote: "unused", recordReturn: "94000000-0000-4000-8000-000000000013",
@@ -39,7 +40,17 @@ it.each(["returned", "transport"])("preserves observed return damage and missing
   await user.click(screen.getByLabelText("The camera itself has observed damage."));
   await user.selectOptions(screen.getByRole("combobox"), "missing");
   await user.click(screen.getByRole("button", { name: "Record return for review" }));
+  await waitFor(() => expect(action).toHaveBeenCalledOnce());
+  await user.type(serial, "-LATE-EDIT");
+  await user.selectOptions(screen.getByRole("combobox"), "returned");
+  expect(serial.value).toBe("SYNTHETIC-SERIAL");
+  expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("missing");
+  await act(async () => {
+    if (failure === "transport") disconnect(new Error("Synthetic connection failure"));
+    else finish({ error: "indeterminate", status: "error" });
+  });
   await screen.findByText("The committed outcome could not be confirmed. Refresh before retrying.");
+  expect(serial.matches(":disabled")).toBe(false);
   view.rerender(<ResolutionControls actualAt="2026-09-22T10:02:45" operationIds={{ ...ids, recordReturn: "94000000-0000-4000-8000-000000000014" }} resolution={resolution} />);
   expect((screen.getByLabelText("The camera itself has observed damage.") as HTMLInputElement).checked).toBe(true);
   expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("missing");
@@ -50,6 +61,7 @@ it.each(["returned", "transport"])("preserves observed return damage and missing
   expect(new FormData(serial.form!).get("operationId")).toBe(ids.recordReturn);
   await user.click(screen.getByRole("button", { name: "Record return for review" }));
   await screen.findByText("The physical return was recorded and is awaiting review.");
+  expect(serial.matches(":disabled")).toBe(true);
   const retry = vi.mocked(recordReturn).mock.calls[1][1];
   expect(retry.get("cameraHasDamage")).toBe("yes");
   expect(retry.get("accessoryStatus-94000000-0000-4000-8000-000000000003")).toBe("missing");

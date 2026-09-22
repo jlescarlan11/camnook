@@ -86,9 +86,12 @@ function PickupForm({
         ) : null}
         <form onSubmit={(event) => {
           event.preventDefault();
+          if (completionPending || completionState.status === "success") return;
           const data = new FormData(event.currentTarget);
           startTransition(() => completionAction(data));
         }} className="mt-5 space-y-5">
+          <fieldset className="space-y-5" disabled={completionPending || completionState.status === "success"}>
+          <legend className="sr-only">Pickup inspection</legend>
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
           <input name="operationId" type="hidden" value={retryOperationId} />
           <label className="block text-sm font-medium" htmlFor="pickup-actual-at">Actual pickup time (Asia/Manila)</label>
@@ -269,6 +272,7 @@ function PickupForm({
           <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending || completionState.status === "success"} type="submit">
             {completionPending ? "Rechecking and recording pickup…" : "Complete pickup and mark ACTIVE"}
           </button>
+          </fieldset>
         </form>
         {completionState.status !== "idle" ? (
           <div className={`mt-5 rounded-xl border p-4 text-sm ${completionState.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-900"}`} ref={resultRef} role={completionState.status === "success" ? "status" : "alert"} tabIndex={-1}>
