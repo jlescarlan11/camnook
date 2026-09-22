@@ -28,6 +28,7 @@ export function ResidentialMap({
   const container = useRef<HTMLDivElement>(null);
   const callback = useRef(onDraftChange);
   const searchRequest = useRef(0);
+  const pendingSearch = useRef<{ query: string; request: number; controller: AbortController } | null>(null);
   const pinRequest = useRef(0);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -35,6 +36,14 @@ export function ResidentialMap({
   const [latitude, setLatitude] = useState(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
   const [longitude, setLongitude] = useState(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
   const [coordinateError, setCoordinateError] = useState(false);
+
+  useEffect(() => () => {
+    // Geolocation cannot be aborted. Invalidate its callback when the editor
+    // closes so it cannot publish a private pin after cancellation.
+    pinRequest.current += 1;
+    searchRequest.current += 1;
+    pendingSearch.current?.controller.abort();
+  }, []);
 
   useEffect(() => {
     latestPin.current = initialPin;
@@ -127,18 +136,28 @@ export function ResidentialMap({
   }, [mapKey]);
 
   async function search() {
+    const queryValue = query.trim();
+    // Button clicks and Enter share the same in-flight lookup. Do not spend
+    // another provider reservation for an unchanged, still-pending request.
+    if (pendingSearch.current?.query === queryValue &&
+      pendingSearch.current.request === searchRequest.current) return;
     const request = ++searchRequest.current;
     setSuggestions([]);
-    if (query.trim().length < 3) {
+    if (queryValue.length < 3) {
       setStatus("Enter at least 3 characters.");
       return;
     }
+    pendingSearch.current?.controller.abort();
+    const controller = new AbortController();
+    pendingSearch.current = { query: queryValue, request, controller };
+    const timeout = setTimeout(() => controller.abort(), 20_000);
     setStatus("Searching…");
     try {
       const response = await fetch("/api/kyc/residential-geocode", {
-        body: JSON.stringify({ mode: "search", query: query.trim() }),
+        body: JSON.stringify({ mode: "search", query: queryValue }),
         headers: { "content-type": "application/json" },
         method: "POST",
+        signal: controller.signal,
       });
       const body = await response.json() as { suggestions?: Suggestion[] };
       if (request !== searchRequest.current) return;
@@ -149,6 +168,9 @@ export function ResidentialMap({
       if (request === searchRequest.current) {
         setStatus("Address search is unavailable. Tap the map to place your pin.");
       }
+    } finally {
+      clearTimeout(timeout);
+      if (pendingSearch.current?.request === request) pendingSearch.current = null;
     }
   }
 
