@@ -318,11 +318,19 @@ export async function submitPayment(
     return { error: "unauthorized", status: "error" };
   }
 
-  const result = await context.supabase.schema("api").rpc("submit_payment", {
-    p_attempt_id: attemptId,
-    p_booking_id: bookingId,
-    p_reference: reference.data!,
-  });
+  let result: { data: unknown; error: { code?: string } | null };
+  try {
+    result = await context.supabase.schema("api").rpc("submit_payment", {
+      p_attempt_id: attemptId,
+      p_booking_id: bookingId,
+      p_reference: reference.data!,
+    });
+  } catch {
+    // The transaction may have committed. Refresh its durable state instead
+    // of retrying submission or exposing transport details through an error.
+    revalidatePaymentViews(bookingId);
+    return { error: "indeterminate", status: "error" };
+  }
   const payment = paymentSubmissionResponseSchema.safeParse(result.data);
 
   if (result.error) {
@@ -350,7 +358,7 @@ export async function submitPayment(
     context,
     payment.data.transaction_id,
     proofInput.proof!,
-  );
+  ).catch(() => "unavailable" as const);
   revalidatePaymentViews(bookingId, payment.data.transaction_id);
   if (proofResult !== "saved") {
     return {
@@ -398,7 +406,10 @@ export async function uploadPaymentProof(
     return { error: "unauthorized", status: "error" };
   }
 
-  const stored = await storePaymentProof(context, transactionId, proofInput.proof);
+  // An interrupted proof operation may already have written immutable bytes.
+  // Preserve its intent for reconciliation by the existing retry/cleanup flow.
+  const stored = await storePaymentProof(context, transactionId, proofInput.proof)
+    .catch(() => "unavailable" as const);
   revalidatePaymentViews(bookingId, transactionId);
 
   if (stored === "invalid") {
