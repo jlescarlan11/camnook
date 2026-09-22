@@ -8,10 +8,28 @@ vi.mock("./admin-actions", () => ({
   requestPaymentProofAccess: vi.fn(),
 }));
 
-import { decidePayment } from "./admin-actions";
+import { decidePayment, requestPaymentProofAccess } from "./admin-actions";
 import { PaymentReviewControls } from "./payment-review-controls";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+
+it("discards the old private link and transfer attestation when the current proof changes", async () => {
+  vi.mocked(requestPaymentProofAccess).mockResolvedValue({
+    status: "success", signedUrl: "https://example.invalid/synthetic-proof",
+    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+  });
+  const props = { hasProof: true, paymentId: "74000000-0000-4000-8000-000000000003", proofId: "74000000-0000-4000-8000-000000000004" };
+  const view = render(<PaymentReviewControls {...props} />);
+  await userEvent.click(screen.getByRole("button", { name: "Open proof for 60 seconds" }));
+  await screen.findByRole("link", { name: "View private proof in a new tab" });
+  await userEvent.click(screen.getByRole("checkbox"));
+  view.rerender(<PaymentReviewControls {...props} />);
+  expect(screen.getByRole("link", { name: "View private proof in a new tab" })).toBeTruthy();
+  expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+  view.rerender(<PaymentReviewControls {...props} proofId="74000000-0000-4000-8000-000000000005" />);
+  expect(screen.queryByRole("link", { name: "View private proof in a new tab" })).toBeNull();
+  expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
+});
 
 it("retains the rejection reason after an uncertain outcome", async () => {
   vi.mocked(decidePayment).mockResolvedValue({ action: "reject", error: "indeterminate", status: "error" });

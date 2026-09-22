@@ -18,7 +18,7 @@ function accessErrorMessage(error: PaymentAccessActionState["error"]) {
     case "unauthorized":
       return "Administrator authorization is required.";
     case "stale":
-      return "This payment is no longer pending. Return to the queue.";
+      return "This payment or its proof changed. Refresh before opening evidence.";
     case "unavailable":
       return "No current finalized proof is available.";
     case "invalid":
@@ -47,15 +47,22 @@ function decisionErrorMessage(state: PaymentDecisionActionState) {
   }
 }
 
-export function PaymentReviewControls({
-  hasProof,
-  paymentId,
-  proofId,
-}: {
+type PaymentReviewProps = {
   hasProof: boolean;
   paymentId: string;
   proofId?: string;
-}) {
+};
+
+export function PaymentReviewControls(props: PaymentReviewProps) {
+  // Revalidated evidence must not inherit an older signed URL or attestation.
+  return <PaymentReviewForm key={`${props.paymentId}:${props.proofId ?? "none"}`} {...props} />;
+}
+
+function PaymentReviewForm({
+  hasProof,
+  paymentId,
+  proofId,
+}: PaymentReviewProps) {
   const [accessState, accessAction, accessPending] = useActionState(
     requestPaymentProofAccess,
     initialAccessState,
@@ -108,6 +115,7 @@ export function PaymentReviewControls({
       {hasProof ? (
         <form action={accessAction} className="mt-4">
           <input name="paymentId" type="hidden" value={paymentId} />
+          <input name="expectedProofId" type="hidden" value={proofId ?? ""} />
           <button
             className="min-h-12 rounded-xl border border-stone-300 bg-white px-5 py-3 font-semibold disabled:opacity-60"
             disabled={accessPending || committed}
