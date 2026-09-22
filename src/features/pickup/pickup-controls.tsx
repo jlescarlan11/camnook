@@ -89,13 +89,13 @@ export function PickupControls({
             id="pickup-actual-at"
             name="actualAt"
             required
+            step="1"
             type="datetime-local"
           />
           {completionState.fieldErrors?.actualAt ? (
             <p className="text-sm text-red-800" id="pickup-actual-at-error" role="alert">
               {completionState.fieldErrors.actualAt}
             </p>
-          ) : null}
 
           <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Named renter and original ID</legend>
