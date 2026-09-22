@@ -6,7 +6,7 @@ vi.mock("./provider-budget", () => ({
   claimGeoapifyProviderBudget: vi.fn().mockResolvedValue(false),
 }));
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { saveMeetupPlace, assignCameraMeetupPlaces } from "./place-actions";
+import { saveMeetupPlace, assignCameraMeetupPlaces, archiveMeetupPlace } from "./place-actions";
 const rpc = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
@@ -34,11 +34,18 @@ function fields() {
   }).forEach(([k, v]) => f.set(k, v));
   return f;
 }
-it("requires admin authorization before accepting place data", async () => {
-  vi.mocked(requireAdmin).mockRejectedValue(new Error("forbidden"));
-  await expect(saveMeetupPlace({ status: "idle" }, fields())).rejects.toThrow(
-    "forbidden",
-  );
+it.each([
+  ["save", saveMeetupPlace], ["archive", archiveMeetupPlace], ["assign", assignCameraMeetupPlaces],
+] as const)("keeps %s recoverable while denying unavailable administrator authorization", async (_name, action) => {
+  vi.mocked(requireAdmin).mockRejectedValue(new Error("Synthetic private authorization failure"));
+  const form = fields();
+  form.set("id", "44444444-4444-4444-8444-444444444444");
+  form.set("version", "1");
+  form.set("camera", "11111111-1111-4111-8111-111111111111");
+  form.append("places", "44444444-4444-4444-8444-444444444444");
+  await expect(action({ status: "idle" }, form)).resolves.toEqual({
+    status: "error", message: "Administrator authorization could not be verified. Reload before retrying.",
+  });
   expect(rpc).not.toHaveBeenCalled();
 });
 it("saves the confirmed precision and handles a stale edit", async () => {

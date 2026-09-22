@@ -11,11 +11,28 @@ export type PlaceActionState = {
   status: "idle" | "success" | "error";
   message?: string;
 };
+
+async function authorizePlaceAction() {
+  try {
+    return { context: await requireAdmin(), error: null } as const;
+  } catch {
+    return {
+      context: null,
+      error: {
+        status: "error",
+        message: "Administrator authorization could not be verified. Reload before retrying.",
+      },
+    } as const;
+  }
+}
+
 export async function saveMeetupPlace(
   _: PlaceActionState,
   form: FormData,
 ): Promise<PlaceActionState> {
-  const context = await requireAdmin();
+  const authorization = await authorizePlaceAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const values = Object.fromEntries(form);
   const parsed = placeInputSchema.safeParse(values);
   const id = z
@@ -81,7 +98,9 @@ export async function archiveMeetupPlace(
   _: PlaceActionState,
   form: FormData,
 ): Promise<PlaceActionState> {
-  const context = await requireAdmin();
+  const authorization = await authorizePlaceAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const input = z
     .object({ id: z.uuid(), version: z.coerce.number().int().positive() })
     .safeParse(Object.fromEntries(form));
@@ -109,7 +128,9 @@ export async function assignCameraMeetupPlaces(
   _: PlaceActionState,
   form: FormData,
 ): Promise<PlaceActionState> {
-  const context = await requireAdmin();
+  const authorization = await authorizePlaceAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const camera = z.uuid().safeParse(form.get("camera"));
   const ids = z.array(z.uuid()).max(3).safeParse(form.getAll("places"));
   if (!camera.success || !ids.success)
