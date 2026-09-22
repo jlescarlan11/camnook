@@ -97,20 +97,20 @@ export function ResolutionControls({
   const [cancellationOperationId] = useState(operationIds.cancellation);
   const [initialReturnAt] = useState(actualAt);
   const [cancellationState, cancellationAction, cancellationPending] =
-    useActionState(decideCancellation, initialState);
+    useActionState((previous: ResolutionActionState, data: FormData) => submitResolutionAction(decideCancellation, previous, data), initialState);
   const [returnState, returnAction, returnPending] = useActionState(
-    recordReturn,
+    (previous: ResolutionActionState, data: FormData) => submitResolutionAction(recordReturn, previous, data),
     initialState,
   );
   const [reviewState, reviewAction, reviewPending] = useActionState(
-    decideReturnReview,
+    (previous: ResolutionActionState, data: FormData) => submitResolutionAction(decideReturnReview, previous, data),
     initialState,
   );
   const [note, setNote] = useState("");
   const [noteOperationId, setNoteOperationId] = useState(operationIds.issueNote);
   const [noteState, noteAction, notePending] = useActionState(
     async (previous: ResolutionActionState, formData: FormData) => {
-      const result = await addIssueNote(previous, formData);
+      const result = await submitResolutionAction(addIssueNote, previous, formData);
       if (result.status === "success") {
         setNote("");
         setNoteOperationId(crypto.randomUUID());
@@ -120,7 +120,7 @@ export function ResolutionControls({
     initialState,
   );
   const [issueState, issueAction, issuePending] = useActionState(
-    resolveIssue,
+    (previous: ResolutionActionState, data: FormData) => submitResolutionAction(resolveIssue, previous, data),
     initialState,
   );
   const { state: photoState, submit: submitPhoto, pending: photoPending, retryIntentId } = useConditionPhotoUpload();
@@ -744,6 +744,19 @@ function ConditionEvidence({
   );
 }
 
+async function submitResolutionAction(
+  action: typeof recordExternalRefund,
+  previous: ResolutionActionState,
+  formData: FormData,
+): Promise<ResolutionActionState> {
+  try {
+    return await action(previous, formData);
+  } catch {
+    // A lost Server Action response does not establish whether the mutation committed.
+    return { error: "indeterminate", status: "error" };
+  }
+}
+
 function RefundReversalControls({ actualAt, bookingId, operationId, refundRecordId }: {
   actualAt: string;
   bookingId: string;
@@ -754,7 +767,10 @@ function RefundReversalControls({ actualAt, bookingId, operationId, refundRecord
   const [inputs, setInputs] = useState({
     reference: "", counterpartyName: "", externalMovedAt: actualAt, reason: "",
   });
-  const [state, action, pending] = useActionState(reverseExternalRefund, initialState);
+  const [state, action, pending] = useActionState(
+    (previous: ResolutionActionState, formData: FormData) => submitResolutionAction(reverseExternalRefund, previous, formData),
+    initialState,
+  );
   const errors = state.fieldErrors;
   const disabled = pending || state.status === "success";
   return (
@@ -788,7 +804,7 @@ function ExternalRefundControls({ actualAt, bookingId, operationId, remainingLia
   });
   const [refundState, refundAction, refundPending] = useActionState(
     async (previous: ResolutionActionState, formData: FormData) => {
-      const result = await recordExternalRefund(previous, formData);
+      const result = await submitResolutionAction(recordExternalRefund, previous, formData);
       if (result.status === "success") {
         setRefundOperationId(crypto.randomUUID());
         setRefundInputs({ amount: "", externalMovedAt: actualAt, recipientName: "", reference: "" });

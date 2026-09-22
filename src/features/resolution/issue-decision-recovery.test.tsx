@@ -10,8 +10,11 @@ import type { ResolutionDetail } from "./types";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("preserves the explicit deduction and decision reasons through an uncertain result", async () => {
-  vi.mocked(resolveIssue).mockResolvedValueOnce({ status: "error", error: "indeterminate" }).mockResolvedValue({ status: "success", result: "resolved" });
+it.each(["returned", "transport"])("preserves the explicit deduction and decision reasons through an uncertain result (%s)", async (failure) => {
+  const action = vi.mocked(resolveIssue);
+  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else action.mockResolvedValueOnce({ error: "indeterminate", status: "error" });
+  action.mockResolvedValue({ result: "resolved", status: "success" });
   const ids: ResolutionOperationIds = { cancellation: "unused", conditionPhoto: "unused", issueNote: "unused", recordReturn: "unused", refund: "unused", resolveIssue: "94000000-0000-4000-8000-000000000021", returnReview: "unused", reversals: {} };
   const resolution = { booking_id: "94000000-0000-4000-8000-000000000001", booking_state: "ISSUE_REVIEW", return_inspection: null, refunds: [], issue_notes: [], deposit: { held_amount: 4000 } } as unknown as ResolutionDetail;
   const view = render(<ResolutionControls actualAt="2026-09-22T10:00:00" operationIds={ids} resolution={resolution} />);

@@ -14,8 +14,11 @@ import type { ResolutionDetail } from "./types";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("preserves observed return damage and missing accessories across failure and refresh", async () => {
-  vi.mocked(recordReturn).mockResolvedValueOnce({ error: "indeterminate", status: "error" }).mockResolvedValue({ result: "recorded", status: "success" });
+it.each(["returned", "transport"])("preserves observed return damage and missing accessories across failure and refresh (%s)", async (failure) => {
+  const action = vi.mocked(recordReturn);
+  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else action.mockResolvedValueOnce({ error: "indeterminate", status: "error" });
+  action.mockResolvedValue({ result: "recorded", status: "success" });
   const ids: ResolutionOperationIds = {
     cancellation: "unused", conditionPhoto: "unused", issueNote: "unused", recordReturn: "94000000-0000-4000-8000-000000000013",
     refund: "unused", resolveIssue: "unused", returnReview: "unused", reversals: {},

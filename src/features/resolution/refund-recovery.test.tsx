@@ -15,10 +15,11 @@ import type { ResolutionDetail } from "./types";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("preserves reversal facts and its target through an uncertain result and disables confirmed resubmission", async () => {
-  vi.mocked(reverseExternalRefund)
-    .mockResolvedValueOnce({ error: "indeterminate", status: "error" })
-    .mockResolvedValue({ result: "reversed", status: "success" });
+it.each(["returned", "transport"])("preserves reversal facts after a %s failure and disables confirmed resubmission", async (failure) => {
+  const action = vi.mocked(reverseExternalRefund);
+  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else action.mockResolvedValueOnce({ error: "indeterminate", status: "error" });
+  action.mockResolvedValue({ result: "reversed", status: "success" });
   const refundId = "94000000-0000-4000-8000-000000000030";
   const operationId = "94000000-0000-4000-8000-000000000031";
   const ids: ResolutionOperationIds = {
@@ -59,10 +60,11 @@ it("preserves reversal facts and its target through an uncertain result and disa
   expect((screen.getByRole("button", { name: "Append offsetting reversal" }) as HTMLButtonElement).disabled).toBe(true);
 });
 
-it("retains exact refund facts and operation identity through uncertainty and revalidation", async () => {
-  vi.mocked(recordExternalRefund)
-    .mockResolvedValueOnce({ error: "indeterminate", status: "error" })
-    .mockResolvedValue({ result: "refund_recorded", status: "success" });
+it.each(["returned", "transport"])("retains exact refund facts and identity after a %s failure and revalidation", async (failure) => {
+  const action = vi.mocked(recordExternalRefund);
+  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else action.mockResolvedValueOnce({ error: "indeterminate", status: "error" });
+  action.mockResolvedValue({ result: "refund_recorded", status: "success" });
   const ids: ResolutionOperationIds = {
     cancellation: "unused", conditionPhoto: "unused", issueNote: "unused",
     recordReturn: "unused", refund: "94000000-0000-4000-8000-000000000014",

@@ -15,10 +15,11 @@ import type { ResolutionDetail } from "./types";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("preserves a note and its operation reference after uncertainty and rotates only after success", async () => {
-  vi.mocked(addIssueNote)
-    .mockResolvedValueOnce({ error: "indeterminate", status: "error" })
-    .mockResolvedValue({ result: "note_saved", status: "success" });
+it.each(["returned", "transport"])("preserves a note and its operation reference after uncertainty and rotates only after success (%s)", async (failure) => {
+  const action = vi.mocked(addIssueNote);
+  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else action.mockResolvedValueOnce({ error: "indeterminate", status: "error" });
+  action.mockResolvedValue({ result: "note_saved", status: "success" });
   const ids: ResolutionOperationIds = {
     cancellation: "unused", conditionPhoto: "unused", issueNote: "94000000-0000-4000-8000-000000000012",
     recordReturn: "unused", refund: "unused", resolveIssue: "unused", returnReview: "unused", reversals: {},

@@ -10,8 +10,11 @@ import type { ResolutionDetail } from "./types";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("preserves the cancellation decision reason and selected submitter on retry", async () => {
-  vi.mocked(decideCancellation).mockResolvedValueOnce({ status: "error", error: "indeterminate" }).mockResolvedValue({ status: "success", result: "declined" });
+it.each(["returned", "transport"])("preserves the cancellation decision reason and selected submitter on retry (%s)", async (failure) => {
+  const action = vi.mocked(decideCancellation);
+  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else action.mockResolvedValueOnce({ error: "indeterminate", status: "error" });
+  action.mockResolvedValue({ result: "declined", status: "success" });
   const ids: ResolutionOperationIds = { cancellation: "94000000-0000-4000-8000-000000000031", conditionPhoto: "unused", issueNote: "unused", recordReturn: "unused", refund: "unused", resolveIssue: "unused", returnReview: "unused", reversals: {} };
   const resolution = {
     booking_id: "94000000-0000-4000-8000-000000000001", booking_state: "FOR_REVIEW",
