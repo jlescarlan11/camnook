@@ -1,11 +1,11 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { useConditionPhotoUpload } from "@/features/pickup/use-condition-photo-upload";
 import {
   requestAdminConditionPhotoAccess,
-  uploadConditionPhoto,
   type ConditionPhotoActionState,
 } from "@/features/pickup/actions";
 
@@ -120,10 +120,7 @@ export function ResolutionControls({
     resolveIssue,
     initialState,
   );
-  const [photoState, photoAction, photoPending] = useActionState(
-    uploadConditionPhoto,
-    initialPhotoState,
-  );
+  const { state: photoState, submit: submitPhoto, pending: photoPending, retryIntentId } = useConditionPhotoUpload();
   const [accessState, accessAction, accessPending] = useActionState(
     requestAdminConditionPhotoAccess,
     initialPhotoState,
@@ -416,8 +413,8 @@ export function ResolutionControls({
             accessState={accessState}
             bookingId={resolution.booking_id}
             conditionReportId={inspection.condition_report_id}
-            intentId={operationIds.conditionPhoto}
-            photoAction={photoAction}
+            intentId={retryIntentId ?? operationIds.conditionPhoto}
+            submitPhoto={submitPhoto}
             photoPending={photoPending}
             photos={inspection.photos}
             photoState={photoState}
@@ -631,7 +628,7 @@ function ConditionEvidence({
   bookingId,
   conditionReportId,
   intentId,
-  photoAction,
+  submitPhoto,
   photoPending,
   photos,
   photoState,
@@ -642,7 +639,7 @@ function ConditionEvidence({
   bookingId: string;
   conditionReportId: string;
   intentId: string;
-  photoAction: (payload: FormData) => void;
+  submitPhoto: (event: FormEvent<HTMLFormElement>) => void;
   photoPending: boolean;
   photos: NonNullable<ResolutionDetail["return_inspection"]>["photos"];
   photoState: ConditionPhotoActionState;
@@ -667,12 +664,13 @@ function ConditionEvidence({
   return (
     <div className="mt-5 rounded-xl bg-stone-50 p-4">
       <h4 className="font-semibold">Private return evidence</h4>
-      <form action={photoAction} className="mt-3 space-y-3">
+      <form onSubmit={submitPhoto} className="mt-3 space-y-3">
         <input name="bookingId" type="hidden" value={bookingId} />
         <input name="conditionReportId" type="hidden" value={conditionReportId} />
         <input name="intentId" type="hidden" value={intentId} />
         <label className="block text-sm font-medium" htmlFor="return-condition-photo">Return condition photo</label>
-        <input accept="image/jpeg,image/png" aria-describedby={primaryPhotoError ? photoErrorId : undefined} aria-invalid={primaryPhotoError ? true : undefined} id="return-condition-photo" name="photo" required type="file" />
+        <label className="block text-sm font-medium" htmlFor="return-condition-photo">Return condition photo</label>
+        <input accept="image/jpeg,image/png" aria-describedby={primaryPhotoError ? photoErrorId : undefined} aria-invalid={primaryPhotoError ? true : undefined} disabled={photoPending} id="return-condition-photo" name="photo" required type="file" />
         <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || currentPhotoCount >= 6} type="submit">Attach verified return photo</button>
       </form>
       {photoState.status !== "idle" ? (
@@ -697,13 +695,14 @@ function ConditionEvidence({
                 ) : (
                   <details>
                     <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-amber-900 underline">Replace with a new version</summary>
-                    <form action={photoAction} className="mt-2 space-y-2">
+                    <form onSubmit={submitPhoto} className="mt-2 space-y-2">
                       <input name="bookingId" type="hidden" value={bookingId} />
                       <input name="conditionReportId" type="hidden" value={conditionReportId} />
                       <input name="intentId" type="hidden" value={intentId} />
                       <input name="supersedesPhotoId" type="hidden" value={photo.photo_id} />
                       <label className="block text-sm font-medium" htmlFor={`return-replacement-photo-${photo.photo_id}`}>Replacement return condition photo {index + 1}</label>
-                      <input accept="image/jpeg,image/png" aria-describedby={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? photoErrorId : undefined} aria-invalid={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? true : undefined} id={`return-replacement-photo-${photo.photo_id}`} name="photo" required type="file" />
+                      <label className="block text-sm font-medium" htmlFor={`return-replacement-photo-${photo.photo_id}`}>Replacement return condition photo {index + 1}</label>
+                      <input accept="image/jpeg,image/png" aria-describedby={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? photoErrorId : undefined} aria-invalid={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? true : undefined} disabled={photoPending} id={`return-replacement-photo-${photo.photo_id}`} name="photo" required type="file" />
                       <button className="min-h-11 rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold" disabled={photoPending} type="submit">Upload versioned replacement</button>
                     </form>
                   </details>

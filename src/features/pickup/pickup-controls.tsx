@@ -7,11 +7,11 @@ import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import {
   completePickup,
   requestAdminConditionPhotoAccess,
-  uploadConditionPhoto,
   type ConditionPhotoActionState,
   type PickupCompletionActionState,
 } from "./actions";
 import type { PickupDetail } from "./types";
+import { useConditionPhotoUpload } from "./use-condition-photo-upload";
 
 const initialCompletionState: PickupCompletionActionState = { status: "idle" };
 const initialPhotoState: ConditionPhotoActionState = { status: "idle" };
@@ -54,10 +54,7 @@ function PickupForm({
     completePickup,
     initialCompletionState,
   );
-  const [photoState, photoAction, photoPending] = useActionState(
-    uploadConditionPhoto,
-    initialPhotoState,
-  );
+  const { state: photoState, submit: submitPhoto, pending: photoPending, retryIntentId } = useConditionPhotoUpload();
   const [accessState, accessAction, accessPending] = useActionState(
     requestAdminConditionPhotoAccess,
     initialPhotoState,
@@ -292,10 +289,10 @@ function PickupForm({
       <div className="mt-7 rounded-xl border border-stone-200 p-5">
         <h3 className="font-semibold">Optional private condition photos</h3>
         <p className="mt-2 text-sm leading-6 text-stone-600">The written report is already valid. A photo uses an opaque no-overwrite path and is limited to 5 MiB JPEG/PNG.</p>
-        <form action={photoAction} className="mt-4 space-y-3">
+        <form onSubmit={submitPhoto} className="mt-4 space-y-3">
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
           <input name="conditionReportId" type="hidden" value={pickup.handoff.condition_report_id} />
-          <input name="intentId" type="hidden" value={photoIntentId} />
+          <input name="intentId" type="hidden" value={retryIntentId ?? photoIntentId} />
           <label className="block text-sm font-medium" htmlFor="pickup-condition-photo">Condition photo</label>
           <input
             accept="image/jpeg,image/png"
@@ -306,6 +303,7 @@ function PickupForm({
             }
             aria-invalid={photoState.fieldErrors?.photo ? true : undefined}
             className="block w-full text-sm"
+            disabled={photoPending}
             id="pickup-condition-photo"
             name="photo"
             required
