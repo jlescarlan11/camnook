@@ -179,7 +179,14 @@ export async function blockCameraDates(_state: CameraActionState, formData: Form
     p_reason: "Owner blocked dates",
     p_starts_at: `${dates.data.start}T00:00:00+08:00`,
   });
-  if (result.error) return { error: "Those dates overlap another unavailable period.", status: "error" };
+  if (result.error) {
+    const error = result.error.code === "23P01"
+      ? "Those dates overlap another unavailable period."
+      : result.error.code === "42501"
+        ? "Administrator authorization is required to block dates."
+        : "The blocked dates could not be confirmed. Reload availability before retrying.";
+    return { error, status: "error" };
+  }
   revalidatePath(`/admin/cameras/${cameraId.data}`);
   return { status: "success" };
 }
