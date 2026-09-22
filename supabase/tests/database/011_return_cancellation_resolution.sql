@@ -526,6 +526,29 @@ begin
     '90900000-0000-4000-8000-000000000005'
   );
   perform set_config('test.issue_report_id', result ->> 'condition_report_id', true);
+  -- Flush the recorded return as a separate RPC transaction would.
+  set constraints all immediate;
+  set constraints all deferred;
+
+  begin
+    perform api.decide_return_inspection(
+      '90400000-0000-4000-8000-000000000002',
+      null,
+      null,
+      '90900000-0000-4000-8000-000000000019'
+    );
+    set constraints all immediate;
+    raise exception 'null return outcome bypassed evidence and issue-note requirements';
+  exception
+    when invalid_parameter_value then null;
+  end;
+  set constraints all deferred;
+  if not exists (
+    select 1 from public.bookings
+    where id = '90400000-0000-4000-8000-000000000002' and state = 'RETURN_REVIEW'
+  ) then
+    raise exception 'invalid return outcome advanced booking state';
+  end if;
 
   begin
     perform api.decide_return_inspection(
