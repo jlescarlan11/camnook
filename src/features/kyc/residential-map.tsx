@@ -28,6 +28,7 @@ export function ResidentialMap({
   const container = useRef<HTMLDivElement>(null);
   const callback = useRef(onDraftChange);
   const searchRequest = useRef(0);
+  const pinRequest = useRef(0);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [status, setStatus] = useState("");
@@ -47,6 +48,8 @@ export function ResidentialMap({
   }, [initialPin]);
 
   function selectPin(pin: DraftPin) {
+    pinRequest.current += 1;
+    setLocating(false);
     setCoordinateError(false);
     if (mapView.current && pinMarker.current) {
       pinMarker.current.setLatLng([pin.latitude, pin.longitude]).addTo(mapView.current);
@@ -55,24 +58,12 @@ export function ResidentialMap({
     onDraftChange(pin);
   }
 
-  useEffect(() => {
-    latestPin.current = initialPin;
-    if (initialPin && mapView.current && pinMarker.current) {
-      const point = pinMarker.current.getLatLng();
-      if (point.lat !== initialPin.latitude || point.lng !== initialPin.longitude) {
-        pinMarker.current.setLatLng([initialPin.latitude, initialPin.longitude]).addTo(mapView.current);
-        mapView.current.setView([initialPin.latitude, initialPin.longitude], 17);
-      }
-    }
-  }, [initialPin]);
-
-  function selectPin(pin: DraftPin) {
-    if (mapView.current && pinMarker.current) {
-      pinMarker.current.setLatLng([pin.latitude, pin.longitude]).addTo(mapView.current);
-      mapView.current.setView([pin.latitude, pin.longitude], 17);
-    }
-    onDraftChange(pin);
-  }
+  useEffect(() => () => {
+    // Geolocation cannot be aborted. Invalidate its callback when the editor
+    // closes so it cannot publish a private pin after cancellation.
+    pinRequest.current += 1;
+    searchRequest.current += 1;
+  }, []);
 
   useEffect(() => { callback.current = onDraftChange; }, [onDraftChange]);
 
@@ -105,7 +96,10 @@ export function ResidentialMap({
       pinMarker.current = marker;
       if (latestPin.current) marker.addTo(map);
       const choose = (lat: number, lng: number) => {
+        const request = ++pinRequest.current;
+        setLocating(false);
         setCoordinateError(false);
+        setStatus("Pin selected. Confirm the pin below.");
         marker.setLatLng([lat, lng]).addTo(map);
         setLatitude(lat.toFixed(5));
         setLongitude(lng.toFixed(5));
@@ -117,7 +111,9 @@ export function ResidentialMap({
           source: "map_pin",
         });
         void reverseLabel(lat, lng).then((label) => {
-          if (label) setStatus(`Selected near ${label}`);
+          if (!disposed && request === pinRequest.current && label) {
+            setStatus(`Selected near ${label}`);
+          }
         });
       };
       map.on("click", (event) => choose(event.latlng.lat, event.latlng.lng));
@@ -174,10 +170,12 @@ export function ResidentialMap({
       setStatus("Location is not available in this browser. Search for your address or place the pin manually.");
       return;
     }
+    const request = ++pinRequest.current;
     setLocating(true);
     setStatus("Finding your location…");
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (request !== pinRequest.current) return;
         setLocating(false);
         const next = {
           accuracyMeters: position.coords.accuracy,
@@ -195,7 +193,11 @@ export function ResidentialMap({
         selectPin(next);
         setStatus("Device location selected. Confirm the pin below.");
       },
-      () => { setLocating(false); setStatus("Location is unavailable. Search for your address or tap the map to place your pin."); },
+      () => {
+        if (request !== pinRequest.current) return;
+        setLocating(false);
+        setStatus("Location is unavailable. Search for your address or tap the map to place your pin.");
+      },
       { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
     );
   }

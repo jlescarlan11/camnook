@@ -12,6 +12,38 @@ afterEach(() => {
 });
 
 describe("ResidentialMap fallbacks", () => {
+  it("does not replace a later manual pin with a delayed device location", async () => {
+    let finish!: PositionCallback;
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition: vi.fn((success: PositionCallback) => { finish = success; }) },
+    });
+    const onDraftChange = vi.fn();
+    render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={onDraftChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "Use my location" }));
+    fireEvent.change(screen.getByLabelText("Latitude"), { target: { value: "10.32" } });
+    fireEvent.change(screen.getByLabelText("Longitude"), { target: { value: "123.90" } });
+    fireEvent.click(screen.getByRole("button", { name: "Place pin at coordinates" }));
+    act(() => finish({ coords: { accuracy: 8, latitude: 10.3157, longitude: 123.8854 } } as GeolocationPosition));
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ latitude: 10.32, longitude: 123.9, source: "map_pin" }));
+    expect(screen.getByText("Coordinates selected. Confirm the pin below.")).toBeTruthy();
+  });
+
+  it("does not publish a delayed device location after the picker closes", async () => {
+    let finish!: PositionCallback;
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition: vi.fn((success: PositionCallback) => { finish = success; }) },
+    });
+    const onDraftChange = vi.fn();
+    const view = render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={onDraftChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "Use my location" }));
+    view.unmount();
+    act(() => finish({ coords: { accuracy: 8, latitude: 10.3157, longitude: 123.8854 } } as GeolocationPosition));
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
+
   it("removes earlier suggestions when the query changes and the next lookup fails", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ suggestions: [{ label: "Old Cebu result", latitude: 10.31, longitude: 123.89 }] })))

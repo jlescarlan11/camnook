@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
 const leaflet = vi.hoisted(() => {
@@ -10,7 +10,21 @@ const leaflet = vi.hoisted(() => {
 vi.mock("leaflet", () => leaflet);
 import { ResidentialMap } from "./residential-map";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
+
+it("keeps the latest pin label when reverse lookups finish out of order", async () => {
+  const finishes: Array<(response: Response) => void> = [];
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => finishes.push(resolve))));
+  render(<ResidentialMap initialPin={null} mapKey="test-key" onDraftChange={vi.fn()} />);
+  await waitFor(() => expect(leaflet.map).toHaveBeenCalledOnce());
+  const click = leaflet.view.on.mock.calls.find(([name]) => name === "click")![1];
+  act(() => click({ latlng: { lat: 10.31, lng: 123.89 } }));
+  act(() => click({ latlng: { lat: 10.32, lng: 123.90 } }));
+  await act(async () => finishes[1](new Response(JSON.stringify({ label: "Latest public fixture" }))));
+  await act(async () => finishes[0](new Response(JSON.stringify({ label: "Old public fixture" }))));
+  expect(screen.getByText("Selected near Latest public fixture")).toBeTruthy();
+  expect(screen.queryByText("Selected near Old public fixture")).toBeNull();
+});
 
 it("moves the marker and view without rebuilding the map or tiles", async () => {
   const first = { accuracyMeters: null, label: "Home", latitude: 10.31, longitude: 123.89, source: "map_pin" as const };
