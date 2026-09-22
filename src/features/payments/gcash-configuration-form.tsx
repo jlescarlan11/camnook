@@ -17,7 +17,13 @@ export function GcashConfigurationForm({
   configuration: GcashRecipientConfiguration;
 }) {
   const [state, action, pending] = useActionState(
-    configureGcashRecipient,
+    async (previous: GcashConfigurationActionState, data: FormData): Promise<GcashConfigurationActionState> => {
+      try {
+        return await configureGcashRecipient(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialState,
   );
 

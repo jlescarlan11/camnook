@@ -9,8 +9,10 @@ import { GcashConfigurationForm } from "./gcash-configuration-form";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("retains the intended recipient after an unconfirmed save so retry cannot restore old details", async () => {
-  vi.mocked(configureGcashRecipient).mockResolvedValueOnce({ status: "error", error: "indeterminate" }).mockResolvedValue({ status: "success", version: 2 });
+it.each(["returned", "transport"])("retains the intended recipient after a %s failure so retry cannot restore old details", async (failure) => {
+  if (failure === "transport") vi.mocked(configureGcashRecipient).mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else vi.mocked(configureGcashRecipient).mockResolvedValueOnce({ status: "error", error: "indeterminate" });
+  vi.mocked(configureGcashRecipient).mockResolvedValue({ status: "success", version: 2 });
   const configuration = { enabled: true, recipient_name: "Synthetic Old Recipient", recipient_account: "09170000001", version: 1 };
   const view = render(<GcashConfigurationForm configuration={configuration} />);
   const user = userEvent.setup();
