@@ -440,6 +440,32 @@ begin
     when check_violation then null;
   end;
 
+  begin
+    perform api.record_return_inspection(
+      '90400000-0000-4000-8000-000000000001',
+      statement_timestamp() - interval '1 minute',
+      'PRIVATE-RESOLUTION-SERIAL-001',
+      'Camera returned clean and working.',
+      '[{"id":"90200000-0000-4000-8000-000000000001","status":null}]'::jsonb,
+      false,
+      null,
+      '90900000-0000-4000-8000-000000000009'
+    );
+    raise exception 'return accepted a null accessory status';
+  exception
+    when check_violation then null;
+  end;
+
+  if exists (
+    select 1 from public.handoffs
+    where booking_id = '90400000-0000-4000-8000-000000000001' and type = 'return'
+  ) or not exists (
+    select 1 from public.bookings
+    where id = '90400000-0000-4000-8000-000000000001' and state = 'ACTIVE'
+  ) then
+    raise exception 'invalid return checklist left partial persisted state';
+  end if;
+
   clear_result := api.record_return_inspection(
     '90400000-0000-4000-8000-000000000001',
     statement_timestamp() - interval '1 minute',
