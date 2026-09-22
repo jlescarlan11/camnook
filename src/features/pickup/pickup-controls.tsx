@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 
@@ -31,17 +31,25 @@ function completionError(error: PickupCompletionActionState["error"]) {
   }
 }
 
-export function PickupControls({
-  actualAt,
-  operationId,
-  photoIntentId,
-  pickup,
-}: {
+type PickupControlsProps = {
   actualAt: string;
   operationId: string;
   photoIntentId: string;
   pickup: PickupDetail;
-}) {
+};
+
+export function PickupControls(props: PickupControlsProps) {
+  return <PickupForm key={props.pickup.booking_id} {...props} />;
+}
+
+function PickupForm({
+  actualAt,
+  operationId,
+  photoIntentId,
+  pickup,
+}: PickupControlsProps) {
+  const [retryOperationId] = useState(operationId);
+  const [initialActualAt] = useState(actualAt);
   const [completionState, completionAction, completionPending] = useActionState(
     completePickup,
     initialCompletionState,
@@ -73,9 +81,13 @@ export function PickupControls({
             Automated eligibility is no longer current. Pickup is disabled and the database will fail closed.
           </p>
         ) : null}
-        <form action={completionAction} className="mt-5 space-y-5">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          startTransition(() => completionAction(data));
+        }} className="mt-5 space-y-5">
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
-          <input name="operationId" type="hidden" value={operationId} />
+          <input name="operationId" type="hidden" value={retryOperationId} />
           <label className="block text-sm font-medium" htmlFor="pickup-actual-at">Actual pickup time (Asia/Manila)</label>
           <input
             aria-describedby={
@@ -85,7 +97,7 @@ export function PickupControls({
             }
             aria-invalid={completionState.fieldErrors?.actualAt ? true : undefined}
             className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
-            defaultValue={actualAt}
+            defaultValue={initialActualAt}
             id="pickup-actual-at"
             name="actualAt"
             required
@@ -96,6 +108,7 @@ export function PickupControls({
             <p className="text-sm text-red-800" id="pickup-actual-at-error" role="alert">
               {completionState.fieldErrors.actualAt}
             </p>
+          ) : null}
 
           <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Named renter and original ID</legend>
@@ -250,7 +263,7 @@ export function PickupControls({
               </p>
             ) : null}
           </div>
-          <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending} type="submit">
+          <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending || completionState.status === "success"} type="submit">
             {completionPending ? "Rechecking and recording pickup…" : "Complete pickup and mark ACTIVE"}
           </button>
         </form>
