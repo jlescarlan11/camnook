@@ -21,13 +21,20 @@ const phpFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
 });
 
-export function RenterResolutionStatus({
-  operationId,
-  resolution,
-}: {
+type RenterResolutionStatusProps = {
   operationId: string;
   resolution: MyResolutionState;
-}) {
+};
+
+export function RenterResolutionStatus(props: RenterResolutionStatusProps) {
+  return <RenterResolutionStatusContent key={props.resolution.booking_id} {...props} />;
+}
+
+function RenterResolutionStatusContent({
+  operationId,
+  resolution,
+}: RenterResolutionStatusProps) {
+  const [cancellationOperationId] = useState(operationId);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationState, cancellationAction, cancellationPending] =
     useActionState(requestCancellation, initialState);
@@ -48,7 +55,7 @@ export function RenterResolutionStatus({
       {resolution.can_request_cancellation ? (
         <form action={cancellationAction} className="mt-4 space-y-3 rounded-xl border border-stone-200 p-4">
           <input name="bookingId" type="hidden" value={resolution.booking_id} />
-          <input name="operationId" type="hidden" value={operationId} />
+          <input name="operationId" type="hidden" value={cancellationOperationId} />
           <label className="block text-sm font-medium" htmlFor="cancellation-request-reason">
             Why are you requesting cancellation?
           </label>
