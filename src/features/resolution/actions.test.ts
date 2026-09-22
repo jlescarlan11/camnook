@@ -244,6 +244,19 @@ describe("resolution Server Actions", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it("does not acknowledge a cancellation replay for a different decision", async () => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { booking_id: BOOKING_ID, booking_state: "CANCELLED", created: false,
+        request_id: REQUEST_ID, decision_id: DECISION_ID, outcome: "accepted" },
+      error: null,
+    }));
+    const data = form();
+    data.set("requestId", REQUEST_ID);
+    data.set("decision", "decline");
+    data.set("reason", "Synthetic changed decision.");
+    await expect(decideCancellation({ status: "idle" }, data)).resolves.toEqual({ error: "indeterminate", status: "error" });
+  });
+
   it("does not acknowledge a changed return-review outcome on replay", async () => {
     authorizeAdmin(vi.fn().mockResolvedValue({
       data: { booking_id: BOOKING_ID, booking_state: "COMPLETED", created: false, outcome: "clear" },

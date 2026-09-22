@@ -330,6 +330,7 @@ set local "request.jwt.claim.sub" = '90000000-0000-4000-8000-000000000001';
 do $$
 declare
   queues jsonb := api.get_resolution_queues();
+  variant integer;
   decision jsonb;
   detail jsonb;
 begin
@@ -348,6 +349,29 @@ begin
     0,
     '90800000-0000-4000-8000-000000000004'
   );
+  for variant in 1..4 loop
+    begin
+      perform api.decide_cancellation_resolution(
+        current_setting('test.unpaid_cancellation_request_id')::uuid,
+        variant <> 1,
+        case when variant = 2 then 'Changed synthetic cancellation reason.'
+          else 'Accepted before payment under the approved no-fee path.' end,
+        case when variant = 3 then 1 else 0 end,
+        case when variant = 4 then 1 else 0 end,
+        '90800000-0000-4000-8000-000000000004'
+      );
+      raise exception 'cancellation retry accepted changed decision facts: %', variant;
+    exception
+      when serialization_failure then null;
+    end;
+  end loop;
+  if (api.decide_cancellation_resolution(
+    current_setting('test.unpaid_cancellation_request_id')::uuid, true,
+    '  Accepted before payment under the approved no-fee path.  ', 0, 0,
+    '90800000-0000-4000-8000-000000000004'
+  ) ->> 'created')::boolean then
+    raise exception 'normalized cancellation decision retry was not idempotent';
+  end if;
   detail := api.get_resolution_detail('90400000-0000-4000-8000-000000000003');
   if decision ->> 'booking_state' <> 'CANCELLED'
     or (detail #>> '{cancellation,decision,fee_amount}')::numeric <> 0

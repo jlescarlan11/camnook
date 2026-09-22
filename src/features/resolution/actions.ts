@@ -208,7 +208,12 @@ export async function decideCancellation(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.request_id !== requestId ||
+      parsed.data.outcome !== (decision === "accept" ? "accepted" : "declined")
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return {
