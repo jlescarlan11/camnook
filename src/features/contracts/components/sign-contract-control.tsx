@@ -24,7 +24,13 @@ function SignContractForm({
   canSign,
   contractVersionId,
 }: SignContractProps) {
-  const [state, action, pending] = useActionState(signContract, initialState);
+  const [state, action, pending] = useActionState(async (previous: SignContractActionState, data: FormData): Promise<SignContractActionState> => {
+    try {
+      return await signContract(previous, data);
+    } catch {
+      return { error: "unknown", status: "indeterminate" };
+    }
+  }, initialState);
   const resultRef = useRef<HTMLDivElement>(null);
   const message = actionMessage(state, pending);
 

@@ -8,8 +8,10 @@ import { SupersedeContractControl } from "./supersede-contract-control";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("retains the intended camera and schedule when replacement cannot be confirmed", async () => {
-  vi.mocked(supersedeContract).mockResolvedValueOnce({ status: "indeterminate", error: "unknown" }).mockResolvedValue({ status: "success" });
+it.each(["returned", "transport"])("retains the intended camera and schedule after a %s failure", async (failure) => {
+  if (failure === "transport") vi.mocked(supersedeContract).mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else vi.mocked(supersedeContract).mockResolvedValueOnce({ status: "indeterminate", error: "unknown" });
+  vi.mocked(supersedeContract).mockResolvedValue({ status: "success" });
   const props = {
     bookingId: "84000000-0000-4000-8000-000000000001",
     cameras: [{ id: "84000000-0000-4000-8000-000000000002", name: "Synthetic Camera A" }, { id: "84000000-0000-4000-8000-000000000003", name: "Synthetic Camera B" }],

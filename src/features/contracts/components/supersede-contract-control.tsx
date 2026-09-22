@@ -36,7 +36,13 @@ function SupersedeContractForm({
   returnValue,
 }: SupersedeContractProps) {
   const [state, action, pending] = useActionState(
-    supersedeContract,
+    async (previous: SupersedeContractActionState, data: FormData): Promise<SupersedeContractActionState> => {
+      try {
+        return await supersedeContract(previous, data);
+      } catch {
+        return { error: "unknown", status: "indeterminate" };
+      }
+    },
     initialState,
   );
   const resultRef = useRef<HTMLDivElement>(null);
