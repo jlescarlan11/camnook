@@ -570,6 +570,34 @@ begin
     '90900000-0000-4000-8000-000000000011'
   );
 
+  if (api.add_return_issue_note(
+    '90400000-0000-4000-8000-000000000002',
+    '  Compared the return image with the pickup report.  ',
+    '90900000-0000-4000-8000-000000000011'
+  ) ->> 'created')::boolean then
+    raise exception 'identical note retry created another note';
+  end if;
+
+  begin
+    perform api.add_return_issue_note(
+      '90400000-0000-4000-8000-000000000002',
+      'A different finding that must not be silently discarded.',
+      '90900000-0000-4000-8000-000000000011'
+    );
+    raise exception 'changed note retry falsely reported success';
+  exception when serialization_failure then null;
+  end;
+
+  begin
+    perform api.add_return_issue_note(
+      '90400000-0000-4000-8000-000000000001',
+      'Compared the return image with the pickup report.',
+      '90900000-0000-4000-8000-000000000011'
+    );
+    raise exception 'note retry accepted a different booking';
+  exception when serialization_failure then null;
+  end;
+
   begin
     perform api.resolve_return_issue(
       '90400000-0000-4000-8000-000000000002',

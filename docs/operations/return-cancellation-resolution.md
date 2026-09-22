@@ -81,7 +81,10 @@ fail without a partial handoff or transition.
 ## Issue review and manual deductions
 
 1. Review the immutable report and purpose-authorized evidence.
-2. Append additional private notes; never edit an earlier note.
+2. Append additional private notes; never edit an earlier note. An identical
+   same-operation retry returns the saved note. Reusing that operation for a
+   different note or booking fails as stale; inspect the saved history before
+   submitting a new note with a new operation identity.
 3. Choose a decision kind that matches the recorded facts: damage,
    missing-item, late-return, mixed, or documented other.
 4. Enter the deduction manually. No hourly formula, grace period, automatic
