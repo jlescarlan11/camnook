@@ -6,6 +6,11 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Python 3 is required for the meetup concurrency test" >&2
+  exit 2
+fi
+
 if ! postgresql_prefix="$(brew --prefix postgresql@17 2>/dev/null)"; then
   echo "Homebrew postgresql@17 is required" >&2
   exit 2
@@ -326,6 +331,12 @@ for test_file in "$repo_root"/supabase/tests/database/*.sql; do
   echo "running $(basename "$test_file")"
   "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 -f "$test_file"
 done
+
+# This race commits its fixtures, so isolate it from the other acceptance/race data.
+"$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
+  -c 'create database camnook_meetup_race template postgres' >/dev/null
+python3 "$repo_root/supabase/tests/database/025_meetup_concurrency.py" \
+  --psql "$postgres_bin/psql" --socket "$socket_dir"
 
 "$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
   -c 'create database camnook_hosted_compat template postgres' >/dev/null
