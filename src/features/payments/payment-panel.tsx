@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 
@@ -82,6 +82,8 @@ export function PaymentPanel({
     uploadPaymentProof,
     initialState,
   );
+  const [lastAction, setLastAction] = useState<"submit" | "proof">("submit");
+  const resultState = lastAction === "proof" ? proofState : submitState;
   const resultRef = useRef<HTMLDivElement>(null);
   const proofFormRef = useRef<HTMLFormElement>(null);
   const submitFormRef = useRef<HTMLFormElement>(null);
@@ -180,6 +182,7 @@ export function PaymentPanel({
           event.preventDefault();
           if (submitPending) return;
           const formData = new FormData(event.currentTarget);
+          setLastAction("submit");
           startTransition(() => submitAction(formData));
         }} className="mt-5 space-y-4">
           <input name="attemptId" type="hidden" value={attemptId} />
@@ -219,6 +222,7 @@ export function PaymentPanel({
           event.preventDefault();
           if (proofPending) return;
           const formData = new FormData(event.currentTarget);
+          setLastAction("proof");
           startTransition(() => proofAction(formData));
         }} className="mt-5 space-y-4 rounded-xl border border-stone-200 p-5">
           <input name="bookingId" type="hidden" value={payment.booking_id} />
@@ -237,24 +241,22 @@ export function PaymentPanel({
         </form>
       ) : null}
 
-      {submitState.status !== "idle" || proofState.status !== "idle" ? (
+      {resultState.status !== "idle" ? (
         <div
           className={`mt-5 rounded-xl border p-4 text-sm ${
-            submitState.status === "success" || proofState.status === "success"
+            resultState.status === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-900"
               : "border-red-200 bg-red-50 text-red-900"
           }`}
           ref={resultRef}
-          role={submitState.status === "success" || proofState.status === "success" ? "status" : "alert"}
+          role={resultState.status === "success" ? "status" : "alert"}
           tabIndex={-1}
         >
-          {proofState.status === "success"
-            ? "The private proof was saved. The payment remains in review."
-            : proofState.status === "error"
-              ? actionErrorMessage(proofState.error)
-              : submitState.status === "success"
-                ? "Payment details were accepted for reconciliation. The original deadline remains unchanged."
-                : actionErrorMessage(submitState.error)}
+          {resultState.status === "success"
+            ? lastAction === "proof"
+              ? "The private proof was saved. The payment remains in review."
+              : "Payment details were accepted for reconciliation. The original deadline remains unchanged."
+            : actionErrorMessage(resultState.error)}
         </div>
       ) : null}
     </section>
