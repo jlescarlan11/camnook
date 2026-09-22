@@ -1,13 +1,12 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { parseCameraAccessories } from "./camera-accessories";
-import { createAndPublishCatalogPhoto, inspectImageBytes } from "../../../scripts/catalog-photo-publication-lib.mjs";
+import { CatalogPublicationError, createAndPublishCatalogPhoto, inspectImageBytes, publishCamera as publishVerifiedCamera } from "../../../scripts/catalog-photo-publication-lib.mjs";
 
 export type CameraActionState = { error?: string; status: "idle" | "error" | "success" };
 
@@ -128,8 +127,17 @@ export async function publishCamera(_state: CameraActionState, formData: FormDat
   const authorization = await authorizeCameraAction();
   if (!authorization.context) return authorization.error;
   const context = authorization.context;
-  const result = await context.supabase.schema("api").rpc("publish_camera", { p_camera_id: cameraId.data, p_operation_id: randomUUID() });
-  if (result.error) return { error: "Complete every readiness item before publishing.", status: "error" };
+  try {
+    await publishVerifiedCamera({ beforeMutation: undefined, cameraId: cameraId.data, client: context.supabase });
+  } catch (error) {
+    revalidatePath(`/admin/cameras/${cameraId.data}`);
+    return {
+      error: error instanceof CatalogPublicationError && error.category === "integrity"
+        ? "Complete every readiness item before publishing."
+        : "The publication outcome could not be confirmed. Reload before retrying.",
+      status: "error",
+    };
+  }
   revalidatePath("/");
   revalidatePath("/admin/cameras");
   revalidatePath(`/admin/cameras/${cameraId.data}`);
