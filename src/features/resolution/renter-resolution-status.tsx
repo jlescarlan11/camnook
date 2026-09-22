@@ -37,7 +37,13 @@ function RenterResolutionStatusContent({
   const [cancellationOperationId] = useState(operationId);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationState, cancellationAction, cancellationPending] =
-    useActionState(requestCancellation, initialState);
+    useActionState(async (previous: ResolutionActionState, data: FormData): Promise<ResolutionActionState> => {
+      try {
+        return await requestCancellation(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    }, initialState);
   const [accessState, accessAction, accessPending] = useActionState(
     requestMyConditionPhotoAccess,
     initialPhotoState,

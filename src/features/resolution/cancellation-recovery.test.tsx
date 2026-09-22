@@ -7,10 +7,11 @@ vi.mock("./actions", () => ({ requestCancellation: cancel }));
 vi.mock("@/features/pickup/actions", () => ({ requestMyConditionPhotoAccess: vi.fn() }));
 import { RenterResolutionStatus } from "./renter-resolution-status";
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
-it("preserves the cancellation reason and identity when retrying a failed request", async () => {
+it.each(["returned", "transport"])("preserves the cancellation reason and identity after a %s failure", async (failure) => {
   const submissions: Record<string, FormDataEntryValue>[] = [];
   cancel.mockImplementation(async (_state, data: FormData) => {
     submissions.push(Object.fromEntries(data));
+    if (failure === "transport") throw new Error("Synthetic connection failure");
     return { status: "error", error: "indeterminate" };
   });
   const view = render(<RenterResolutionStatus operationId="22222222-2222-4222-8222-222222222222" resolution={{ booking_id: "11111111-1111-4111-8111-111111111111", booking_state: "FOR_REVIEW", can_request_cancellation: true, cancellation: null, deposit: { deduction_amount: 0, held_amount: 0, refunded_amount: 0, remaining_refund_liability: 0, status: "none" }, issue_decision: null, return_inspection: null }} />);
