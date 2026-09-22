@@ -10,6 +10,21 @@ import { parseCameraAccessories } from "./camera-accessories";
 
 export type CameraActionState = { error?: string; status: "idle" | "error" | "success" };
 
+async function authorizeCameraAction() {
+  try {
+    return { context: await requireAdmin(), error: null } as const;
+  } catch {
+    return {
+      context: null,
+      error: {
+        error: "Administrator authorization could not be verified. Reload before retrying.",
+        status: "error",
+      },
+    } as const;
+  }
+}
+
+
 function text(formData: FormData, name: string) {
   const value = formData.get(name);
   return typeof value === "string" ? value.trim() : "";
@@ -40,7 +55,9 @@ function cameraInput(formData: FormData) {
 export async function createCameraDraft(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const input = cameraInput(formData);
   if (!input) return { error: "Check the camera name, description, price, deposit, and included items. Use a positive whole-number quantity and list each item only once.", status: "error" };
-  const context = await requireAdmin();
+  const authorization = await authorizeCameraAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const result = await context.supabase.schema("api").rpc("save_camera_draft", { p_input: input });
   if (result.error || typeof result.data !== "string") return { error: "The camera draft could not be created.", status: "error" };
   revalidatePath("/admin/cameras");
@@ -51,7 +68,9 @@ export async function updateCameraDraft(_state: CameraActionState, formData: For
   const input = cameraInput(formData);
   const id = z.uuid().safeParse(text(formData, "cameraId"));
   if (!input || !id.success) return { error: "Check the camera details and included items. Use a positive whole-number quantity and list each item only once.", status: "error" };
-  const context = await requireAdmin();
+  const authorization = await authorizeCameraAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const result = await context.supabase.schema("api").rpc("save_camera_draft", { p_input: { ...input, id: id.data } });
   if (result.error) return { error: "The camera details could not be saved.", status: "error" };
   revalidatePath("/admin/cameras");
@@ -93,7 +112,9 @@ export async function uploadCameraPhoto(_state: CameraActionState, formData: For
   const bytes = Buffer.from(await photo.arrayBuffer());
   const inspected = inspectImage(bytes, photo.type);
   if (!inspected) return { error: "Choose a JPEG, PNG, or WebP photo up to 10 MB.", status: "error" };
-  const context = await requireAdmin();
+  const authorization = await authorizeCameraAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const publicationId = randomUUID();
   const intent = await context.supabase.schema("api").rpc("create_catalog_photo_publication", {
     p_alt_text: `${text(formData, "cameraName")} camera`,
@@ -144,7 +165,9 @@ export async function uploadCameraPhoto(_state: CameraActionState, formData: For
 export async function publishCamera(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const cameraId = z.uuid().safeParse(text(formData, "cameraId"));
   if (!cameraId.success) return { error: "Camera not found.", status: "error" };
-  const context = await requireAdmin();
+  const authorization = await authorizeCameraAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const result = await context.supabase.schema("api").rpc("publish_camera", { p_camera_id: cameraId.data, p_operation_id: randomUUID() });
   if (result.error) return { error: "Complete every readiness item before publishing.", status: "error" };
   revalidatePath("/");
@@ -156,7 +179,9 @@ export async function publishCamera(_state: CameraActionState, formData: FormDat
 export async function unpublishCamera(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const cameraId = z.uuid().safeParse(text(formData, "cameraId"));
   if (!cameraId.success) return { status: "error", error: "Camera not found." };
-  const context = await requireAdmin();
+  const authorization = await authorizeCameraAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const result = await context.supabase.schema("api").rpc("unpublish_camera", { p_camera_id: cameraId.data });
   if (result.error) return { status: "error", error: "The camera could not be unpublished. Please try again." };
   revalidatePath("/");
@@ -171,7 +196,9 @@ export async function blockCameraDates(_state: CameraActionState, formData: Form
   if (!cameraId.success || !dates.success || dates.data.end < dates.data.start) return { error: "Choose a valid blocked date range.", status: "error" };
   const end = new Date(`${dates.data.end}T00:00:00+08:00`);
   end.setUTCDate(end.getUTCDate() + 1);
-  const context = await requireAdmin();
+  const authorization = await authorizeCameraAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const result = await context.supabase.schema("api").rpc("create_manual_block", {
     p_camera_id: cameraId.data,
     p_ends_at: end.toISOString(),
@@ -194,7 +221,9 @@ export async function blockCameraDates(_state: CameraActionState, formData: Form
 export async function removeCameraBlock(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const input = z.object({ blockId: z.uuid(), cameraId: z.uuid() }).safeParse({ blockId: text(formData, "blockId"), cameraId: text(formData, "cameraId") });
   if (!input.success) return { status: "error", error: "This blocked range could not be identified. Reload and try again." };
-  const context = await requireAdmin();
+  const authorization = await authorizeCameraAction();
+  if (!authorization.context) return authorization.error;
+  const context = authorization.context;
   const result = await context.supabase.schema("api").rpc("release_manual_block", { p_block_id: input.data.blockId });
   if (result.error) return { status: "error", error: "The block could not be removed. Please retry or reload the current blocked dates." };
   revalidatePath(`/admin/cameras/${input.data.cameraId}`);
