@@ -24,7 +24,7 @@ export type KycFormValues = {
 };
 
 export type KycActionState = {
-  error?: "invalid" | "pin_reconfirmation" | "save" | "suspended" | "underage" | "unauthorized";
+  error?: "indeterminate" | "invalid" | "pin_reconfirmation" | "save" | "suspended" | "underage" | "unauthorized";
   fieldErrors?: Partial<Record<keyof KycFormValues | "psgcAreaCode" | "residentialPin", string>>;
   status: "error" | "idle";
   values?: KycFormValues;
