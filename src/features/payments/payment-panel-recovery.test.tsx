@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("./actions", () => ({ submitPayment: vi.fn(), uploadPaymentProof: vi.fn() }));
@@ -24,7 +24,8 @@ const transaction: NonNullable<PaymentState["transaction"]> = {
 
 it.each(["submit", "proof"])("retains renter inputs when the %s action loses its response", async (kind) => {
   const action = vi.mocked(kind === "submit" ? submitPayment : uploadPaymentProof);
-  action.mockRejectedValueOnce(new Error("Synthetic private transport failure"))
+  let disconnect!: (error: Error) => void;
+  action.mockImplementationOnce(() => new Promise((_resolve, reject) => { disconnect = reject; }))
     .mockResolvedValue({ status: "success" });
   render(<PaymentPanel attemptId={attemptId} payment={kind === "submit" ? payment : { ...payment, can_submit: false, booking_state: "PAYMENT_REVIEW", transaction }} />);
   const user = userEvent.setup();
@@ -36,7 +37,19 @@ it.each(["submit", "proof"])("retains renter inputs when the %s action loses its
   const reset = vi.spyOn(form, "reset");
   // Native file validity/FormData in jsdom do not observe user-event's FileList.
   fireEvent.submit(form);
+  await waitFor(() => expect(action).toHaveBeenCalledOnce());
+  await user.upload(file, new File(["changed"], "changed.jpg", { type: "image/jpeg" }));
+  const pendingFile = file.files?.[0];
+  let pendingReference: string | undefined;
+  if (kind === "submit") {
+    await user.type(screen.getByLabelText("GCash reference"), "-LATE-EDIT");
+    pendingReference = (screen.getByLabelText("GCash reference") as HTMLInputElement).value;
+  }
+  await act(async () => { disconnect(new Error("Synthetic private transport failure")); });
   await screen.findByText("The persisted outcome could not be confirmed. Refresh before retrying.");
+  expect(pendingFile).toBe(photo);
+  if (kind === "submit") expect(pendingReference).toBe("SYNTHETIC-001");
+  expect(file.disabled).toBe(false);
   expect(file.files?.[0]).toBe(photo);
   expect(reset).not.toHaveBeenCalled();
   if (kind === "submit") {

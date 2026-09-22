@@ -49,7 +49,7 @@ function actionErrorMessage(error: PaymentActionState["error"]) {
   }
 }
 
-function ProofField({ error, id }: { error?: string; id: string }) {
+function ProofField({ disabled, error, id }: { disabled: boolean; error?: string; id: string }) {
   const describedBy = [`${id}-help`, error ? `${id}-error` : undefined].filter(Boolean).join(" ");
   return (
     <div>
@@ -60,6 +60,7 @@ function ProofField({ error, id }: { error?: string; id: string }) {
         accept="image/jpeg,image/png"
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
+        disabled={disabled}
         className="mt-2 block min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-2 file:font-medium file:text-amber-950"
         id={id}
         name="proof"
@@ -207,6 +208,7 @@ export function PaymentPanel({
               autoComplete="off"
               aria-describedby={submitState.fieldErrors?.reference ? "payment-reference-error" : undefined}
               aria-invalid={submitState.fieldErrors?.reference ? true : undefined}
+              disabled={submitPending}
               className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
               id="payment-reference"
               maxLength={120}
@@ -218,7 +220,7 @@ export function PaymentPanel({
               <p className="mt-2 text-sm text-red-800" id="payment-reference-error" role="alert">{submitState.fieldErrors.reference}</p>
             ) : null}
           </div>
-          <ProofField error={submitState.fieldErrors?.proof} id="payment-proof" />
+          <ProofField disabled={submitPending} error={submitState.fieldErrors?.proof} id="payment-proof" />
           <button
             className="min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={submitPending}
@@ -242,7 +244,7 @@ export function PaymentPanel({
           <h3 className="font-semibold">
             {transaction.proof_exists ? "Replace payment proof" : "Add payment proof"}
           </h3>
-          <ProofField error={proofState.fieldErrors?.proof} id="pending-payment-proof" />
+          <ProofField disabled={proofPending} error={proofState.fieldErrors?.proof} id="pending-payment-proof" />
           <button
             className="min-h-12 rounded-xl border border-stone-300 bg-white px-5 py-3 font-semibold disabled:opacity-60"
             disabled={proofPending}
