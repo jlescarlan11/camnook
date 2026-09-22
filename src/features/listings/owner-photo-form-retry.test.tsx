@@ -11,9 +11,10 @@ import { CameraPhotoForm } from "./owner-camera-forms";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("keeps the selected photo identity and metadata across an uncertain result and refreshed photo count", async () => {
+it.each(["returned", "transport"])("keeps the photo identity across a %s failure and refreshed photo count", async (failure) => {
   let finish!: (state: CameraActionState) => void;
-  vi.mocked(uploadCameraPhoto).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }))
+  let disconnect!: (error: Error) => void;
+  vi.mocked(uploadCameraPhoto).mockImplementationOnce(() => new Promise((resolve, reject) => { finish = resolve; disconnect = reject; }))
     .mockResolvedValue({ status: "success" });
   const props = { cameraId: "95000000-0000-4000-8000-000000000001", cameraName: "Synthetic camera", photoCount: 0 };
   const view = render(<CameraPhotoForm {...props} />);
@@ -27,8 +28,13 @@ it("keeps the selected photo identity and metadata across an uncertain result an
   // jsdom does not expose user-event FileList to native file validity checks.
   fireEvent.submit(input.form!);
   await waitFor(() => expect(input.disabled).toBe(true));
-  await act(async () => { finish({ status: "error", error: "Synthetic uncertain publication" }); });
-  await screen.findByText("Synthetic uncertain publication");
+  await act(async () => {
+    if (failure === "transport") disconnect(new Error("Synthetic private connection failure"));
+    else finish({ status: "error", error: "Synthetic uncertain publication" });
+  });
+  await screen.findByText(failure === "transport"
+    ? "The photo publication could not be confirmed. Retry the unchanged photo or reload to check the saved photos."
+    : "Synthetic uncertain publication");
   view.rerender(<CameraPhotoForm {...props} cameraName="Refreshed camera name" photoCount={1} />);
   expect(input.files?.[0]).toBe(photo);
   expect(reset).not.toHaveBeenCalled();

@@ -57,7 +57,12 @@ function CameraPhotoFormContent({ cameraId, cameraName, photoCount }: CameraPhot
   const formRef = useRef<HTMLFormElement>(null);
   const [selection, setSelection] = useState<{ publicationId: string; cameraName: string; sortPosition: number } | null>(null);
   const [state, action, pending] = useActionState(async (previous: CameraActionState, data: FormData) => {
-    const result = await uploadCameraPhoto(previous, data);
+    let result: CameraActionState;
+    try {
+      result = await uploadCameraPhoto(previous, data);
+    } catch {
+      return { status: "error" as const, error: "The photo publication could not be confirmed. Retry the unchanged photo or reload to check the saved photos." };
+    }
     if (result.status === "success") {
       formRef.current?.reset();
       setSelection(null);
