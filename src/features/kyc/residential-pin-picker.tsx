@@ -37,7 +37,7 @@ export function ResidentialPinPicker({
   const [selected, setSelected] = useState<DraftPin | null>(initial);
   const [draft, setDraft] = useState<DraftPin | null>(initial);
   const [operation, setOperation] = useState<"keep" | "remove" | "set">("keep");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!initialPin);
   const trigger = useRef<HTMLButtonElement>(null);
   const editorId = useId();
   function closeEditor() {
