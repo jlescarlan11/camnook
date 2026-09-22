@@ -14,8 +14,9 @@ const configuration: ContractTemplateConfiguration = { active: {
   terms: Object.fromEntries(CONTRACT_TERM_KEYS.map((key) => [key, `Synthetic original ${key} terms.`])) as ContractTerms,
 } };
 
-it("keeps drafted terms and version after a rejected publication", async () => {
-  vi.mocked(publishContractTemplate).mockResolvedValue({ status: "error", error: "version_conflict" });
+it.each(["returned", "transport"])("keeps drafted terms and version after a %s failure", async (failure) => {
+  if (failure === "transport") vi.mocked(publishContractTemplate).mockRejectedValue(new Error("Synthetic connection failure"));
+  else vi.mocked(publishContractTemplate).mockResolvedValue({ status: "error", error: "version_conflict" });
   const view = render(<ContractTemplateForm configuration={configuration} />);
   const user = userEvent.setup();
   await user.type(screen.getByLabelText("Template version"), "synthetic-v2");
@@ -24,11 +25,18 @@ it("keeps drafted terms and version after a rejected publication", async () => {
   await user.type(pickup, "Synthetic revised pickup terms for this test.");
   await user.click(screen.getByRole("checkbox"));
   await user.click(screen.getByRole("button", { name: "Publish replacement template" }));
-  await screen.findByText("That template version already exists. Choose a new version.");
+  await screen.findByText(failure === "transport"
+    ? "The published outcome could not be confirmed. Reload before retrying."
+    : "That template version already exists. Choose a new version.");
   view.rerender(<ContractTemplateForm configuration={configuration} />);
   expect(pickup.value).toBe("Synthetic revised pickup terms for this test.");
   expect((screen.getByLabelText("Template version") as HTMLInputElement).value).toBe("synthetic-v2");
   expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+  expect(new FormData(pickup.form!).get("expectedActiveId")).toBe(configuration.active!.id);
+  vi.mocked(publishContractTemplate).mockResolvedValue({ status: "success", version: "synthetic-v2" });
+  await user.click(screen.getByRole("button", { name: "Publish replacement template" }));
+  await screen.findByText(/Template synthetic-v2 is active/);
+  expect(Object.fromEntries(vi.mocked(publishContractTemplate).mock.calls[1][1])).toEqual(Object.fromEntries(vi.mocked(publishContractTemplate).mock.calls[0][1]));
 });
 
 it("keeps the draft bound to the template it was based on when active configuration changes", async () => {

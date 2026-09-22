@@ -23,7 +23,13 @@ export function ContractTemplateForm({
   const [expectedActiveId, setExpectedActiveId] = useState(configuration.active?.id ?? "");
   const [approved, setApproved] = useState(false);
   const [state, action, pending] = useActionState(
-    publishContractTemplate,
+    async (previous: PublishContractTemplateState, data: FormData): Promise<PublishContractTemplateState> => {
+      try {
+        return await publishContractTemplate(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialState,
   );
   const active = configuration.active;
