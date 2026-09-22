@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { CheckoutProgress } from "@/features/bookings/components/checkout-progress";
-import { useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode, useSyncExternalStore } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
 import { saveKycProfile, type KycActionState } from "./actions";
 import { ResidentialPinPicker } from "./residential-pin-picker";
 import type { KycProfile } from "./types";
+
+import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
+
+const subscribe = () => () => {};
 
 const initialState: KycActionState = { status: "idle" };
 const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]";
@@ -20,19 +24,30 @@ function adultCutoff() {
   return value.toISOString().slice(0, 10);
 }
 
-export function KycProfileForm({
+type FormProps = {
+  checkout?: boolean;
+  draftKey?: string;
+  initialStep?: 1 | 2;
+  kyc: KycProfile | null;
+  profile: null | { legalName: string; phone: string };
+  returnTo: string;
+};
+
+export function KycProfileForm(props: FormProps) {
+  const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
+  if (props.draftKey && !hydrated) return <p role="status">Loading your details…</p>;
+  return <ProfileForm key={props.draftKey} {...props} />;
+}
+
+function ProfileForm({
   kyc,
   profile,
   returnTo,
   checkout = false,
   initialStep = 1,
-}: {
-  checkout?: boolean;
-  initialStep?: 1 | 2;
-  kyc: KycProfile | null;
-  profile: null | { legalName: string; phone: string };
-  returnTo: string;
-}) {
+  draftKey,
+}: FormProps) {
+  const [draft] = useState(() => readCheckoutDraft<Record<string, string>>(draftKey));
   const [step, setStep] = useState<1 | 2>(initialStep);
   const [state, action, pending] = useActionState(async (previous: KycActionState, data: FormData) => {
     const result = await saveKycProfile(previous, data);
@@ -63,11 +78,16 @@ export function KycProfileForm({
     return true;
   }
   const [addressChanged, setAddressChanged] = useState(false);
-  const submitted = state.values;
+  const submitted = state.values ?? draft;
   const legacyAddress = kyc?.addressFormatVersion === 1 ? kyc.addressLine1 : "";
   const initialStreetName = submitted?.streetName ?? kyc?.streetName ?? "";
 
   function trackAddressChange(event: FormEvent<HTMLFormElement>) {
+    const values = new FormData(event.currentTarget);
+    writeCheckoutDraft(draftKey, Object.fromEntries([
+      "legalName", "birthDate", "phone", "houseNumber", "streetName", "building",
+      "postalCode", "addressDetails", "legacyAddressLine1",
+    ].map((name) => [name, values.get(name) ?? ""])));
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
     if ([
@@ -105,7 +125,7 @@ export function KycProfileForm({
       </div>
       <div hidden={checkout && step !== 2} className={checkout ? "checkout-address-fields" : "space-y-5"}>
         <div aria-describedby={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined}>
-          <PsgcAreaSelector initialPath={kyc?.path} />
+          <PsgcAreaSelector initialPath={kyc?.path} draftKey={draftKey ? `${draftKey}:area` : undefined} onSelectionChange={() => setAddressChanged(true)} />
           {state.fieldErrors?.psgcAreaCode ? <p className="mt-2 text-sm text-red-700" id="kyc-area-error" role="alert">{state.fieldErrors.psgcAreaCode}</p> : null}
         </div>
         <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
@@ -134,7 +154,8 @@ export function KycProfileForm({
           </Field>
         </fieldset>
         <ResidentialPinPicker
-          addressChanged={addressChanged}
+          draftKey={draftKey ? `${draftKey}:pin` : undefined}
+          addressChanged={addressChanged || Boolean(draft)}
           error={state.fieldErrors?.residentialPin}
           initialPin={kyc?.residentialPin ?? null}
         />

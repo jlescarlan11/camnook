@@ -42,7 +42,7 @@ describe("ResidentialPinPicker", () => {
       <ResidentialPinPicker addressChanged={false} initialPin={null} />,
     );
 
-    expect(screen.getByRole("button", { name: "Add map pin" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Add map pin" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add map pin" }));
@@ -92,4 +92,17 @@ describe("ResidentialPinPicker", () => {
     expect(screen.getByRole("button", { name: "Adjust map pin" }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByRole("button", { name: "Choose synthetic point" })).toBeNull();
   });
+});
+
+it("retains a confirmed pin after leaving the checkout", () => {
+  sessionStorage.clear();
+  const first = render(<ResidentialPinPicker addressChanged={false} initialPin={null} draftKey="pin-draft" />);
+  fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm this pin" }));
+  first.unmount();
+  const second = render(<ResidentialPinPicker addressChanged={false} initialPin={null} draftKey="pin-draft" />);
+  expect(hidden(second.container, "pinOperation")?.value).toBe("set");
+  expect(hidden(second.container, "pinLatitude")?.value).toBe("10.3157");
+  expect(hidden(second.container, "pinLongitude")?.value).toBe("123.8854");
+  sessionStorage.clear();
 });

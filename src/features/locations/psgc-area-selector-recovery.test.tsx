@@ -44,3 +44,22 @@ describe("address lookup recovery", () => {
     expect(screen.queryByRole("button", { name: "Retry area lookup" })).toBeNull();
   });
 });
+
+it("reuses loaded children and restores an unfinished address after remounting", async () => {
+  sessionStorage.clear();
+  const request = vi.fn().mockImplementation(async (url: string) => response(url.includes("parent=") ? [province] : [region]));
+  vi.stubGlobal("fetch", request);
+  const first = render(<PsgcAreaSelector draftKey="area-draft" />);
+  await screen.findByRole("option", { name: "Region VII" });
+  await userEvent.selectOptions(screen.getByLabelText("Region"), region.code);
+  await screen.findByRole("option", { name: "Cebu" });
+  await userEvent.selectOptions(screen.getByLabelText("Region"), "");
+  await userEvent.selectOptions(screen.getByLabelText("Region"), region.code);
+  await screen.findByRole("option", { name: "Cebu" });
+  expect(request).toHaveBeenCalledTimes(2);
+  first.unmount();
+  render(<PsgcAreaSelector draftKey="area-draft" />);
+  await screen.findByRole("option", { name: "Cebu" });
+  expect((screen.getByLabelText("Region") as HTMLSelectElement).value).toBe(region.code);
+  sessionStorage.clear();
+});

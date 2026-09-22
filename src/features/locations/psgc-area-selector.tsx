@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
+import { readCheckoutDraft, writeCheckoutDraft } from "@/features/kyc/checkout-draft";
+
 import type { PsgcChoice } from "./types";
 
 type Selection = { code: string; name: string; type: PsgcChoice["type"] };
@@ -65,13 +67,17 @@ export function psgcLevelLabel(index: number, choices: PsgcChoice[]) {
 export function PsgcAreaSelector({
   initialPath = EMPTY_PATH,
   name = "psgcAreaCode",
+  draftKey,
   onSelectionChange,
 }: {
   initialPath?: Selection[];
+  draftKey?: string;
   name?: string;
   onSelectionChange?: (selection: Selection | null, release: string | null) => void;
 }) {
   const id = useId();
+  const [restorePath] = useState(() => readCheckoutDraft<Selection[]>(draftKey) ?? initialPath);
+  const choicesCache = useRef(new Map<string, { choices: PsgcChoice[]; release: string }>());
   const activeRequest = useRef<AbortController | null>(null);
   const requestGate = useRef(createLatestRequestGate());
   const [levels, setLevels] = useState<Array<{ choices: PsgcChoice[]; selected: string }>>([]);
@@ -87,25 +93,29 @@ export function PsgcAreaSelector({
       setStatus("loading");
       try {
         const loaded: Array<{ choices: PsgcChoice[]; selected: string }> = [];
-        let parent: string | null = null;
         let activeRelease: string | null = null;
-        for (let index = 0; index <= initialPath.length; index += 1) {
-          const response = await fetch(`/api/locations/psgc${parent ? `?parent=${parent}` : ""}`, { cache: "no-store" });
+        // The saved path already identifies every parent: restore its levels together.
+        const parents = [null, ...restorePath.filter((area) => area.type !== "barangay").map((area) => area.code)];
+        const payloads = await Promise.all(parents.map(async (parent) => {
+          const response = await fetch(`/api/locations/psgc${parent ? `?parent=${parent}` : ""}`, { cache: "default" });
           if (!response.ok) throw new Error("reference unavailable");
           const payload = await response.json() as { choices: PsgcChoice[]; release: string };
+          if (parent) choicesCache.current.set(parent, payload);
+          return payload;
+        }));
+        for (const [index, payload] of payloads.entries()) {
           activeRelease = payload.release;
           if (payload.choices.length === 0) break;
-          const selected = initialPath[index]?.code ?? "";
+          const selected = restorePath[index]?.code ?? "";
           loaded.push({ choices: payload.choices, selected });
           if (!selected) break;
-          parent = selected;
         }
         const regionalChoices = loaded[1]?.choices ?? [];
         const officialAreaCode = loaded[1]?.selected ?? "";
         const friendlyAreaCode = FRIENDLY_AREA_BY_LOCALITY[officialAreaCode];
         if (friendlyAreaCode) {
           const response = await fetch(`/api/locations/psgc?parent=${friendlyAreaCode}`, {
-            cache: "no-store",
+            cache: "default",
           });
           if (!response.ok) throw new Error("reference unavailable");
           const payload = await response.json() as { choices: PsgcChoice[]; release: string };
@@ -147,7 +157,9 @@ export function PsgcAreaSelector({
     }
     void loadInitial();
     return () => { cancelled = true; };
-  }, [initialPath, initialAttempt]);
+  }, [restorePath, initialAttempt]);
+
+  useEffect(() => () => { activeRequest.current?.abort(); requestGate.current.begin(); }, []);
 
   async function select(levelIndex: number, code: string) {
     retrySelection.current = { levelIndex, code };
@@ -160,6 +172,10 @@ export function PsgcAreaSelector({
     const next = levels.slice(0, levelIndex + 1);
     next[levelIndex] = { ...current, selected: code };
     setLevels(next);
+    writeCheckoutDraft(draftKey, next.flatMap((level) => {
+      const choice = level.choices.find((item) => item.code === level.selected);
+      return choice ? [{ code: choice.code, name: choice.name, type: choice.type }] : [];
+    }));
     onSelectionChange?.(selected ? { code: selected.code, name: selected.name, type: selected.type } : null, release);
     if (!selected?.has_children) {
       setStatus("ready");
@@ -167,12 +183,16 @@ export function PsgcAreaSelector({
     }
     setStatus("loading");
     try {
-      const response = await fetch(`/api/locations/psgc?parent=${selected.code}`, {
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error("reference unavailable");
-      const payload = await response.json() as { choices: PsgcChoice[]; release: string };
+      let payload = choicesCache.current.get(selected.code);
+      if (!payload) {
+        const response = await fetch(`/api/locations/psgc?parent=${selected.code}`, {
+          cache: "default",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("reference unavailable");
+        payload = await response.json() as { choices: PsgcChoice[]; release: string };
+        choicesCache.current.set(selected.code, payload);
+      }
       if (!requestGate.current.isCurrent(request)) return;
       const regionChoices = levelIndex === 1 ? current.choices : [];
       const choices = selected.type === "province"
@@ -220,7 +240,6 @@ export function PsgcAreaSelector({
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">Province or area</span>
               <select
                 className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2"
-                disabled={status === "loading"}
                 onChange={(event) => void select(index, event.target.value)}
                 value={level.selected}
               >
@@ -244,7 +263,6 @@ export function PsgcAreaSelector({
             </span>
             <select
               className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2"
-              disabled={status === "loading"}
               onChange={(event) => void select(index, event.target.value)}
               value={level.selected}
             >

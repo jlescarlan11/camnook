@@ -24,7 +24,7 @@ describe("authenticated PSGC choices route", () => {
     await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
   });
 
-  it("returns a strictly validated no-store cascade", async () => {
+  it("returns a strictly validated privately cached cascade", async () => {
     const rpc = authorize({
       choices: [{
         city_class: "HUC",
@@ -40,7 +40,7 @@ describe("authenticated PSGC choices route", () => {
     ));
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("cache-control")).toBe("private, max-age=3600");
     expect(rpc).toHaveBeenCalledWith("list_psgc_area_choices", {
       p_parent_code: "0700000000",
     });
