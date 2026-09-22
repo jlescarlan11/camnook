@@ -36,3 +36,17 @@ it.each([false, true])("requires confirmed abort preparation before cleanup (pre
     ...(prepared ? ["finalize_catalog_photo_abort"] : []),
   ]);
 });
+
+it.each([
+  ["image/jpeg", new Uint8Array([0x6e, 0x6f, 0x74, 0x2d, 0x61, 0x6e, 0x2d, 0x69, 0x6d, 0x61, 0x67, 0x65])],
+  ["image/png", new Uint8Array([0xff, 0xd8, 0xff, 0xd9])],
+])("rejects unsupported bytes or a mismatched %s claim before authorization", async (type, bytes) => {
+  vi.mocked(requireAdmin).mockRejectedValue(new Error("Synthetic authorization should not be reached"));
+  const data = new FormData();
+  data.set("cameraId", "95000000-0000-4000-8000-000000000001");
+  data.set("photo", new File([bytes], "synthetic-photo", { type }));
+  await expect(uploadCameraPhoto({ status: "idle" }, data)).resolves.toEqual({
+    status: "error", error: "Choose a JPEG, PNG, or WebP photo up to 10 MB.",
+  });
+  expect(requireAdmin).not.toHaveBeenCalled();
+});

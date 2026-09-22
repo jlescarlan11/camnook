@@ -1,12 +1,13 @@
 "use server";
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { parseCameraAccessories } from "./camera-accessories";
+import { inspectImageBytes } from "../../../scripts/catalog-photo-publication-lib.mjs";
 
 export type CameraActionState = { error?: string; status: "idle" | "error" | "success" };
 
@@ -80,10 +81,14 @@ export async function updateCameraDraft(_state: CameraActionState, formData: For
 }
 
 function inspectImage(bytes: Buffer, type: string) {
-  const supported = ["image/jpeg", "image/png", "image/webp"];
-  return bytes.length > 0 && bytes.length <= 10 * 1024 * 1024 && supported.includes(type)
-    ? { byteSize: bytes.length, mediaType: type, sha256: createHash("sha256").update(bytes).digest("hex") }
-    : null;
+  try {
+    const inspected = inspectImageBytes(bytes);
+    return inspected.mediaType === type
+      ? { byteSize: inspected.byteSize, mediaType: inspected.mediaType, sha256: inspected.sha256Hex }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 async function abortPhotoUpload(
