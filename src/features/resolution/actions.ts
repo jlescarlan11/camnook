@@ -349,7 +349,12 @@ export async function decideReturnReview(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.outcome !== outcome ||
+      parsed.data.booking_state !== (outcome === "clear" ? "COMPLETED" : "ISSUE_REVIEW")
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return {

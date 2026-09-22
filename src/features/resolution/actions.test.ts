@@ -244,6 +244,17 @@ describe("resolution Server Actions", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it("does not acknowledge a changed return-review outcome on replay", async () => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { booking_id: BOOKING_ID, booking_state: "COMPLETED", created: false, outcome: "clear" },
+      error: null,
+    }));
+    const data = form();
+    data.set("outcome", "issue");
+    data.set("note", "Synthetic issue requiring review.");
+    await expect(decideReturnReview({ status: "idle" }, data)).resolves.toEqual({ error: "indeterminate", status: "error" });
+  });
+
   it.each(["1.001", "0.001"])("rejects sub-cent deduction %s before authorization", async (amount) => {
     const data = form();
     data.set("decisionKind", "damage");

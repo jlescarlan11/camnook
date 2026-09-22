@@ -545,6 +545,33 @@ begin
     'No issue found during review.',
     '90900000-0000-4000-8000-000000000004'
   );
+  begin
+    perform api.decide_return_inspection(
+      '90400000-0000-4000-8000-000000000001',
+      'issue',
+      'Synthetic changed review decision.',
+      '90900000-0000-4000-8000-000000000004'
+    );
+    raise exception 'return review retry accepted a changed outcome';
+  exception
+    when serialization_failure then null;
+  end;
+  begin
+    perform api.decide_return_inspection(
+      '90400000-0000-4000-8000-000000000001', 'clear',
+      'Changed synthetic review note.', '90900000-0000-4000-8000-000000000004'
+    );
+    raise exception 'return review retry accepted a changed note';
+  exception
+    when serialization_failure then null;
+  end;
+  if (api.decide_return_inspection(
+    '90400000-0000-4000-8000-000000000001', 'clear',
+    '  No issue found during review.  ', '90900000-0000-4000-8000-000000000004'
+  ) ->> 'created')::boolean then
+    raise exception 'normalized return review retry was not idempotent';
+  end if;
+
 end;
 $$;
 
