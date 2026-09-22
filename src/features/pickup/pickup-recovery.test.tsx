@@ -10,8 +10,11 @@ import type { PickupDetail } from "./types";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-it("retains pickup inspection facts and retry identity after an uncertain outcome", async () => {
-  vi.mocked(completePickup).mockResolvedValueOnce({ status: "error", error: "indeterminate" }).mockResolvedValue({ status: "success" });
+it.each(["returned", "transport"])("retains pickup inspection facts and retry identity after a %s failure", async (failure) => {
+  const action = vi.mocked(completePickup);
+  if (failure === "transport") action.mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  else action.mockResolvedValueOnce({ status: "error", error: "indeterminate" });
+  action.mockResolvedValue({ status: "success" });
   const pickup = {
     booking_id: "84000000-0000-4000-8000-000000000001", booking_state: "CONFIRMED",
     renter_legal_name: "Synthetic Renter", handoff: null, eligibility: { eligible: true },

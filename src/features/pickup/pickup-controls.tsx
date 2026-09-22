@@ -51,7 +51,13 @@ function PickupForm({
   const [retryOperationId] = useState(operationId);
   const [initialActualAt] = useState(actualAt);
   const [completionState, completionAction, completionPending] = useActionState(
-    completePickup,
+    async (previous: PickupCompletionActionState, data: FormData): Promise<PickupCompletionActionState> => {
+      try {
+        return await completePickup(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialCompletionState,
   );
   const { state: photoState, submit: submitPhoto, pending: photoPending, retryIntentId } = useConditionPhotoUpload();
