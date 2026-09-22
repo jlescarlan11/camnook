@@ -13,6 +13,14 @@ import { PAYMENT_REJECTION_LABELS } from "./types";
 const initialAccessState: PaymentAccessActionState = { status: "idle" };
 const initialDecisionState: PaymentDecisionActionState = { status: "idle" };
 
+async function submitPaymentDecision(previous: PaymentDecisionActionState, data: FormData): Promise<PaymentDecisionActionState> {
+  try {
+    return await decidePayment(previous, data);
+  } catch {
+    return { action: data.get("decision") === "rejected" ? "reject" : "verify", error: "indeterminate", status: "error" };
+  }
+}
+
 function accessErrorMessage(error: PaymentAccessActionState["error"]) {
   switch (error) {
     case "unauthorized":
@@ -64,15 +72,21 @@ function PaymentReviewForm({
   proofId,
 }: PaymentReviewProps) {
   const [accessState, accessAction, accessPending] = useActionState(
-    requestPaymentProofAccess,
+    async (previous: PaymentAccessActionState, data: FormData): Promise<PaymentAccessActionState> => {
+      try {
+        return await requestPaymentProofAccess(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialAccessState,
   );
   const [verifyState, verifyAction, verifyPending] = useActionState(
-    decidePayment,
+    submitPaymentDecision,
     initialDecisionState,
   );
   const [rejectState, rejectAction, rejectPending] = useActionState(
-    decidePayment,
+    submitPaymentDecision,
     initialDecisionState,
   );
   const [lastDecision, setLastDecision] = useState<"reject" | "verify">("verify");
