@@ -796,7 +796,25 @@ declare
   reversal jsonb;
   detail jsonb;
   variant integer;
+  invalid_amount numeric;
 begin
+  for invalid_amount in select value from (values (1.001::numeric), (0.001::numeric)) as amounts(value) loop
+    begin
+      perform api.record_external_refund(
+        '90400000-0000-4000-8000-000000000001',
+        invalid_amount,
+        'SYNTHETIC-SUBCENT-REFUND',
+        'Synthetic Renter',
+        statement_timestamp(),
+        '91000000-0000-4000-8000-000000000029'
+      );
+      set constraints all immediate;
+      raise exception 'sub-cent external refund was accepted: %', invalid_amount;
+    exception
+      when invalid_parameter_value then null;
+    end;
+  end loop;
+  set constraints all deferred;
   clear_refund := api.record_external_refund(
     '90400000-0000-4000-8000-000000000001',
     4000,

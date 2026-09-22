@@ -285,6 +285,16 @@ describe("resolution Server Actions", () => {
     });
   });
 
+  it.each(["1.001", "0.001"])("rejects sub-cent refund %s before authorization", async (amount) => {
+    const data = form();
+    data.set("amount", amount);
+    data.set("externalMovedAt", "2026-08-16T10:00");
+    data.set("recipientName", "Named Renter");
+    data.set("reference", "REFUND-1234");
+    await expect(recordExternalRefund({ status: "idle" }, data)).resolves.toEqual({ error: "invalid", status: "error" });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
   it.each([
     { amount: 3000, entry_kind: "reversal" },
     { amount: 2999, entry_kind: "refund" },
