@@ -399,7 +399,7 @@ export function ResolutionControls({
             <Value label="Actual return" value={formatManilaDateTime(inspection.actual_at)} />
             <Value label="Expected return" value={formatManilaDateTime(inspection.expected_return_at)} />
             <Value label="Late fact" value={inspection.late_return ? "Yes" : "No"} />
-            <Value label="Camera damage" value={inspection.camera_has_damage ? "Observed" : "Not observed"} />
+            <Value label="Camera or accessory damage" value={inspection.camera_has_damage ? "Observed" : "Not observed"} />
             <Value label="Missing inclusion" value={inspection.has_missing_items ? "Observed" : "Not observed"} />
             <Value label="Written condition" value={inspection.camera_condition_summary} />
           </dl>

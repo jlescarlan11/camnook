@@ -130,7 +130,7 @@ export function RenterResolutionStatus({
             <Value label="Actual return" value={formatManilaDateTime(resolution.return_inspection.actual_at)} />
             <Value label="Expected return" value={formatManilaDateTime(resolution.return_inspection.expected_return_at)} />
             <Value label="Late" value={resolution.return_inspection.late_return ? "Yes" : "No"} />
-            <Value label="Camera damage" value={resolution.return_inspection.camera_has_damage ? "Yes" : "No"} />
+            <Value label="Camera or accessory damage" value={resolution.return_inspection.camera_has_damage ? "Yes" : "No"} />
             <Value label="Missing items" value={resolution.return_inspection.has_missing_items ? "Yes" : "No"} />
           </dl>
           <ul className="mt-3 space-y-2 text-sm">
