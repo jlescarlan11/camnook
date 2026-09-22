@@ -95,6 +95,10 @@ approval, contract, payment-submission, payment-decision, and pickup races; it
 also runs the return/cancellation/deposit and owner-portfolio acceptance suites
 before removing the cluster. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
+The harness discovers active SQL acceptance files automatically, including KYC,
+contract-template administration, owner manual blocks, and complete residential
+addresses. The retired online-ID suites are explicitly excluded; the pgTAP-only
+retired-access check runs in the separate Supabase-backed CI job.
 
 The repository currently contains sixty-one forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a
