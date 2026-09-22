@@ -270,9 +270,19 @@ begin
   );
   retry_result := api.request_cancellation_resolution(
     '90400000-0000-4000-8000-000000000003',
-    'Plans changed before approval.',
+    '  Plans changed before approval.  ',
     '90800000-0000-4000-8000-000000000001'
   );
+  begin
+    perform api.request_cancellation_resolution(
+      '90400000-0000-4000-8000-000000000003',
+      'Changed synthetic cancellation request reason.',
+      '90800000-0000-4000-8000-000000000001'
+    );
+    raise exception 'cancellation request replay accepted a changed reason';
+  exception
+    when serialization_failure then null;
+  end;
   owner_state := api.get_my_resolution_state('90400000-0000-4000-8000-000000000003');
 
   if not (request_result ->> 'created')::boolean
