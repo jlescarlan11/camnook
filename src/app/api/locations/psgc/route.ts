@@ -30,6 +30,6 @@ export async function GET(request: Request) {
   }
 
   return Response.json(parsed.data, {
-    headers: { "Cache-Control": "private, no-store" },
+    headers: { "Cache-Control": "private, max-age=3600" },
   });
 }

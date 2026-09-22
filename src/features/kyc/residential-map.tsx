@@ -21,6 +21,10 @@ export function ResidentialMap({
   mapKey: string;
   onDraftChange: (pin: DraftPin) => void;
 }) {
+  const mapView = useRef<import("leaflet").Map | null>(null);
+  const pinMarker = useRef<import("leaflet").Marker | null>(null);
+  const latestPin = useRef(initialPin);
+  const [locating, setLocating] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const callback = useRef(onDraftChange);
   const searchRequest = useRef(0);
@@ -30,6 +34,25 @@ export function ResidentialMap({
   const [latitude, setLatitude] = useState(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
   const [longitude, setLongitude] = useState(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
 
+  useEffect(() => {
+    latestPin.current = initialPin;
+    if (initialPin && mapView.current && pinMarker.current) {
+      const point = pinMarker.current.getLatLng();
+      if (point.lat !== initialPin.latitude || point.lng !== initialPin.longitude) {
+        pinMarker.current.setLatLng([initialPin.latitude, initialPin.longitude]).addTo(mapView.current);
+        mapView.current.setView([initialPin.latitude, initialPin.longitude], 17);
+      }
+    }
+  }, [initialPin]);
+
+  function selectPin(pin: DraftPin) {
+    if (mapView.current && pinMarker.current) {
+      pinMarker.current.setLatLng([pin.latitude, pin.longitude]).addTo(mapView.current);
+      mapView.current.setView([pin.latitude, pin.longitude], 17);
+    }
+    onDraftChange(pin);
+  }
+
   useEffect(() => { callback.current = onDraftChange; }, [onDraftChange]);
 
   useEffect(() => {
@@ -38,9 +61,9 @@ export function ResidentialMap({
     let cleanup = () => {};
     void import("leaflet").then((leaflet) => {
       if (disposed || !container.current) return;
-      const center = initialPin ?? CEBU_CENTER;
+      const center = latestPin.current ?? CEBU_CENTER;
       const map = leaflet.map(container.current, { scrollWheelZoom: false })
-        .setView([center.latitude, center.longitude], initialPin ? 17 : 12);
+        .setView([center.latitude, center.longitude], latestPin.current ? 17 : 12);
       leaflet.tileLayer(
         `https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${encodeURIComponent(mapKey)}`,
         {
@@ -57,7 +80,9 @@ export function ResidentialMap({
           iconSize: [24, 24],
         }),
       });
-      if (initialPin) marker.addTo(map);
+      mapView.current = map;
+      pinMarker.current = marker;
+      if (latestPin.current) marker.addTo(map);
       const choose = (lat: number, lng: number) => {
         marker.setLatLng([lat, lng]).addTo(map);
         setLatitude(lat.toFixed(5));
@@ -78,10 +103,10 @@ export function ResidentialMap({
         const point = marker.getLatLng();
         choose(point.lat, point.lng);
       });
-      cleanup = () => map.remove();
+      cleanup = () => { map.remove(); mapView.current = null; pinMarker.current = null; };
     });
     return () => { disposed = true; cleanup(); };
-  }, [initialPin, mapKey]);
+  }, [mapKey]);
 
   async function search() {
     const request = ++searchRequest.current;
@@ -104,7 +129,7 @@ export function ResidentialMap({
       setStatus(body.suggestions.length ? "Choose a result below." : "No matching Philippine address found.");
     } catch {
       if (request === searchRequest.current) {
-        setStatus("Address search is unavailable. You can place the pin manually or continue without it.");
+        setStatus("Address search is unavailable. Tap the map to place your pin.");
       }
     }
   }
@@ -112,7 +137,7 @@ export function ResidentialMap({
   function chooseSuggestion(suggestion: Suggestion) {
     setLatitude(String(suggestion.latitude));
     setLongitude(String(suggestion.longitude));
-    onDraftChange({
+    selectPin({
       accuracyMeters: null,
       label: suggestion.label,
       latitude: suggestion.latitude,
@@ -124,12 +149,14 @@ export function ResidentialMap({
 
   function useLocation() {
     if (!navigator.geolocation) {
-      setStatus("Location is not available in this browser. You can continue without a pin.");
+      setStatus("Location is not available in this browser. Search for your address or place the pin manually.");
       return;
     }
-    setStatus("Waiting for location permission…");
+    setLocating(true);
+    setStatus("Finding your location…");
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        setLocating(false);
         const next = {
           accuracyMeters: position.coords.accuracy,
           label: "Device location",
@@ -143,11 +170,11 @@ export function ResidentialMap({
         }
         setLatitude(next.latitude.toFixed(5));
         setLongitude(next.longitude.toFixed(5));
-        onDraftChange(next);
+        selectPin(next);
         setStatus("Device location selected. Confirm the pin below.");
       },
-      () => setStatus("Location permission was denied or unavailable. You can continue without a pin."),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 },
+      () => { setLocating(false); setStatus("Location is unavailable. Search for your address or tap the map to place your pin."); },
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
     );
   }
 
@@ -158,7 +185,7 @@ export function ResidentialMap({
       setStatus("Enter valid Philippine coordinates.");
       return;
     }
-    onDraftChange({
+    selectPin({
       accuracyMeters: null,
       label: "Coordinates entered manually",
       latitude: lat,
@@ -170,14 +197,28 @@ export function ResidentialMap({
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-stone-600">Tap the map to place your home pin, or use your location. Drag the pin to adjust it.</p>
+      <div className="relative isolate">
       {!mapKey ? (
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="status">
-          The map is not configured. You can save your written address without a pin.
+          The map is not configured. Use your location, address search, or coordinates to select your pin.
         </p>
       ) : (
         <div aria-label="Residential pin map" className="camnook-leaflet-map h-72 w-full overflow-hidden rounded-xl border border-stone-300" ref={container} role="application" />
       )}
 
+      <button
+        aria-label="Use my location"
+        title="Use my location"
+        className={`${mapKey ? "absolute left-14 top-3 z-[1000] bg-white shadow-md" : "mt-2"} flex min-h-11 items-center gap-2 rounded-lg border border-stone-300 px-3 text-sm font-medium disabled:opacity-60`}
+        disabled={locating}
+        onClick={useLocation}
+        type="button"
+      >
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3" /></svg>
+        {locating ? "Locating…" : "My location"}
+      </button>
+      </div>
       <div>
         <label className="text-sm font-medium" htmlFor="residential-map-search">Search a Philippine address</label>
         <div className="mt-2 flex gap-2">
@@ -207,8 +248,8 @@ export function ResidentialMap({
         ) : null}
       </div>
 
-      <button className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium" onClick={useLocation} type="button">Use my location</button>
-
+      <details open={!mapKey || undefined}>
+      <summary className="cursor-pointer text-sm font-medium">Enter coordinates instead</summary>
       <fieldset onKeyDown={(event) => {
         if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
           event.preventDefault();
@@ -222,6 +263,7 @@ export function ResidentialMap({
         </div>
         <button className="mt-2 min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium" onClick={placeCoordinates} type="button">Place pin at coordinates</button>
       </fieldset>
+      </details>
       <p aria-live="polite" className="text-sm text-stone-600">{status}</p>
     </div>
   );

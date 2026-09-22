@@ -78,6 +78,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
       </section>
     ) : !kycProfile?.current || edit === "details" || edit === "address" ? (
       <KycProfileForm key={`${query}-${edit ?? "details"}`} checkout initialStep={edit === "address" ? 2 : 1}
+        draftKey={`camnook:checkout:v1:${context.user.id}:${kycProfile?.addressRevision ?? "new"}`}
         kyc={kycProfile ?? null} profile={profile ?? null} returnTo={checkoutHref} />
     ) : (
       <RequestForm

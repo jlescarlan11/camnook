@@ -22,7 +22,7 @@ describe("KycProfileForm", () => {
     expect(markup).toContain('pattern="[0-9]{4}"');
     expect(markup).toContain('inputMode="numeric"');
     expect(markup).toContain('name="addressDetails"');
-    expect(markup).toContain("Add map pin");
+    expect(markup).toContain("Confirm this pin");
     expect(markup).toContain("Residential map pin");
     expect(markup).toContain("(required)");
     expect(markup).not.toMatch(/Residential map pin.*\(optional\)/);

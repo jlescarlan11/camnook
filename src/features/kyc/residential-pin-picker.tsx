@@ -1,7 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+
+import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
 
 import type { KycProfile } from "./types";
 
@@ -20,10 +22,12 @@ export type DraftPin = {
 
 export function ResidentialPinPicker({
   addressChanged,
+  draftKey,
   error,
   initialPin,
 }: {
   addressChanged: boolean;
+  draftKey?: string;
   error?: string;
   initialPin: KycProfile["residentialPin"];
 }) {
@@ -34,15 +38,24 @@ export function ResidentialPinPicker({
     longitude: initialPin.longitude,
     source: initialPin.source,
   } satisfies DraftPin : null;
-  const [selected, setSelected] = useState<DraftPin | null>(initial);
-  const [draft, setDraft] = useState<DraftPin | null>(initial);
-  const [operation, setOperation] = useState<"keep" | "remove" | "set">("keep");
+  const [restored] = useState(() => readCheckoutDraft<{ selected: DraftPin | null; draft: DraftPin | null; operation: "keep" | "remove" | "set" }>(draftKey));
+  const [selected, setSelected] = useState<DraftPin | null>(restored?.selected ?? initial);
+  const [draft, setDraft] = useState<DraftPin | null>(restored?.draft ?? initial);
+  const [operation, setOperation] = useState<"keep" | "remove" | "set">(restored?.operation ?? "keep");
   const [open, setOpen] = useState(!initialPin);
+  useEffect(() => {
+    writeCheckoutDraft(draftKey, { selected, draft, operation });
+  }, [draftKey, selected, draft, operation]);
   const trigger = useRef<HTMLButtonElement>(null);
   const editorId = useId();
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (wasOpen.current && !open) trigger.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
   function closeEditor() {
     setOpen(false);
-    trigger.current?.focus();
+
   }
 
   const needsConfirmation = Boolean(addressChanged && initialPin && operation === "keep");
@@ -69,7 +82,7 @@ export function ResidentialPinPicker({
       ) : null}
       {error ? <p className="mt-2 text-sm text-red-700" role="alert">{error}</p> : null}
 
-      <div className="mt-3 flex flex-wrap gap-3">
+      {!open ? <div className="mt-3 flex flex-wrap gap-3">
         <button
           className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium"
           ref={trigger}
@@ -80,7 +93,7 @@ export function ResidentialPinPicker({
         >
           {selected && operation !== "remove" ? "Adjust map pin" : "Add map pin"}
         </button>
-      </div>
+      </div> : null}
 
       {open ? (
         <div className="mt-4 space-y-3" id={editorId}>
