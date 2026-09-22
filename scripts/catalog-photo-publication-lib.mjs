@@ -309,8 +309,10 @@ async function removeAndVerifyMissing(
   }
 }
 
-async function completePublishedCleanup(client, publication, beforeMutation) {
-  const destination = await downloadObject(
+async function completePublishedCleanup(client, publication, beforeMutation, verifiedDestination) {
+  // Finalization writes metadata; the immutable public object was already read.
+  // A separate published-state retry still loads and verifies its own copy.
+  const destination = verifiedDestination ?? await downloadObject(
     client,
     "camera-listings",
     publication.publicPath,
@@ -527,7 +529,7 @@ export async function resumeCatalogPhotoPublication({
     beforeMutation,
   );
 
-  return completePublishedCleanup(client, publication, beforeMutation);
+  return completePublishedCleanup(client, publication, beforeMutation, destination);
 }
 
 async function cleanupTerminalTransition({

@@ -200,7 +200,7 @@ describe("catalog publication reconciliation", () => {
     });
   });
 
-  it("guards every mutation and completes upload, copy, finalize, and cleanup", async () => {
+  it.each([false, true])("guards publication and rechecks finalized metadata (changed=%s)", async (changedMetadata) => {
     let stagingBytes = null;
     let destinationBytes = null;
     let status = "awaiting_upload";
@@ -211,6 +211,7 @@ describe("catalog publication reconciliation", () => {
     let publicPath;
     const guardedMutations = [];
     const uploadOptions = [];
+    const downloadBuckets = [];
 
     function publication() {
       return {
@@ -243,6 +244,7 @@ describe("catalog publication reconciliation", () => {
               status = "ready_to_copy";
             } else if (name === "finalize_catalog_photo_publication") {
               status = "published";
+              if (changedMetadata) expected.sha256Hex = "0".repeat(64);
             }
             return { data: publication(), error: null };
           },
@@ -256,6 +258,7 @@ describe("catalog publication reconciliation", () => {
               return { data: {}, error: null };
             },
             async download() {
+              downloadBuckets.push(bucket);
               const bytes =
                 bucket === "draft-staging" ? stagingBytes : destinationBytes;
               return bytes
@@ -280,7 +283,7 @@ describe("catalog publication reconciliation", () => {
       },
     };
 
-    const result = await createAndPublishCatalogPhoto({
+    const pending = createAndPublishCatalogPhoto({
       altText: "Front view",
       beforeMutation: async () => guardedMutations.push("checked"),
       bytes: png,
@@ -289,6 +292,13 @@ describe("catalog publication reconciliation", () => {
       sortPosition: 0,
     });
 
+    if (changedMetadata) {
+      await expect(pending).rejects.toMatchObject({ category: "integrity" });
+      expect(stagingBytes).toEqual(png);
+      expect(downloadBuckets).toEqual(["draft-staging", "camera-listings"]);
+      return;
+    }
+    const result = await pending;
     expect(result).toEqual({
       cleanup: "complete",
       publicationId,
@@ -298,6 +308,7 @@ describe("catalog publication reconciliation", () => {
     expect(uploadOptions).toEqual([
       { cacheControl: "0", contentType: "image/png", upsert: false },
     ]);
+    expect(downloadBuckets).toEqual(["draft-staging", "camera-listings", "draft-staging", "draft-staging"]);
     expect(stagingBytes).toBeNull();
     expect(destinationBytes).toEqual(png);
   });
