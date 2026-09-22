@@ -15,6 +15,18 @@ import {
 
 const initialDecisionState: DecisionActionState = { status: "idle" };
 
+async function submitDecision(
+  kind: "approve" | "reject",
+  previous: DecisionActionState,
+  data: FormData,
+): Promise<DecisionActionState> {
+  try {
+    return await (kind === "approve" ? approveBooking : rejectBooking)(previous, data);
+  } catch {
+    return { action: kind, category: "indeterminate", status: "indeterminate" };
+  }
+}
+
 export function DecisionControls({
   bookingId,
   ready,
@@ -23,11 +35,11 @@ export function DecisionControls({
   ready: boolean;
 }) {
   const [approveState, approveAction, approvePending] = useActionState(
-    approveBooking,
+    (previous: DecisionActionState, data: FormData) => submitDecision("approve", previous, data),
     initialDecisionState,
   );
   const [rejectState, rejectAction, rejectPending] = useActionState(
-    rejectBooking,
+    (previous: DecisionActionState, data: FormData) => submitDecision("reject", previous, data),
     initialDecisionState,
   );
   const [lastAction, setLastAction] = useState<"approve" | "reject">(
