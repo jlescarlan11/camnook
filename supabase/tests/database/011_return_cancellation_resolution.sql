@@ -407,6 +407,7 @@ do $$
 declare
   clear_result jsonb;
   retry_result jsonb;
+  variant integer;
 begin
   begin
     perform api.record_return_inspection(
@@ -493,6 +494,43 @@ begin
   then
     raise exception 'return recording was not complete, atomic, or idempotent';
   end if;
+
+  for variant in 1..7 loop
+    begin
+      perform api.record_return_inspection(
+        '90400000-0000-4000-8000-000000000001',
+        statement_timestamp() - interval '1 minute' + case when variant = 1 then interval '1 second' else interval '0' end,
+        case when variant = 2 then 'CHANGED-SYNTHETIC-SERIAL' else 'PRIVATE-RESOLUTION-SERIAL-001' end,
+        case when variant = 3 then 'Changed synthetic return condition.' else 'Camera returned clean and working.' end,
+        case when variant = 5 then '[{"id":"90200000-0000-4000-8000-000000000001","status":"damaged"}]'::jsonb
+          when variant = 7 then '[]'::jsonb
+          else '[{"id":"90200000-0000-4000-8000-000000000001","status":"returned"}]'::jsonb end,
+        variant = 6,
+        case when variant = 4 then 'Changed synthetic return note.' else null end,
+        '90900000-0000-4000-8000-000000000003'
+      );
+      raise exception 'changed return retry falsely acknowledged new facts: %', variant;
+    exception
+      when serialization_failure then null;
+    end;
+  end loop;
+  retry_result := api.record_return_inspection(
+    '90400000-0000-4000-8000-000000000001',
+    statement_timestamp() - interval '1 minute',
+    '  PRIVATE-RESOLUTION-SERIAL-001  ',
+    '  Camera returned clean and working.  ',
+    '[{"status":"returned","id":"90200000-0000-4000-8000-000000000001"}]'::jsonb,
+    false,
+    '  ',
+    '90900000-0000-4000-8000-000000000003'
+  );
+  if (retry_result ->> 'created')::boolean
+    or retry_result ->> 'handoff_id' <> clear_result ->> 'handoff_id'
+  then
+    raise exception 'normalized return replay was not idempotent';
+  end if;
+
+
 end;
 $$;
 
