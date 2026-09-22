@@ -73,10 +73,11 @@ async function abortPhotoUpload(
   stagingPath: string,
   publicPath: string,
 ) {
-  await context.supabase.schema("api").rpc("prepare_catalog_photo_abort", {
+  const prepared = await context.supabase.schema("api").rpc("prepare_catalog_photo_abort", {
     p_operation_id: randomUUID(),
     p_publication_id: publicationId,
   });
+  if (prepared.error) return;
   await context.supabase.storage.from("draft-staging").remove([stagingPath]);
   await context.supabase.storage.from("camera-listings").remove([publicPath]);
   await context.supabase.schema("api").rpc("finalize_catalog_photo_abort", {
