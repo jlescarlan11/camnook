@@ -578,6 +578,32 @@ describe("camera handoff city and policy actions", () => {
     );
   });
 
+  it.each(["unauthorized", "stale", "save_failed"] as const)("rejects a canonical save with %s before claiming provider quota", async (error) => {
+    const api = authorize({
+      anchor: { version: error === "stale" ? 3 : 2 },
+      anchorError: error === "unauthorized"
+        ? { code: "42501", message: "admin authorization required" }
+        : error === "save_failed" ? { code: "08006" } : undefined,
+      resolvedArea: {
+        active: true, current: true, code: "0722170010", name: "Lahug",
+        path: [{ code: "0722170010", name: "Lahug", type: "barangay" }],
+        release: "2026-q2", type: "barangay",
+      },
+    });
+    const request = vi.fn().mockRejectedValue(new Error("Synthetic provider request should not occur"));
+    vi.stubGlobal("fetch", request);
+    const data = validSaveFields();
+    data.set("psgcRelease", "2026-q2");
+    data.set("psgcAreaCode", "0722170010");
+
+    const result = await saveCameraHandoffPolicy({ status: "idle" }, data);
+    expect(claimGeoapifyProviderBudget).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(result).toEqual({ error, status: "error" });
+    expect(api.rpc).toHaveBeenCalledTimes(1);
+    expect(api.rpc).toHaveBeenCalledWith("get_camera_handoff_policy_admin_v2", { p_camera_id: CAMERA_ID });
+  });
+
   it("rejects a city-level canonical origin before geocoding", async () => {
     const api = authorize({
       resolvedArea: {

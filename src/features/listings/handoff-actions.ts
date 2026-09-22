@@ -542,6 +542,19 @@ export async function saveCameraHandoffPolicy(
         return { error: "invalid_input", fieldErrors: { city: "Select a valid barangay." }, status: "error" };
       }
 
+      // Authorize and reject known-stale edits before spending provider quota.
+      // The replacement RPC still rechecks both atomically after geocoding.
+      const current = await loadCurrentAnchor(context, base.data.cameraId);
+      if (current.status === "unauthorized") {
+        return { error: "unauthorized", status: "error" };
+      }
+      if (current.status === "error") {
+        return { error: "save_failed", status: "error" };
+      }
+      if (current.data.version !== base.data.expectedVersion) {
+        return { error: "stale", status: "error" };
+      }
+
       const resolved = await context.supabase.schema("api").rpc("resolve_psgc_area", {
         p_area_code: canonical.data.areaCode,
         p_release_key: canonical.data.release,
