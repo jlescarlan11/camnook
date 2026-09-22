@@ -94,6 +94,7 @@ export function ResolutionControls({
   const [returnOperationId] = useState(operationIds.recordReturn);
   const [issueOperationId] = useState(operationIds.resolveIssue);
   const [reviewOperationId] = useState(operationIds.returnReview);
+  const [cancellationOperationId] = useState(operationIds.cancellation);
   const [initialReturnAt] = useState(actualAt);
   const [cancellationState, cancellationAction, cancellationPending] =
     useActionState(decideCancellation, initialState);
@@ -190,10 +191,14 @@ export function ResolutionControls({
               />
             </dl>
           ) : (
-            <form action={cancellationAction} className="mt-4 space-y-4">
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter);
+              startTransition(() => cancellationAction(data));
+            }} className="mt-4 space-y-4">
               <HiddenIds
                 bookingId={resolution.booking_id}
-                operationId={operationIds.cancellation}
+                operationId={cancellationOperationId}
               />
               <input
                 name="requestId"
@@ -211,6 +216,7 @@ export function ResolutionControls({
                 }
                 aria-invalid={cancellationErrors?.reason ? true : undefined}
                 className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+                disabled={cancellationPending || cancellationState.status === "success"}
                 id="cancellation-decision-reason"
                 maxLength={1000}
                 minLength={2}
@@ -232,7 +238,7 @@ export function ResolutionControls({
                 <button
                   className="min-h-11 rounded-xl bg-red-800 px-4 py-2 font-semibold text-white disabled:opacity-60"
                   disabled={
-                    cancellationPending ||
+                    cancellationPending || cancellationState.status === "success" ||
                     !resolution.cancellation.acceptance_enabled
                   }
                   name="decision"
@@ -243,7 +249,7 @@ export function ResolutionControls({
                 </button>
                 <button
                   className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60"
-                  disabled={cancellationPending}
+                  disabled={cancellationPending || cancellationState.status === "success"}
                   name="decision"
                   type="submit"
                   value="decline"
