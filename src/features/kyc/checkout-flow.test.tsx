@@ -113,3 +113,26 @@ it("restores details and address after leaving checkout, isolated by account and
   expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("");
   sessionStorage.clear();
 });
+
+it("restores details and address after leaving checkout, isolated by account and saved revision", async () => {
+  sessionStorage.clear();
+  const props = { checkout: true, kyc: null, profile: null, returnTo: "/checkout?camera=test", draftKey: "checkout:renter-a:new" };
+  const first = render(<KycProfileForm {...props} />);
+  await fillDetails();
+  await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
+  await fillAddress();
+  first.unmount();
+  const second = render(<KycProfileForm {...props} returnTo="/checkout?camera=test&pickupDate=2026-10-01" />);
+  expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("Test Renter");
+  expect((screen.getByLabelText("Birthdate") as HTMLInputElement).value).toBe("1995-01-15");
+  await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
+  expect((screen.getByLabelText(/^Street name/) as HTMLInputElement).value).toBe("Test Street");
+  expect((screen.getByLabelText("Postal code") as HTMLInputElement).value).toBe("6000");
+  second.unmount();
+  const other = render(<KycProfileForm {...props} draftKey="checkout:renter-b:new" />);
+  expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("");
+  other.unmount();
+  render(<KycProfileForm {...props} draftKey="checkout:renter-a:saved-revision" />);
+  expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("");
+  sessionStorage.clear();
+});

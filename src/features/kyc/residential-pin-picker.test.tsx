@@ -52,6 +52,7 @@ describe("ResidentialPinPicker", () => {
       <ResidentialPinPicker addressChanged={false} initialPin={null} />,
     );
 
+    expect(screen.queryByRole("button", { name: "Add map pin" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
 

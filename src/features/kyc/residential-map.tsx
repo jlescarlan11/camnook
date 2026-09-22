@@ -55,6 +55,25 @@ export function ResidentialMap({
     onDraftChange(pin);
   }
 
+  useEffect(() => {
+    latestPin.current = initialPin;
+    if (initialPin && mapView.current && pinMarker.current) {
+      const point = pinMarker.current.getLatLng();
+      if (point.lat !== initialPin.latitude || point.lng !== initialPin.longitude) {
+        pinMarker.current.setLatLng([initialPin.latitude, initialPin.longitude]).addTo(mapView.current);
+        mapView.current.setView([initialPin.latitude, initialPin.longitude], 17);
+      }
+    }
+  }, [initialPin]);
+
+  function selectPin(pin: DraftPin) {
+    if (mapView.current && pinMarker.current) {
+      pinMarker.current.setLatLng([pin.latitude, pin.longitude]).addTo(mapView.current);
+      mapView.current.setView([pin.latitude, pin.longitude], 17);
+    }
+    onDraftChange(pin);
+  }
+
   useEffect(() => { callback.current = onDraftChange; }, [onDraftChange]);
 
   useEffect(() => {
