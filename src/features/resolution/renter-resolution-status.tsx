@@ -100,7 +100,7 @@ function RenterResolutionStatusContent({
           role={cancellationState.status === "success" ? "status" : "alert"}
         >
           {cancellationState.status === "success"
-            ? "Your request was saved. The booking state is unchanged while it awaits review."
+            ? "Your cancellation request was saved."
             : cancellationState.error === "stale"
               ? "This booking is no longer eligible or already has a request. Refresh its persisted state."
               : cancellationState.fieldErrors?.reason
