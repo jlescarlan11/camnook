@@ -244,6 +244,16 @@ describe("resolution Server Actions", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["1.001", "0.001"])("rejects sub-cent deduction %s before authorization", async (amount) => {
+    const data = form();
+    data.set("decisionKind", "damage");
+    data.set("deductionAmount", amount);
+    data.set("internalReason", "Synthetic documented repair decision.");
+    data.set("customerExplanation", "Synthetic renter explanation.");
+    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual({ error: "invalid", status: "error" });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
   it.each([1000, 999])("accepts an issue decision only when its acknowledged amount %s matches the submitted amount", async (acknowledgedAmount) => {
     const rpc = vi.fn().mockResolvedValue({
       data: {

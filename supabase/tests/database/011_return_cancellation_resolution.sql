@@ -652,6 +652,7 @@ set constraints all deferred;
 do $$
 declare
   variant integer;
+  invalid_amount numeric;
 begin
   perform api.add_return_issue_note(
     '90400000-0000-4000-8000-000000000002',
@@ -686,6 +687,24 @@ begin
     raise exception 'note retry accepted a different booking';
   exception when serialization_failure then null;
   end;
+
+  for invalid_amount in select value from (values (1.001::numeric), (0.001::numeric)) as amounts(value) loop
+    begin
+      perform api.resolve_return_issue(
+        '90400000-0000-4000-8000-000000000002',
+        'damage',
+        invalid_amount,
+        'Synthetic deduction with unsupported sub-cent precision.',
+        'Synthetic precision validation.',
+        '90900000-0000-4000-8000-000000000029'
+      );
+      set constraints all immediate;
+      raise exception 'sub-cent issue deduction was accepted: %', invalid_amount;
+    exception
+      when invalid_parameter_value then null;
+    end;
+  end loop;
+  set constraints all deferred;
 
   begin
     perform api.resolve_return_issue(
