@@ -20,6 +20,7 @@ it.each([
   vi.mocked(requireAdmin).mockRejectedValue(new Error("Synthetic private authorization service failure"));
   const data = new FormData();
   data.set("cameraId", "95000000-0000-4000-8000-000000000001");
+  data.set("publicationId", "95000000-0000-4000-8000-000000000003");
   data.set("blockId", "95000000-0000-4000-8000-000000000002");
   data.set("name", "Synthetic camera");
   data.set("description", "Synthetic camera description.");

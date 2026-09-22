@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { parseCameraAccessories } from "./camera-accessories";
-import { inspectImageBytes } from "../../../scripts/catalog-photo-publication-lib.mjs";
+import { createAndPublishCatalogPhoto, inspectImageBytes } from "../../../scripts/catalog-photo-publication-lib.mjs";
 
 export type CameraActionState = { error?: string; status: "idle" | "error" | "success" };
 
@@ -91,77 +91,32 @@ function inspectImage(bytes: Buffer, type: string) {
   }
 }
 
-async function abortPhotoUpload(
-  context: Awaited<ReturnType<typeof requireAdmin>>,
-  publicationId: string,
-  stagingPath: string,
-  publicPath: string,
-) {
-  const prepared = await context.supabase.schema("api").rpc("prepare_catalog_photo_abort", {
-    p_operation_id: randomUUID(),
-    p_publication_id: publicationId,
-  });
-  if (prepared.error) return;
-  await context.supabase.storage.from("draft-staging").remove([stagingPath]);
-  await context.supabase.storage.from("camera-listings").remove([publicPath]);
-  await context.supabase.schema("api").rpc("finalize_catalog_photo_abort", {
-    p_operation_id: randomUUID(),
-    p_publication_id: publicationId,
-  });
-}
-
 export async function uploadCameraPhoto(_state: CameraActionState, formData: FormData): Promise<CameraActionState> {
   const cameraId = z.uuid().safeParse(text(formData, "cameraId"));
+  const publicationId = z.uuid().safeParse(text(formData, "publicationId"));
   const photo = formData.get("photo");
   if (!cameraId.success || !(photo instanceof File)) return { error: "Choose a JPEG, PNG, or WebP photo.", status: "error" };
   const bytes = Buffer.from(await photo.arrayBuffer());
   const inspected = inspectImage(bytes, photo.type);
   if (!inspected) return { error: "Choose a JPEG, PNG, or WebP photo up to 10 MB.", status: "error" };
+  if (!publicationId.success) return { error: "Reload the photo form before uploading.", status: "error" };
   const authorization = await authorizeCameraAction();
   if (!authorization.context) return authorization.error;
   const context = authorization.context;
-  const publicationId = randomUUID();
-  const intent = await context.supabase.schema("api").rpc("create_catalog_photo_publication", {
-    p_alt_text: `${text(formData, "cameraName")} camera`,
-    p_byte_size: inspected.byteSize,
-    p_camera_id: cameraId.data,
-    p_media_type: inspected.mediaType,
-    p_operation_id: randomUUID(),
-    p_publication_id: publicationId,
-    p_sha256_hex: inspected.sha256,
-    p_sort_position: Number(text(formData, "sortPosition") || "0"),
-  });
-  const value = intent.data as { staging_object_path?: string; public_object_path?: string } | null;
-  if (intent.error || !value?.staging_object_path || !value.public_object_path) return { error: "The photo upload could not be started.", status: "error" };
-  const staging = context.supabase.storage.from("draft-staging");
-  const uploaded = await staging.upload(value.staging_object_path, bytes, { cacheControl: "0", contentType: inspected.mediaType, upsert: false });
-  if (uploaded.error) {
-    await abortPhotoUpload(context, publicationId, value.staging_object_path, value.public_object_path);
-    return { error: "The photo could not be uploaded.", status: "error" };
+  try {
+    await createAndPublishCatalogPhoto({
+      altText: `${text(formData, "cameraName")} camera`,
+      beforeMutation: undefined,
+      bytes,
+      cameraId: cameraId.data,
+      client: context.supabase,
+      publicationId: publicationId.data,
+      sortPosition: Number(text(formData, "sortPosition") || "0"),
+    });
+  } catch {
+    revalidatePath(`/admin/cameras/${cameraId.data}`);
+    return { error: "The photo publication could not be confirmed. Retry the unchanged photo or reload to check the saved photos.", status: "error" };
   }
-  const ready = await context.supabase.schema("api").rpc("mark_catalog_photo_ready", {
-    p_operation_id: randomUUID(), p_publication_id: publicationId,
-    p_verified_byte_size: inspected.byteSize, p_verified_media_type: inspected.mediaType, p_verified_sha256_hex: inspected.sha256,
-  });
-  if (ready.error) {
-    await abortPhotoUpload(context, publicationId, value.staging_object_path, value.public_object_path);
-    return { error: "The uploaded photo could not be verified.", status: "error" };
-  }
-  const copied = await staging.copy(value.staging_object_path, value.public_object_path, { destinationBucket: "camera-listings" });
-  if (copied.error) {
-    await abortPhotoUpload(context, publicationId, value.staging_object_path, value.public_object_path);
-    return { error: "The verified photo could not be published.", status: "error" };
-  }
-  const finalized = await context.supabase.schema("api").rpc("finalize_catalog_photo_publication", {
-    p_operation_id: randomUUID(), p_publication_id: publicationId,
-    p_verified_byte_size: inspected.byteSize, p_verified_media_type: inspected.mediaType, p_verified_sha256_hex: inspected.sha256,
-  });
-  if (finalized.error) {
-    await abortPhotoUpload(context, publicationId, value.staging_object_path, value.public_object_path);
-    return { error: "The photo publication could not be confirmed.", status: "error" };
-  }
-  await staging.remove([value.staging_object_path]);
-  await context.supabase.schema("api").rpc("confirm_catalog_photo_staging_removed", { p_operation_id: randomUUID(), p_publication_id: publicationId });
   revalidatePath(`/admin/cameras/${cameraId.data}`);
   revalidatePath("/admin/cameras");
   return { status: "success" };

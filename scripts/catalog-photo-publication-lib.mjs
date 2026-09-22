@@ -357,8 +357,9 @@ export async function createAndPublishCatalogPhoto({
   cameraId,
   client,
   sortPosition,
+  publicationId: requestedPublicationId = String(randomUUID()),
 }) {
-  const publicationId = randomUUID();
+  const publicationId = assertUuid(requestedPublicationId, "Publication ID");
   const inspected = inspectImageBytes(bytes);
   const normalizedAltText = normalizeAltText(altText);
   const normalizedCameraId = assertUuid(cameraId, "Camera ID");
@@ -382,11 +383,14 @@ export async function createAndPublishCatalogPhoto({
       beforeMutation,
     );
 
-    await uploadStaging(client, publication, bytes, beforeMutation);
+    if (publication.status === "awaiting_upload") {
+      await uploadStaging(client, publication, bytes, beforeMutation);
+    }
     return await resumeCatalogPhotoPublication({
       beforeMutation,
       client,
       publicationId,
+      sourceBytes: bytes,
     });
   } catch (error) {
     if (error instanceof CatalogPublicationError) {
