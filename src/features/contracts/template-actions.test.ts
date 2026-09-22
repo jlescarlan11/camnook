@@ -98,5 +98,15 @@ describe("contract template administration", () => {
     await expect(
       publishContractTemplate({ status: "idle" }, validForm()),
     ).resolves.toEqual({ error, status: "error" });
+    if (code === "40001") expect(revalidatePath).toHaveBeenCalledWith("/admin/settings");
+    if (code === "42501") expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it.each(["transport", "malformed"])("refreshes persisted template state after %s uncertainty", async (failure) => {
+    const rpc = authenticate({ data: null, error: null });
+    if (failure === "transport") rpc.mockRejectedValueOnce(new Error("synthetic interrupted response"));
+    await expect(publishContractTemplate({ status: "idle" }, validForm()))
+      .resolves.toEqual({ error: "indeterminate", status: "error" });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/settings");
   });
 });

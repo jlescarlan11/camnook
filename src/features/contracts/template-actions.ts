@@ -104,6 +104,7 @@ export async function publishContractTemplate(
       return { error: "unauthorized", status: "error" };
     }
     if (result.error?.code === "40001") {
+      revalidatePath("/admin/settings");
       return { error: "stale", status: "error" };
     }
     if (result.error?.code === "23505") {
@@ -116,6 +117,8 @@ export async function publishContractTemplate(
       result.data,
     );
     if (result.error || !committed.success) {
+      revalidatePath("/");
+      revalidatePath("/admin/settings");
       return { error: "indeterminate", status: "error" };
     }
 
@@ -127,6 +130,8 @@ export async function publishContractTemplate(
       version: committed.data.version,
     };
   } catch {
+    revalidatePath("/");
+    revalidatePath("/admin/settings");
     return { error: "indeterminate", status: "error" };
   }
 }
