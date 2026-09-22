@@ -13,17 +13,12 @@ import type { KycProfile } from "./types";
 
 import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
 import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
+import { kycDateYearsAgo } from "./age";
 
 const subscribe = () => () => {};
 
 const initialState: KycActionState = { status: "idle" };
 const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]";
-
-function adultCutoff() {
-  const value = new Date();
-  value.setFullYear(value.getFullYear() - 18);
-  return value.toISOString().slice(0, 10);
-}
 
 type FormProps = {
   checkout?: boolean;
@@ -118,7 +113,7 @@ function ProfileForm({
           <input autoComplete="name" className={inputClass} defaultValue={submitted?.legalName ?? profile?.legalName ?? ""} maxLength={160} name="legalName" minLength={2} placeholder={checkout ? "Enter your full legal name" : undefined} required />
         </Field>
         <Field error={state.fieldErrors?.birthDate} id="kyc-birthdate" label="Birthdate">
-          <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={adultCutoff()} name="birthDate" required type="date" />
+          <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={kycDateYearsAgo(18)} name="birthDate" required type="date" />
         </Field>
         <Field error={state.fieldErrors?.phone} id="kyc-phone" label="Mobile number">
           <PhilippineMobileInput aria-label="Mobile number" defaultValue={submitted?.phone ?? profile?.phone ?? ""} name="phone" required />

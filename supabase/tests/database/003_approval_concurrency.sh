@@ -414,6 +414,12 @@ echo "running lender meetup place and snapshot invariants"
   -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/tests/database/024_lender_meetup_places.sql"
 
+echo "running Manila KYC age invariants"
+"$postgres_bin/psql" \
+  "$database_url" \
+  -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/tests/database/027_kyc_manila_age.sql"
+
 "$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
   -c 'create database camnook_hosted_compat template postgres' >/dev/null
 

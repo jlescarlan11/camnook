@@ -117,6 +117,13 @@ Authorization never trusts `user_metadata` or renter-controlled JWT claims.
 
 Profile creation is an idempotent post-signup operation. The design does not depend on adding custom objects to the protected `auth` schema.
 
+KYC birthdate bounds use the current Manila business date in the browser,
+Server Action, and database. Calendar-year subtraction clamps a leap day to
+February 28 when the target year is not leap, matching PostgreSQL. Both KYC save
+paths and booking request paths enforce the same eighteenth-birthday cutoff,
+independent of the browser or database session timezone. Existing identity and
+contract snapshots are not rewritten by this validation change.
+
 `private.admin_accounts`
 
 | Column | Rule |
