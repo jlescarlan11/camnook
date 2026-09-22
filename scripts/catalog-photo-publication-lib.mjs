@@ -286,6 +286,18 @@ async function uploadStaging(
   }
 }
 
+async function objectExists(client, bucket, path, publicationId) {
+  const { data, error } = await client.storage.from(bucket).info(path);
+  if (error) {
+    if (isMissingStorageError(error)) return false;
+    fail("indeterminate", "Catalog photo cleanup could not be verified. Retry by publication reference.", publicationId);
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    fail("indeterminate", "Catalog photo cleanup metadata was not confirmed. Retry by publication reference.", publicationId);
+  }
+  return true;
+}
+
 async function removeAndVerifyMissing(
   client,
   bucket,
@@ -293,13 +305,13 @@ async function removeAndVerifyMissing(
   publicationId,
   beforeMutation,
 ) {
-  const existing = await downloadObject(client, bucket, path, publicationId);
+  const existing = await objectExists(client, bucket, path, publicationId);
   if (!existing) return;
 
   if (beforeMutation) await beforeMutation();
   await client.storage.from(bucket).remove([path]);
 
-  const remaining = await downloadObject(client, bucket, path, publicationId);
+  const remaining = await objectExists(client, bucket, path, publicationId);
   if (remaining) {
     fail(
       "cleanup_pending",

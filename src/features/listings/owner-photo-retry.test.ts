@@ -46,6 +46,9 @@ it("reconciles a committed photo after a lost acknowledgement without creating a
       download: async (path: string) => objects.has(`${bucket}/${path}`)
         ? { data: objects.get(`${bucket}/${path}`), error: null }
         : { data: null, error: { statusCode: "404", message: "Object not found" } },
+      info: async (path: string) => objects.has(`${bucket}/${path}`)
+        ? { data: { size: objects.get(`${bucket}/${path}`)!.size }, error: null }
+        : { data: null, error: { statusCode: "404", message: "Object not found" } },
       remove: async (paths: string[]) => { paths.forEach((path) => objects.delete(`${bucket}/${path}`)); return { data: [], error: null }; },
     }) },
   } } as never);
