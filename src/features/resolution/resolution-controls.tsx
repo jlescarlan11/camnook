@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 import {
@@ -91,6 +91,8 @@ export function ResolutionControls({
   operationIds: ResolutionOperationIds;
   resolution: ResolutionDetail;
 }) {
+  const [returnOperationId] = useState(operationIds.recordReturn);
+  const [initialReturnAt] = useState(actualAt);
   const [cancellationState, cancellationAction, cancellationPending] =
     useActionState(decideCancellation, initialState);
   const [returnState, returnAction, returnPending] = useActionState(
@@ -257,10 +259,14 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.booking_state === "ACTIVE" ? (
-        <form action={returnAction} className="mt-6 space-y-5 rounded-xl border border-stone-200 p-5">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          startTransition(() => returnAction(data));
+        }} className="mt-6 space-y-5 rounded-xl border border-stone-200 p-5">
           <HiddenIds
             bookingId={resolution.booking_id}
-            operationId={operationIds.recordReturn}
+            operationId={returnOperationId}
           />
           <h3 className="font-semibold">Record physical return</h3>
           <label className="block text-sm font-medium" htmlFor="return-actual-at">
@@ -272,7 +278,7 @@ export function ResolutionControls({
             }
             aria-invalid={returnErrors?.actualAt ? true : undefined}
             className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
-            defaultValue={actualAt}
+            defaultValue={initialReturnAt}
             id="return-actual-at"
             name="actualAt"
             required
@@ -377,7 +383,7 @@ export function ResolutionControls({
           <FieldError id="return-notes-error" message={returnErrors?.notes} />
           <button
             className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
-            disabled={returnPending}
+            disabled={returnPending || returnState.status === "success"}
             type="submit"
           >
             {returnPending ? "Rechecking and recording…" : "Record return for review"}
