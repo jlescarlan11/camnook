@@ -49,14 +49,15 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
       }}>
         <input name="cameraId" type="hidden" value={policy.cameraId} />
         <input name="expectedVersion" type="hidden" value={version} />
-        <section
-          aria-describedby={saveState.fieldErrors?.city ? "origin-error" : undefined}
-          className="rounded-xl border border-stone-200 p-5"
-        >
+        <section className="rounded-xl border border-stone-200 p-5">
           <h2 className="text-lg font-semibold">Pickup area</h2>
           <div className="mt-4">
             <PsgcAreaSelector
+              errorId={
+                saveState.fieldErrors?.city ? "origin-error" : undefined
+              }
               initialPath={policy.canonicalAnchor?.areaPath}
+              invalid={Boolean(saveState.fieldErrors?.city)}
               name={canonicalSelectionChanged ? "psgcAreaCode" : "preservedPsgcAreaCode"}
               onSelectionChange={(selection) => {
                 setCanonicalSelectionChanged(true);

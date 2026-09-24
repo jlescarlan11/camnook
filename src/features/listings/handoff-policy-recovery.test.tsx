@@ -5,7 +5,13 @@ import { afterEach, expect, it, vi } from "vitest";
 
 const { save } = vi.hoisted(() => ({ save: vi.fn() }));
 vi.mock("./handoff-actions", () => ({ saveCameraHandoffPolicy: save }));
-vi.mock("@/features/locations/psgc-area-selector", () => ({ PsgcAreaSelector: () => <p>Saved pickup area</p> }));
+vi.mock("@/features/locations/psgc-area-selector", () => ({
+  PsgcAreaSelector: ({ errorId, invalid }: { errorId?: string; invalid?: boolean }) => (
+    <fieldset aria-describedby={errorId} aria-invalid={invalid ? true : undefined}>
+      <legend>Philippine address</legend>
+    </fieldset>
+  ),
+}));
 import { HandoffPolicyForm } from "./handoff-policy-form";
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -71,4 +77,21 @@ it("identifies weekday choices and retains handoff-time guidance after server va
       weekdayError.getAttribute("id"),
     );
   }
+});
+
+it("identifies the Philippine address group after server validation rejects it", async () => {
+  save.mockResolvedValue({
+    error: "invalid_input",
+    fieldErrors: { city: "Choose a current barangay for this camera." },
+    status: "error",
+  });
+  render(<HandoffPolicyForm policy={{ allowedWeekdays: [1], approvedTimes: ["09:00"], enabled: true, timezone: "Asia/Manila", version: 2, cityLabel: "Synthetic area", cameraId: "11111111-1111-4111-8111-111111111111", cameraName: "Test camera", cameraStatus: "published", canonicalAnchor: { active: true, current: true, areaCode: "0730600041", areaName: "Synthetic area", areaPath: [], precision: "barangay_centroid", release: "2026-q2" } }} />);
+
+  const area = screen.getByRole("group", { name: "Philippine address" });
+  fireEvent.submit(screen.getByRole("button", { name: "Save availability" }).closest("form")!);
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+
+  const error = await screen.findByText("Choose a current barangay for this camera.");
+  expect(area.getAttribute("aria-invalid")).toBe("true");
+  expect(area.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
 });
