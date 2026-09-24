@@ -466,3 +466,14 @@
 - Verification: action and interaction regressions failed before the change because no correction messages or associations were present, then passed. The interaction regression uses two local refund fixtures and verifies the sibling reversal form remains valid. Lint, typecheck, optimized production build, and the full suite passed (891 passed / 2 skipped). No reversal, refund, booking state, payment, owner session, or renter availability changed; live reversal recording was intentionally not exercised because it is a real financial operation.
 - Status: verified and committed.
 - Commit: `cdb2947`.
+
+## AUD-043 — Return-review note validation is reported only as a generic error
+
+- Severity: P2 lifecycle recovery and accessibility. Before completing a clear return or opening ISSUE_REVIEW, the action validates the visible review note but collapses its failure into generic `invalid`; the labelled textarea has no server-error association.
+- Reproduction: submit a synthetic one-character issue-opening note with valid hidden IDs and outcome. The action returns no field error before authorization; a mocked UI result leaves the note textarea valid and undescribed.
+- Cause: the combined identity/outcome/note guard discards the note parser result, while the form never consumes a note field error.
+- Acceptance: malformed hidden identity or outcome remains generic; an invalid visible note returns an outcome-appropriate bounded message before authorization and marks/describes the labelled textarea.
+- Fix: split hidden validation from note validation, return a constrained issue-opening or optional-review note message, and attach it to the native textarea.
+- Verification: action and interaction regressions failed before the change because the precise note error and association were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (893 passed / 2 skipped). All responses are local mocks; no return decision, issue opening, refund, booking state, owner session, or renter availability changed.
+- Status: verified and committed.
+- Commit: `b8b0983`.

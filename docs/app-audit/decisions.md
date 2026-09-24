@@ -79,3 +79,5 @@
 - AUD-041 treats issue-decision values as distinct, operator-confirmed facts. Hidden identity remains generic, while the decision kind, deduction, private rationale, and renter-visible explanation receive their own bounded correction semantics before a financial or lifecycle mutation.
 
 - AUD-042 treats a reversal's refund-record ID as hidden, non-editable context. It is echoed only with visible field errors to scope shared UI state to the submitted form; incoming reference, counterparty, reason, and time receive the correction semantics, while malformed hidden IDs remain generic.
+
+- AUD-043 treats the return-review outcome and IDs as hidden authoritative context, while the review note is the only correctable visible fact. The note receives its own bounded error before any return completion or ISSUE_REVIEW transition.
