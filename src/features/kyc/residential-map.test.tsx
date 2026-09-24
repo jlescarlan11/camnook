@@ -111,9 +111,20 @@ describe("ResidentialMap fallbacks", () => {
     }));
     await userEvent.clear(screen.getByLabelText("Latitude"));
     await userEvent.type(screen.getByLabelText("Latitude"), "99{Enter}");
-    expect(screen.getByText("Enter valid Philippine coordinates.")).toBeTruthy();
+    const coordinateError = screen.getByText("Enter valid Philippine coordinates.");
+    for (const label of ["Latitude", "Longitude"]) {
+      const coordinate = screen.getByLabelText(label);
+      expect(coordinate.getAttribute("aria-invalid")).toBe("true");
+      expect(coordinate.getAttribute("aria-describedby")).toContain(
+        coordinateError.getAttribute("id"),
+      );
+    }
     expect(onDraftChange).toHaveBeenCalledTimes(2);
     expect(submit).not.toHaveBeenCalled();
+    await userEvent.clear(screen.getByLabelText("Latitude"));
+    await userEvent.type(screen.getByLabelText("Latitude"), "10.32");
+    expect(screen.getByLabelText("Latitude").getAttribute("aria-invalid")).toBeNull();
+    expect(screen.queryByText("Enter valid Philippine coordinates.")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Save profile" }));
     expect(submit).toHaveBeenCalledOnce();
   });

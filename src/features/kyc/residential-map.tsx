@@ -33,6 +33,7 @@ export function ResidentialMap({
   const [status, setStatus] = useState("");
   const [latitude, setLatitude] = useState(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
   const [longitude, setLongitude] = useState(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
+  const [coordinateError, setCoordinateError] = useState(false);
 
   useEffect(() => {
     latestPin.current = initialPin;
@@ -46,6 +47,7 @@ export function ResidentialMap({
   }, [initialPin]);
 
   function selectPin(pin: DraftPin) {
+    setCoordinateError(false);
     if (mapView.current && pinMarker.current) {
       pinMarker.current.setLatLng([pin.latitude, pin.longitude]).addTo(mapView.current);
       mapView.current.setView([pin.latitude, pin.longitude], 17);
@@ -84,6 +86,7 @@ export function ResidentialMap({
       pinMarker.current = marker;
       if (latestPin.current) marker.addTo(map);
       const choose = (lat: number, lng: number) => {
+        setCoordinateError(false);
         marker.setLatLng([lat, lng]).addTo(map);
         setLatitude(lat.toFixed(5));
         setLongitude(lng.toFixed(5));
@@ -182,6 +185,7 @@ export function ResidentialMap({
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (!isPhilippineCoordinate(lat, lng)) {
+      setCoordinateError(true);
       setStatus("Enter valid Philippine coordinates.");
       return;
     }
@@ -258,13 +262,13 @@ export function ResidentialMap({
       }}>
         <legend className="text-sm font-medium">Keyboard pin placement</legend>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">Latitude<input className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => setLatitude(event.target.value)} value={latitude} /></label>
-          <label className="text-sm">Longitude<input className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => setLongitude(event.target.value)} value={longitude} /></label>
+          <label className="text-sm">Latitude<input aria-describedby={coordinateError ? "residential-map-status" : undefined} aria-invalid={coordinateError ? true : undefined} className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => { setLatitude(event.target.value); if (coordinateError) { setCoordinateError(false); setStatus(""); } }} value={latitude} /></label>
+          <label className="text-sm">Longitude<input aria-describedby={coordinateError ? "residential-map-status" : undefined} aria-invalid={coordinateError ? true : undefined} className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => { setLongitude(event.target.value); if (coordinateError) { setCoordinateError(false); setStatus(""); } }} value={longitude} /></label>
         </div>
         <button className="mt-2 min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium" onClick={placeCoordinates} type="button">Place pin at coordinates</button>
       </fieldset>
       </details>
-      <p aria-live="polite" className="text-sm text-stone-600">{status}</p>
+      <p aria-live="polite" className="text-sm text-stone-600" id="residential-map-status">{status}</p>
     </div>
   );
 }
