@@ -159,6 +159,12 @@ export function PaymentReviewControls({
             Amount observed in approved GCash account
           </label>
           <input
+            aria-describedby={
+              verifyState.fieldErrors?.observedAmount
+                ? "payment-observed-amount-error"
+                : undefined
+            }
+            aria-invalid={verifyState.fieldErrors?.observedAmount ? true : undefined}
             className="mt-2 min-h-12 w-full rounded-xl border border-emerald-300 bg-white px-4 py-3"
             id="observed-payment-amount"
             inputMode="decimal"
@@ -167,12 +173,24 @@ export function PaymentReviewControls({
             required
           />
           {verifyState.fieldErrors?.observedAmount ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">{verifyState.fieldErrors.observedAmount}</p>
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="payment-observed-amount-error"
+              role="alert"
+            >
+              {verifyState.fieldErrors.observedAmount}
+            </p>
           ) : null}
           <label className="mt-4 block text-sm font-medium text-emerald-950" htmlFor="observed-payment-reference">
             Reference observed in approved GCash account
           </label>
           <input
+            aria-describedby={
+              verifyState.fieldErrors?.observedReference
+                ? "payment-observed-reference-error"
+                : undefined
+            }
+            aria-invalid={verifyState.fieldErrors?.observedReference ? true : undefined}
             autoComplete="off"
             className="mt-2 min-h-12 w-full rounded-xl border border-emerald-300 bg-white px-4 py-3"
             id="observed-payment-reference"
@@ -182,10 +200,22 @@ export function PaymentReviewControls({
             required
           />
           {verifyState.fieldErrors?.observedReference ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">{verifyState.fieldErrors.observedReference}</p>
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="payment-observed-reference-error"
+              role="alert"
+            >
+              {verifyState.fieldErrors.observedReference}
+            </p>
           ) : null}
           <label className="mt-4 flex gap-3 text-sm leading-6 text-emerald-950">
             <input
+              aria-describedby={
+                verifyState.fieldErrors?.actualAccount
+                  ? "payment-actual-account-error"
+                  : undefined
+              }
+              aria-invalid={verifyState.fieldErrors?.actualAccount ? true : undefined}
               className="mt-1 size-5 shrink-0"
               name="actualAccount"
               required
@@ -195,7 +225,13 @@ export function PaymentReviewControls({
             <span>I checked the actual transfer in the approved GCash account; I am not relying on the screenshot alone.</span>
           </label>
           {verifyState.fieldErrors?.actualAccount ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">{verifyState.fieldErrors.actualAccount}</p>
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="payment-actual-account-error"
+              role="alert"
+            >
+              {verifyState.fieldErrors.actualAccount}
+            </p>
           ) : null}
           <button
             className="mt-5 min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
@@ -222,6 +258,14 @@ export function PaymentReviewControls({
             Rejection reason
           </label>
           <select
+            aria-describedby={
+              rejectState.fieldErrors?.rejectionReasonCode
+                ? "payment-rejection-reason-error"
+                : undefined
+            }
+            aria-invalid={
+              rejectState.fieldErrors?.rejectionReasonCode ? true : undefined
+            }
             className="mt-2 min-h-12 w-full rounded-xl border border-red-300 bg-white px-4 py-3"
             defaultValue=""
             id="payment-rejection-reason"
@@ -234,7 +278,13 @@ export function PaymentReviewControls({
             ))}
           </select>
           {rejectState.fieldErrors?.rejectionReasonCode ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">{rejectState.fieldErrors.rejectionReasonCode}</p>
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="payment-rejection-reason-error"
+              role="alert"
+            >
+              {rejectState.fieldErrors.rejectionReasonCode}
+            </p>
           ) : null}
           <button
             className="mt-5 min-h-12 w-full rounded-xl bg-red-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
