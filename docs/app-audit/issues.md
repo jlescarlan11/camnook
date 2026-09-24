@@ -477,3 +477,11 @@
 - Verification: action and interaction regressions failed before the change because the precise note error and association were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (893 passed / 2 skipped). All responses are local mocks; no return decision, issue opening, refund, booking state, owner session, or renter availability changed.
 - Status: verified and committed.
 - Commit: `b8b0983`.
+
+## AUD-044 — Invalid saved meetup origin is not associated with the address selector
+
+- Severity: P2 renter recovery and accessibility. The server safely asks a renter to choose a current barangay when official-area input is invalid, but the visible Philippine-address fieldset remains unmarked and unrelated to that instruction.
+- Fix: pass the existing invalid result through the selector's error-ID/invalid API and use that stable ID on the existing alert.
+- Verification: the focused interaction test failed before the change because the fieldset was not invalid, then passed. Lint, typecheck, build, and the full suite passed (894 passed / 2 skipped). The action response is a local mock; no address, provider request, booking, account, or session changed.
+- Status: verified and committed.
+- Commit: `4b35afa`.
