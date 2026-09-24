@@ -455,3 +455,14 @@
 - Verification: action and interaction regressions failed before the change because no field messages or associations were present, then passed. Lint, typecheck, optimized production build, and the full suite passed (889 passed / 2 skipped). All responses are local mocks; no issue decision, deduction, refund, booking state, owner session, or renter availability changed. Live resolution was intentionally not exercised because it can perform a financial/state transition.
 - Status: verified and committed.
 - Commit: `5f2ea6d`.
+
+## AUD-042 — External-refund reversal validation hides correction fields and loses form identity
+
+- Severity: P1 financial-operation recovery and accessibility. A reversal validates its incoming reference, counterparty, correction reason, and actual Manila movement time before recording an offsetting financial movement, but returns only generic `invalid`; when several refunds are reversible, shared action state also cannot identify the responsible form.
+- Reproduction: submit synthetic malformed visible reversal values with valid hidden booking, operation, and refund-record IDs. The action discards every visible parser result before authorization, and a mocked matching UI response provides no marked/associated control. A two-refund regression confirms an eventual error must not mark its sibling form.
+- Cause: the combined early guard drops field validation, while the response carries no safe form identity for rendering the shared state.
+- Acceptance: invalid hidden IDs retain generic authoritative-facts recovery; valid IDs plus malformed visible values return field errors and the submitted refund record ID before authorization. Only that record's labelled form is marked and described.
+- Fix: split identity checks from visible field validation, return the already-submitted valid refund-record ID only with field errors, and condition each reusable field's error on that ID.
+- Verification: action and interaction regressions failed before the change because no correction messages or associations were present, then passed. The interaction regression uses two local refund fixtures and verifies the sibling reversal form remains valid. Lint, typecheck, optimized production build, and the full suite passed (891 passed / 2 skipped). No reversal, refund, booking state, payment, owner session, or renter availability changed; live reversal recording was intentionally not exercised because it is a real financial operation.
+- Status: verified and committed.
+- Commit: `cdb2947`.

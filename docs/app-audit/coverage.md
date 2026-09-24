@@ -99,3 +99,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-040: mocked private issue-note validation now labels, marks, and describes the note textarea with the server-returned error. Focused action/UI tests, full suite (887 passed / 2 skipped), lint, typecheck, and build pass. No note, issue decision, refund, booking state, owner session, or renter availability changed.
 
 - AUD-041: mocked issue-decision validation now marks and describes decision kind, manual deduction, private evidence basis, and renter-visible explanation with their server-returned errors. Focused action/UI tests, full suite (889 passed / 2 skipped), lint, typecheck, and build pass. No issue decision, deduction, refund, booking state, owner session, or renter availability changed.
+
+- AUD-042: mocked external-refund reversal validation now marks and describes incoming reference, counterparty, correction reason, and movement time only in the rejected refund record's form. Focused action/UI tests, full suite (891 passed / 2 skipped), lint, typecheck, and build pass. No reversal, refund, booking state, payment, owner session, or renter availability changed.
