@@ -4,9 +4,10 @@ import { meetupMapUrl, type MeetupPlace } from "@/features/meetups/places";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckoutProgress } from "./checkout-progress";
-import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
 
 import { requestBooking, type RequestBookingActionState } from "@/features/bookings/actions/request-booking";
+import { clearRequestDraft, readRequestDraft, readRequestOperation, writeRequestDraft } from "../request-draft";
 import { initialRequestBookingActionState } from "@/features/bookings/form-state";
 import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
 import { mobileInputDigits, normalizePhilippineMobile } from "@/lib/phone/philippine-mobile";
@@ -21,15 +22,19 @@ type ReviewSummary = {
   totalDue: string;
 };
 
-export function RequestForm({
-  camera,
-  meetupPlaces = [],
-  checkoutHref,
-  profile,
-  returnHref,
-  schedule,
-  summary,
-}: {
+const subscribe = () => () => {};
+
+export function RequestForm(props: RequestFormProps) {
+  const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
+  if (props.draftKey && !hydrated) return <>
+    {props.checkoutHref ? <CheckoutProgress step={3} editHref={props.checkoutHref} /> : null}
+    <p role="status">Loading your rental plans…</p>
+  </>;
+  return <RequestFormContent key={`${props.draftKey ?? props.camera}:${props.schedule.pickupDate}:${props.schedule.returnDate}:${props.schedule.handoffTime}:${props.schedule.policyVersion}`} {...props} />;
+}
+
+type RequestFormProps = {
+  draftKey?: string;
   camera: string;
   meetupPlaces?: MeetupPlace[] | null;
   checkoutHref?: string;
@@ -41,13 +46,58 @@ export function RequestForm({
   returnHref?: string;
   schedule: Schedule;
   summary: ReviewSummary;
-}) {
+};
+
+function RequestFormContent({
+  draftKey,
+  camera,
+  meetupPlaces = [],
+  checkoutHref,
+  profile,
+  returnHref,
+  schedule,
+  summary,
+}: RequestFormProps) {
   const router = useRouter();
-  const [placeChoice, setPlaceChoice] = useState("");
-  const selectedPlace = meetupPlaces?.find(p => `${p.id}:${p.version}` === placeChoice);
-  const [reviewing, setReviewing] = useState(false);
+  const scheduleIdentity = JSON.stringify([schedule.pickupDate, schedule.returnDate, schedule.handoffTime, schedule.policyVersion]);
+  const [draft] = useState(() => readRequestDraft(draftKey, scheduleIdentity));
+  const [submitted, setSubmitted] = useState(Boolean(draft?.submitted && draft.schedule === scheduleIdentity));
+  const [lockedPlace, setLockedPlace] = useState(draft?.submitted && draft.schedule === scheduleIdentity ? draft.place : null);
+  const [placeChoice, setPlaceChoice] = useState(() =>
+    meetupPlaces?.some(place => `${place.id}:${place.version}` === draft?.placeChoice) ? draft!.placeChoice : "",
+  );
+  const selectedPlace = submitted && lockedPlace ? lockedPlace : meetupPlaces?.find(p => `${p.id}:${p.version}` === placeChoice);
+  const [reviewing, setReviewing] = useState(submitted);
+  const [operationId] = useState(() => readRequestOperation(draftKey, scheduleIdentity) ?? (draft?.schedule === scheduleIdentity ? draft.operationId : crypto.randomUUID()));
+  const [values, setValues] = useState({
+    expectedLocation: draft?.values.expectedLocation ?? "",
+    intendedUse: draft?.values.intendedUse ?? "",
+    legalName: draft && (submitted || draft.profile.legalName === (profile?.legalName ?? "")) ? draft.values.legalName : profile?.legalName ?? "",
+    phone: mobileInputDigits(draft && (submitted || draft.profile.phone === (profile?.phone ?? "")) ? draft.values.phone : profile?.phone ?? ""),
+  });
+  function persistDraft(wasSubmitted: boolean) {
+    writeRequestDraft(draftKey, {
+      operationId, schedule: scheduleIdentity, placeChoice, values,
+      submitted: wasSubmitted, place: selectedPlace ?? null,
+      profile: { legalName: profile?.legalName ?? "", phone: profile?.phone ?? "" },
+    });
+  }
   const [state, formAction, pending] = useActionState(async (previous: RequestBookingActionState, data: FormData) => {
+    // Record the payload before dispatch: a lost action response must recover the
+    // same operation and arguments, even after changing dates or refreshing.
+    setLockedPlace(selectedPlace ?? null);
+    setSubmitted(true);
+    persistDraft(true);
     const result = await requestBooking(previous, data);
+    if (result.status === "success" && result.bookingId) {
+      clearRequestDraft(draftKey, scheduleIdentity);
+      router.push(`/account/bookings/${result.bookingId}?requested=1`);
+    } else {
+      // A pre-booking failure cannot resolve an earlier uncertain submission.
+      const remainsSubmitted = result.retryUnchanged ?? submitted;
+      setSubmitted(remainsSubmitted);
+      persistDraft(remainsSubmitted);
+    }
     if (result.error === "meetup_changed") { setPlaceChoice(""); setReviewing(false); router.refresh(); }
     if (result.fieldErrors && (
       result.fieldErrors.legalName || result.fieldErrors.phone ||
@@ -56,13 +106,14 @@ export function RequestForm({
     )) setReviewing(false);
     return result;
   }, initialRequestBookingActionState);
-  const [operationId] = useState(() => crypto.randomUUID());
-  const [values, setValues] = useState({
-    expectedLocation: state.values?.expectedLocation ?? "",
-    intendedUse: state.values?.intendedUse ?? "",
-    legalName: state.values?.legalName ?? profile?.legalName ?? "",
-    phone: mobileInputDigits(state.values?.phone ?? profile?.phone ?? ""),
-  });
+  useEffect(() => {
+    if (state.status === "success") return;
+    writeRequestDraft(draftKey, {
+      operationId, schedule: scheduleIdentity, placeChoice, values,
+      submitted, place: selectedPlace ?? null,
+      profile: { legalName: profile?.legalName ?? "", phone: profile?.phone ?? "" },
+    });
+  }, [draftKey, operationId, scheduleIdentity, placeChoice, values, profile?.legalName, profile?.phone, state.status, submitted, selectedPlace]);
   const formRef = useRef<HTMLFormElement>(null);
   const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
   const reviewHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -119,7 +170,7 @@ export function RequestForm({
             </Field>
           </div>
           <div className="mt-5 space-y-5">
-            <fieldset className="space-y-3">
+            <fieldset className="space-y-3" disabled={submitted}>
               <legend className="mb-3 font-semibold">Choose your meetup place</legend>
               <p className="text-sm text-stone-500">Pickup and return use the same place, subject to owner approval.</p>
               {meetupPlaces === null ? <p role="alert">Meetup places could not be loaded. <button className="underline" type="button" onClick={() => router.refresh()}>Try again</button></p> : !meetupPlaces.length ? <p role="status">This camera has no meetup places available. New rental requests are unavailable.</p> : meetupPlaces.map(place => <div className="rounded-lg border border-stone-200 p-4 has-[:checked]:border-[#0b4f9c]" key={`${place.id}:${place.version}`}>
@@ -157,14 +208,22 @@ export function RequestForm({
             <ReviewValue label="Purpose" value={values.intendedUse} />
             <ReviewValue label="Shooting city" value={values.expectedLocation} />
           </dl>
-          <button className="mt-6 min-h-11 font-semibold text-amber-900 underline" onClick={() => setReviewing(false)} type="button">Edit your details</button>
+          <button className="mt-6 min-h-11 font-semibold text-amber-900 underline" disabled={pending || submitted || state.status === "success"} onClick={() => setReviewing(false)} type="button">Edit your details</button>
           {state.error ? (
             <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800" role="alert">
               {state.error === "suspended" ? "This account cannot submit requests. Contact CamNook for help." : state.error === "kyc_required" ? <>Your KYC details need attention. <Link className="font-semibold underline" href="/account#default-address">Review your KYC profile</Link>.</> : state.error === "request_limit" ? "You already have 10 requests awaiting review." : state.error === "schedule_changed" || state.error === "unavailable" ? <>That schedule is no longer available. <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.</> : state.error === "profile_required" ? "We couldn’t save your contact details. Check them and retry." : state.error === "request_failed" ? <>We couldn’t confirm the request. <Link className="font-semibold underline" href="/account">Check your bookings</Link> before retrying.</> : "Check your details and try again."}
             </div>
           ) : null}
+          {submitted && !pending && state.status !== "success" ? (
+            <p className="mt-4 text-sm text-stone-600" role="status">The last submission is unconfirmed. Retry these unchanged details to check or complete the same request.</p>
+          ) : null}
+          {state.status === "success" && state.bookingId ? (
+            <p className="mt-5 text-sm text-emerald-900" role="status">
+              Your booking request was saved. <Link className="font-semibold underline" href={`/account/bookings/${state.bookingId}?requested=1`}>View your booking</Link>.
+            </p>
+          ) : null}
           <p className="mt-5 text-sm text-[#754000]">Estimate only—not reserved. Submitting sends a rental request for owner review; no payment is taken here.</p>
-          <button className="button-primary mt-6 w-full disabled:opacity-60" disabled={pending || !selectedPlace} type="submit">
+          <button className="button-primary mt-6 w-full disabled:opacity-60" disabled={pending || state.status === "success" || !selectedPlace} type="submit">
             {pending ? "Requesting rental…" : "Submit rental request"}
           </button>
         </section>

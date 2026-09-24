@@ -1,3 +1,4 @@
+import { requestDraftKey } from "@/features/bookings/request-draft";
 import { loadCameraMeetupPlaces } from "@/features/meetups/place-data";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -82,6 +83,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
         kyc={kycProfile ?? null} profile={profile ?? null} returnTo={checkoutHref} />
     ) : (
       <RequestForm
+        draftKey={requestDraftKey(context.user.id, values.camera)}
         meetupPlaces={meetupPlaces}
         checkoutHref={checkoutHref}
         camera={values.camera}

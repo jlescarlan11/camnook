@@ -38,7 +38,7 @@ it("renders current server prices, review controls and camera edit selection, ex
   expect(markup).toContain("2,200.00");
   expect(markup).toContain("Estimated total");
   expect(markup).toContain("Estimate only—not reserved");
-  expect(markup).toContain("Submit rental request");
+  expect(markup).toContain("Loading your rental plans");
   expect(markup).toContain("Checkout progress");
   expect(markup).not.toContain("Step 3 of 4");
   expect(markup).not.toContain('name="totalDue"');

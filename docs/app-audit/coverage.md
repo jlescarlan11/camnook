@@ -16,3 +16,10 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-005: actual account page now fits320px and390px, including profile form; desktop1440 two-column layout preserved. Screenshots13–15.
 
 - AUD-006: real account map attribution visibly underlined; mobile Lighthouse42 checks passed, zero failed. Screenshot16.
+
+- Renter lifecycle: empty cancellation reason blocked with focus; valid synthetic cancellation saved, persisted after reload, and removed repeat request form. No owner decision yet. Renter /admin redirects to Access denied.
+- Account profile: missing required pin produces actionable validation while preserving fields. Structured synthetic address and confirmed public-location test pin saved via UI and persisted on reload. No real residential data used.
+
+- AUD-007: camera/profile navigation and refresh preserve rental plans; same schedule retry identity retained. Real Development committed-response-loss → alternate date draft → original date exact-payload retry recovered the same booking, no duplicate. Successful draft cleanup verified. New booking3f7bdcc3-357b-4b0b-a048-a194694411e2; account total3. Screenshot18–19.
+- Catalog details tooltip and schedule calendar dismiss with Escape and return focus to trigger; mobile390 fits. Old dates disabled; selected dates return through Change dates.
+- Profile stale-edit path remains unverified (ENV-003). Current persisted synthetic house Audit13 and pin remain intact.

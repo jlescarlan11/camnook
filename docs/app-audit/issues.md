@@ -76,4 +76,21 @@
 - Verification: loaded real map link computed underline; screenshot16 inspected; mobile Lighthouse42 passed, zero failed including link-in-text-block. Build passed (`/tmp/camnook-audit-map-link-build.log`); independent review found no actionable issues.
 - Status: verified.
 - Evidence: report `chrome-devtools-mcp-u3jeIj/report.json` and rendered map attribution.
+- Commit: `32c4d7d`.
+
+## AUD-007 — Checkout navigation erases rental plans
+- Severity: P2. Enter purpose and shooting city, open Change dates, then Continue to checkout without changing dates: both fields are empty. Editing profile steps similarly unmounts the request form.
+- Cause: request details and operation identity live only in component state, unlike existing KYC drafts.
+- Acceptance: current-tab, account/camera-isolated drafts survive navigation/reload; same schedule retains retry identity, different schedules use distinct identities; restored meetup must match current version; changed saved profile supersedes stale defaults; review remains explicit; confirmed booking clears its draft.
+- Design: reuse tab-storage expiry convention with validated records and separate schedule operation identities. Server returns its validated booking ID on success so client can clear storage and navigate with a visible success-link fallback. No backend booking rules changed.
+- Verification: initial recovery tests failed before implementation. Review-driven tests caught exact-payload uncertainty, subsequent preflight failures, and partial storage writes;10 draft tests now pass. Final full serial suite977 passed, two skipped; lint and build passed (including type checking). Independent re-review found no remaining actionable issues. Earlier concurrent run hit resource-contention timeouts; checks were not weakened.
+- Browser: purpose/city/meetup survive camera and profile navigation plus reload at390px. A real Development booking committed while an ignored local harness withheld its response. Changing to Sept29 and editing another draft, then returning to Sept28 restored the original operation and exact payload. Retry returned the original booking3f7bdcc3-357b-4b0b-a048-a194694411e2. Account count increased by exactly one (three total); completed main draft and operation cleared. Mobile checkout Lighthouse33 passed, zero failed. Screenshots18–19. Fault harness stopped afterward.
+- Logs: `/tmp/camnook-audit-draft-final-{suite,lint}.log`, `/tmp/camnook-audit-draft-build.log`, `/tmp/camnook-audit-booking-fault-dev.log`.
+- Status: verified scoped fix; ready to commit.
+- Commit: none.
+
+## ENV-003 — Development profile conflict responses time out
+- Evidence: real two-tab stale-profile submissions returned generic retry after the app's30s deadline. Direct supported synthetic-auth probe read the current profile in667ms, but stale save timed out after45s. Current stored house remains Audit13, not the stale draft. Logs `/tmp/camnook-audit-profile-conflict{,-extended}.log`.
+- Expected: SQL migration raises40001 for revision mismatch and pin reconfirmation; application then explains conflict. Cause not established: do not claim the intended conflict journey passed.
+- Status: investigation pending Development database management access; no policy or schema bypass. Other reads and valid profile save passed.
 - Commit: none.

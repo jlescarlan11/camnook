@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -8,6 +8,7 @@ vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: vi.fn() })
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: vi.fn() }));
 
 import { getAuthenticatedUser, requireUser } from "@/lib/auth/require-user";
+import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { quoteBooking } from "./quote-booking";
@@ -42,11 +43,65 @@ function rpcClient(rpc: ReturnType<typeof vi.fn>) {
 
 describe("booking actions", () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ["23514", "23514"],
+    ["synthetic-private-value", "unknown"],
+    [undefined, "unknown"],
+  ])("keeps booking failure diagnostics private for code %s", async (code, safeCode) => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const profileRpc = vi.fn().mockResolvedValue({ data: { account_status: "active" }, error: null });
+    const requestRpc = vi.fn().mockResolvedValue({
+      data: { privatePayload: "synthetic-private-response" },
+      error: { code, message: "synthetic-private-renter-data", details: "synthetic-private-details" },
+    });
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({ supabase: rpcClient(profileRpc), user: { id: "renter" } } as never);
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(rpcClient(requestRpc) as never);
+
+    const result = await requestBooking({ status: "idle" }, fields({}));
+
+    expect(result.status).toBe("error");
+    expect(log).toHaveBeenCalledExactlyOnceWith("[booking] request RPC failed", {
+      code: safeCode,
+      responseType: "object",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("synthetic-private");
+  });
 
   it("returns an expired session to checkout with the complete schedule", async () => {
     vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
     await expect(requestBooking({ status: "idle" }, fields({}))).rejects.toThrow("redirect:/login?next=%2Fcheckout%3F");
     expect(createSupabaseAdminClient).not.toHaveBeenCalled();
+  });
+
+  it.each(["authentication", "profile", "booking"])("recovers from a thrown %s request without losing checkout details", async (stage) => {
+    const failure = new Error("synthetic-private-provider-detail");
+    const profileRpc = vi.fn().mockResolvedValue({ data: { account_status: "active" }, error: null });
+    const requestRpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({ supabase: rpcClient(profileRpc), user: { id: "renter" } } as never);
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(rpcClient(requestRpc) as never);
+    if (stage === "authentication") vi.mocked(getAuthenticatedUser).mockRejectedValueOnce(failure);
+    if (stage === "profile") profileRpc.mockRejectedValueOnce(failure);
+    if (stage === "booking") requestRpc.mockRejectedValueOnce(failure);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await requestBooking({ status: "idle" }, fields({}));
+    expect(result).toMatchObject({
+      status: "error", error: "request_failed",
+      values: { intendedUse: "Family portraits", expectedLocation: "Cebu City" },
+    });
+    expect(JSON.stringify([result, log.mock.calls])).not.toContain("synthetic-private-provider-detail");
+    expect(Boolean(result.retryUnchanged)).toBe(stage === "booking");
+    if (stage !== "booking") expect(requestRpc).not.toHaveBeenCalled();
+    else {
+      expect(revalidatePath).toHaveBeenCalledWith("/account");
+      await expect(requestBooking(result, fields({}))).resolves.toEqual({ status: "success", bookingId: BOOKING_ID });
+      expect(requestRpc.mock.calls.map((call) => call[1].p_operation_id)).toEqual([
+        "33333333-3333-4333-8333-333333333333",
+        "33333333-3333-4333-8333-333333333333",
+      ]);
+    }
   });
 
   it.each([["40001", "schedule_changed"], ["23P01", "unavailable"], ["55000", "unavailable"]])("rejects stale or unavailable checkout on %s", async (code, error) => {
@@ -81,7 +136,7 @@ describe("booking actions", () => {
     const requestRpc = vi.fn().mockResolvedValue({ data: BOOKING_ID, error: null });
     vi.mocked(getAuthenticatedUser).mockResolvedValue({ supabase: rpcClient(profileRpc), user: { id: "user-1" } } as never);
     vi.mocked(createSupabaseAdminClient).mockReturnValue(rpcClient(requestRpc) as never);
-    await expect(requestBooking({ status: "idle" }, fields({}))).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
+    await expect(requestBooking({ status: "idle" }, fields({}))).resolves.toEqual({ status: "success", bookingId: BOOKING_ID });
     expect(profileRpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+639171234567" });
     expect(requestRpc).toHaveBeenCalledWith("request_booking_with_place_idempotent", expect.objectContaining({
       p_expected_location: "Cebu City",

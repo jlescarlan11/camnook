@@ -13,6 +13,8 @@ import { stringFormValue, type ActionStatus } from "./state";
 import { philippineMobileSchema } from "@/lib/phone/philippine-mobile";
 
 export type RequestBookingActionState = {
+  bookingId?: string;
+  retryUnchanged?: boolean;
   error?:
     | "meetup_changed"
     | "invalid_input"
@@ -59,12 +61,14 @@ const bookingFieldsSchema = z.object({
 });
 
 function reportBookingRequestRpcFailure(
-  error: { code?: string; message?: string } | null,
+  error: { code?: string } | null,
   data: unknown,
 ) {
+  // Provider messages can contain request values. Keep diagnostics bounded to
+  // known SQLSTATE categories and never copy raw error or response content.
+  const safeCodes = ["42501", "P0001", "40001", "23P01", "55000", "23514", "22023"];
   console.error("[booking] request RPC failed", {
-    code: error?.code ?? null,
-    message: error?.message ?? null,
+    code: error?.code && safeCodes.includes(error.code) ? error.code : "unknown",
     responseType: data === null ? "null" : typeof data,
   });
 }
@@ -156,7 +160,12 @@ export async function requestBooking(
       values: preservedValues,
     };
   }
-  const context = await getAuthenticatedUser();
+  let context: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    context = await getAuthenticatedUser();
+  } catch {
+    return { error: "request_failed", status: "error", values: preservedValues };
+  }
   if (!context) {
     const query = new URLSearchParams(
       {
@@ -170,10 +179,15 @@ export async function requestBooking(
     redirect(loginPath(`/checkout?${query.toString()}`));
   }
 
-  const profileResult = await context.supabase.schema("api").rpc("ensure_profile", {
-    p_legal_name: fields.data.legalName,
-    p_phone: fields.data.phone,
-  });
+  let profileResult;
+  try {
+    profileResult = await context.supabase.schema("api").rpc("ensure_profile", {
+      p_legal_name: fields.data.legalName,
+      p_phone: fields.data.phone,
+    });
+  } catch {
+    return { error: "request_failed", status: "error", values: preservedValues };
+  }
   if (profileResult.error || profileResult.data?.account_status !== "active") {
     return {
       error: profileResult.data?.account_status === "suspended" ? "suspended" : "profile_required",
@@ -181,26 +195,30 @@ export async function requestBooking(
       values: preservedValues,
     };
   }
-  let admin;
+  let result;
   try {
-    admin = createSupabaseAdminClient();
+    const admin = createSupabaseAdminClient();
+    result = await admin.schema("api").rpc("request_booking_with_place_idempotent", {
+      p_camera_id: fields.data.camera,
+      p_expected_location: fields.data.expectedLocation,
+      p_handoff_time: values.handoffTime,
+      p_intended_use: fields.data.intendedUse,
+      p_pickup_date: values.pickupDate,
+      p_policy_version: policyVersion!,
+      p_place_id: fields.data.meetupPlaceId,
+      p_place_version: fields.data.meetupPlaceVersion,
+      p_renter_id: context.user.id,
+      p_return_date: values.returnDate,
+      p_operation_id: operationId.data,
+    });
   } catch {
-    return { error: "request_failed", status: "error", values: preservedValues };
+    // The transaction may have committed before its response was lost. Keep
+    // the form alive with the same operation identity and refresh persisted data.
+    revalidatePath("/account");
+    return { error: "request_failed", retryUnchanged: true, status: "error", values: preservedValues };
   }
-  const result = await admin.schema("api").rpc("request_booking_with_place_idempotent", {
-    p_camera_id: fields.data.camera,
-    p_expected_location: fields.data.expectedLocation,
-    p_handoff_time: values.handoffTime,
-    p_intended_use: fields.data.intendedUse,
-    p_pickup_date: values.pickupDate,
-    p_policy_version: policyVersion!,
-    p_place_id: fields.data.meetupPlaceId,
-    p_place_version: fields.data.meetupPlaceVersion,
-    p_renter_id: context.user.id,
-    p_return_date: values.returnDate,
-    p_operation_id: operationId.data,
-  });
   const { data, error } = result;
+  revalidatePath("/account");
 
   if (error || typeof data !== "string" || !z.uuid().safeParse(data).success) {
     reportBookingRequestRpcFailure(error, data);
@@ -222,11 +240,13 @@ export async function requestBooking(
                       error?.code === "22023"
                     ? "invalid_input"
                     : "request_failed",
+      // Permission checks run before the operation receipt lookup, so they
+      // cannot settle an earlier attempt whose response was lost.
+      retryUnchanged: error?.code === "42501" ? undefined : !error || !["P0001", "40001", "23P01", "55000", "23514", "22023"].includes(error.code ?? ""),
       status: "error",
       values: preservedValues,
     };
   }
 
-  revalidatePath("/account");
-  redirect(`/account/bookings/${data}?requested=1`);
+  return { status: "success", bookingId: data };
 }
