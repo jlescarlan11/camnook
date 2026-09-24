@@ -59,6 +59,12 @@ export function ContractTemplateForm({
             Template version
           </label>
           <input
+            aria-describedby={
+              state.fieldErrors?.version
+                ? "contract-template-version-error"
+                : undefined
+            }
+            aria-invalid={state.fieldErrors?.version ? true : undefined}
             className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
             defaultValue={active ? "" : "rental-v1"}
             id="template-version"
@@ -72,7 +78,11 @@ export function ContractTemplateForm({
             Use a new unique version whenever any term changes.
           </p>
           {state.fieldErrors?.version ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="contract-template-version-error"
+              role="alert"
+            >
               {state.fieldErrors.version}
             </p>
           ) : null}
@@ -85,6 +95,12 @@ export function ContractTemplateForm({
                 {CONTRACT_TERM_LABELS[key]}
               </label>
               <textarea
+                aria-describedby={
+                  state.fieldErrors?.terms
+                    ? "contract-template-terms-error"
+                    : undefined
+                }
+                aria-invalid={state.fieldErrors?.terms ? true : undefined}
                 className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3 leading-6"
                 defaultValue={active?.terms[key] ?? ""}
                 id={`term-${key}`}
@@ -97,13 +113,23 @@ export function ContractTemplateForm({
           ))}
         </div>
         {state.fieldErrors?.terms ? (
-          <p className="text-sm text-red-800" role="alert">
+          <p
+            className="text-sm text-red-800"
+            id="contract-template-terms-error"
+            role="alert"
+          >
             {state.fieldErrors.terms}
           </p>
         ) : null}
 
         <label className="flex items-start gap-3 rounded-xl bg-stone-50 p-4 text-sm leading-6">
           <input
+            aria-describedby={
+              state.fieldErrors?.approval
+                ? "contract-template-approval-error"
+                : undefined
+            }
+            aria-invalid={state.fieldErrors?.approval ? true : undefined}
             className="mt-1 size-5"
             name="approval"
             required
@@ -115,7 +141,11 @@ export function ContractTemplateForm({
           </span>
         </label>
         {state.fieldErrors?.approval ? (
-          <p className="text-sm text-red-800" role="alert">
+          <p
+            className="text-sm text-red-800"
+            id="contract-template-approval-error"
+            role="alert"
+          >
             {state.fieldErrors.approval}
           </p>
         ) : null}
