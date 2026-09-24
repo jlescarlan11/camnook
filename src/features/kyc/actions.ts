@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { requireUser } from "@/lib/auth/require-user";
 import { sanitizeReturnTo } from "@/lib/auth/routes";
+import { philippineMobileSchema } from "@/lib/phone/philippine-mobile";
 
 import { formatResidentialLine1 } from "./types";
 
@@ -45,7 +46,7 @@ const inputSchema = z.object({
   pinLongitude: z.string().trim().max(30),
   pinOperation: z.enum(["keep", "remove", "set"]),
   pinSource: z.enum(["", "device_gps", "map_pin"]),
-  phone: z.string().trim().min(7).max(32),
+  phone: philippineMobileSchema,
   postalCode: z.string().trim().regex(/^\d{4}$/, "Enter a four-digit Philippine postal code."),
   release: z.string().regex(/^\d{4}-q[1-4]$/),
   returnTo: z.string().max(1000),
@@ -179,7 +180,7 @@ export async function saveKycProfile(
         houseNumber: errors.houseNumber?.[0],
         legalName: errors.legalName ? "Enter your full legal name." : undefined,
         legacyAddressLine1: errors.legacyAddressLine1?.[0],
-        phone: errors.phone ? "Enter a valid mobile number." : undefined,
+        phone: errors.phone ? "Enter a 10-digit Philippine mobile number after +63." : undefined,
         postalCode: errors.postalCode?.[0],
         psgcAreaCode: errors.areaCode ? "Choose your barangay." : undefined,
         residentialPin: errors.pinLatitude?.[0],

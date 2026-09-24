@@ -7,6 +7,7 @@ import {
   type GcashConfigurationActionState,
 } from "./admin-actions";
 import type { GcashRecipientConfiguration } from "./types";
+import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
 
 const initialState: GcashConfigurationActionState = { status: "idle" };
 
@@ -67,15 +68,11 @@ export function GcashConfigurationForm({
           <label className="block text-sm font-medium" htmlFor="recipientAccount">
             GCash number
           </label>
-          <input
-            autoComplete="tel"
-            className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
+          <PhilippineMobileInput
+            aria-label="GCash number"
             defaultValue={configuration.recipient_account ?? ""}
             id="recipientAccount"
-            inputMode="tel"
             name="recipientAccount"
-            pattern="(?:09[0-9]{9}|\+639[0-9]{9})"
-            placeholder="09171234567"
             required
           />
           {state.fieldErrors?.recipientAccount ? (

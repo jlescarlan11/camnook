@@ -8,6 +8,8 @@ import { useActionState, useEffect, useRef, useState, type ReactNode } from "rea
 
 import { requestBooking, type RequestBookingActionState } from "@/features/bookings/actions/request-booking";
 import { initialRequestBookingActionState } from "@/features/bookings/form-state";
+import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
+import { mobileInputDigits, normalizePhilippineMobile } from "@/lib/phone/philippine-mobile";
 
 type Schedule = { handoffTime: string; pickupDate: string; policyVersion: string; returnDate: string };
 type ReviewSummary = {
@@ -59,7 +61,7 @@ export function RequestForm({
     expectedLocation: state.values?.expectedLocation ?? "",
     intendedUse: state.values?.intendedUse ?? "",
     legalName: state.values?.legalName ?? profile?.legalName ?? "",
-    phone: state.values?.phone ?? profile?.phone ?? "",
+    phone: mobileInputDigits(state.values?.phone ?? profile?.phone ?? ""),
   });
   const formRef = useRef<HTMLFormElement>(null);
   const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -104,7 +106,7 @@ export function RequestForm({
               <input autoComplete="name" className={inputClass} maxLength={160} name="legalName" onChange={(event) => update("legalName", event.target.value)} required value={values.legalName} />
             </Field>
             <Field label="Phone" error={state.fieldErrors?.phone}>
-              <input autoComplete="tel" className={inputClass} maxLength={32} minLength={7} name="phone" onChange={(event) => update("phone", event.target.value)} required type="tel" value={values.phone} />
+              <PhilippineMobileInput aria-label="Phone" name="phone" onChange={(digits) => update("phone", digits)} required value={values.phone} />
             </Field>
           </div>
           <div className="mt-5 space-y-5">
@@ -142,7 +144,7 @@ export function RequestForm({
             </> : null}
             <ReviewValue label="Pickup and return" value={selectedPlace ? `${selectedPlace.name} — ${selectedPlace.address}${selectedPlace.arrival_instructions ? ` · ${selectedPlace.arrival_instructions}` : ""}` : "Choose a meetup place"} />
             <ReviewValue label="Name" value={values.legalName} />
-            <ReviewValue label="Phone" value={values.phone} />
+            <ReviewValue label="Phone" value={normalizePhilippineMobile(values.phone) ?? ""} />
             <ReviewValue label="Purpose" value={values.intendedUse} />
             <ReviewValue label="Shooting city" value={values.expectedLocation} />
           </dl>

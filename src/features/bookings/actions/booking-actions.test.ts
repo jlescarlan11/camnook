@@ -73,7 +73,7 @@ describe("booking actions", () => {
     const rpc = vi.fn().mockResolvedValue({ data: { account_status: "active" }, error: null });
     vi.mocked(requireUser).mockResolvedValue({ supabase: rpcClient(rpc), user: { id: "user-1" } } as never);
     await expect(saveProfile({ status: "idle" }, fields({}))).resolves.toEqual({ status: "success" });
-    expect(rpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+63 917 123 4567" });
+    expect(rpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+639171234567" });
   });
 
   it("silently saves name and phone before creating a saved-place request", async () => {
@@ -82,7 +82,7 @@ describe("booking actions", () => {
     vi.mocked(getAuthenticatedUser).mockResolvedValue({ supabase: rpcClient(profileRpc), user: { id: "user-1" } } as never);
     vi.mocked(createSupabaseAdminClient).mockReturnValue(rpcClient(requestRpc) as never);
     await expect(requestBooking({ status: "idle" }, fields({}))).rejects.toThrow(`redirect:/account/bookings/${BOOKING_ID}?requested=1`);
-    expect(profileRpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+63 917 123 4567" });
+    expect(profileRpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+639171234567" });
     expect(requestRpc).toHaveBeenCalledWith("request_booking_with_place_idempotent", expect.objectContaining({
       p_expected_location: "Cebu City",
       p_intended_use: "Family portraits",
@@ -93,6 +93,12 @@ describe("booking actions", () => {
   it("rejects incomplete renter details before authentication", async () => {
     const result = await requestBooking({ status: "idle" }, fields({ legalName: "", meetupPlaceId: "" }));
     expect(result).toMatchObject({ error: "invalid_input", fieldErrors: { legalName: expect.any(String), meetupPlace: expect.any(String) } });
+    expect(getAuthenticatedUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed mobile numbers before profile writes", async () => {
+    const result = await requestBooking({ status: "idle" }, fields({ phone: "1234567" }));
+    expect(result).toMatchObject({ error: "invalid_input", fieldErrors: { phone: expect.any(String) } });
     expect(getAuthenticatedUser).not.toHaveBeenCalled();
   });
 });

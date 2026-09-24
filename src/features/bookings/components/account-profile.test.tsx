@@ -12,6 +12,7 @@ describe("account profile onboarding", () => {
     expect(markup).toContain("Add your contact details");
     expect(markup).toContain('name="legalName"');
     expect(markup).toContain('name="phone"');
+    expect(markup).toContain("+63");
     expect(markup).toContain("Save profile");
     expect(markup).not.toContain("Choose a camera to begin");
   });

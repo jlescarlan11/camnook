@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import { saveProfile } from "@/features/bookings/actions/profile";
 import { initialProfileActionState } from "@/features/bookings/form-state";
+import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
 
 export function ProfileForm({
   successMessage = "Profile saved. You can continue when the request form appears.",
@@ -45,18 +46,14 @@ export function ProfileForm({
         <label className="block text-sm font-medium" htmlFor="phone">
           Phone number
         </label>
-        <input
+        <PhilippineMobileInput
+          aria-label="Phone number"
           aria-describedby={state.fieldErrors?.phone ? "phone-error" : undefined}
           aria-invalid={Boolean(state.fieldErrors?.phone)}
-          autoComplete="tel"
-          className="mt-2 w-full rounded-xl border border-stone-300 px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]"
           id="phone"
-          maxLength={32}
-          minLength={7}
           name="phone"
-          onChange={(event) => setPhone(event.target.value)}
+          onChange={setPhone}
           required
-          type="tel"
           value={phone}
         />
         {state.fieldErrors?.phone ? (

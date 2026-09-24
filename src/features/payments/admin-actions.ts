@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { stringFormValue } from "@/features/bookings/actions/state";
+import { philippineMobileSchema } from "@/lib/phone/philippine-mobile";
 import {
   AdminAuthorizationRequiredError,
   isAuthenticationError,
@@ -59,10 +60,7 @@ const observedReferenceSchema = z
   .max(120)
   .regex(/^[A-Za-z0-9 -]+$/);
 const recipientNameSchema = z.string().trim().min(2).max(160);
-const recipientAccountSchema = z
-  .string()
-  .trim()
-  .regex(/^(09[0-9]{9}|\+639[0-9]{9})$/);
+const recipientAccountSchema = philippineMobileSchema;
 
 export async function configureGcashRecipient(
   _state: GcashConfigurationActionState,
@@ -81,7 +79,7 @@ export async function configureGcashRecipient(
   }
   if (!recipientAccount.success) {
     fieldErrors.recipientAccount =
-      "Enter an 11-digit 09 GCash number or +639 number.";
+      "Enter a 10-digit Philippine mobile number after +63.";
   }
   if (Object.keys(fieldErrors).length > 0) {
     return { error: "invalid", fieldErrors, status: "error" };

@@ -6,12 +6,14 @@ vi.mock("./actions", () => ({
   uploadPaymentProof: vi.fn(),
 }));
 vi.mock("./admin-actions", () => ({
+  configureGcashRecipient: vi.fn(),
   decidePayment: vi.fn(),
   requestPaymentProofAccess: vi.fn(),
 }));
 
 import { PaymentPanel } from "./payment-panel";
 import { PaymentReviewControls } from "./payment-review-controls";
+import { GcashConfigurationForm } from "./gcash-configuration-form";
 import type { PaymentState } from "./types";
 
 const state: PaymentState = {
@@ -38,6 +40,18 @@ const state: PaymentState = {
 };
 
 describe("payment UI controls", () => {
+  it("shows a fixed +63 prefix for the admin GCash number", () => {
+    const markup = renderToStaticMarkup(<GcashConfigurationForm configuration={{
+      enabled: true,
+      recipient_account: "09171234567",
+      recipient_name: "Approved Recipient",
+      version: 1,
+    }} />);
+    expect(markup).toContain('name="recipientAccount"');
+    expect(markup).toContain('value="9171234567"');
+    expect(markup).toContain("+63");
+  });
+
   it("shows exact owner instructions, deadline, and optional proof policy", () => {
     const markup = renderToStaticMarkup(
       <PaymentPanel

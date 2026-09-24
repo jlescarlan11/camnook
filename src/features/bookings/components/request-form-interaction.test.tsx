@@ -26,11 +26,12 @@ it("requires explicit confirmation and submits reviewed details, including edits
   await userEvent.keyboard("{Enter}");
   expect(action).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Review" }));
+  expect(screen.getByText("+639170000000")).toBeTruthy();
   await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
   await waitFor(() => expect(submissions).toHaveLength(1));
-  expect(screen.getByRole("link", { name: "Check your bookings" }).getAttribute("href")).toBe("/account");
+  expect((await screen.findByRole("link", { name: "Check your bookings" })).getAttribute("href")).toBe("/account");
   expect(submissions[0]).toMatchObject({
-    legalName: "Test Renter", phone: "09170000000", meetupPlaceId: testMeetupPlace.id, meetupPlaceVersion: "1",
+    legalName: "Test Renter", phone: "9170000000", meetupPlaceId: testMeetupPlace.id, meetupPlaceVersion: "1",
     intendedUse: "Portrait practice", expectedLocation: "Cebu City", pickupDate: "2099-08-24",
     returnDate: "2099-08-26", handoffTime: "09:00", policyVersion: "1",
   });

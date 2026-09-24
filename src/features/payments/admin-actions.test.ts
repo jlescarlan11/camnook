@@ -66,7 +66,7 @@ describe("payment admin actions", () => {
     expect(rpc).toHaveBeenCalledWith("configure_gcash_recipient", {
       p_enabled: true,
       p_operation_id: expect.any(String),
-      p_recipient_account: "09171234567",
+      p_recipient_account: "+639171234567",
       p_recipient_name: "CamNook Recipient",
     });
   });

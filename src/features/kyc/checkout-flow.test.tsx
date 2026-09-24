@@ -25,7 +25,7 @@ function setup() {
 async function fillDetails() {
   await userEvent.type(screen.getByLabelText("Full legal name"), "Test Renter");
   fireEvent.change(screen.getByLabelText("Birthdate"), { target: { value: "1995-01-15" } });
-  await userEvent.type(screen.getByLabelText("Mobile number"), "+639170000000");
+  await userEvent.type(screen.getByLabelText("Mobile number"), "9170000000");
 }
 
 async function fillAddress() {
@@ -71,8 +71,7 @@ it("returns to the Details step when server validation rejects a personal field"
   await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
   await fillAddress();
   await userEvent.click(screen.getByRole("button", { name: "Save and continue to review" }));
-  await waitFor(() => expect(screen.getByRole("heading", { name: "Your details" })).toBeTruthy());
-  expect(screen.getByText("Check your mobile number.").closest("[hidden]")).toBeNull();
+  expect((await screen.findByText("Check your mobile number.")).closest("[hidden]")).toBeNull();
 });
 
 it("restores details and address after leaving checkout, isolated by account and saved revision", async () => {

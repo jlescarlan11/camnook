@@ -15,6 +15,8 @@ describe("KycProfileForm", () => {
       />,
     );
     expect(markup).toContain('name="birthDate"');
+    expect(markup).toContain('+63');
+    expect(markup).toContain('value="9171234567"');
     expect(markup).toContain('name="houseNumber"');
     expect(markup).toContain('name="streetName"');
     expect(markup).toContain('name="building"');

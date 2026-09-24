@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth/require-user";
 
 import { stringFormValue, type ActionStatus } from "./state";
+import { philippineMobileSchema } from "@/lib/phone/philippine-mobile";
 
 export type ProfileActionState = {
   error?: "invalid_input" | "save_failed" | "suspended";
@@ -16,7 +17,7 @@ export type ProfileActionState = {
 
 const profileSchema = z.object({
   legalName: z.string().trim().min(2).max(160),
-  phone: z.string().trim().min(7).max(32),
+  phone: philippineMobileSchema,
 });
 
 export async function saveProfile(
@@ -38,7 +39,7 @@ export async function saveProfile(
           ? "Enter your legal name (2–160 characters)."
           : undefined,
         phone: flattened.phone
-          ? "Enter a phone number (7–32 characters)."
+          ? "Enter a 10-digit Philippine mobile number after +63."
           : undefined,
       },
       status: "error",

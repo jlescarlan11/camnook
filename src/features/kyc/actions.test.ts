@@ -80,7 +80,7 @@ describe("renter KYC action", () => {
         pin_longitude: "123.8854",
         pin_operation: "set",
         pin_source: "map_pin",
-        phone: "+63 917 123 4567",
+        phone: "+639171234567",
         postal_code: "6000",
         release_key: "2026-q2",
         street_name: "123 Mango Avenue",

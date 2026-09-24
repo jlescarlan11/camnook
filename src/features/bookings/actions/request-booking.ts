@@ -10,6 +10,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { isCalendarDate, isHandoffTime } from "../calendar";
 import { stringFormValue, type ActionStatus } from "./state";
+import { philippineMobileSchema } from "@/lib/phone/philippine-mobile";
 
 export type RequestBookingActionState = {
   error?:
@@ -52,7 +53,7 @@ const bookingFieldsSchema = z.object({
   expectedLocation: z.string().trim().min(2).max(500),
   intendedUse: z.string().trim().min(2).max(1000),
   legalName: z.string().trim().min(2).max(160),
-  phone: z.string().trim().min(7).max(32),
+  phone: philippineMobileSchema,
   meetupPlaceId: z.uuid(),
   meetupPlaceVersion: z.string().regex(/^[1-9][0-9]*$/).transform(Number).pipe(z.number().int().positive().safe()),
 });
@@ -117,7 +118,7 @@ export async function requestBooking(
         "Describe the intended use (2–1000 characters).";
     }
     if (flattened.legalName) fieldErrors.legalName = "Enter your name.";
-    if (flattened.phone) fieldErrors.phone = "Enter a valid phone number.";
+    if (flattened.phone) fieldErrors.phone = "Enter a 10-digit Philippine mobile number after +63.";
     if (flattened.meetupPlaceId || flattened.meetupPlaceVersion) {
       fieldErrors.meetupPlace = "Choose a current meetup place.";
     }

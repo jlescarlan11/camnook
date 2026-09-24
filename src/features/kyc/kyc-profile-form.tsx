@@ -12,6 +12,7 @@ import { ResidentialPinPicker } from "./residential-pin-picker";
 import type { KycProfile } from "./types";
 
 import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
+import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
 
 const subscribe = () => () => {};
 
@@ -120,7 +121,7 @@ function ProfileForm({
           <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={adultCutoff()} name="birthDate" required type="date" />
         </Field>
         <Field error={state.fieldErrors?.phone} label="Mobile number">
-          <input autoComplete="tel" className={inputClass} defaultValue={submitted?.phone ?? profile?.phone ?? ""} maxLength={32} minLength={7} name="phone" placeholder={checkout ? "+63 9XX XXX XXXX" : undefined} required type="tel" />
+          <PhilippineMobileInput aria-label="Mobile number" defaultValue={submitted?.phone ?? profile?.phone ?? ""} name="phone" required />
         </Field>
       </div>
       <div hidden={checkout && step !== 2} className={checkout ? "checkout-address-fields" : "space-y-5"}>
