@@ -17,3 +17,5 @@
 - AUD-010 keeps selected-thumbnail styling separate from the accessible meaning of a lightbox trigger. A data attribute is sufficient for the visual outline; `aria-pressed` would misdescribe activation as a toggle.
 
 - AUD-011 does not treat a transient claims failure as an authenticated decision. The proxy only defers its redirect so the existing route-level guards re-verify authorization and can surface the established retry state; missing and invalid claims still redirect to login.
+
+- AUD-012 uses the current `next/image` loading strategy: eagerly request only the initially visible full-size gallery photo, while retaining lazy thumbnails. The older `preload` prop did not produce the intended rendered behavior in this client gallery.

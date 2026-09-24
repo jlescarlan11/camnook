@@ -132,6 +132,16 @@
 - Cause: `updateSupabaseSession` calculated `isAuthenticated` as false for every claims error and redirected every protected request. The page-level `getAuthenticatedUser` helper already classifies retryable, 429, and 5xx failures separately.
 - Acceptance: retryable claims failures preserve the protected route so its server-side guard can re-verify or expose a retry state; actual absent/invalid claims continue to redirect; no data/action authorization is granted from unverified proxy claims.
 - Fix: classify retryable, 429, and 5xx `getClaims()` errors before the proxy redirect decision. On those errors, continue to the route's existing server-side authorization guard; invalid or missing claims retain the login redirect.
-- Verification: four regression cases failed before the fix with a 307 redirect and pass afterward in the focused proxy suite (11 tests). Lint, typecheck, and optimized production build passed. The full suite was not accepted as passing: unrelated host CPU saturation caused three untouched request-form interaction tests to exceed their unchanged 5-second timeout. The post-fix browser path remains unverified because a fresh authenticated session requires a successful provider CAPTCHA/OTP challenge.
-- Status: scoped checkpoint committed; broader-suite rerun pending a usable host window.
+- Verification: four regression cases failed before the fix with a 307 redirect and pass afterward in the focused proxy suite (11 tests). Lint, typecheck, and optimized production build passed. Once unrelated host CPU saturation dropped, the unchanged full suite also passed (856 passed / 2 skipped). The post-fix browser path remains unverified because a fresh authenticated session requires a successful provider CAPTCHA/OTP challenge.
+- Status: scoped checkpoint committed; broad suite now verified, browser reauthentication remains pending.
 - Commit: `db52c81`.
+
+## AUD-012 — Primary camera photo is not requested eagerly
+- Severity: P2 performance. The above-the-fold camera photo was identified as LCP in the live Development page, but rendered with browser-default loading and fetch priority despite being marked as priority by the gallery.
+- Reproduction: open a published camera detail page and inspect its primary 676px gallery image. It had `loading="auto"`, normal fetch priority, no image preload link, and the Next.js development warning that the image was LCP but should be eager.
+- Cause: the client gallery passed `preload` to `next/image`, which did not make the primary image eager in the rendered page.
+- Acceptance: the initially visible full-size photo renders eagerly; thumbnails remain lazy; gallery selection and lightbox behavior are unchanged.
+- Fix: use `loading="eager"` for the gallery's prioritized primary image and `loading="lazy"` for all other gallery images.
+- Verification: the regression first failed because the main image had no loading value, then passed in the focused gallery suite (4 tests). Lint, typecheck, optimized production build, and the full suite passed (856 passed / 2 skipped). A post-fix browser render could not complete while the Development camera provider was temporarily unreachable; it showed the established camera-details retry state instead.
+- Status: verified and committed; live-page confirmation awaits provider recovery.
+- Commit: `318553a`.
