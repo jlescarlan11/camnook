@@ -89,3 +89,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-035: mocked hidden booking and contract-version signing validation now expose their precise refresh instructions instead of a misleading consent prompt. Focused tests, full suite (878 passed / 2 skipped), lint, typecheck, and build pass. No signature, agreement, booking, payment, owner session, or renter availability changed.
 
 - AUD-036: mocked invalid hidden payment-reference validation now returns an exact refresh instruction instead of incorrectly calling it an observed-transfer mismatch. Focused action/UI tests, full suite (880 passed / 2 skipped), lint, typecheck, and build pass. No payment, proof access, booking, agreement, owner session, or renter availability changed.
+
+- AUD-037: mocked cancellation-reason validation now marks and describes the native textarea with the existing server message, while its result alert calls for correction rather than an uncertain outcome. Focused test, full suite (881 passed / 2 skipped), lint, typecheck, and build pass. No cancellation request, booking state, payment, owner session, or renter availability changed.

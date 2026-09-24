@@ -400,3 +400,14 @@
 - Verification: the new action and interaction regressions failed before the change because they received `invalid`/the transfer-mismatch copy, then passed. Lint, typecheck, optimized production build, and the full suite passed (880 passed / 2 skipped). All responses are local mocks; no payment, proof access, booking, agreement, owner session, or renter availability changed. Live review was intentionally not exercised because payment decisions are real state-changing actions.
 - Status: verified and committed.
 - Commit: `93cf57b`.
+
+## AUD-037 — Cancellation-reason validation is reported as an unknown operation failure
+
+- Severity: P2 renter recovery and accessibility. The cancellation action already returns `fieldErrors.reason`, but `RenterResolutionStatus` renders neither that message nor invalid/description semantics on the textarea; it instead says `The cancellation request could not be confirmed.`
+- Reproduction: submit the cancellation form with a mocked invalid `reason` response. The exact server message is absent, the reason textarea is not invalid or described, and the result misclassifies validation as uncertain.
+- Cause: the component only distinguished success and stale outcomes, leaving all other action errors—including its typed visible field error—on the generic uncertainty path.
+- Acceptance: the returned reason message appears beside the labelled textarea, is associated with that control, and produces a correction-oriented result message; stale and genuinely indeterminate outcomes retain their separate recovery copy.
+- Fix: attach a stable error ID via `aria-describedby`, apply `aria-invalid`, render the existing field error, and branch the result copy only when that field error exists.
+- Verification: focused interaction coverage failed before the change because the reason message and invalid semantics were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (881 passed / 2 skipped). The action response is a local mock; no cancellation request, booking state, payment, owner session, or renter availability changed.
+- Status: verified and committed.
+- Commit: `cef7143`.
