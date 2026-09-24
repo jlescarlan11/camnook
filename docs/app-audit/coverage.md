@@ -75,3 +75,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-028: mocked return-recording validation now identifies return time, serial, every accessory selector, condition report, and notes. Focused test, full suite (869 passed / 2 skipped), lint, typecheck, and build pass. No return, evidence, refund, or booking transition occurred.
 
 - AUD-029: mocked return-evidence validation now labels the primary file input and associates it with its returned photo error. Focused test, full suite (870 passed / 2 skipped), lint, typecheck, and build pass. No photo was selected, uploaded, stored, accessed, or authorized.
+
+- AUD-030: mocked versioned return-evidence validation now labels the matching replacement file input and associates only it with its returned error. The action preserves the replacement target for field recovery. Focused tests, full suite (872 passed / 2 skipped), lint, typecheck, and build pass. No photo was selected, uploaded, stored, accessed, or authorized.

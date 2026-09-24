@@ -323,3 +323,14 @@
 - Verification: the new interaction regression failed before the change because Return condition photo could not be found by label, then passed. Lint, typecheck, optimized production build, and the full suite passed (870 passed / 2 skipped). The test uses a mocked local action response; no file was selected, uploaded, stored, accessed, or authorized.
 - Status: verified and committed.
 - Commit: `e8f7040`.
+
+## AUD-030 — Versioned return-evidence replacement cannot identify its failed file
+
+- Severity: P2 accessibility and operational recovery. A rejected replacement photo has no accessible file-field name, and its shared action result does not say which upload form supplied the invalid file.
+- Reproduction: render `ResolutionControls` with a current return photo and a mocked invalid replacement response. The replacement input has no label; before the fix, a field error could only be generically assigned to the primary return-evidence input. A focused server-action reproduction also showed that validation discarded the submitted replacement photo ID.
+- Cause: `ConditionPhotoActionState` exposed only the common `photo` field error, even though the shared client action serves both primary and replacement forms.
+- Acceptance: each replacement file input has a unique visible label; photo validation preserves the validated superseded-photo ID; only the submitted replacement field becomes invalid and identifies the exact error, while the primary control remains valid.
+- Fix: preserve `supersedesPhotoId` in photo-validation responses and use it to derive a stable replacement error ID. Add a labelled replacement input and conditionally associate the result only with the matching form.
+- Verification: server-action and interaction regressions both failed before the fix (the response lacked the replacement ID; the control had no label), then passed (11 focused tests). Lint, typecheck, optimized production build, and the full suite passed (872 passed / 2 skipped). The local mock never selected, uploaded, stored, accessed, or authorized evidence; the public browser remains free of console errors, while owner browser verification needs a known Development owner session.
+- Status: verified and committed.
+- Commit: `69c5530`.

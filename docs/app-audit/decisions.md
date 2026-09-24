@@ -53,3 +53,5 @@
 - AUD-028 preserves field-specific return validation from the server instead of reducing it to the generic action result. Accessory validation is shared across the complete required selector set because the server validates it as one collection.
 
 - AUD-029 assigns an error ID and invalid semantics only when the return-evidence action supplies a field-specific photo error. Generic failure and success result announcements remain independent of the file control.
+
+- AUD-030 treats replacement-photo validation as form-specific despite its shared server action. The action returns the already validated superseded-photo ID only for a photo field error, allowing a dynamic but stable error ID to describe one matching native input without marking the primary uploader invalid.
