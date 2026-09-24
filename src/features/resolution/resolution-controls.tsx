@@ -590,12 +590,13 @@ function ConditionEvidence({
         <input name="bookingId" type="hidden" value={bookingId} />
         <input name="conditionReportId" type="hidden" value={conditionReportId} />
         <input name="intentId" type="hidden" value={intentId} />
-        <input accept="image/jpeg,image/png" name="photo" required type="file" />
+        <label className="block text-sm font-medium" htmlFor="return-condition-photo">Return condition photo</label>
+        <input accept="image/jpeg,image/png" aria-describedby={photoState.fieldErrors?.photo ? "return-condition-photo-error" : undefined} aria-invalid={photoState.fieldErrors?.photo ? true : undefined} id="return-condition-photo" name="photo" required type="file" />
         <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || currentPhotoCount >= 6} type="submit">Attach verified return photo</button>
       </form>
       {photoState.status !== "idle" ? (
-        <p className={`mt-2 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`} role={photoState.status === "success" ? "status" : "alert"}>
-          {photoState.status === "success" ? "Private return evidence was finalized." : "The evidence upload could not be safely finalized."}
+        <p className={`mt-2 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`} id={photoState.fieldErrors?.photo ? "return-condition-photo-error" : undefined} role={photoState.status === "success" ? "status" : "alert"}>
+          {photoState.status === "success" ? "Private return evidence was finalized." : photoState.fieldErrors?.photo ?? "The evidence upload could not be safely finalized."}
         </p>
       ) : null}
       {photos.length > 0 ? (

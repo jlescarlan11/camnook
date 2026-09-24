@@ -3,7 +3,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { recordReturn } = vi.hoisted(() => ({ recordReturn: vi.fn() }));
+const { recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
+  recordReturn: vi.fn(),
+  uploadConditionPhoto: vi.fn(),
+}));
 vi.mock("./actions", () => ({
   addIssueNote: vi.fn(),
   decideCancellation: vi.fn(),
@@ -15,7 +18,7 @@ vi.mock("./actions", () => ({
 }));
 vi.mock("@/features/pickup/actions", () => ({
   requestAdminConditionPhotoAccess: vi.fn(),
-  uploadConditionPhoto: vi.fn(),
+  uploadConditionPhoto,
 }));
 
 import {
@@ -64,6 +67,24 @@ const operationIds: ResolutionOperationIds = {
   reversals: {},
 };
 
+const resolutionWithInspection: ResolutionDetail = {
+  ...resolution,
+  booking_state: "RETURN_REVIEW",
+  return_inspection: {
+    accessories: [],
+    actual_at: "2026-08-16T02:00:00Z",
+    camera_condition_summary: "Returned clean.",
+    camera_has_damage: false,
+    condition_report_id: "94000000-0000-4000-8000-000000000020",
+    expected_return_at: "2026-08-16T02:00:00Z",
+    handoff_id: "94000000-0000-4000-8000-000000000021",
+    has_missing_items: false,
+    late_return: false,
+    notes: null,
+    photos: [],
+  },
+};
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -106,4 +127,21 @@ it("identifies return-recording controls after server validation rejects them", 
     expect(control.getAttribute("aria-invalid")).toBe("true");
     expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
   }
+});
+
+it("identifies a rejected return-evidence upload", async () => {
+  uploadConditionPhoto.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: { photo: "Choose a non-empty JPEG or PNG no larger than 5 MiB." },
+    status: "error",
+  });
+  render(<ResolutionControls actualAt="2026-08-16T10:00" operationIds={operationIds} resolution={resolutionWithInspection} />);
+
+  const photo = screen.getByLabelText("Return condition photo");
+  fireEvent.submit(screen.getByRole("button", { name: "Attach verified return photo" }).closest("form")!);
+  await waitFor(() => expect(uploadConditionPhoto).toHaveBeenCalledTimes(1));
+
+  const error = await screen.findByText("Choose a non-empty JPEG or PNG no larger than 5 MiB.");
+  expect(photo.getAttribute("aria-invalid")).toBe("true");
+  expect(photo.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
 });
