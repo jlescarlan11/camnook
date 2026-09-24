@@ -41,3 +41,5 @@
 - AUD-022 gives every affected native checkbox its common checklist error rather than attaching the message only to a visual wrapper. The original-ID and accessory errors apply to multiple related confirmations, so their stable message IDs are intentionally shared.
 
 - AUD-023 assigns the file-upload result an ID only for the field-specific photo error. Generic failure and success states remain plain result announcements and do not imply a problem with the file control.
+
+- AUD-024 applies the common terms validation message to every required contract textarea because the server only returns a whole-template terms error, not per-term granularity. It does not claim which individual term failed.

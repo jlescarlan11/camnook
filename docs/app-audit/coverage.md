@@ -63,3 +63,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-022: mocked owner pickup validation now marks every direct pickup field and affected identity/accessory checklist checkbox invalid and associates it with the returned error. Focused test, full suite (864 passed / 2 skipped), lint, typecheck, and build pass. Owner browser verification remains unavailable without a known Development owner session; no pickup or evidence action was performed.
 
 - AUD-023: mocked owner condition-photo validation now marks the private file input invalid and associates it with its returned error. Focused test, full suite (865 passed / 2 skipped), lint, typecheck, and build pass. No condition photo was selected, uploaded, stored, or accessed.
+
+- AUD-024: mocked owner contract-template validation now marks the version, every required term, and approval confirmation invalid and associates each with its returned error. Focused test, full suite (866 passed / 2 skipped), lint, typecheck, and build pass. No template was published or activated.

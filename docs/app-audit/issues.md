@@ -259,3 +259,14 @@
 - Verification: the new active-rental interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (865 passed / 2 skipped). It uses a mocked local action response; no file was selected, uploaded, stored, or authorized.
 - Status: verified and committed.
 - Commit: `c1ccd1b`.
+
+## AUD-024 — Contract-template validation errors do not identify their controls
+
+- Severity: P1 accessibility and operational recovery. A contract publisher whose version, required terms, or approval confirmation is rejected receives server messages that do not identify any corresponding control, despite publishing changing the active agreement for new rentals.
+- Reproduction: render `ContractTemplateForm` with a mocked invalid `publishContractTemplate` response containing version, terms, and approval errors. The messages appear, but Template version, every required term textarea, and the approval checkbox lack invalid state and error references.
+- Cause: each server error was a standalone alert without a stable ID or an ARIA relationship back to the native input(s) it corrects.
+- Acceptance: version and approval errors identify their individual controls, while the terms error identifies every required term textarea; the existing required and immediate-publishing rules remain unchanged.
+- Fix: add stable alert IDs and conditional invalid/description relationships. The common terms message is deliberately shared across all contract-term textareas.
+- Verification: the interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (866 passed / 2 skipped). The test uses a mocked local action response; no template was published or made active.
+- Status: verified and committed.
+- Commit: `e5d6299`.
