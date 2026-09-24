@@ -345,3 +345,14 @@
 - Verification: the new interaction regression failed before the change because `Choose another schedule` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (873 passed / 2 skipped). The action response is a local mock; no checkout, booking, payment, account, or schedule was submitted or changed. Public-browser inspection remains limited to the camera page because inducing a live stale-schedule response would require a booking submission.
 - Status: verified and committed.
 - Commit: `77d50a0`.
+
+## AUD-032 — Hidden handoff-policy reference error is reported as a visible-field error
+
+- Severity: P2 operational recovery. A policy save can reject the hidden camera ID or expected version with `Reload this camera before saving.`, but the UI replaces that instruction with `Correct the highlighted fields and try again.` even though no visible field is invalid.
+- Reproduction: submit `HandoffPolicyForm` with a mocked `fieldErrors.camera` response. The only live alert is generic and the server's recovery instruction is absent.
+- Cause: the common invalid-input result path treats every validation failure as a visible form-control error, despite `camera` representing hidden authoritative identity/version data.
+- Acceptance: a hidden camera/reference rejection exposes its exact safe refresh instruction; ordinary visible-field validation keeps the existing generic prompt.
+- Fix: prefer `fieldErrors.camera` in the invalid-input result message before falling back to the generic visible-field wording.
+- Verification: the new focused recovery test failed before the change because `Reload this camera before saving.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (874 passed / 2 skipped). The test uses a mocked local action response; no policy, camera, owner session, or renter availability changed. Owner browser verification remains unavailable without a known Development owner session.
+- Status: verified and committed.
+- Commit: `7628ade`.
