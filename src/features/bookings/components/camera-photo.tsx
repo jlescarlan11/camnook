@@ -27,7 +27,7 @@ export function CameraPhoto({
         alt={photo.alt}
         className={spotlight || fit === "cover" ? "object-cover" : "object-contain"}
         fill
-        preload={priority}
+        loading={priority ? "eager" : "lazy"}
         sizes={spotlight ? "(max-width: 768px) calc(100vw - 32px), 1000px" : "(max-width: 768px) 100vw, 50vw"}
         src={photo.url}
       />
