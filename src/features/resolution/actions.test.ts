@@ -320,4 +320,24 @@ describe("resolution Server Actions", () => {
       p_refund_record_id: RECORD_ID,
     }));
   });
+
+  it("identifies invalid external refund fields before administrator authorization", async () => {
+    const refund = form();
+    refund.set("amount", "not-money");
+    refund.set("externalMovedAt", "not-a-time");
+    refund.set("recipientName", "x");
+    refund.set("reference", "x");
+
+    await expect(recordExternalRefund({ status: "idle" }, refund)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: {
+        amount: "Enter the actual amount moved.",
+        externalMovedAt: "Enter the actual movement time.",
+        recipientName: "Enter the recipient's name.",
+        reference: "Enter the recorded GCash reference.",
+      },
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
 });

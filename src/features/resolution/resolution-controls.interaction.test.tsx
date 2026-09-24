@@ -3,8 +3,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { decideCancellation, recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
+const { decideCancellation, recordExternalRefund, recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
   decideCancellation: vi.fn(),
+  recordExternalRefund: vi.fn(),
   recordReturn: vi.fn(),
   uploadConditionPhoto: vi.fn(),
 }));
@@ -12,7 +13,7 @@ vi.mock("./actions", () => ({
   addIssueNote: vi.fn(),
   decideCancellation,
   decideReturnReview: vi.fn(),
-  recordExternalRefund: vi.fn(),
+  recordExternalRefund,
   recordReturn,
   resolveIssue: vi.fn(),
   reverseExternalRefund: vi.fn(),
@@ -107,6 +108,11 @@ const resolutionWithCancellation: ResolutionDetail = {
   },
 };
 
+const resolutionWithRefund: ResolutionDetail = {
+  ...resolution,
+  booking_state: "COMPLETED",
+};
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -172,6 +178,43 @@ it("identifies the owner cancellation decision reason after server validation re
   const error = await screen.findByText("Enter a 2–1,000 character cancellation reason.");
   expect(reason.getAttribute("aria-invalid")).toBe("true");
   expect(reason.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+});
+
+it("identifies external-refund fields after server validation rejects them", async () => {
+  recordExternalRefund.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: {
+      amount: "Enter the actual amount moved.",
+      externalMovedAt: "Enter the actual movement time.",
+      recipientName: "Enter the recipient's name.",
+      reference: "Enter the recorded GCash reference.",
+    },
+    status: "error",
+  });
+  render(
+    <ResolutionControls
+      actualAt="2026-08-16T10:00"
+      operationIds={operationIds}
+      resolution={resolutionWithRefund}
+    />,
+  );
+
+  const controls = [
+    [screen.getByLabelText("Actual amount moved (PHP)"), "Enter the actual amount moved."],
+    [screen.getByLabelText("Outgoing GCash reference"), "Enter the recorded GCash reference."],
+    [screen.getByLabelText("Recipient name"), "Enter the recipient's name."],
+    [screen.getByLabelText("Actual movement time (Asia/Manila)"), "Enter the actual movement time."],
+  ] as const;
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Record completed external refund" }).closest("form")!,
+  );
+  await waitFor(() => expect(recordExternalRefund).toHaveBeenCalledTimes(1));
+
+  for (const [control, message] of controls) {
+    const error = await screen.findByText(message);
+    expect(control.getAttribute("aria-invalid")).toBe("true");
+    expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+  }
 });
 
 it("identifies a rejected return-evidence upload", async () => {

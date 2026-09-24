@@ -127,6 +127,7 @@ export function ResolutionControls({
   );
   const inspection = resolution.return_inspection;
   const cancellationErrors = cancellationState.fieldErrors;
+  const refundErrors = refundState.fieldErrors;
   const returnErrors = returnState.fieldErrors;
   const hasIssue = Boolean(
     inspection?.camera_has_damage ||
@@ -523,10 +524,10 @@ export function ResolutionControls({
           {resolution.deposit.remaining_refund_liability > 0 ? (
             <form action={refundAction} className="mt-5 grid gap-4 sm:grid-cols-2">
               <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.refund} />
-              <Field label="Actual amount moved (PHP)" name="amount" type="number" defaultValue={resolution.deposit.remaining_refund_liability.toFixed(2)} />
-              <Field label="Outgoing GCash reference" name="reference" />
-              <Field label="Recipient name" name="recipientName" />
-              <Field label="Actual movement time (Asia/Manila)" name="externalMovedAt" type="datetime-local" defaultValue={actualAt} />
+              <Field defaultValue={resolution.deposit.remaining_refund_liability.toFixed(2)} error={refundErrors?.amount} errorId="refund-amount-error" label="Actual amount moved (PHP)" name="amount" type="number" />
+              <Field error={refundErrors?.reference} errorId="refund-reference-error" label="Outgoing GCash reference" name="reference" />
+              <Field error={refundErrors?.recipientName} errorId="refund-recipient-name-error" label="Recipient name" name="recipientName" />
+              <Field defaultValue={actualAt} error={refundErrors?.externalMovedAt} errorId="refund-external-moved-at-error" label="Actual movement time (Asia/Manila)" name="externalMovedAt" type="datetime-local" />
               <button className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:col-span-2" disabled={refundPending} type="submit">Record completed external refund</button>
             </form>
           ) : null}
@@ -671,12 +672,15 @@ function HiddenIds({ bookingId, operationId }: { bookingId: string; operationId:
   );
 }
 
-function Field({ defaultValue, label, name, type = "text" }: { defaultValue?: number | string; label: string; name: string; type?: "datetime-local" | "number" | "text" }) {
+function Field({ defaultValue, error, errorId, label, name, type = "text" }: { defaultValue?: number | string; error?: string; errorId?: string; label: string; name: string; type?: "datetime-local" | "number" | "text" }) {
   return (
-    <label className="block text-sm font-medium">
-      {label}
-      <input className="mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3" defaultValue={defaultValue} min={type === "number" ? 0 : undefined} name={name} required step={type === "number" ? "0.01" : type === "datetime-local" ? "1" : undefined} type={type} />
-    </label>
+    <div>
+      <label className="block text-sm font-medium">
+        {label}
+        <input aria-describedby={error ? errorId : undefined} aria-invalid={error ? true : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3" defaultValue={defaultValue} min={type === "number" ? 0 : undefined} name={name} required step={type === "number" ? "0.01" : type === "datetime-local" ? "1" : undefined} type={type} />
+      </label>
+      {error && errorId ? <FieldError id={errorId} message={error} /> : null}
+    </div>
   );
 }
 

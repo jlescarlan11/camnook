@@ -462,14 +462,27 @@ export async function recordExternalRefund(
   const movedAt = parseManilaWallClock(
     stringFormValue(formData, "externalMovedAt"),
   );
+  if (!ids) {
+    return { error: "invalid", status: "error" };
+  }
   if (
-    !ids ||
     amount === null ||
     !reference.success ||
     !recipient.success ||
     !movedAt.ok
   ) {
-    return { error: "invalid", status: "error" };
+    const fieldErrors: Record<string, string> = {};
+    if (amount === null) fieldErrors.amount = "Enter the actual amount moved.";
+    if (!reference.success) {
+      fieldErrors.reference = "Enter the recorded GCash reference.";
+    }
+    if (!recipient.success) {
+      fieldErrors.recipientName = "Enter the recipient's name.";
+    }
+    if (!movedAt.ok) {
+      fieldErrors.externalMovedAt = "Enter the actual movement time.";
+    }
+    return { error: "invalid", fieldErrors, status: "error" };
   }
 
   const authorization = await requireResolutionAdmin();
