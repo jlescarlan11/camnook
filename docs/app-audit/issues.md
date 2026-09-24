@@ -145,3 +145,13 @@
 - Verification: the regression first failed because the main image had no loading value, then passed in the focused gallery suite (4 tests). Lint, typecheck, optimized production build, and the full suite passed (856 passed / 2 skipped). A post-fix browser render could not complete while the Development camera provider was temporarily unreachable; it showed the established camera-details retry state instead.
 - Status: verified and committed; live-page confirmation awaits provider recovery.
 - Commit: `318553a`.
+
+## AUD-013 — Recovered request-form errors do not identify their controls
+- Severity: P2 accessibility. When server validation returned a renter to the Details step, its error alert was announced but the affected control had neither an invalid state nor a programmatic reference to the explanation.
+- Reproduction: submit reviewed rental details with a server-returned `legalName` validation error. The Details heading regains focus and the alert appears, but the Name textbox had no `aria-invalid` or `aria-describedby` value.
+- Cause: `Field` rendered error text as a live alert only; the form controls and meetup fieldset did not expose the corresponding ARIA error relationship.
+- Acceptance: each server-returned request error identifies the affected control or choice group as invalid and associates it with the rendered error text; the existing focus return and preserved values remain intact.
+- Fix: add stable error IDs and conditionally connect Name, phone, meetup place, purpose, and shooting city to their errors with `aria-invalid` and `aria-describedby`.
+- Verification: the interaction regression failed before the fix (`expected null to be 'true'`), then the two focused request-form suites passed (5 tests). Lint, typecheck, optimized production build, and the full suite passed (856 passed / 2 skipped).
+- Status: verified and committed.
+- Commit: `db80193`.

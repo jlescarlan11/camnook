@@ -19,3 +19,5 @@
 - AUD-011 does not treat a transient claims failure as an authenticated decision. The proxy only defers its redirect so the existing route-level guards re-verify authorization and can surface the established retry state; missing and invalid claims still redirect to login.
 
 - AUD-012 uses the current `next/image` loading strategy: eagerly request only the initially visible full-size gallery photo, while retaining lazy thumbnails. The older `preload` prop did not produce the intended rendered behavior in this client gallery.
+
+- AUD-013 keeps the existing inline error alerts and focus recovery, then adds explicit control-to-error associations. Stable IDs are adequate because one request form mounts per checkout or listing flow.
