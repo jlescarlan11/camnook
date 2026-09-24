@@ -46,6 +46,7 @@ export type PaymentDecisionActionState = {
     actualAccount?: string;
     observedAmount?: string;
     observedReference?: string;
+    paymentId?: string;
     rejectionReasonCode?: string;
   };
   status: "error" | "idle" | "success";
@@ -259,7 +260,11 @@ export async function decidePayment(
   const fieldErrors: PaymentDecisionActionState["fieldErrors"] = {};
 
   if (!paymentIdSchema.safeParse(paymentId).success) {
-    return { action, error: "invalid", status: "error" };
+    return {
+      action,
+      fieldErrors: { paymentId: "Refresh this payment before reviewing it." },
+      status: "error",
+    };
   }
 
   if (decision === "verified") {

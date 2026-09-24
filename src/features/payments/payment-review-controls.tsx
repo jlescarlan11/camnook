@@ -28,8 +28,10 @@ function accessErrorMessage(error: PaymentAccessActionState["error"]) {
   }
 }
 
-function decisionErrorMessage(error: PaymentDecisionActionState["error"]) {
-  switch (error) {
+function decisionErrorMessage(state: PaymentDecisionActionState) {
+  if (state.fieldErrors?.paymentId) return state.fieldErrors.paymentId;
+
+  switch (state.error) {
     case "unauthorized":
       return "Administrator authorization is required.";
     case "stale":
@@ -313,7 +315,7 @@ export function PaymentReviewControls({
               : decisionState.bookingState === "TO_PAY"
                 ? "The submission was rejected. The renter may retry before the unchanged original deadline."
                 : "The submission was rejected after the deadline. The booking expired and its availability block was released."
-            : decisionErrorMessage(decisionState.error)}
+            : decisionErrorMessage(decisionState)}
         </div>
       ) : null}
     </section>

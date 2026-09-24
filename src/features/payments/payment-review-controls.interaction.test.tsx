@@ -74,3 +74,31 @@ it("identifies the rejection reason after server validation rejects it", async (
     error.getAttribute("id"),
   );
 });
+
+it("keeps an invalid hidden payment reference actionable", async () => {
+  decidePayment.mockResolvedValue({
+    action: "verify",
+    error: "invalid",
+    fieldErrors: { paymentId: "Refresh this payment before reviewing it." },
+    status: "error",
+  });
+  render(
+    <PaymentReviewControls
+      hasProof
+      paymentId="11111111-1111-4111-8111-111111111111"
+      proofId="22222222-2222-4222-8222-222222222222"
+    />,
+  );
+
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Verify and confirm booking" }).closest("form")!,
+  );
+  await waitFor(() => expect(decidePayment).toHaveBeenCalledTimes(1));
+
+  expect(await screen.findByText("Refresh this payment before reviewing it.")).toBeTruthy();
+  expect(
+    screen.queryByText(
+      "The observed transfer did not match the authoritative amount or submitted reference.",
+    ),
+  ).toBeNull();
+});

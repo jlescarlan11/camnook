@@ -82,6 +82,18 @@ describe("payment admin actions", () => {
     expect(requireUser).not.toHaveBeenCalled();
   });
 
+  it("keeps an invalid hidden payment reference recoverable before authorization", async () => {
+    const data = verifyForm();
+    data.set("paymentId", "not-a-payment-id");
+
+    await expect(decidePayment({ status: "idle" }, data)).resolves.toEqual({
+      action: "verify",
+      fieldErrors: { paymentId: "Refresh this payment before reviewing it." },
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
   it("maps the mutation's sole-admin authorization denial", async () => {
     authenticate({
       data: null,
