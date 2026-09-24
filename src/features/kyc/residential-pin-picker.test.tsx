@@ -37,22 +37,19 @@ function hidden(container: HTMLElement, name: string) {
 }
 
 describe("ResidentialPinPicker", () => {
-  it("keeps an unconfirmed draft client-only when the renter cancels", () => {
+  it("keeps an unconfirmed draft client-only when the renter discards changes", () => {
     const { container } = render(
       <ResidentialPinPicker addressChanged={false} initialPin={null} />,
     );
 
-    expect(screen.queryByRole("button", { name: "Add map pin" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add map pin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
 
     expect(hidden(container, "pinOperation")?.value).toBe("keep");
     expect(hidden(container, "savedPinPresent")?.value).toBe("0");
     expect(hidden(container, "pinLatitude")?.value).toBe("");
     expect(screen.getByText("No residential pin selected.")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Choose synthetic point" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Add map pin" }));
+    expect(screen.getByRole("button", { name: "Choose synthetic point" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Confirm this pin" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -63,7 +60,8 @@ describe("ResidentialPinPicker", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm this pin" }));
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Adjust map pin" }));
+    expect(screen.getByRole("button", { name: "Choose synthetic point" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Confirm this pin" })).toBeTruthy();
 
     expect(hidden(container, "pinOperation")?.value).toBe("set");
     expect(hidden(container, "pinLatitude")?.value).toBe("10.3157");
@@ -89,8 +87,7 @@ describe("ResidentialPinPicker", () => {
     expect(screen.queryByRole("button", { name: "Remove map pin" })).toBeNull();
     expect(hidden(container, "savedPinPresent")?.value).toBe("1");
     expect(hidden(container, "pinOperation")?.value).toBe("keep");
-    expect(screen.getByRole("button", { name: "Adjust map pin" }).getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByRole("button", { name: "Choose synthetic point" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Choose synthetic point" })).toBeTruthy();
   });
 });
 

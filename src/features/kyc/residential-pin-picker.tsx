@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
 
@@ -42,22 +42,9 @@ export function ResidentialPinPicker({
   const [selected, setSelected] = useState<DraftPin | null>(restored?.selected ?? initial);
   const [draft, setDraft] = useState<DraftPin | null>(restored?.draft ?? initial);
   const [operation, setOperation] = useState<"keep" | "remove" | "set">(restored?.operation ?? "keep");
-  const [open, setOpen] = useState(!initialPin);
   useEffect(() => {
     writeCheckoutDraft(draftKey, { selected, draft, operation });
   }, [draftKey, selected, draft, operation]);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const editorId = useId();
-  const wasOpen = useRef(open);
-  useEffect(() => {
-    if (wasOpen.current && !open) trigger.current?.focus();
-    wasOpen.current = open;
-  }, [open]);
-  function closeEditor() {
-    setOpen(false);
-
-  }
-
   const needsConfirmation = Boolean(addressChanged && initialPin && operation === "keep");
 
   return (
@@ -82,46 +69,30 @@ export function ResidentialPinPicker({
       ) : null}
       {error ? <p className="mt-2 text-sm text-red-700" role="alert">{error}</p> : null}
 
-      {!open ? <div className="mt-3 flex flex-wrap gap-3">
-        <button
-          className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium"
-          ref={trigger}
-          aria-expanded={open}
-          aria-controls={open ? editorId : undefined}
-          onClick={() => { setDraft(selected); setOpen(true); }}
-          type="button"
-        >
-          {selected && operation !== "remove" ? "Adjust map pin" : "Add map pin"}
-        </button>
-      </div> : null}
-
-      {open ? (
-        <div className="mt-4 space-y-3" id={editorId}>
-          <ResidentialMap
-            initialPin={draft}
-            mapKey={process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY ?? ""}
-            onDraftChange={setDraft}
-          />
-          <div className="flex flex-wrap gap-3">
-            <button
-              className="min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:opacity-60"
-              disabled={!draft}
-              onClick={() => {
-                if (!draft) return;
-                setSelected(draft);
-                setOperation("set");
-                closeEditor();
-              }}
-              type="button"
-            >Confirm this pin</button>
-            <button
-              className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium"
-              onClick={() => { setDraft(selected); closeEditor(); }}
-              type="button"
-            >Cancel</button>
-          </div>
+      <div className="mt-4 space-y-3">
+        <ResidentialMap
+          initialPin={draft}
+          mapKey={process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY ?? ""}
+          onDraftChange={setDraft}
+        />
+        <div className="flex flex-wrap gap-3">
+          <button
+            className="min-h-11 rounded-xl bg-stone-950 px-4 py-2 font-semibold text-white disabled:opacity-60"
+            disabled={!draft}
+            onClick={() => {
+              if (!draft) return;
+              setSelected(draft);
+              setOperation("set");
+            }}
+            type="button"
+          >Confirm this pin</button>
+          <button
+            className="min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium"
+            onClick={() => setDraft(selected)}
+            type="button"
+          >Discard changes</button>
         </div>
-      ) : null}
+      </div>
     </section>
   );
 }
