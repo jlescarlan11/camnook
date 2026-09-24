@@ -67,11 +67,13 @@
 - Acceptance: profile and bookings fit 320/390px without clipping or horizontal scrolling; desktop layout preserved.
 - Verification: actual changed page has clientWidth/scrollWidth320/320 and390/390; desktop1440 preserves821/411px tracks. Screenshots13–15 inspected; lint and build passed (`/tmp/camnook-audit-account-{lint,build}.log`).
 - Status: verified; independent review found no actionable issues.
-- Commit: none.
+- Commit: `6867376`.
 
 ## AUD-006 — Map attribution link lacks a non-color distinction
 - Severity: P2 accessibility. Account mobile Lighthouse reports Leaflet link blends into surrounding attribution text (2.55:1 color difference, no underline).
 - Acceptance: attribution link remains readable and visibly distinguishable without color alone.
-- Status: confirmed, queued.
+- Fix: scoped underline on attribution anchors within CamNook maps.
+- Verification: loaded real map link computed underline; screenshot16 inspected; mobile Lighthouse42 passed, zero failed including link-in-text-block. Build passed (`/tmp/camnook-audit-map-link-build.log`); independent review found no actionable issues.
+- Status: verified.
 - Evidence: report `chrome-devtools-mcp-u3jeIj/report.json` and rendered map attribution.
 - Commit: none.
