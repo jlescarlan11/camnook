@@ -176,3 +176,13 @@
 - Verification: the new checkout regression failed before the fix (`expected null to be 'true'`), then passed in the focused checkout flow. Lint, typecheck, optimized production build, and the full suite passed (857 passed / 2 skipped).
 - Status: verified and committed.
 - Commit: `31636f6`.
+
+## AUD-016 — Residential-pin errors are not associated with the map control
+- Severity: P2 accessibility. Server validation and pin-reconfirmation messages appeared near the residential map pin, but the labelled composite control region did not identify either message.
+- Reproduction: render the residential pin picker with a server validation error. Its `Residential map pin` region has no description relationship to the visible error.
+- Cause: the component rendered alert paragraphs without IDs and the labelled region had no `aria-describedby` value.
+- Acceptance: the pin region identifies the current server validation message or reconfirmation instruction; the map remains a composite control and does not receive an invalid-state attribute intended for form fields.
+- Fix: give both messages stable IDs and compose the active IDs onto the labelled pin region.
+- Verification: the focused regression failed before the fix because both IDs were absent, then the residential-pin and checkout suites passed (10 tests). Lint, typecheck, optimized production build, and the full suite passed (858 passed / 2 skipped).
+- Status: verified and committed.
+- Commit: `7d723b5`.

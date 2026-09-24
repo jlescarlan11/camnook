@@ -25,3 +25,5 @@
 - AUD-014 uses the existing KYC Field wrapper to compose an error reference with any description a child already supplies. This preserves the mobile input's country-code guidance while adding validation context.
 
 - AUD-015 keeps PSGC loading and selection status intact by composing its generated status ID with the optional validation-error ID on the semantic fieldset.
+
+- AUD-016 treats the residential pin as a labelled composite region, not a native invalid input. Its active error or reconfirmation instruction is described from that region without applying unsupported invalid state.
