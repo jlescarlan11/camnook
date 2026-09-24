@@ -49,6 +49,12 @@ export function GcashConfigurationForm({
             Recipient name
           </label>
           <input
+            aria-describedby={
+              state.fieldErrors?.recipientName
+                ? "gcash-recipient-name-error"
+                : undefined
+            }
+            aria-invalid={state.fieldErrors?.recipientName ? true : undefined}
             autoComplete="name"
             className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
             defaultValue={configuration.recipient_name ?? ""}
@@ -59,7 +65,11 @@ export function GcashConfigurationForm({
             required
           />
           {state.fieldErrors?.recipientName ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="gcash-recipient-name-error"
+              role="alert"
+            >
               {state.fieldErrors.recipientName}
             </p>
           ) : null}
@@ -69,6 +79,12 @@ export function GcashConfigurationForm({
             GCash number
           </label>
           <PhilippineMobileInput
+            aria-describedby={
+              state.fieldErrors?.recipientAccount
+                ? "gcash-recipient-account-error"
+                : undefined
+            }
+            aria-invalid={state.fieldErrors?.recipientAccount ? true : undefined}
             aria-label="GCash number"
             defaultValue={configuration.recipient_account ?? ""}
             id="recipientAccount"
@@ -76,7 +92,11 @@ export function GcashConfigurationForm({
             required
           />
           {state.fieldErrors?.recipientAccount ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="gcash-recipient-account-error"
+              role="alert"
+            >
               {state.fieldErrors.recipientAccount}
             </p>
           ) : null}
