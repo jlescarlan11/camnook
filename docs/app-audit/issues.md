@@ -444,3 +444,14 @@
 - Verification: action and interaction regressions failed before the change because the field error and accessible note name were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (887 passed / 2 skipped). All responses are local mocks; no note, issue decision, refund, booking state, owner session, or renter availability changed.
 - Status: verified and committed.
 - Commit: `6011fb3`.
+
+## AUD-041 — Issue-decision validation hides financial correction paths
+
+- Severity: P1 financial-operation recovery and accessibility. The final issue-decision action validates decision kind, manual deposit deduction, private evidence basis, and renter-visible explanation before it can complete the booking, but reports every malformed combination as generic `invalid`.
+- Reproduction: submit synthetically invalid values for all four visible issue-decision fields with valid hidden IDs. The action returns no field errors before authorization; a mocked matching UI state leaves every responsible control unmarked and undescribed.
+- Cause: one combined validation guard discards each parser outcome, and the decision form does not consume field errors.
+- Acceptance: malformed hidden identity keeps generic authoritative-facts recovery; otherwise each malformed operator-entered decision fact returns a bounded field error before authorization, and each labelled native control is marked and described by its matching message.
+- Fix: split hidden identity validation from the four visible checks, return typed field errors, and attach stable errors to the select, amount input, and both textareas.
+- Verification: action and interaction regressions failed before the change because no field messages or associations were present, then passed. Lint, typecheck, optimized production build, and the full suite passed (889 passed / 2 skipped). All responses are local mocks; no issue decision, deduction, refund, booking state, owner session, or renter availability changed. Live resolution was intentionally not exercised because it can perform a financial/state transition.
+- Status: verified and committed.
+- Commit: `5f2ea6d`.

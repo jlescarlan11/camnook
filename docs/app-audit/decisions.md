@@ -75,3 +75,5 @@
 - AUD-039 treats external refund details as distinct, operator-confirmed facts. Identity validation remains hidden and generic, while amount, reference, recipient, and time receive their own bounded correction semantics before any financial mutation.
 
 - AUD-040 separates private issue-note text from hidden operation identity. Only the labelled visible textarea receives correction semantics; identity validation remains generic and does not invite edits to an authoritative reference.
+
+- AUD-041 treats issue-decision values as distinct, operator-confirmed facts. Hidden identity remains generic, while the decision kind, deduction, private rationale, and renter-visible explanation receive their own bounded correction semantics before a financial or lifecycle mutation.

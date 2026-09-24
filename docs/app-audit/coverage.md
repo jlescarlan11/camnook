@@ -97,3 +97,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-039: mocked external-refund validation now marks and describes actual amount, GCash reference, recipient name, and movement time with their server-returned errors. Focused action/UI tests, full suite (885 passed / 2 skipped), lint, typecheck, and build pass. No refund movement, payment, booking state, owner session, or renter availability changed.
 
 - AUD-040: mocked private issue-note validation now labels, marks, and describes the note textarea with the server-returned error. Focused action/UI tests, full suite (887 passed / 2 skipped), lint, typecheck, and build pass. No note, issue decision, refund, booking state, owner session, or renter availability changed.
+
+- AUD-041: mocked issue-decision validation now marks and describes decision kind, manual deduction, private evidence basis, and renter-visible explanation with their server-returned errors. Focused action/UI tests, full suite (889 passed / 2 skipped), lint, typecheck, and build pass. No issue decision, deduction, refund, booking state, owner session, or renter availability changed.
