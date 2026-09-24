@@ -65,3 +65,5 @@
 - AUD-034 preserves the server's constrained invalid-reference result for a hidden booking-decision reference. It does not attach invalid state to the rejection-reason control because that control cannot correct authoritative identity data.
 
 - AUD-035 preserves server-provided refresh instructions for hidden booking and contract-version signing references. It keeps the existing consent-specific field state and result fallback, so a visible checkbox remains responsible only for its own validation.
+
+- AUD-036 treats a payment identity as hidden authoritative context rather than a reconciliation fact. Its refresh instruction is presented from the action state without marking amount, reference, or actual-account controls invalid.

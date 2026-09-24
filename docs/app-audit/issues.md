@@ -389,3 +389,14 @@
 - Verification: focused interaction coverage failed before the change because the booking-refresh instruction was absent, then passed for both reference types. Lint, typecheck, optimized production build, and the full suite passed (878 passed / 2 skipped). The action responses are local mocks; no signature, agreement, booking, payment, owner session, or renter availability changed. Live signing was intentionally not exercised because it is a real state-changing action.
 - Status: verified and committed.
 - Commit: `abc7d36`.
+
+## AUD-036 — Invalid hidden payment reference is reported as a transfer mismatch
+
+- Severity: P1 operational recovery. Payment review rejected a malformed hidden payment ID as a generic `invalid` result, which the UI displayed as `The observed transfer did not match the authoritative amount or submitted reference.` Editing actual-account confirmation, amount, or reference cannot correct an invalid payment identity.
+- Reproduction: submit `decidePayment` with a malformed `paymentId`, then render its invalid result in `PaymentReviewControls`. The action returns no field-specific recovery and the alert incorrectly describes a transfer mismatch.
+- Cause: early identity validation shares the broad `invalid` category used for visible reconciliation mismatches, and the presentation function receives only that category rather than the returned field context.
+- Acceptance: a malformed hidden payment ID is rejected before authorization with a safe refresh instruction, and that instruction takes precedence over a generic transfer-mismatch result.
+- Fix: add `paymentId` to the typed action field errors, return `Refresh this payment before reviewing it.` from early ID validation, and pass the whole decision state to the result-message helper so that field error can be rendered.
+- Verification: the new action and interaction regressions failed before the change because they received `invalid`/the transfer-mismatch copy, then passed. Lint, typecheck, optimized production build, and the full suite passed (880 passed / 2 skipped). All responses are local mocks; no payment, proof access, booking, agreement, owner session, or renter availability changed. Live review was intentionally not exercised because payment decisions are real state-changing actions.
+- Status: verified and committed.
+- Commit: `93cf57b`.
