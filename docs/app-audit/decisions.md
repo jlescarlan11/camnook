@@ -71,3 +71,5 @@
 - AUD-037 preserves the cancellation action's existing field-specific message instead of classifying it as operational uncertainty. The visible textarea is the sole responsible control; identity/stale recovery stays at the action-result level.
 
 - AUD-038 separates a visible owner decision reason from hidden cancellation identity validation. This preserves a correctable field error without exposing or attributing invalid state to request, booking, or operation references.
+
+- AUD-039 treats external refund details as distinct, operator-confirmed facts. Identity validation remains hidden and generic, while amount, reference, recipient, and time receive their own bounded correction semantics before any financial mutation.

@@ -93,3 +93,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-037: mocked cancellation-reason validation now marks and describes the native textarea with the existing server message, while its result alert calls for correction rather than an uncertain outcome. Focused test, full suite (881 passed / 2 skipped), lint, typecheck, and build pass. No cancellation request, booking state, payment, owner session, or renter availability changed.
 
 - AUD-038: mocked owner cancellation-decision validation now preserves the reason error before authorization and associates it with the native textarea. Focused action/UI tests, full suite (883 passed / 2 skipped), lint, typecheck, and build pass. No cancellation decision, booking state, payment, owner session, or renter availability changed.
+
+- AUD-039: mocked external-refund validation now marks and describes actual amount, GCash reference, recipient name, and movement time with their server-returned errors. Focused action/UI tests, full suite (885 passed / 2 skipped), lint, typecheck, and build pass. No refund movement, payment, booking state, owner session, or renter availability changed.

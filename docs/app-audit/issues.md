@@ -422,3 +422,14 @@
 - Verification: action and interaction regressions failed before the change because the field error and textarea association were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (883 passed / 2 skipped). All responses are local mocks; no cancellation decision, booking state, payment, owner session, or renter availability changed.
 - Status: verified and committed.
 - Commit: `2907225`.
+
+## AUD-039 — External-refund validation collapses four operator corrections into a generic error
+
+- Severity: P1 financial-operation recovery and accessibility. The external-refund action validates the actual amount, GCash reference, recipient name, and Manila movement time before authorization but returns only generic `invalid`; the owner form cannot identify any incorrect entry.
+- Reproduction: submit synthetically malformed values for every external-refund field. The action returns no field errors and a mocked matching UI result leaves each native input without invalid semantics or an associated correction.
+- Cause: the action's single combined invalid guard discards all parser outcomes; the reusable `Field` component could not expose an optional field error even if the action supplied one.
+- Acceptance: after hidden identity validation, each malformed operator-entered refund value gets a constrained field error before authorization, and each native input is marked and described by its matching error.
+- Fix: preserve each parsed validation outcome in `fieldErrors`, and extend the reusable field wrapper with optional error/error-ID support for the refund form.
+- Verification: action and interaction regressions failed before the change because generic `invalid` left all four controls unlocated, then passed. Lint, typecheck, optimized production build, and the full suite passed (885 passed / 2 skipped). All responses are local mocks; no refund movement, payment, booking state, owner session, or renter availability changed. Live refund recording was intentionally not exercised because it is a real financial operation.
+- Status: verified and committed.
+- Commit: `91cc76e`.
