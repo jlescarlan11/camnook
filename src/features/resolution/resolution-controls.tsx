@@ -126,6 +126,7 @@ export function ResolutionControls({
     initialPhotoState,
   );
   const inspection = resolution.return_inspection;
+  const returnErrors = returnState.fieldErrors;
   const hasIssue = Boolean(
     inspection?.camera_has_damage ||
       inspection?.has_missing_items ||
@@ -251,6 +252,10 @@ export function ResolutionControls({
             Actual return time (Asia/Manila)
           </label>
           <input
+            aria-describedby={
+              returnErrors?.actualAt ? "return-actual-at-error" : undefined
+            }
+            aria-invalid={returnErrors?.actualAt ? true : undefined}
             className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
             defaultValue={actualAt}
             id="return-actual-at"
@@ -259,16 +264,27 @@ export function ResolutionControls({
             step="1"
             type="datetime-local"
           />
+          <FieldError id="return-actual-at-error" message={returnErrors?.actualAt} />
           <label className="block text-sm font-medium" htmlFor="return-camera-serial">
             Serial observed on the returned camera
           </label>
           <input
+            aria-describedby={
+              returnErrors?.cameraSerial
+                ? "return-camera-serial-error"
+                : undefined
+            }
+            aria-invalid={returnErrors?.cameraSerial ? true : undefined}
             autoComplete="off"
             className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
             id="return-camera-serial"
             maxLength={160}
             name="cameraSerial"
             required
+          />
+          <FieldError
+            id="return-camera-serial-error"
+            message={returnErrors?.cameraSerial}
           />
           <fieldset className="space-y-3 rounded-xl bg-stone-50 p-4">
             <legend className="font-semibold">Contract accessories</legend>
@@ -282,6 +298,12 @@ export function ResolutionControls({
                     {accessory.name} × {accessory.quantity}
                   </label>
                   <select
+                    aria-describedby={
+                      returnErrors?.accessories
+                        ? "return-accessories-error"
+                        : undefined
+                    }
+                    aria-invalid={returnErrors?.accessories ? true : undefined}
                     className="min-h-11 rounded-xl border border-stone-300 bg-white px-3"
                     defaultValue=""
                     id={`return-accessory-${accessory.id}`}
@@ -296,6 +318,10 @@ export function ResolutionControls({
                 </div>
               ))
             )}
+            <FieldError
+              id="return-accessories-error"
+              message={returnErrors?.accessories}
+            />
           </fieldset>
           <label className="flex gap-3 text-sm leading-6">
             <input className="mt-1 size-5" name="cameraHasDamage" type="checkbox" value="yes" />
@@ -305,6 +331,12 @@ export function ResolutionControls({
             Return condition report
           </label>
           <textarea
+            aria-describedby={
+              returnErrors?.conditionSummary
+                ? "return-condition-summary-error"
+                : undefined
+            }
+            aria-invalid={returnErrors?.conditionSummary ? true : undefined}
             className="min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3"
             id="return-condition-summary"
             maxLength={2000}
@@ -312,15 +344,22 @@ export function ResolutionControls({
             name="conditionSummary"
             required
           />
+          <FieldError
+            id="return-condition-summary-error"
+            message={returnErrors?.conditionSummary}
+          />
           <label className="block text-sm font-medium" htmlFor="return-notes">
             Private notes (optional)
           </label>
           <textarea
+            aria-describedby={returnErrors?.notes ? "return-notes-error" : undefined}
+            aria-invalid={returnErrors?.notes ? true : undefined}
             className="min-h-20 w-full rounded-xl border border-stone-300 px-4 py-3"
             id="return-notes"
             maxLength={2000}
             name="notes"
           />
+          <FieldError id="return-notes-error" message={returnErrors?.notes} />
           <button
             className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
             disabled={returnPending}
@@ -618,6 +657,14 @@ function Field({ defaultValue, label, name, type = "text" }: { defaultValue?: nu
       <input className="mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3" defaultValue={defaultValue} min={type === "number" ? 0 : undefined} name={name} required step={type === "number" ? "0.01" : type === "datetime-local" ? "1" : undefined} type={type} />
     </label>
   );
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  return message ? (
+    <p className="text-sm text-red-800" id={id} role="alert">
+      {message}
+    </p>
+  ) : null;
 }
 
 function ActionResult({ state }: { state: ResolutionActionState }) {
