@@ -46,9 +46,13 @@ export function ResidentialPinPicker({
     writeCheckoutDraft(draftKey, { selected, draft, operation });
   }, [draftKey, selected, draft, operation]);
   const needsConfirmation = Boolean(addressChanged && initialPin && operation === "keep");
+  const descriptionIds = [
+    needsConfirmation ? "residential-pin-reconfirmation" : undefined,
+    error ? "residential-pin-error" : undefined,
+  ].filter(Boolean).join(" ") || undefined;
 
   return (
-    <section aria-labelledby="residential-pin-heading" className="rounded-xl border border-stone-200 p-4">
+    <section aria-describedby={descriptionIds} aria-labelledby="residential-pin-heading" className="rounded-xl border border-stone-200 p-4">
       <input name="pinOperation" type="hidden" value={operation} />
       <input name="savedPinPresent" type="hidden" value={initialPin ? "1" : "0"} />
       <input name="pinLatitude" type="hidden" value={operation === "set" && selected ? selected.latitude : ""} />
@@ -65,9 +69,9 @@ export function ResidentialPinPicker({
         </p>
       ) : <p className="mt-3 text-sm text-stone-500">No residential pin selected.</p>}
       {needsConfirmation ? (
-        <p className="mt-2 text-sm text-amber-800" role="alert">Your written address changed. Reconfirm the saved pin before saving.</p>
+        <p className="mt-2 text-sm text-amber-800" id="residential-pin-reconfirmation" role="alert">Your written address changed. Reconfirm the saved pin before saving.</p>
       ) : null}
-      {error ? <p className="mt-2 text-sm text-red-700" role="alert">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-red-700" id="residential-pin-error" role="alert">{error}</p> : null}
 
       <div className="mt-4 space-y-3">
         <ResidentialMap

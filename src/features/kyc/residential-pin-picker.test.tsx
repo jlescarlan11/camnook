@@ -37,6 +37,16 @@ function hidden(container: HTMLElement, name: string) {
 }
 
 describe("ResidentialPinPicker", () => {
+  it("describes a server validation error from the labelled pin control region", () => {
+    render(
+      <ResidentialPinPicker addressChanged={false} error="Confirm a current residential pin." initialPin={null} />,
+    );
+
+    const error = screen.getByText("Confirm a current residential pin.");
+    const pin = screen.getByRole("region", { name: /Residential map pin/ });
+    expect(pin.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+  });
+
   it("keeps an unconfirmed draft client-only when the renter discards changes", () => {
     const { container } = render(
       <ResidentialPinPicker addressChanged={false} initialPin={null} />,
