@@ -47,6 +47,7 @@ export type ConditionPhotoActionState = {
   result?: "saved";
   signedUrl?: string;
   status: "error" | "idle" | "success";
+  supersedesPhotoId?: string;
 };
 
 const idSchema = z.uuid();
@@ -453,6 +454,7 @@ export async function uploadConditionPhoto(
       error: "invalid",
       fieldErrors: { photo: "Choose a non-empty JPEG or PNG no larger than 5 MiB." },
       status: "error",
+      ...(supersedesPhotoId ? { supersedesPhotoId } : {}),
     };
   }
 
@@ -480,6 +482,7 @@ export async function uploadConditionPhoto(
         error: "invalid",
         fieldErrors: { photo: "The file contents must match its JPEG or PNG type." },
         status: "error",
+        ...(supersedesPhotoId ? { supersedesPhotoId } : {}),
       };
     }
     return saved === "saved"

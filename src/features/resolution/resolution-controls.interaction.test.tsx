@@ -81,7 +81,15 @@ const resolutionWithInspection: ResolutionDetail = {
     has_missing_items: false,
     late_return: false,
     notes: null,
-    photos: [],
+    photos: [
+      {
+        byte_size: 1024,
+        created_at: "2026-08-16T02:00:00Z",
+        media_type: "image/png",
+        photo_id: "94000000-0000-4000-8000-000000000022",
+        supersedes_photo_id: null,
+      },
+    ],
   },
 };
 
@@ -144,4 +152,24 @@ it("identifies a rejected return-evidence upload", async () => {
   const error = await screen.findByText("Choose a non-empty JPEG or PNG no larger than 5 MiB.");
   expect(photo.getAttribute("aria-invalid")).toBe("true");
   expect(photo.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+});
+
+it("identifies only the rejected return-evidence replacement upload", async () => {
+  uploadConditionPhoto.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: { photo: "Choose a non-empty JPEG or PNG no larger than 5 MiB." },
+    status: "error",
+    supersedesPhotoId: "94000000-0000-4000-8000-000000000022",
+  });
+  render(<ResolutionControls actualAt="2026-08-16T10:00" operationIds={operationIds} resolution={resolutionWithInspection} />);
+
+  const primaryPhoto = screen.getByLabelText("Return condition photo");
+  const replacementPhoto = screen.getByLabelText("Replacement return condition photo 1");
+  fireEvent.submit(replacementPhoto.closest("form")!);
+  await waitFor(() => expect(uploadConditionPhoto).toHaveBeenCalledTimes(1));
+
+  const error = await screen.findByText("Choose a non-empty JPEG or PNG no larger than 5 MiB.");
+  expect(replacementPhoto.getAttribute("aria-invalid")).toBe("true");
+  expect(replacementPhoto.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+  expect(primaryPhoto.getAttribute("aria-invalid")).toBeNull();
 });

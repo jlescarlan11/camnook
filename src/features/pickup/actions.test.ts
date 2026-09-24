@@ -95,6 +95,23 @@ describe("pickup Server Actions", () => {
     expect(requireUser).not.toHaveBeenCalled();
   });
 
+  it("preserves the rejected replacement photo's identity for field recovery", async () => {
+    const data = new FormData();
+    data.set("bookingId", BOOKING_ID);
+    data.set("conditionReportId", REPORT_ID);
+    data.set("intentId", INTENT_ID);
+    data.set("photo", new File([], "empty.png", { type: "image/png" }));
+    data.set("supersedesPhotoId", PHOTO_ID);
+
+    await expect(
+      uploadConditionPhoto({ status: "idle" }, data),
+    ).resolves.toMatchObject({
+      fieldErrors: { photo: expect.any(String) },
+      supersedesPhotoId: PHOTO_ID,
+    });
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
   it("submits only observed facts to the atomic pickup RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: {

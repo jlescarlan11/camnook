@@ -582,6 +582,14 @@ function ConditionEvidence({
   const currentPhotoCount = photos.filter(
     (photo) => !supersededPhotoIds.has(photo.photo_id),
   ).length;
+  const primaryPhotoError = photoState.supersedesPhotoId
+    ? undefined
+    : photoState.fieldErrors?.photo;
+  const photoErrorId = photoState.fieldErrors?.photo
+    ? photoState.supersedesPhotoId
+      ? `return-replacement-photo-${photoState.supersedesPhotoId}-error`
+      : "return-condition-photo-error"
+    : undefined;
 
   return (
     <div className="mt-5 rounded-xl bg-stone-50 p-4">
@@ -591,11 +599,11 @@ function ConditionEvidence({
         <input name="conditionReportId" type="hidden" value={conditionReportId} />
         <input name="intentId" type="hidden" value={intentId} />
         <label className="block text-sm font-medium" htmlFor="return-condition-photo">Return condition photo</label>
-        <input accept="image/jpeg,image/png" aria-describedby={photoState.fieldErrors?.photo ? "return-condition-photo-error" : undefined} aria-invalid={photoState.fieldErrors?.photo ? true : undefined} id="return-condition-photo" name="photo" required type="file" />
+        <input accept="image/jpeg,image/png" aria-describedby={primaryPhotoError ? photoErrorId : undefined} aria-invalid={primaryPhotoError ? true : undefined} id="return-condition-photo" name="photo" required type="file" />
         <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || currentPhotoCount >= 6} type="submit">Attach verified return photo</button>
       </form>
       {photoState.status !== "idle" ? (
-        <p className={`mt-2 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`} id={photoState.fieldErrors?.photo ? "return-condition-photo-error" : undefined} role={photoState.status === "success" ? "status" : "alert"}>
+        <p className={`mt-2 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`} id={photoErrorId} role={photoState.status === "success" ? "status" : "alert"}>
           {photoState.status === "success" ? "Private return evidence was finalized." : photoState.fieldErrors?.photo ?? "The evidence upload could not be safely finalized."}
         </p>
       ) : null}
@@ -621,7 +629,8 @@ function ConditionEvidence({
                       <input name="conditionReportId" type="hidden" value={conditionReportId} />
                       <input name="intentId" type="hidden" value={intentId} />
                       <input name="supersedesPhotoId" type="hidden" value={photo.photo_id} />
-                      <input accept="image/jpeg,image/png" name="photo" required type="file" />
+                      <label className="block text-sm font-medium" htmlFor={`return-replacement-photo-${photo.photo_id}`}>Replacement return condition photo {index + 1}</label>
+                      <input accept="image/jpeg,image/png" aria-describedby={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? photoErrorId : undefined} aria-invalid={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? true : undefined} id={`return-replacement-photo-${photo.photo_id}`} name="photo" required type="file" />
                       <button className="min-h-11 rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold" disabled={photoPending} type="submit">Upload versioned replacement</button>
                     </form>
                   </details>
