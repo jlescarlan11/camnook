@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -44,4 +44,31 @@ it("preserves weekdays, enabled state, and time edits when correcting a validati
   await screen.findByText("Availability saved for Synthetic area.");
   expect(intents).toEqual([null, null, "continue"]);
   expect(submissions[2]).toEqual({ weekdays: ["1", "2", "3"], enabled: null, times: "17:00" });
+});
+
+it("identifies weekday choices and retains handoff-time guidance after server validation", async () => {
+  save.mockResolvedValue({
+    error: "invalid_input",
+    fieldErrors: {
+      approvedTimes: "Enter valid times.",
+      weekdays: "Choose at least one handoff day.",
+    },
+    status: "error",
+  });
+  render(<HandoffPolicyForm policy={{ allowedWeekdays: [1], approvedTimes: ["09:00"], enabled: true, timezone: "Asia/Manila", version: 2, cityLabel: "Synthetic area", cameraId: "11111111-1111-4111-8111-111111111111", cameraName: "Test camera", cameraStatus: "published", canonicalAnchor: { active: true, current: true, areaCode: "0730600041", areaName: "Synthetic area", areaPath: [], precision: "barangay_centroid", release: "2026-q2" } }} />);
+
+  const times = screen.getByLabelText("Handoff times");
+  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => screen.getByRole("checkbox", { name: day }));
+  fireEvent.submit(screen.getByRole("button", { name: "Save availability" }).closest("form")!);
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+
+  const weekdayError = await screen.findByText("Choose at least one handoff day.");
+  expect(times.getAttribute("aria-describedby")).toContain("approved-times-help");
+  expect(times.getAttribute("aria-describedby")).toContain("approved-times-error");
+  for (const weekday of weekdays) {
+    expect(weekday.getAttribute("aria-invalid")).toBe("true");
+    expect(weekday.getAttribute("aria-describedby")).toContain(
+      weekdayError.getAttribute("id"),
+    );
+  }
 });

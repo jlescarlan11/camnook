@@ -88,6 +88,14 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
                 key={label}
               >
                 <input
+                  aria-describedby={
+                    saveState.fieldErrors?.weekdays
+                      ? "weekdays-error"
+                      : undefined
+                  }
+                  aria-invalid={
+                    saveState.fieldErrors?.weekdays ? true : undefined
+                  }
                   defaultChecked={policy.allowedWeekdays.includes(value)}
                   name="weekdays"
                   type="checkbox"
@@ -111,10 +119,12 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
           <textarea
             aria-describedby={
               saveState.fieldErrors?.approvedTimes
-                ? "approved-times-error"
+                ? "approved-times-help approved-times-error"
                 : "approved-times-help"
             }
-            aria-invalid={Boolean(saveState.fieldErrors?.approvedTimes)}
+            aria-invalid={
+              saveState.fieldErrors?.approvedTimes ? true : undefined
+            }
             className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3 font-mono"
             defaultValue={policy.approvedTimes.join("\n")}
             id="approvedTimes"
