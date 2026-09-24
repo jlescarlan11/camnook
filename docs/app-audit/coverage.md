@@ -23,3 +23,11 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-007: camera/profile navigation and refresh preserve rental plans; same schedule retry identity retained. Real Development committed-response-loss → alternate date draft → original date exact-payload retry recovered the same booking, no duplicate. Successful draft cleanup verified. New booking3f7bdcc3-357b-4b0b-a048-a194694411e2; account total3. Screenshot18–19.
 - Catalog details tooltip and schedule calendar dismiss with Escape and return focus to trigger; mobile390 fits. Old dates disabled; selected dates return through Change dates.
 - Profile stale-edit path remains unverified (ENV-003). Current persisted synthetic house Audit13 and pin remain intact.
+
+- Camera lightbox: mobile390 screenshot inspected; keyboard arrow wrap, Escape dismissal and focus restoration verified; open-dialog Lighthouse20 passed, zero failed. Native dialog confines page focus (browser chrome remains reachable).
+- Missing camera and synthetic nonexistent booking both show specific not-found screens; recovery links return to catalog/account successfully.
+- AUD-007 post-success fresh checkout confirmed blank purpose/city/meetup and a new operation identity.
+
+- Unrequestable Development camera shows explicit unavailable state and Browse cameras, with no schedule controls.
+- Real renter sign-out redirects to sign-in; other-tab owned booking navigation and browser Back to account require authentication. Supported synthetic session restored afterward.
+- AUD-008: one-time checkout read503 then UI Retry restores same schedule and address-edit step; fresh server estimate required. Mobile390 screenshot20 inspected.

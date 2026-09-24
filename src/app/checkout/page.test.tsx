@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -99,4 +100,18 @@ it("redirects legacy links with supported first values and no price or external 
 it("recovers empty legacy links and announces loading", async () => {
   await expect(LegacyPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:/checkout");
   expect(renderToStaticMarkup(<LoadingCheckout />)).toContain('role="status"');
+});
+
+it("retries failed checkout reads with the selected schedule and profile step", async () => {
+  vi.mocked(loadBookingRequestPageContext).mockResolvedValue({ status: "error" });
+  const markup = renderToStaticMarkup(await CheckoutPage({ searchParams: Promise.resolve({ ...selection, edit: "address", totalDue: "0", next: "https://evil.test" }) }));
+  const document = new DOMParser().parseFromString(markup, "text/html");
+  const form = document.querySelector('form[action="/checkout"]');
+  expect(form).not.toBeNull();
+  expect(form?.getAttribute("method")).toBe("get");
+  const fields = Object.fromEntries([...form!.querySelectorAll("input")].map(input => [input.name, input.value]));
+  expect(fields).toEqual({ ...selection, edit: "address" });
+  expect(form?.textContent).toContain("Retry checkout");
+  expect(markup).not.toContain("Submit rental request");
+  expect(markup).not.toContain("Estimated total");
 });

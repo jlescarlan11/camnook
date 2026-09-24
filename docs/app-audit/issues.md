@@ -86,11 +86,22 @@
 - Verification: initial recovery tests failed before implementation. Review-driven tests caught exact-payload uncertainty, subsequent preflight failures, and partial storage writes;10 draft tests now pass. Final full serial suite977 passed, two skipped; lint and build passed (including type checking). Independent re-review found no remaining actionable issues. Earlier concurrent run hit resource-contention timeouts; checks were not weakened.
 - Browser: purpose/city/meetup survive camera and profile navigation plus reload at390px. A real Development booking committed while an ignored local harness withheld its response. Changing to Sept29 and editing another draft, then returning to Sept28 restored the original operation and exact payload. Retry returned the original booking3f7bdcc3-357b-4b0b-a048-a194694411e2. Account count increased by exactly one (three total); completed main draft and operation cleared. Mobile checkout Lighthouse33 passed, zero failed. Screenshots18–19. Fault harness stopped afterward.
 - Logs: `/tmp/camnook-audit-draft-final-{suite,lint}.log`, `/tmp/camnook-audit-draft-build.log`, `/tmp/camnook-audit-booking-fault-dev.log`.
-- Status: verified scoped fix; ready to commit.
-- Commit: none.
+- Status: verified scoped fix.
+- Commit: `d98fe5d`.
 
 ## ENV-003 — Development profile conflict responses time out
 - Evidence: real two-tab stale-profile submissions returned generic retry after the app's30s deadline. Direct supported synthetic-auth probe read the current profile in667ms, but stale save timed out after45s. Current stored house remains Audit13, not the stale draft. Logs `/tmp/camnook-audit-profile-conflict{,-extended}.log`.
 - Expected: SQL migration raises40001 for revision mismatch and pin reconfirmation; application then explains conflict. Cause not established: do not claim the intended conflict journey passed.
 - Status: investigation pending Development database management access; no policy or schema bypass. Other reads and valid profile save passed.
 - Commit: none.
+
+
+## AUD-008 — Temporary checkout reads force schedule reselection
+- Severity: P2 recovery. A controlled one-time503 on the Development checkout-context read left only Browse cameras and instructed the renter to select dates again. Reloading the same URL immediately restored the valid checkout.
+- Cause: the fail-closed page lacked a retry action, despite retaining all schedule parameters.
+- Fix: native GET Retry checkout form preserves allowlisted schedule fields and valid profile-edit step; no price or external destination is forwarded. Updated guidance explains retry before choosing another schedule.
+- Acceptance: retry obtains fresh server context with the same schedule/step; failed state exposes no submit action or stale estimate.
+- Verification: regression failed for missing form, then15 targeted tests passed; lint and production build including TypeScript passed. Browser one-time503 → Retry checkout restored the same camera/dates/handoff/policy and address step at390px, without overflow. Screenshot20 inspected. Independent review found no actionable issues.
+- Logs: `/tmp/camnook-audit-checkout-retry-{red,green,lint,build}.log`; fault simulation in ignored local harness, no hosted configuration changes.
+- Status: verified; committing.
+- Commit: pending.

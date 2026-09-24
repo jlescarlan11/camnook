@@ -11,3 +11,5 @@
 - AUD-004 reuses established muted ink rather than inventing another palette color. Browser contrast checks serve as regression evidence for this CSS-only correction.
 
 - AUD-007 uses existing one-day, tab-only draft storage convention, isolated by account/camera. Separate schedule snapshots retain operation identity; uncertain submissions preserve their exact payload and meetup snapshot. Pre-booking outages cannot clear prior uncertainty. Storage failure keeps the current form usable; restoration uses a matching main-draft operation when a separate operation write failed. Successful server response returns a validated booking ID so client clears the draft before navigation. Review stays explicit for unsubmitted drafts.
+
+- AUD-008 uses a native GET form for reload recovery with a fixed local action and existing query allowlist. No new client bundle or backend error classification is needed; fresh authoritative context remains required.
