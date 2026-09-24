@@ -38,6 +38,7 @@ function actionErrorMessage(error: PaymentActionState["error"]) {
 }
 
 function ProofField({ error, id }: { error?: string; id: string }) {
+  const describedBy = [`${id}-help`, error ? `${id}-error` : undefined].filter(Boolean).join(" ");
   return (
     <div>
       <label className="block text-sm font-medium" htmlFor={id}>
@@ -45,7 +46,8 @@ function ProofField({ error, id }: { error?: string; id: string }) {
       </label>
       <input
         accept="image/jpeg,image/png"
-        aria-describedby={`${id}-help`}
+        aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
         className="mt-2 block min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-2 file:font-medium file:text-amber-950"
         id={id}
         name="proof"
@@ -57,7 +59,7 @@ function ProofField({ error, id }: { error?: string; id: string }) {
         replaces checking the actual approved GCash account.
       </p>
       {error ? (
-        <p className="mt-2 text-sm text-red-800" role="alert">
+        <p className="mt-2 text-sm text-red-800" id={`${id}-error`} role="alert">
           {error}
         </p>
       ) : null}
@@ -188,6 +190,8 @@ export function PaymentPanel({
             </label>
             <input
               autoComplete="off"
+              aria-describedby={submitState.fieldErrors?.reference ? "payment-reference-error" : undefined}
+              aria-invalid={submitState.fieldErrors?.reference ? true : undefined}
               className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
               id="payment-reference"
               maxLength={120}
@@ -196,7 +200,7 @@ export function PaymentPanel({
               required
             />
             {submitState.fieldErrors?.reference ? (
-              <p className="mt-2 text-sm text-red-800" role="alert">{submitState.fieldErrors.reference}</p>
+              <p className="mt-2 text-sm text-red-800" id="payment-reference-error" role="alert">{submitState.fieldErrors.reference}</p>
             ) : null}
           </div>
           <ProofField error={submitState.fieldErrors?.proof} id="payment-proof" />
