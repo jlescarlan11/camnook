@@ -36,8 +36,8 @@
 - Verification: one-time local Development HTTP 503 reproduced the pre-fix login round-trip/draft loss. Post-fix exact fault kept the route, purpose, city, place identity, and operation identity. After AUD-003 below, retry successfully created one synthetic Development booking; reload and page-error retry retained the persisted booking. Real account session used; outage itself is injected, not a real provider integration success claim.
 - Evidence: `07-checkout-auth-recovered.png`, `08-page-retry-390.png`; desktop retry and 390×844 keyboard Tab/Enter retry exercised. No Production fault injection.
 - Automated: four auth error tests failed before fix; seven helper tests and existing action tests passed after. Independent review: 25 focused tests passed, no actionable issues. Full serial suite: 967 passed, two skipped. Earlier concurrent runs hit unrelated 5-second test timeouts; assertions and timeouts were not weakened. Lint, typecheck, and build passed. Logs: `/tmp/camnook-audit-auth-serial-suite.log`, `/tmp/camnook-audit-auth-final-lint.log`, `/tmp/camnook-audit-auth-typecheck.log`, `/tmp/camnook-audit-auth-build.log`.
-- Status: verified scoped fix; ready to commit.
-- Commit: none.
+- Status: verified scoped fix, committed.
+- Commit: `6564117`.
 
 ## AUD-003 — Failed request resets hidden required meetup radio and blocks retry
 - Severity: P1 for request recovery.
@@ -46,5 +46,31 @@
 - Fix: a native reset listener prevents reset while state owns the draft; listener removed on unmount. React `onReset` alone failed the regression and was replaced.
 - Acceptance: selected meetup remains checked, native form validity holds, second submission reaches the action with the original operation/place identity. Stale meetup responses must still require a new explicit selection.
 - Verification: new regression failed before fix and passes after; existing stale-place tests pass. Real browser injected auth failure then successful retry saved the synthetic booking. Reviewed together with AUD-002 because this defect blocked its end-to-end recovery.
-- Status: verified scoped fix; ready to commit.
+- Status: verified scoped fix, committed.
+- Commit: `6564117`.
+
+## AUD-004 — Shared muted labels have insufficient contrast
+- Severity: P2. Booking dates, status progress, review target, and meetup guidance are harder to read.
+- Evidence: Lighthouse mobile snapshot of saved booking found 11 text contrast failures: #6f7d90 on white = 4.18:1, on #edf5ff = 3.81:1, below 4.5:1 for their 12–14px normal text.
+- Cause: shared --color-stone-500 token. Source inspection shows text uses across renter and owner journeys, on light surfaces.
+- Acceptance: affected normal text reaches at least 4.5:1 on actual surfaces; retain muted hierarchy and inspect booking, account, and profile at desktop/mobile.
+- Fix: use existing --ink-muted (#58677d) for the shared stone-500 token. Contrast is 5.75:1 on white and 5.23:1 on booking blue.
+- Verification: build passed; booking Lighthouse33 checks passed, zero failed on desktop/mobile; account desktop42 passed, mobile has a separate map-link styling finding but no text contrast failures. Privacy mobile27 passed. Screenshots09–12 inspected. No duplicate unit test for a CSS token.
+- Status: scoped contrast fix verified; independent review found no actionable issues.
+- Evidence: `/var/folders/mh/rxmkm5jd2s1d952s608rwwy40000gn/T/chrome-devtools-mcp-N5O1SQ/report.json`.
+- Commit: none.
+
+## AUD-005 — Account content overflows mobile viewport
+- Severity: P2. At 390px, booking text and Find a camera are clipped; account content reaches 417px.
+- Evidence: screenshot12 and browser bounds: clientWidth390, scrollWidth417; primary grid children401px wide.
+- Hypothesis: implicit auto grid track retains a profile form minimum width and stretches the booking list.
+- Acceptance: profile and bookings fit 320/390px without clipping or horizontal scrolling; desktop layout preserved.
+- Status: diagnosing.
+- Commit: none.
+
+## AUD-006 — Map attribution link lacks a non-color distinction
+- Severity: P2 accessibility. Account mobile Lighthouse reports Leaflet link blends into surrounding attribution text (2.55:1 color difference, no underline).
+- Acceptance: attribution link remains readable and visibly distinguishable without color alone.
+- Status: confirmed, queued.
+- Evidence: report `chrome-devtools-mcp-u3jeIj/report.json` and rendered map attribution.
 - Commit: none.

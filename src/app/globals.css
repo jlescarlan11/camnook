@@ -22,7 +22,7 @@
   --color-stone-100: #f2f4f7;
   --color-stone-200: #d8e0ea;
   --color-stone-300: #b9c6d6;
-  --color-stone-500: #6f7d90;
+  --color-stone-500: var(--ink-muted);
   --color-stone-600: #58677d;
   --color-stone-700: #34445a;
   --color-stone-800: #172d49;
