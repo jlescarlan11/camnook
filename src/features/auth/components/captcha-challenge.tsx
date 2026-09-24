@@ -66,18 +66,18 @@ export const CaptchaChallenge = forwardRef<
     [onTokenChange],
   );
 
+  const resetChallenge = useCallback(() => {
+    clearToken("waiting");
+    const widgetId = widgetIdRef.current;
+    if (widgetId && window.turnstile) {
+      window.turnstile.reset(widgetId);
+    }
+  }, [clearToken]);
+
   useImperativeHandle(
     ref,
-    () => ({
-      reset() {
-        const widgetId = widgetIdRef.current;
-        if (widgetId && window.turnstile) {
-          window.turnstile.reset(widgetId);
-        }
-        clearToken("waiting");
-      },
-    }),
-    [clearToken],
+    () => ({ reset: resetChallenge }),
+    [resetChallenge],
   );
 
   useEffect(() => {
@@ -113,13 +113,16 @@ export const CaptchaChallenge = forwardRef<
     };
   }, [action, clearToken, onTokenChange, scriptReady, siteKey]);
 
+  const canRetry = (status === "error" || status === "expired") && scriptReady && widgetIdRef.current !== null;
   const statusMessage =
     status === "ready"
       ? "Security check complete."
       : status === "expired"
         ? "The security check expired. Complete it again."
         : status === "error"
-          ? "The security check could not load. Refresh the page and try again."
+          ? canRetry
+            ? "The security check failed. Try it again."
+            : "The security check could not load. Refresh the page and try again."
           : status === "waiting"
             ? "Complete the security check to continue."
             : "Loading security check.";
@@ -140,10 +143,15 @@ export const CaptchaChallenge = forwardRef<
       <input name="captchaToken" type="hidden" value={token} />
       <p
         aria-live="polite"
-        className={status === "error" ? "text-sm text-red-700" : "sr-only"}
+        className={status === "error" || status === "expired" ? "text-sm text-red-700" : "sr-only"}
       >
         {statusMessage}
       </p>
+      {canRetry ? (
+        <button className="button-secondary" onClick={resetChallenge} type="button">
+          Retry security check
+        </button>
+      ) : null}
     </fieldset>
   );
 });
