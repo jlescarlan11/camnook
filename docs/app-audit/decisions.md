@@ -43,3 +43,5 @@
 - AUD-023 assigns the file-upload result an ID only for the field-specific photo error. Generic failure and success states remain plain result announcements and do not imply a problem with the file control.
 
 - AUD-024 applies the common terms validation message to every required contract textarea because the server only returns a whole-template terms error, not per-term granularity. It does not claim which individual term failed.
+
+- AUD-025 composes persistent format help with dynamic validation feedback rather than treating them as mutually exclusive. Weekday validation is intentionally shared across each native checkbox because the server evaluates the day set as a whole.

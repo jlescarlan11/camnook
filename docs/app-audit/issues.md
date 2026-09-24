@@ -270,3 +270,14 @@
 - Verification: the interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (866 passed / 2 skipped). The test uses a mocked local action response; no template was published or made active.
 - Status: verified and committed.
 - Commit: `e5d6299`.
+
+## AUD-025 — Handoff-policy recovery hides context and leaves weekday errors unassociated
+
+- Severity: P2 accessibility. When availability validation rejects both handoff times and weekday selection, the time control loses its standing format guidance and none of the weekday checkboxes identifies the shared error.
+- Reproduction: submit `HandoffPolicyForm` with a mocked invalid save response for `approvedTimes` and `weekdays`. The time textarea changes from describing its format help to describing only the error, while all seven weekday checkboxes have neither invalid state nor an error reference.
+- Cause: the textarea chose one description ID or the other, and weekday errors were rendered beneath the group without reaching its individual native controls.
+- Acceptance: Handoff times retains its `24-hour time` format guidance while adding a validation error; every weekday choice identifies the shared current error and becomes invalid only when that error is present.
+- Fix: compose the time help and error IDs, and add conditional invalid/description semantics to each weekday checkbox.
+- Verification: the recovery regression failed before the UI change because the time description was only `approved-times-error`, then passed. Lint, typecheck, optimized production build, and the full suite passed (867 passed / 2 skipped). The test uses a mocked local save action; no camera availability policy changed.
+- Status: verified and committed.
+- Commit: `9b63a93`.
