@@ -202,6 +202,20 @@ describe("resolution Server Actions", () => {
     });
   });
 
+  it("identifies an invalid cancellation decision reason before administrator authorization", async () => {
+    const data = form();
+    data.set("decision", "decline");
+    data.set("reason", "x");
+    data.set("requestId", REQUEST_ID);
+
+    await expect(decideCancellation({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: { reason: "Enter a 2–1,000 character cancellation reason." },
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
   it("denies an unauthenticated admin decision and maps the mutation admin guard", async () => {
     const data = form();
     data.set("decision", "decline");

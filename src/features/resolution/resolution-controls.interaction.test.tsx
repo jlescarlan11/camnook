@@ -3,13 +3,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
+const { decideCancellation, recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
+  decideCancellation: vi.fn(),
   recordReturn: vi.fn(),
   uploadConditionPhoto: vi.fn(),
 }));
 vi.mock("./actions", () => ({
   addIssueNote: vi.fn(),
-  decideCancellation: vi.fn(),
+  decideCancellation,
   decideReturnReview: vi.fn(),
   recordExternalRefund: vi.fn(),
   recordReturn,
@@ -93,6 +94,19 @@ const resolutionWithInspection: ResolutionDetail = {
   },
 };
 
+const resolutionWithCancellation: ResolutionDetail = {
+  ...resolution,
+  booking_state: "CONFIRMED",
+  cancellation: {
+    acceptance_enabled: true,
+    decision: null,
+    disposition: "pending",
+    reason: "Plans changed.",
+    request_id: "94000000-0000-4000-8000-000000000023",
+    requested_at: "2026-08-16T02:00:00Z",
+  },
+};
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -135,6 +149,29 @@ it("identifies return-recording controls after server validation rejects them", 
     expect(control.getAttribute("aria-invalid")).toBe("true");
     expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
   }
+});
+
+it("identifies the owner cancellation decision reason after server validation rejects it", async () => {
+  decideCancellation.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: { reason: "Enter a 2–1,000 character cancellation reason." },
+    status: "error",
+  });
+  render(
+    <ResolutionControls
+      actualAt="2026-08-16T10:00"
+      operationIds={operationIds}
+      resolution={resolutionWithCancellation}
+    />,
+  );
+
+  const reason = screen.getByRole("textbox", { name: "Decision reason" });
+  fireEvent.submit(screen.getByRole("button", { name: "Decline request" }).closest("form")!);
+  await waitFor(() => expect(decideCancellation).toHaveBeenCalledTimes(1));
+
+  const error = await screen.findByText("Enter a 2–1,000 character cancellation reason.");
+  expect(reason.getAttribute("aria-invalid")).toBe("true");
+  expect(reason.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
 });
 
 it("identifies a rejected return-evidence upload", async () => {

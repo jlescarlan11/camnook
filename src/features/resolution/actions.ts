@@ -174,10 +174,16 @@ export async function decideCancellation(
   if (
     !ids ||
     !idSchema.safeParse(requestId).success ||
-    !["accept", "decline"].includes(decision) ||
-    !reason.success
+    !["accept", "decline"].includes(decision)
   ) {
     return { error: "invalid", status: "error" };
+  }
+  if (!reason.success) {
+    return {
+      error: "invalid",
+      fieldErrors: { reason: "Enter a 2–1,000 character cancellation reason." },
+      status: "error",
+    };
   }
 
   const authorization = await requireResolutionAdmin();

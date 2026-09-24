@@ -126,6 +126,7 @@ export function ResolutionControls({
     initialPhotoState,
   );
   const inspection = resolution.return_inspection;
+  const cancellationErrors = cancellationState.fieldErrors;
   const returnErrors = returnState.fieldErrors;
   const hasIssue = Boolean(
     inspection?.camera_has_damage ||
@@ -198,12 +199,22 @@ export function ResolutionControls({
                 Decision reason
               </label>
               <textarea
+                aria-describedby={
+                  cancellationErrors?.reason
+                    ? "cancellation-decision-reason-error"
+                    : undefined
+                }
+                aria-invalid={cancellationErrors?.reason ? true : undefined}
                 className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
                 id="cancellation-decision-reason"
                 maxLength={1000}
                 minLength={2}
                 name="reason"
                 required
+              />
+              <FieldError
+                id="cancellation-decision-reason-error"
+                message={cancellationErrors?.reason}
               />
               {!resolution.cancellation.acceptance_enabled ? (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
