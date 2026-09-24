@@ -68,10 +68,14 @@ export function PsgcAreaSelector({
   initialPath = EMPTY_PATH,
   name = "psgcAreaCode",
   draftKey,
+  errorId,
+  invalid = false,
   onSelectionChange,
 }: {
   initialPath?: Selection[];
   draftKey?: string;
+  errorId?: string;
+  invalid?: boolean;
   name?: string;
   onSelectionChange?: (selection: Selection | null, release: string | null) => void;
 }) {
@@ -219,7 +223,7 @@ export function PsgcAreaSelector({
   const selectedCode = selectedArea?.code ?? "";
 
   return (
-    <fieldset aria-describedby={`${id}-status`} className="space-y-3">
+    <fieldset aria-describedby={[`${id}-status`, errorId].filter(Boolean).join(" ")} aria-invalid={invalid ? true : undefined} className="space-y-3">
       <legend className="text-sm font-medium">Philippine address</legend>
       <input name={name} type="hidden" value={selectedCode} />
       <input name="psgcRelease" type="hidden" value={status === "ready" ? release ?? "" : ""} />

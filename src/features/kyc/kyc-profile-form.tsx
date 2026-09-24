@@ -125,8 +125,8 @@ function ProfileForm({
         </Field>
       </div>
       <div hidden={checkout && step !== 2} className={checkout ? "checkout-address-fields" : "space-y-5"}>
-        <div aria-describedby={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined}>
-          <PsgcAreaSelector initialPath={kyc?.path} draftKey={draftKey ? `${draftKey}:area` : undefined} onSelectionChange={() => setAddressChanged(true)} />
+        <div>
+          <PsgcAreaSelector errorId={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined} initialPath={kyc?.path} draftKey={draftKey ? `${draftKey}:area` : undefined} invalid={Boolean(state.fieldErrors?.psgcAreaCode)} onSelectionChange={() => setAddressChanged(true)} />
           {state.fieldErrors?.psgcAreaCode ? <p className="mt-2 text-sm text-red-700" id="kyc-area-error" role="alert">{state.fieldErrors.psgcAreaCode}</p> : null}
         </div>
         <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
