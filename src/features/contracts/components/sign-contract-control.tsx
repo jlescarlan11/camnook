@@ -119,7 +119,11 @@ function actionMessage(state: SignContractActionState, pending: boolean) {
     return "You are not authorized to sign this agreement.";
   }
   if (state.error === "invalid_input") {
-    return "Review the required consent and refresh if this contract version changed.";
+    return (
+      state.fieldErrors?.bookingId ??
+      state.fieldErrors?.contractVersionId ??
+      "Review the required consent and refresh if this contract version changed."
+    );
   }
   if (state.status === "indeterminate") {
     return "The result could not be confirmed. Refresh before retrying; a safe retry will not duplicate the signature.";
