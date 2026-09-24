@@ -77,40 +77,178 @@ export function PickupControls({
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
           <input name="operationId" type="hidden" value={operationId} />
           <label className="block text-sm font-medium" htmlFor="pickup-actual-at">Actual pickup time (Asia/Manila)</label>
-          <input className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3" defaultValue={actualAt} id="pickup-actual-at" name="actualAt" required type="datetime-local" />
-          {completionState.fieldErrors?.actualAt ? <p className="text-sm text-red-800">{completionState.fieldErrors.actualAt}</p> : null}
+          <input
+            aria-describedby={
+              completionState.fieldErrors?.actualAt
+                ? "pickup-actual-at-error"
+                : undefined
+            }
+            aria-invalid={completionState.fieldErrors?.actualAt ? true : undefined}
+            className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
+            defaultValue={actualAt}
+            id="pickup-actual-at"
+            name="actualAt"
+            required
+            type="datetime-local"
+          />
+          {completionState.fieldErrors?.actualAt ? (
+            <p className="text-sm text-red-800" id="pickup-actual-at-error" role="alert">
+              {completionState.fieldErrors.actualAt}
+            </p>
+          ) : null}
 
           <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Named renter and original ID</legend>
             <p className="text-sm text-stone-600">Expected renter: {pickup.renter_legal_name}. Inspect one original current government ID in person. Do not photograph it or record its number, type, or expiry.</p>
-            <Checklist name="namedRenter" value="confirmed-named-renter">The named contract renter is physically present; no representative or substitute is collecting.</Checklist>
-            <Checklist name="originalIdChecked" value="confirmed-original-id">I inspected the original physical ID.</Checklist>
-            <Checklist name="originalIdMatched" value="confirmed-id-match">The original ID photo and name match the physically present named renter, and the ID confirms the renter is at least 18.</Checklist>
+            <Checklist
+              aria-describedby={
+                completionState.fieldErrors?.renter
+                  ? "pickup-renter-error"
+                  : undefined
+              }
+              invalid={Boolean(completionState.fieldErrors?.renter)}
+              name="namedRenter"
+              value="confirmed-named-renter"
+            >
+              The named contract renter is physically present; no representative or substitute is collecting.
+            </Checklist>
+            {completionState.fieldErrors?.renter ? (
+              <p className="text-sm text-red-800" id="pickup-renter-error" role="alert">
+                {completionState.fieldErrors.renter}
+              </p>
+            ) : null}
+            <Checklist
+              aria-describedby={
+                completionState.fieldErrors?.originalId
+                  ? "pickup-original-id-error"
+                  : undefined
+              }
+              invalid={Boolean(completionState.fieldErrors?.originalId)}
+              name="originalIdChecked"
+              value="confirmed-original-id"
+            >
+              I inspected the original physical ID.
+            </Checklist>
+            <Checklist
+              aria-describedby={
+                completionState.fieldErrors?.originalId
+                  ? "pickup-original-id-error"
+                  : undefined
+              }
+              invalid={Boolean(completionState.fieldErrors?.originalId)}
+              name="originalIdMatched"
+              value="confirmed-id-match"
+            >
+              The original ID photo and name match the physically present named renter, and the ID confirms the renter is at least 18.
+            </Checklist>
+            {completionState.fieldErrors?.originalId ? (
+              <p className="text-sm text-red-800" id="pickup-original-id-error" role="alert">
+                {completionState.fieldErrors.originalId}
+              </p>
+            ) : null}
           </fieldset>
 
           <div>
             <label className="block text-sm font-medium" htmlFor="pickup-camera-serial">Serial observed on camera</label>
             <p className="mt-1 text-sm text-stone-600">Enter the physical serial. The database compares it with the private camera and current contract snapshots.</p>
-            <input autoComplete="off" className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3" id="pickup-camera-serial" maxLength={160} name="cameraSerial" required />
-            {completionState.fieldErrors?.cameraSerial ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.cameraSerial}</p> : null}
+            <input
+              aria-describedby={
+                completionState.fieldErrors?.cameraSerial
+                  ? "pickup-camera-serial-error"
+                  : undefined
+              }
+              aria-invalid={
+                completionState.fieldErrors?.cameraSerial ? true : undefined
+              }
+              autoComplete="off"
+              className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="pickup-camera-serial"
+              maxLength={160}
+              name="cameraSerial"
+              required
+            />
+            {completionState.fieldErrors?.cameraSerial ? (
+              <p
+                className="mt-2 text-sm text-red-800"
+                id="pickup-camera-serial-error"
+                role="alert"
+              >
+                {completionState.fieldErrors.cameraSerial}
+              </p>
+            ) : null}
           </div>
 
           <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Included accessories</legend>
             {pickup.accessories.length === 0 ? <p className="text-sm text-stone-600">The signed contract has no included accessories.</p> : pickup.accessories.map((accessory) => (
-              <Checklist key={accessory.id} name="accessoryId" value={accessory.id}>{accessory.name} × {accessory.quantity} is present.</Checklist>
+              <Checklist
+                aria-describedby={
+                  completionState.fieldErrors?.accessories
+                    ? "pickup-accessories-error"
+                    : undefined
+                }
+                invalid={Boolean(completionState.fieldErrors?.accessories)}
+                key={accessory.id}
+                name="accessoryId"
+                value={accessory.id}
+              >
+                {accessory.name} × {accessory.quantity} is present.
+              </Checklist>
             ))}
+            {completionState.fieldErrors?.accessories ? (
+              <p className="text-sm text-red-800" id="pickup-accessories-error" role="alert">
+                {completionState.fieldErrors.accessories}
+              </p>
+            ) : null}
           </fieldset>
 
           <div>
             <label className="block text-sm font-medium" htmlFor="pickup-condition-summary">Starting condition report</label>
-            <textarea className="mt-2 min-h-32 w-full rounded-xl border border-stone-300 px-4 py-3" id="pickup-condition-summary" maxLength={2000} minLength={2} name="conditionSummary" required />
-            {completionState.fieldErrors?.conditionSummary ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.conditionSummary}</p> : null}
+            <textarea
+              aria-describedby={
+                completionState.fieldErrors?.conditionSummary
+                  ? "pickup-condition-summary-error"
+                  : undefined
+              }
+              aria-invalid={
+                completionState.fieldErrors?.conditionSummary ? true : undefined
+              }
+              className="mt-2 min-h-32 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="pickup-condition-summary"
+              maxLength={2000}
+              minLength={2}
+              name="conditionSummary"
+              required
+            />
+            {completionState.fieldErrors?.conditionSummary ? (
+              <p
+                className="mt-2 text-sm text-red-800"
+                id="pickup-condition-summary-error"
+                role="alert"
+              >
+                {completionState.fieldErrors.conditionSummary}
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="block text-sm font-medium" htmlFor="pickup-notes">Private handoff notes (optional)</label>
-            <textarea className="mt-2 min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3" id="pickup-notes" maxLength={2000} name="notes" />
-            {completionState.fieldErrors?.notes ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.notes}</p> : null}
+            <textarea
+              aria-describedby={
+                completionState.fieldErrors?.notes
+                  ? "pickup-notes-error"
+                  : undefined
+              }
+              aria-invalid={completionState.fieldErrors?.notes ? true : undefined}
+              className="mt-2 min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="pickup-notes"
+              maxLength={2000}
+              name="notes"
+            />
+            {completionState.fieldErrors?.notes ? (
+              <p className="mt-2 text-sm text-red-800" id="pickup-notes-error" role="alert">
+                {completionState.fieldErrors.notes}
+              </p>
+            ) : null}
           </div>
           <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending} type="submit">
             {completionPending ? "Rechecking and recording pickup…" : "Complete pickup and mark ACTIVE"}
@@ -173,8 +311,33 @@ export function PickupControls({
   );
 }
 
-function Checklist({ children, name, value }: { children: ReactNode; name: string; value: string }) {
-  return <label className="flex gap-3 text-sm leading-6"><input className="mt-1 size-5 shrink-0" name={name} required type="checkbox" value={value} /><span>{children}</span></label>;
+function Checklist({
+  "aria-describedby": describedBy,
+  children,
+  invalid = false,
+  name,
+  value,
+}: {
+  "aria-describedby"?: string;
+  children: ReactNode;
+  invalid?: boolean;
+  name: string;
+  value: string;
+}) {
+  return (
+    <label className="flex gap-3 text-sm leading-6">
+      <input
+        aria-describedby={describedBy}
+        aria-invalid={invalid ? true : undefined}
+        className="mt-1 size-5 shrink-0"
+        name={name}
+        required
+        type="checkbox"
+        value={value}
+      />
+      <span>{children}</span>
+    </label>
+  );
 }
 
 function Status({ label, value }: { label: string; value: string }) {
