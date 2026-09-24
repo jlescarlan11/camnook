@@ -53,3 +53,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-017: mocked renter payment validation now verifies invalid state and individual error associations for GCash reference and private proof, preserving proof guidance. Focused payment suites, the full suite (859 passed / 2 skipped), lint, typecheck, and build pass. No real payment or proof upload was attempted.
 
 - AUD-018: full source-only security scan completed with separate architecture and baseline review receipts. No source-supported reportable finding across authentication, authorization, KYC/payment/evidence privacy, upload integrity, webhooks, cron/management routes, provider boundaries, and rental lifecycle integrity. Deployed-state verification remains outside this static checkpoint.
+
+- AUD-019: public camera-date picker uses button semantics both before and after selecting a pickup date. The live AX tree retains the explicit selected-pickup label while no longer exposing a checkbox/toggle state. Focused calendar tests, full suite (860 passed / 2 skipped), lint, typecheck, and build pass.

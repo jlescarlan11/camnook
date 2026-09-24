@@ -204,3 +204,14 @@
 - Limitation: this is not a deployed-environment attestation. Supabase migration state, role assignments, storage configuration, secret rotation, CAPTCHA/OTP throttling, and third-party dashboard restrictions were deliberately not accessed.
 - Evidence: generated report at `/Users/johnlesterescarlan/.codex/state/plugins/codex-security/scans/CamNook/00cd0b34d8eeeac90e994288a88ca05a83039600_20260924T193552Z_xcfcn9i9/report.md`; canonical manifest, findings, coverage, and SARIF are stored beside it outside this repository.
 - Status: complete static checkpoint; no product change required.
+
+## AUD-019 — Rental date selections are announced as checkboxes
+
+- Severity: P2 accessibility. Opening the public camera date picker exposed each calendar date as a checkbox. After choosing a pickup date, assistive technology still received a checkbox state rather than the date-selection action it performs.
+- Reproduction: open the date picker on the public Canon EOS R50 detail page and inspect the browser accessibility tree. The selectable dates appeared as checkboxes because their buttons used `aria-pressed`; a selected date appeared as a checked checkbox.
+- Cause: `aria-pressed` was used to represent a visual/current range-selection state on buttons. It changes their exposed semantics to a toggle control, although activating a date chooses a pickup or return endpoint and the label already announces that result.
+- Acceptance: calendar dates remain ordinary buttons, including after a pickup or return is selected; the accessible label continues to identify `selected pickup` or `selected return`; visual selection and schedule behavior are unchanged.
+- Fix: remove the incompatible toggle state while retaining the existing date-specific accessible label and visual classes.
+- Verification: the new interaction regression failed before the fix (`expected 'true' to be null`) and then passed with the focused calendar suite (7 tests). Lint, typecheck, optimized production build, and the full suite passed (860 passed / 2 skipped). The hot-reloaded public browser picker reported buttons for all dates and `button Saturday, September 26, 2026, selected pickup` after selection. The picker was closed without continuing to checkout; no booking, payment, or account data changed.
+- Status: verified and committed.
+- Commit: `1f4f338`.

@@ -31,3 +31,5 @@
 - AUD-017 composes a dynamic proof-error ID with the existing static file/privacy guidance so the guidance remains available when validation fails.
 
 - AUD-018 treats the generated security report as the canonical scan artifact and records only the result and its runtime limitations in repository audit notes. It does not copy scan artifacts or secret-related configuration into the repository.
+
+- AUD-019 treats calendar dates as action buttons. The label supplies the chosen pickup/return state, which avoids changing the date selector into a checkbox-like toggle while preserving visible range styling.
