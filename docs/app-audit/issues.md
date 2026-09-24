@@ -133,4 +133,5 @@
 - Acceptance: retryable claims failures preserve the protected route so its server-side guard can re-verify or expose a retry state; actual absent/invalid claims continue to redirect; no data/action authorization is granted from unverified proxy claims.
 - Fix: classify retryable, 429, and 5xx `getClaims()` errors before the proxy redirect decision. On those errors, continue to the route's existing server-side authorization guard; invalid or missing claims retain the login redirect.
 - Verification: four regression cases failed before the fix with a 307 redirect and pass afterward in the focused proxy suite (11 tests). Lint, typecheck, and optimized production build passed. The full suite was not accepted as passing: unrelated host CPU saturation caused three untouched request-form interaction tests to exceed their unchanged 5-second timeout. The post-fix browser path remains unverified because a fresh authenticated session requires a successful provider CAPTCHA/OTP challenge.
-- Status: scoped checkpoint pending broader-suite rerun.
+- Status: scoped checkpoint committed; broader-suite rerun pending a usable host window.
+- Commit: `db52c81`.
