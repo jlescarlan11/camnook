@@ -353,4 +353,24 @@ describe("resolution Server Actions", () => {
     });
     expect(requireUser).not.toHaveBeenCalled();
   });
+
+  it("identifies invalid issue-decision facts before administrator authorization", async () => {
+    const data = form();
+    data.set("decisionKind", "unsupported");
+    data.set("deductionAmount", "-1");
+    data.set("internalReason", "x");
+    data.set("customerExplanation", "x");
+
+    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: {
+        customerExplanation: "Enter a 2–500 character renter-visible explanation.",
+        decisionKind: "Choose a documented issue decision.",
+        deductionAmount: "Enter a zero or positive manual deduction.",
+        internalReason: "Enter a 2–2,000 character internal reason.",
+      },
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
 });

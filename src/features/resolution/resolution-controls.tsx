@@ -127,6 +127,7 @@ export function ResolutionControls({
   );
   const inspection = resolution.return_inspection;
   const cancellationErrors = cancellationState.fieldErrors;
+  const issueErrors = issueState.fieldErrors;
   const noteErrors = noteState.fieldErrors;
   const refundErrors = refundState.fieldErrors;
   const returnErrors = returnState.fieldErrors;
@@ -492,20 +493,60 @@ export function ResolutionControls({
             <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.resolveIssue} />
             <h3 className="font-semibold">Explicit issue decision</h3>
             <label className="block text-sm font-medium" htmlFor="issue-kind">Decision kind</label>
-            <select className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4" id="issue-kind" name="decisionKind" required>
+            <select
+              aria-describedby={issueErrors?.decisionKind ? "issue-kind-error" : undefined}
+              aria-invalid={issueErrors?.decisionKind ? true : undefined}
+              className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4"
+              id="issue-kind"
+              name="decisionKind"
+              required
+            >
               <option value="damage">Damage</option>
               <option value="missing_item">Missing item</option>
               <option value="late_return">Late return</option>
               <option value="mixed">Mixed facts</option>
               <option value="other">Other documented issue</option>
             </select>
+            <FieldError id="issue-kind-error" message={issueErrors?.decisionKind} />
             <label className="block text-sm font-medium" htmlFor="issue-deduction">Manual deduction amount (PHP)</label>
-            <input className="min-h-12 w-full rounded-xl border border-stone-300 px-4" defaultValue="0.00" id="issue-deduction" min="0" name="deductionAmount" required step="0.01" type="number" />
+            <input
+              aria-describedby={issueErrors?.deductionAmount ? "issue-deduction-error" : undefined}
+              aria-invalid={issueErrors?.deductionAmount ? true : undefined}
+              className="min-h-12 w-full rounded-xl border border-stone-300 px-4"
+              defaultValue="0.00"
+              id="issue-deduction"
+              min="0"
+              name="deductionAmount"
+              required
+              step="0.01"
+              type="number"
+            />
+            <FieldError id="issue-deduction-error" message={issueErrors?.deductionAmount} />
             <p className="text-sm text-stone-600">Maximum verified held deposit: {phpFormatter.format(resolution.deposit.held_amount)}. No formula is applied.</p>
             <label className="block text-sm font-medium" htmlFor="issue-internal-reason">Private internal reason and evidence basis</label>
-            <textarea className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3" id="issue-internal-reason" maxLength={2000} minLength={2} name="internalReason" required />
+            <textarea
+              aria-describedby={issueErrors?.internalReason ? "issue-internal-reason-error" : undefined}
+              aria-invalid={issueErrors?.internalReason ? true : undefined}
+              className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="issue-internal-reason"
+              maxLength={2000}
+              minLength={2}
+              name="internalReason"
+              required
+            />
+            <FieldError id="issue-internal-reason-error" message={issueErrors?.internalReason} />
             <label className="block text-sm font-medium" htmlFor="issue-customer-explanation">Renter-visible explanation</label>
-            <textarea className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3" id="issue-customer-explanation" maxLength={500} minLength={2} name="customerExplanation" required />
+            <textarea
+              aria-describedby={issueErrors?.customerExplanation ? "issue-customer-explanation-error" : undefined}
+              aria-invalid={issueErrors?.customerExplanation ? true : undefined}
+              className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="issue-customer-explanation"
+              maxLength={500}
+              minLength={2}
+              name="customerExplanation"
+              required
+            />
+            <FieldError id="issue-customer-explanation-error" message={issueErrors?.customerExplanation} />
             <button className="min-h-12 w-full rounded-xl bg-red-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={issuePending} type="submit">Record decision and complete booking</button>
           </form>
           <ActionResult state={issueState} />

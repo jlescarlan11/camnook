@@ -3,11 +3,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { addIssueNote, decideCancellation, recordExternalRefund, recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
+const { addIssueNote, decideCancellation, recordExternalRefund, recordReturn, resolveIssue, uploadConditionPhoto } = vi.hoisted(() => ({
   addIssueNote: vi.fn(),
   decideCancellation: vi.fn(),
   recordExternalRefund: vi.fn(),
   recordReturn: vi.fn(),
+  resolveIssue: vi.fn(),
   uploadConditionPhoto: vi.fn(),
 }));
 vi.mock("./actions", () => ({
@@ -16,7 +17,7 @@ vi.mock("./actions", () => ({
   decideReturnReview: vi.fn(),
   recordExternalRefund,
   recordReturn,
-  resolveIssue: vi.fn(),
+  resolveIssue,
   reverseExternalRefund: vi.fn(),
 }));
 vi.mock("@/features/pickup/actions", () => ({
@@ -244,6 +245,41 @@ it("identifies a private issue note after server validation rejects it", async (
   const error = await screen.findByText("Enter a 2–2,000 character issue note.");
   expect(note.getAttribute("aria-invalid")).toBe("true");
   expect(note.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+});
+
+it("identifies issue-decision fields after server validation rejects them", async () => {
+  resolveIssue.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: {
+      customerExplanation: "Enter a 2–500 character renter-visible explanation.",
+      decisionKind: "Choose a documented issue decision.",
+      deductionAmount: "Enter a zero or positive manual deduction.",
+      internalReason: "Enter a 2–2,000 character internal reason.",
+    },
+    status: "error",
+  });
+  render(
+    <ResolutionControls
+      actualAt="2026-08-16T10:00"
+      operationIds={operationIds}
+      resolution={resolutionWithIssueReview}
+    />,
+  );
+
+  const controls = [
+    [screen.getByRole("combobox", { name: "Decision kind" }), "Choose a documented issue decision."],
+    [screen.getByRole("spinbutton", { name: "Manual deduction amount (PHP)" }), "Enter a zero or positive manual deduction."],
+    [screen.getByRole("textbox", { name: "Private internal reason and evidence basis" }), "Enter a 2–2,000 character internal reason."],
+    [screen.getByRole("textbox", { name: "Renter-visible explanation" }), "Enter a 2–500 character renter-visible explanation."],
+  ] as const;
+  fireEvent.submit(screen.getByRole("button", { name: "Record decision and complete booking" }).closest("form")!);
+  await waitFor(() => expect(resolveIssue).toHaveBeenCalledTimes(1));
+
+  for (const [control, message] of controls) {
+    const error = await screen.findByText(message);
+    expect(control.getAttribute("aria-invalid")).toBe("true");
+    expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+  }
 });
 
 it("identifies a rejected return-evidence upload", async () => {

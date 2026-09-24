@@ -414,14 +414,28 @@ export async function resolveIssue(
   const customerExplanation = customerTextSchema.safeParse(
     stringFormValue(formData, "customerExplanation"),
   );
+  if (!ids) return { error: "invalid", status: "error" };
   if (
-    !ids ||
     !kind.success ||
     deductionAmount === null ||
     !internalReason.success ||
     !customerExplanation.success
   ) {
-    return { error: "invalid", status: "error" };
+    const fieldErrors: Record<string, string> = {};
+    if (!kind.success) {
+      fieldErrors.decisionKind = "Choose a documented issue decision.";
+    }
+    if (deductionAmount === null) {
+      fieldErrors.deductionAmount = "Enter a zero or positive manual deduction.";
+    }
+    if (!internalReason.success) {
+      fieldErrors.internalReason = "Enter a 2–2,000 character internal reason.";
+    }
+    if (!customerExplanation.success) {
+      fieldErrors.customerExplanation =
+        "Enter a 2–500 character renter-visible explanation.";
+    }
+    return { error: "invalid", fieldErrors, status: "error" };
   }
 
   const authorization = await requireResolutionAdmin();
