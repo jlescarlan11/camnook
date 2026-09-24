@@ -155,3 +155,14 @@
 - Verification: the interaction regression failed before the fix (`expected null to be 'true'`), then the two focused request-form suites passed (5 tests). Lint, typecheck, optimized production build, and the full suite passed (856 passed / 2 skipped).
 - Status: verified and committed.
 - Commit: `db80193`.
+
+## AUD-014 — Recovered KYC field errors do not identify their controls
+- Severity: P2 accessibility. Checkout KYC returned a renter to the appropriate step after server validation, but standard personal and address controls did not expose an invalid state or reference their inline messages.
+- Reproduction: complete the checkout KYC steps and return a server `phone` validation error. The Mobile number field and visible error render on Details, but the input had no `aria-invalid` or reference to the message.
+- Cause: the KYC `Field` wrapper rendered a live alert without passing an invalid state or error relationship to its child control.
+- Acceptance: server-returned standard KYC field errors identify the relevant control as invalid and associate it with the error text, while preserving the phone component's existing country-code description and the checkout step recovery.
+- Fix: give each standard KYC field a stable error ID and clone its child with conditional `aria-invalid` and a composed `aria-describedby` value.
+- Verification: the checkout regression failed before the fix (`expected null to be 'true'`), then the checkout and KYC markup suites passed (5 tests). Lint, typecheck, optimized production build, and the full suite passed (856 passed / 2 skipped).
+- Scope: PSGC area selection and residential-pin controls remain separate specialized-control audit surfaces; this checkpoint does not claim their errors are associated.
+- Status: verified and committed.
+- Commit: `00a30a8`.
