@@ -373,4 +373,26 @@ describe("resolution Server Actions", () => {
     });
     expect(requireUser).not.toHaveBeenCalled();
   });
+
+  it("identifies invalid reversal facts before administrator authorization", async () => {
+    const data = form();
+    data.set("counterpartyName", "x");
+    data.set("externalMovedAt", "not-a-time");
+    data.set("reason", "x");
+    data.set("reference", "x");
+    data.set("refundRecordId", RECORD_ID);
+
+    await expect(reverseExternalRefund({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: {
+        counterpartyName: "Enter the counterparty's name.",
+        externalMovedAt: "Enter the actual correction time.",
+        reason: "Enter a 2–1,000 character correction reason.",
+        reference: "Enter the recorded GCash reference.",
+      },
+      refundRecordId: RECORD_ID,
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
 });

@@ -1,14 +1,15 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { addIssueNote, decideCancellation, recordExternalRefund, recordReturn, resolveIssue, uploadConditionPhoto } = vi.hoisted(() => ({
+const { addIssueNote, decideCancellation, recordExternalRefund, recordReturn, resolveIssue, reverseExternalRefund, uploadConditionPhoto } = vi.hoisted(() => ({
   addIssueNote: vi.fn(),
   decideCancellation: vi.fn(),
   recordExternalRefund: vi.fn(),
   recordReturn: vi.fn(),
   resolveIssue: vi.fn(),
+  reverseExternalRefund: vi.fn(),
   uploadConditionPhoto: vi.fn(),
 }));
 vi.mock("./actions", () => ({
@@ -18,7 +19,7 @@ vi.mock("./actions", () => ({
   recordExternalRefund,
   recordReturn,
   resolveIssue,
-  reverseExternalRefund: vi.fn(),
+  reverseExternalRefund,
 }));
 vi.mock("@/features/pickup/actions", () => ({
   requestAdminConditionPhotoAccess: vi.fn(),
@@ -113,6 +114,39 @@ const resolutionWithCancellation: ResolutionDetail = {
 const resolutionWithRefund: ResolutionDetail = {
   ...resolution,
   booking_state: "COMPLETED",
+};
+
+const reversibleRefundId = "94000000-0000-4000-8000-000000000024";
+const otherReversibleRefundId = "94000000-0000-4000-8000-000000000026";
+const resolutionWithReversibleRefund: ResolutionDetail = {
+  ...resolutionWithRefund,
+  refunds: [
+    {
+      amount: 4000,
+      entry_kind: "refund",
+      external_moved_at: "2026-08-16T02:00:00Z",
+      reference_last4: "1234",
+      refund_record_id: reversibleRefundId,
+      reversal_of_refund_record_id: null,
+      reversal_reason: null,
+    },
+    {
+      amount: 1200,
+      entry_kind: "refund",
+      external_moved_at: "2026-08-16T03:00:00Z",
+      reference_last4: "5678",
+      refund_record_id: otherReversibleRefundId,
+      reversal_of_refund_record_id: null,
+      reversal_reason: null,
+    },
+  ],
+};
+const operationIdsWithReversal: ResolutionOperationIds = {
+  ...operationIds,
+  reversals: {
+    [reversibleRefundId]: "94000000-0000-4000-8000-000000000025",
+    [otherReversibleRefundId]: "94000000-0000-4000-8000-000000000027",
+  },
 };
 
 const resolutionWithIssueReview: ResolutionDetail = {
@@ -280,6 +314,52 @@ it("identifies issue-decision fields after server validation rejects them", asyn
     expect(control.getAttribute("aria-invalid")).toBe("true");
     expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
   }
+});
+
+it("identifies reversal fields only for the rejected refund record", async () => {
+  reverseExternalRefund.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: {
+      counterpartyName: "Enter the counterparty's name.",
+      externalMovedAt: "Enter the actual correction time.",
+      reason: "Enter a 2–1,000 character correction reason.",
+      reference: "Enter the recorded GCash reference.",
+    },
+    refundRecordId: reversibleRefundId,
+    status: "error",
+  });
+  render(
+    <ResolutionControls
+      actualAt="2026-08-16T10:00"
+      operationIds={operationIdsWithReversal}
+      resolution={resolutionWithReversibleRefund}
+    />,
+  );
+
+  const [targetButton, untouchedButton] = screen.getAllByRole("button", {
+    name: "Append offsetting reversal",
+  });
+  const targetForm = targetButton.closest("form")!;
+  const untouchedForm = untouchedButton.closest("form")!;
+  const controls = [
+    [within(targetForm).getByLabelText("Incoming reversal reference"), "Enter the recorded GCash reference."],
+    [within(targetForm).getByLabelText("Counterparty name"), "Enter the counterparty's name."],
+    [within(targetForm).getByLabelText("Actual reversal time (Asia/Manila)"), "Enter the actual correction time."],
+    [within(targetForm).getByLabelText("Correction reason"), "Enter a 2–1,000 character correction reason."],
+  ] as const;
+  fireEvent.submit(targetForm);
+  await waitFor(() => expect(reverseExternalRefund).toHaveBeenCalledTimes(1));
+
+  for (const [control, message] of controls) {
+    const error = await screen.findByText(message);
+    expect(control.getAttribute("aria-invalid")).toBe("true");
+    expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+  }
+  expect(
+    within(untouchedForm)
+      .getByLabelText("Incoming reversal reference")
+      .getAttribute("aria-invalid"),
+  ).toBeNull();
 });
 
 it("identifies a rejected return-evidence upload", async () => {

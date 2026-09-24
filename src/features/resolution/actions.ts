@@ -41,6 +41,7 @@ export type ResolutionActionState = {
     | "resolved"
     | "reversed"
     | "returned_clear";
+  refundRecordId?: string;
   status: "error" | "idle" | "success";
 };
 
@@ -552,15 +553,29 @@ export async function reverseExternalRefund(
   const movedAt = parseManilaWallClock(
     stringFormValue(formData, "externalMovedAt"),
   );
-  if (
-    !ids ||
-    !idSchema.safeParse(refundRecordId).success ||
-    !reference.success ||
-    !counterparty.success ||
-    !reason.success ||
-    !movedAt.ok
-  ) {
+  if (!ids || !idSchema.safeParse(refundRecordId).success) {
     return { error: "invalid", status: "error" };
+  }
+  if (!reference.success || !counterparty.success || !reason.success || !movedAt.ok) {
+    const fieldErrors: Record<string, string> = {};
+    if (!reference.success) {
+      fieldErrors.reference = "Enter the recorded GCash reference.";
+    }
+    if (!counterparty.success) {
+      fieldErrors.counterpartyName = "Enter the counterparty's name.";
+    }
+    if (!reason.success) {
+      fieldErrors.reason = "Enter a 2–1,000 character correction reason.";
+    }
+    if (!movedAt.ok) {
+      fieldErrors.externalMovedAt = "Enter the actual correction time.";
+    }
+    return {
+      error: "invalid",
+      fieldErrors,
+      refundRecordId,
+      status: "error",
+    };
   }
 
   const authorization = await requireResolutionAdmin();

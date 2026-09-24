@@ -589,26 +589,33 @@ export function ResolutionControls({
           <ActionResult state={refundState} />
           {resolution.refunds.length > 0 ? (
             <ol className="mt-6 space-y-4 border-t border-stone-200 pt-5">
-              {resolution.refunds.map((entry) => (
-                <li className="rounded-xl bg-stone-50 p-4" key={entry.refund_record_id}>
-                  <p className="font-medium">{entry.entry_kind === "refund" ? "Outgoing refund" : "Offsetting reversal"} · {phpFormatter.format(entry.amount)} · ref …{entry.reference_last4}</p>
-                  <p className="mt-1 text-sm text-stone-600">Moved {formatManilaDateTime(entry.external_moved_at)}{entry.reversal_reason ? ` · ${entry.reversal_reason}` : ""}</p>
-                  {entry.entry_kind === "refund" && !reversedRefundIds.has(entry.refund_record_id) ? (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-sm font-semibold text-red-900">Record correction as reversal</summary>
-                      <form action={reversalAction} className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.reversals[entry.refund_record_id]} />
-                        <input name="refundRecordId" type="hidden" value={entry.refund_record_id} />
-                        <Field label="Incoming reversal reference" name="reference" />
-                        <Field label="Counterparty name" name="counterpartyName" />
-                        <Field label="Actual reversal time (Asia/Manila)" name="externalMovedAt" type="datetime-local" defaultValue={actualAt} />
-                        <Field label="Correction reason" name="reason" />
-                        <button className="min-h-11 rounded-xl border border-red-300 bg-white px-4 py-2 font-semibold text-red-900 disabled:opacity-60 sm:col-span-2" disabled={reversalPending} type="submit">Append offsetting reversal</button>
-                      </form>
-                    </details>
-                  ) : null}
-                </li>
-              ))}
+              {resolution.refunds.map((entry) => {
+                const reversalErrors =
+                  reversalState.refundRecordId === entry.refund_record_id
+                    ? reversalState.fieldErrors
+                    : undefined;
+
+                return (
+                  <li className="rounded-xl bg-stone-50 p-4" key={entry.refund_record_id}>
+                    <p className="font-medium">{entry.entry_kind === "refund" ? "Outgoing refund" : "Offsetting reversal"} · {phpFormatter.format(entry.amount)} · ref …{entry.reference_last4}</p>
+                    <p className="mt-1 text-sm text-stone-600">Moved {formatManilaDateTime(entry.external_moved_at)}{entry.reversal_reason ? ` · ${entry.reversal_reason}` : ""}</p>
+                    {entry.entry_kind === "refund" && !reversedRefundIds.has(entry.refund_record_id) ? (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-sm font-semibold text-red-900">Record correction as reversal</summary>
+                        <form action={reversalAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.reversals[entry.refund_record_id]} />
+                          <input name="refundRecordId" type="hidden" value={entry.refund_record_id} />
+                          <Field error={reversalErrors?.reference} errorId={`reversal-reference-${entry.refund_record_id}-error`} label="Incoming reversal reference" name="reference" />
+                          <Field error={reversalErrors?.counterpartyName} errorId={`reversal-counterparty-${entry.refund_record_id}-error`} label="Counterparty name" name="counterpartyName" />
+                          <Field defaultValue={actualAt} error={reversalErrors?.externalMovedAt} errorId={`reversal-moved-at-${entry.refund_record_id}-error`} label="Actual reversal time (Asia/Manila)" name="externalMovedAt" type="datetime-local" />
+                          <Field error={reversalErrors?.reason} errorId={`reversal-reason-${entry.refund_record_id}-error`} label="Correction reason" name="reason" />
+                          <button className="min-h-11 rounded-xl border border-red-300 bg-white px-4 py-2 font-semibold text-red-900 disabled:opacity-60 sm:col-span-2" disabled={reversalPending} type="submit">Append offsetting reversal</button>
+                        </form>
+                      </details>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
           ) : null}
           <ActionResult state={reversalState} />
