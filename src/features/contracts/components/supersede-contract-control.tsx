@@ -165,7 +165,9 @@ function actionMessage(state: SupersedeContractActionState, pending: boolean) {
   if (state.error === "no_change") return "No material value changed, so no replacement was created.";
   if (state.error === "stale") return "This booking, deadline, or agreement changed. Refresh before trying again.";
   if (state.error === "unauthorized") return "Administrator authorization is required.";
-  if (state.error === "invalid_input") return "Correct the highlighted replacement details.";
+  if (state.error === "invalid_input") {
+    return state.fieldErrors?.bookingId ?? "Correct the highlighted replacement details.";
+  }
   if (state.status === "indeterminate") return "The result could not be confirmed. Refresh before retrying.";
   return null;
 }
