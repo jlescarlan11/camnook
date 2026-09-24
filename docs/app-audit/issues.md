@@ -303,3 +303,12 @@
 - Verification: the existing keyboard-placement regression failed before the change (`expected null to be 'true'`) and then passed, including stale-error clearance. Lint, typecheck, optimized production build, and the full suite passed (868 passed / 2 skipped). The test uses only local component state; no residential address, location permission, map request, or pin was persisted.
 - Status: verified and committed.
 - Commit: `14ba002`.
+
+## AUD-028 — Return-recording validation errors are discarded
+
+- Severity: P1 accessibility and operational recovery. The return action returns specific errors for return time, serial, every accessory status, condition report, and notes, but the owner form showed only a generic alert and discarded the actionable messages.
+- Reproduction: render active `ResolutionControls` with a mocked invalid `recordReturn` response covering each existing field-error key. None of the messages renders or identifies its native control.
+- Fix: render the existing messages with stable IDs; conditionally mark and describe each direct field and every accessory-status selector with the appropriate shared error.
+- Verification: the interaction regression failed before the change because `Enter the actual return time.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (869 passed / 2 skipped). No return, condition evidence, deduction, refund, or booking transition occurred.
+- Status: verified and committed.
+- Commit: `12b85df`.

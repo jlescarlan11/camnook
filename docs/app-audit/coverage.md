@@ -71,3 +71,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-026: mocked owner handoff-area validation now marks the semantic Philippine address group invalid and associates it with its returned city error. Focused recovery tests, full suite (868 passed / 2 skipped), lint, typecheck, and build pass. No area selection or availability policy was saved.
 
 - AUD-027: invalid manual residential coordinates now mark Latitude and Longitude invalid and associate both with their live correction; editing clears stale error state. Existing map fallback suite, full suite (868 passed / 2 skipped), lint, typecheck, and build pass. No location permission, map request, or pin persistence occurred.
+
+- AUD-028: mocked return-recording validation now identifies return time, serial, every accessory selector, condition report, and notes. Focused test, full suite (869 passed / 2 skipped), lint, typecheck, and build pass. No return, evidence, refund, or booking transition occurred.
