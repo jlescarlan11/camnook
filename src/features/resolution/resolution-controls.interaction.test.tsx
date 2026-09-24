@@ -3,9 +3,10 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { addIssueNote, decideCancellation, recordExternalRefund, recordReturn, resolveIssue, reverseExternalRefund, uploadConditionPhoto } = vi.hoisted(() => ({
+const { addIssueNote, decideCancellation, decideReturnReview, recordExternalRefund, recordReturn, resolveIssue, reverseExternalRefund, uploadConditionPhoto } = vi.hoisted(() => ({
   addIssueNote: vi.fn(),
   decideCancellation: vi.fn(),
+  decideReturnReview: vi.fn(),
   recordExternalRefund: vi.fn(),
   recordReturn: vi.fn(),
   resolveIssue: vi.fn(),
@@ -15,7 +16,7 @@ const { addIssueNote, decideCancellation, recordExternalRefund, recordReturn, re
 vi.mock("./actions", () => ({
   addIssueNote,
   decideCancellation,
-  decideReturnReview: vi.fn(),
+  decideReturnReview,
   recordExternalRefund,
   recordReturn,
   resolveIssue,
@@ -95,6 +96,14 @@ const resolutionWithInspection: ResolutionDetail = {
         supersedes_photo_id: null,
       },
     ],
+  },
+};
+
+const resolutionWithIssueInspection: ResolutionDetail = {
+  ...resolutionWithInspection,
+  return_inspection: {
+    ...resolutionWithInspection.return_inspection!,
+    camera_has_damage: true,
   },
 };
 
@@ -277,6 +286,29 @@ it("identifies a private issue note after server validation rejects it", async (
   await waitFor(() => expect(addIssueNote).toHaveBeenCalledTimes(1));
 
   const error = await screen.findByText("Enter a 2–2,000 character issue note.");
+  expect(note.getAttribute("aria-invalid")).toBe("true");
+  expect(note.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+});
+
+it("identifies an issue-opening note after server validation rejects it", async () => {
+  decideReturnReview.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: { note: "Enter a 2–2,000 character issue-opening note." },
+    status: "error",
+  });
+  render(
+    <ResolutionControls
+      actualAt="2026-08-16T10:00"
+      operationIds={operationIds}
+      resolution={resolutionWithIssueInspection}
+    />,
+  );
+
+  const note = screen.getByRole("textbox", { name: "Private issue-opening note" });
+  fireEvent.submit(screen.getByRole("button", { name: "Open ISSUE_REVIEW" }).closest("form")!);
+  await waitFor(() => expect(decideReturnReview).toHaveBeenCalledTimes(1));
+
+  const error = await screen.findByText("Enter a 2–2,000 character issue-opening note.");
   expect(note.getAttribute("aria-invalid")).toBe("true");
   expect(note.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
 });

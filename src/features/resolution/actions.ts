@@ -314,13 +314,20 @@ export async function decideReturnReview(
   const outcome = stringFormValue(formData, "outcome");
   const noteValue = stringFormValue(formData, "note");
   const note = z.string().trim().max(2000).safeParse(noteValue);
-  if (
-    !ids ||
-    !["clear", "issue"].includes(outcome) ||
-    !note.success ||
-    (outcome === "issue" && note.data.length < 2)
-  ) {
+  if (!ids || !["clear", "issue"].includes(outcome)) {
     return { error: "invalid", status: "error" };
+  }
+  if (!note.success || (outcome === "issue" && note.data.length < 2)) {
+    return {
+      error: "invalid",
+      fieldErrors: {
+        note:
+          outcome === "issue"
+            ? "Enter a 2–2,000 character issue-opening note."
+            : "Review note cannot exceed 2,000 characters.",
+      },
+      status: "error",
+    };
   }
 
   const authorization = await requireResolutionAdmin();

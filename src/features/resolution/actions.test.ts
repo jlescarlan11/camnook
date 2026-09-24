@@ -17,6 +17,7 @@ import {
 import {
   addIssueNote,
   decideCancellation,
+  decideReturnReview,
   recordExternalRefund,
   recordReturn,
   requestCancellation,
@@ -391,6 +392,19 @@ describe("resolution Server Actions", () => {
         reference: "Enter the recorded GCash reference.",
       },
       refundRecordId: RECORD_ID,
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it("identifies an invalid issue-opening note before administrator authorization", async () => {
+    const data = form();
+    data.set("note", "x");
+    data.set("outcome", "issue");
+
+    await expect(decideReturnReview({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: { note: "Enter a 2–2,000 character issue-opening note." },
       status: "error",
     });
     expect(requireUser).not.toHaveBeenCalled();

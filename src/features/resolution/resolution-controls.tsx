@@ -130,6 +130,7 @@ export function ResolutionControls({
   const issueErrors = issueState.fieldErrors;
   const noteErrors = noteState.fieldErrors;
   const refundErrors = refundState.fieldErrors;
+  const reviewErrors = reviewState.fieldErrors;
   const returnErrors = returnState.fieldErrors;
   const hasIssue = Boolean(
     inspection?.camera_has_damage ||
@@ -434,6 +435,8 @@ export function ResolutionControls({
             {hasIssue ? "Private issue-opening note" : "Review note (optional)"}
           </label>
           <textarea
+            aria-describedby={reviewErrors?.note ? "return-review-note-error" : undefined}
+            aria-invalid={reviewErrors?.note ? true : undefined}
             className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
             id="return-review-note"
             maxLength={2000}
@@ -441,6 +444,7 @@ export function ResolutionControls({
             name="note"
             required={hasIssue}
           />
+          <FieldError id="return-review-note-error" message={reviewErrors?.note} />
           <button
             className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
             disabled={
