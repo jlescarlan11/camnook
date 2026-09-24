@@ -51,3 +51,5 @@
 - AUD-027 treats manual latitude and longitude as a jointly validated coordinate pair. A shared transient error is attached to both inputs, then cleared as soon as either value changes or a valid pin source succeeds.
 
 - AUD-028 preserves field-specific return validation from the server instead of reducing it to the generic action result. Accessory validation is shared across the complete required selector set because the server validates it as one collection.
+
+- AUD-029 assigns an error ID and invalid semantics only when the return-evidence action supplies a field-specific photo error. Generic failure and success result announcements remain independent of the file control.

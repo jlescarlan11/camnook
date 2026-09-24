@@ -312,3 +312,14 @@
 - Verification: the interaction regression failed before the change because `Enter the actual return time.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (869 passed / 2 skipped). No return, condition evidence, deduction, refund, or booking transition occurred.
 - Status: verified and committed.
 - Commit: `12b85df`.
+
+## AUD-029 — Return-evidence upload error lacks an accessible file control
+
+- Severity: P2 accessibility and operational recovery. An owner whose primary return-evidence photo is rejected receives only a generic alert and cannot programmatically identify the file control that needs correction.
+- Reproduction: render `ResolutionControls` in return review with a mocked invalid `uploadConditionPhoto` response containing `fieldErrors.photo`. The primary return-evidence file input has no accessible name, no invalid state, and no reference to the returned validation message.
+- Cause: the return-review evidence form discarded its field-specific action error in favor of a generic result and did not label or connect its file input to validation feedback.
+- Acceptance: the primary file control is named Return condition photo; a returned photo error marks it invalid and identifies the exact message; generic and successful result announcements remain intact.
+- Fix: add a native label, stable conditional error ID, and conditional invalid/description semantics; render the action's field-specific photo message before falling back to its established generic failure message.
+- Verification: the new interaction regression failed before the change because Return condition photo could not be found by label, then passed. Lint, typecheck, optimized production build, and the full suite passed (870 passed / 2 skipped). The test uses a mocked local action response; no file was selected, uploaded, stored, accessed, or authorized.
+- Status: verified and committed.
+- Commit: `e8f7040`.

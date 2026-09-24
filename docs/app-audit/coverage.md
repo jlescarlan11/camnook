@@ -73,3 +73,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-027: invalid manual residential coordinates now mark Latitude and Longitude invalid and associate both with their live correction; editing clears stale error state. Existing map fallback suite, full suite (868 passed / 2 skipped), lint, typecheck, and build pass. No location permission, map request, or pin persistence occurred.
 
 - AUD-028: mocked return-recording validation now identifies return time, serial, every accessory selector, condition report, and notes. Focused test, full suite (869 passed / 2 skipped), lint, typecheck, and build pass. No return, evidence, refund, or booking transition occurred.
+
+- AUD-029: mocked return-evidence validation now labels the primary file input and associates it with its returned photo error. Focused test, full suite (870 passed / 2 skipped), lint, typecheck, and build pass. No photo was selected, uploaded, stored, accessed, or authorized.
