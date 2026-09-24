@@ -35,3 +35,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - Account read failure: injected one Development overview503; existing Try again link fetched successful profile/bookings without navigation away. No defect found. Fault harness stopped.
 
 - AUD-009: account privacy link opens separate notice tab and preserves unfinished fields plus pin-reconfirmation state. Screenshot21 mobile390 inspected; shared checkout link changed, but that variant was not separately browser-exercised in this final checkpoint.
+
+- AUD-010: live camera-detail gallery inspected at desktop and 390×844. Thumbnails are announced as buttons that enlarge a photo, not checkbox-like selection toggles. The second photo opened in the lightbox; Escape closed it and returned focus to that trigger. Visual selected styling and layout were preserved.

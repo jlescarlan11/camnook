@@ -115,3 +115,12 @@
 - Logs: `/tmp/camnook-audit-privacy-form-{red,green,lint,build}.log`.
 - Status: verified; final stop-checkpoint commit (HEAD, “Keep renter forms open while reading privacy details”).
 - Scope: supporting privacy navigation only; general navigation away from unsaved account edits is not claimed to persist.
+
+## AUD-010 — Photo lightbox triggers are exposed as selection toggles
+- Severity: P2 accessibility. On the live camera detail page, each thumbnail activation opens an enlarged-photo dialog, but the selected thumbnail was exposed as a checkbox-like pressed control.
+- Reproduction: open a published camera with multiple photos and inspect thumbnail controls with the browser accessibility tree. The visible action is “Enlarge photo”; the selected thumbnail reports a pressed state.
+- Cause: `aria-pressed` was used only to retain the blue selected-thumbnail outline. That state changes a button's announced control semantics even though pressing it opens a dialog and never toggles a selection off.
+- Acceptance: every thumbnail is announced as an action that enlarges its labeled photo; the selected outline remains; opening a thumbnail and Escape dismissal still preserve the selected photo and return focus to the trigger.
+- Fix: move the visual selected state to a `data-selected` attribute and remove the incompatible toggle ARIA state.
+- Verification: regression failed before the fix (`expected 'true' to be null`), then the full suite passed with 851 passed / 2 skipped. Lint, typecheck, and production build passed. Live desktop and 390×844 browser checks showed ordinary buttons, correct lightbox photo, Escape dismissal, and focus restoration.
+- Status: verified; commit pending.

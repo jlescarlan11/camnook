@@ -1,15 +1,15 @@
-# Continuous application audit — stopped by user
+# Continuous application audit — resumed 2026-09-25
 
-- Status: user requested “stop and finalize”; no further audit or background work scheduled.
+- Status: active under renewed autonomous-audit authorization. No push, merge, deployment, real payment, or real-user contact performed.
 - Goal/scope: ongoing explore → fix → verify → commit, preserving single-owner rentals, manual GCash, and in-person original-ID verification. No push, merge, deploy, real payment, or real-user contact performed.
-- Branch: `codex/reliability-audit`; initial HEAD `beb1cad`. Final HEAD is the privacy-form checkpoint (“Keep renter forms open while reading privacy details”); preceding commit `389c135`. Use `git log` for exact final hash.
+- Branch: `codex/reliability-audit-continuation`; existing audit commits preserved. The earlier final checkpoint was the privacy-form fix.
 - Completed commits: `6c6d221` AUD-001; `6564117` AUD-002/003; `c90a9b7` AUD-004; `6867376` AUD-005; `32c4d7d` AUD-006; `d98fe5d` AUD-007; `389c135` AUD-008; final HEAD AUD-009.
-- Current task: none. Verified privacy-link fix finished before stopping. Intended code and audit records committed; no unverified implementation left.
-- Environment: Development only, local Next.js at127.0.0.1:3000. Audit dev server stopped; no active fault injection. Node25.9.0, installed pnpm11.19.0. Hosted Development credentials checked by `pnpm dev`; process-local DNS fallback was needed intermittently.
-- Checks: most recent full suite at AUD-007 had977 passed/two provider integration skips. Later AUD-008 had15 targeted tests; AUD-009 had4 targeted tests. Lint and production build including TypeScript passed after each later fix. Full suite not rerun after those two small changes.
+- Current task: AUD-010 photo-gallery accessibility semantics; verified and awaiting a focused commit.
+- Environment: Development only, local Next.js at127.0.0.1:3000. No active fault injection. Hosted Development credentials and Geoapify lookup passed through `pnpm dev` startup checks.
+- Checks: clean baseline at resume was 850 passed/two skipped. AUD-010 full suite is 851 passed/two skipped; lint, typecheck, and optimized production build passed.
 - Evidence: `coverage.md`, `issues.md`, `decisions.md`; ignored screenshots `.vercel/app-audit/2026-09-25/`; logs `/tmp/camnook-audit-*`. No credentials/private user records committed.
-- Fixtures: three synthetic renter bookings; latest `3f7bdcc3-357b-4b0b-a048-a194694411e2` recovered after intentionally withheld committed response, no duplicate. `2cca073b-1844-43ac-9085-c701e656a2be` has pending cancellation; original `9000e739-2292-4bea-a118-7994ba724c3d` unchanged. Synthetic profile saved house Audit13; final unfinished edit discarded. No real residential data used.
-- Browser: pages3/4 at account; privacy test tab closed. Supported Development renter session exists. Browser automation does not establish successful real CAPTCHA/OTP coverage.
+- Fixtures: existing synthetic renter/session only; no new durable data or private records created during AUD-010. No real residential data used.
+- Browser: live desktop and 390×844 camera-detail gallery inspected. Thumbnail activation opened the intended lightbox; Escape returned focus to the same trigger. Browser automation does not establish successful real CAPTCHA/OTP coverage.
 - Blockers: owner lifecycle needs a known existing Development owner identity/session (question was pending when stopped). Management connector permission denied and dashboard signed out. ENV-003 stale profile conflict RPC times out even with supported direct synthetic-auth probe; valid saves and reads work. Root cause remains unresolved.
 - Untested/restricted: owner approval and payment/agreement/handoff/return/deposit transitions, successful real CAPTCHA/OTP, intended stale-profile conflict response, production/live behavior. Audit completion is not release readiness.
-- Exact next action if resumed: inspect Git/state, restart Development through standard checks (use ignored DNS fallback only if needed), obtain existing Development owner identity through supported access, then exercise synthetic request approval → agreement/manual-payment → pickup → return/deposit. If owner access remains unavailable, diagnose ENV-003 with authorized backend logs when available and continue independently useful renter coverage.
+- Exact next action: commit AUD-010, then continue an untested renter recovery/invalid-input path or use supported owner access when available for the lifecycle flow.

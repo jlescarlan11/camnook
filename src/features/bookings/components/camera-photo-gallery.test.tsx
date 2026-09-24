@@ -23,6 +23,14 @@ it("opens the clicked thumbnail, navigates photos, and retains the selected phot
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("button", { name: "Enlarge photo 3 of Test camera" })).toBeTruthy();
 });
+it("announces photo thumbnails as lightbox actions rather than selection toggles", () => {
+  const photos = ["front", "back"].map((view) => ({ alt: `${view} view`, url: `/${view}.png` }));
+
+  render(<CameraPhotoGallery name="Test camera" photos={photos} />);
+
+  expect(screen.getByRole("button", { name: "Enlarge photo 1: front view" }).getAttribute("aria-pressed")).toBeNull();
+  expect(screen.getByRole("button", { name: "Enlarge photo 2: back view" }).getAttribute("aria-pressed")).toBeNull();
+});
 it("shows a useful empty photo state", () => {
   render(<CameraPhotoGallery name="Empty" photos={[]} />);
   expect(screen.getByText("No photo available for Empty")).toBeTruthy();

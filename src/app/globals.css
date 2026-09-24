@@ -243,7 +243,7 @@ body {
 .camera-thumbnails { display: flex; justify-content: center; flex-wrap: wrap; gap: 16px; margin-top: 28px; }
 .camera-thumbnails li { width: clamp(72px, 9vw, 132px); }
 .camera-thumbnails button { width: 100%; padding: 5px; border: 1px solid var(--line); border-radius: 7px; cursor: zoom-in; overflow: hidden; }
-.camera-thumbnails button[aria-pressed="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.camera-thumbnails button[data-selected="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .compact-schedule { margin-top: 44px; }
 .rental-date-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .rental-date-trigger { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; margin-top: 10px; padding: 10px 12px; border: 1px solid #b9c6d6; border-radius: 8px; text-align: left; color: var(--ink-muted); font-size: 14px; cursor: pointer; }
