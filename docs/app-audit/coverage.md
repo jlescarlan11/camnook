@@ -69,3 +69,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-025: mocked owner handoff-policy validation now retains time-format guidance and associates its shared weekday error with every weekday checkbox. Focused recovery tests, full suite (867 passed / 2 skipped), lint, typecheck, and build pass. No availability policy was saved.
 
 - AUD-026: mocked owner handoff-area validation now marks the semantic Philippine address group invalid and associates it with its returned city error. Focused recovery tests, full suite (868 passed / 2 skipped), lint, typecheck, and build pass. No area selection or availability policy was saved.
+
+- AUD-027: invalid manual residential coordinates now mark Latitude and Longitude invalid and associate both with their live correction; editing clears stale error state. Existing map fallback suite, full suite (868 passed / 2 skipped), lint, typecheck, and build pass. No location permission, map request, or pin persistence occurred.

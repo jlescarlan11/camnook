@@ -47,3 +47,5 @@
 - AUD-025 composes persistent format help with dynamic validation feedback rather than treating them as mutually exclusive. Weekday validation is intentionally shared across each native checkbox because the server evaluates the day set as a whole.
 
 - AUD-026 sends canonical-area validation to the existing semantic PSGC fieldset API rather than exposing the error from a visual section wrapper.
+
+- AUD-027 treats manual latitude and longitude as a jointly validated coordinate pair. A shared transient error is attached to both inputs, then cleared as soon as either value changes or a valid pin source succeeds.

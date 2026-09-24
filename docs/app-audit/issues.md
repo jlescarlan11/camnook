@@ -292,3 +292,14 @@
 - Verification: the mocked recovery test failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (868 passed / 2 skipped). No area selection or availability policy was saved.
 - Status: verified and committed.
 - Commit: `700ff24`.
+
+## AUD-027 — Invalid manual map coordinates do not identify their inputs
+
+- Severity: P2 accessibility. A renter entering out-of-Philippines coordinates for a residential pin hears a generic status but Latitude and Longitude remain semantically valid and do not identify the correction.
+- Reproduction: in keyboard pin placement, enter latitude `99` and submit with Enter. The live status says `Enter valid Philippine coordinates.`, while both coordinate inputs have no invalid state or relationship to that status. Editing a coordinate also leaves the old message visible.
+- Cause: manual coordinate validation used a generic status string without preserving whether it specifically represented a coordinate-pair error.
+- Acceptance: an invalid coordinate pair marks both native inputs invalid and associates them with the status message; changing either coordinate clears the stale invalid state and message; map, search, GPS, and valid-coordinate pin paths clear any prior coordinate error.
+- Fix: track transient coordinate validation state, conditionally describe both inputs from the status message, and clear it on coordinate edit or a successful pin selection.
+- Verification: the existing keyboard-placement regression failed before the change (`expected null to be 'true'`) and then passed, including stale-error clearance. Lint, typecheck, optimized production build, and the full suite passed (868 passed / 2 skipped). The test uses only local component state; no residential address, location permission, map request, or pin was persisted.
+- Status: verified and committed.
+- Commit: `14ba002`.
