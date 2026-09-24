@@ -248,3 +248,14 @@
 - Verification: the interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (864 passed / 2 skipped). The test uses a mocked local response only; no owner session, physical-ID inspection, pickup completion, condition report, accessory confirmation, or photo access occurred.
 - Status: verified and committed.
 - Commit: `1bd173c`.
+
+## AUD-023 — Condition-photo validation error does not identify the upload input
+
+- Severity: P2 accessibility. An owner whose private condition photo is rejected receives an alert, but the required file input does not identify that field-specific message.
+- Reproduction: render the active `PickupControls` branch with a mocked invalid `uploadConditionPhoto` response containing `fieldErrors.photo`. The form reports the returned message as a generic alert while the Condition photo input has no invalid state or message reference.
+- Cause: the status paragraph combines success, field, and general errors, but only the file input is the target of a field error and it was not wired to a stable alert ID.
+- Acceptance: a returned `photo` field error marks Condition photo invalid and identifies its message; successful and general upload result messaging remain unchanged.
+- Fix: assign an ID only when the photo error exists, conditionally reference it from the file input, and retain the existing status/alert roles for result announcements.
+- Verification: the new active-rental interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (865 passed / 2 skipped). It uses a mocked local action response; no file was selected, uploaded, stored, or authorized.
+- Status: verified and committed.
+- Commit: `c1ccd1b`.
