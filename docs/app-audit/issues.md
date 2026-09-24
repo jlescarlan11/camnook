@@ -237,3 +237,14 @@
 - Verification: the interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (863 passed / 2 skipped). The test uses a mocked local action response; it does not save payment-recipient configuration or use an owner session.
 - Status: verified and committed.
 - Commit: `2cb9332`.
+
+## AUD-022 — Pickup-checklist validation errors do not identify operational controls
+
+- Severity: P1 accessibility and operational recovery. An owner correcting a failed physical pickup checklist sees server validation messages but cannot programmatically identify the exact date/time, identity confirmation, serial, accessory, condition-report, or note control that requires attention.
+- Reproduction: render the confirmed `PickupControls` form with a local mocked invalid `completePickup` response covering every field-error key. The messages render without IDs, and each affected native field or checklist checkbox lacks invalid state and an error reference.
+- Cause: the fail-closed server action returns field-specific errors, while the client UI displayed them as unassociated text and the reusable checklist control could not receive validation semantics.
+- Acceptance: every control implicated by the existing field-error contract is invalid and identifies its active message; both original-ID confirmations share their applicable error; every required accessory identifies the common checklist error; the server action and operation idempotency behavior remain unchanged.
+- Fix: add stable alert IDs and conditional ARIA relationships to direct fields and extend the local checklist control to accept an error description and invalid state. Attach shared original-ID and accessory errors to each related checkbox.
+- Verification: the interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (864 passed / 2 skipped). The test uses a mocked local response only; no owner session, physical-ID inspection, pickup completion, condition report, accessory confirmation, or photo access occurred.
+- Status: verified and committed.
+- Commit: `1bd173c`.

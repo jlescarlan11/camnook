@@ -37,3 +37,5 @@
 - AUD-020 attaches each owner payment-review server error directly to the native control it corrects. Verification and rejection state remain separate, so each form only identifies its own current validation messages.
 
 - AUD-021 composes recipient-account validation with the reusable Philippine mobile control's existing country-code description instead of replacing that required formatting context.
+
+- AUD-022 gives every affected native checkbox its common checklist error rather than attaching the message only to a visual wrapper. The original-ID and accessory errors apply to multiple related confirmations, so their stable message IDs are intentionally shared.
