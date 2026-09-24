@@ -58,14 +58,15 @@
 - Verification: build passed; booking Lighthouse33 checks passed, zero failed on desktop/mobile; account desktop42 passed, mobile has a separate map-link styling finding but no text contrast failures. Privacy mobile27 passed. Screenshots09–12 inspected. No duplicate unit test for a CSS token.
 - Status: scoped contrast fix verified; independent review found no actionable issues.
 - Evidence: `/var/folders/mh/rxmkm5jd2s1d952s608rwwy40000gn/T/chrome-devtools-mcp-N5O1SQ/report.json`.
-- Commit: none.
+- Commit: `c90a9b7`.
 
 ## AUD-005 — Account content overflows mobile viewport
 - Severity: P2. At 390px, booking text and Find a camera are clipped; account content reaches 417px.
 - Evidence: screenshot12 and browser bounds: clientWidth390, scrollWidth417; primary grid children401px wide.
-- Hypothesis: implicit auto grid track retains a profile form minimum width and stretches the booking list.
+- Cause: implicit auto grid track retains the profile form minimum width and stretches the booking list. A browser-only minmax(0,1fr) experiment resolved overflow; explicit grid-cols-1 applies the same fix below the desktop breakpoint.
 - Acceptance: profile and bookings fit 320/390px without clipping or horizontal scrolling; desktop layout preserved.
-- Status: diagnosing.
+- Verification: actual changed page has clientWidth/scrollWidth320/320 and390/390; desktop1440 preserves821/411px tracks. Screenshots13–15 inspected; lint and build passed (`/tmp/camnook-audit-account-{lint,build}.log`).
+- Status: verified; independent review found no actionable issues.
 - Commit: none.
 
 ## AUD-006 — Map attribution link lacks a non-color distinction

@@ -38,7 +38,7 @@ export default async function AccountPage() {
             <Link className="mt-3 inline-block font-semibold underline" href="/account">Try again</Link>
           </section>
         ) : (
-          <div className="mt-10 grid items-start gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,.75fr)]">
+          <div className="mt-10 grid grid-cols-1 items-start gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,.75fr)]">
             <section aria-labelledby="bookings-heading">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="section-heading" id="bookings-heading">Your bookings</h2>

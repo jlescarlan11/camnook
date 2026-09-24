@@ -12,3 +12,5 @@
 Screenshots alone do not prove accessibility compliance. Synthetic or simulated checks will be explicitly distinguished from real Development integration.
 
 - AUD-004: booking desktop1440/mobile390 Lighthouse33 checks passed, zero failed; account desktop42 passed, mobile one unrelated attribution-link finding. Privacy mobile27 passed. Screenshot09–12. Account mobile overflow discovered (AUD-005), so responsive account coverage is not passing.
+
+- AUD-005: actual account page now fits320px and390px, including profile form; desktop1440 two-column layout preserved. Screenshots13–15.
