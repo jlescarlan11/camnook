@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth/require-user";
 
 import {
+  addIssueNote,
   decideCancellation,
   recordExternalRefund,
   recordReturn,
@@ -336,6 +337,18 @@ describe("resolution Server Actions", () => {
         recipientName: "Enter the recipient's name.",
         reference: "Enter the recorded GCash reference.",
       },
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it("identifies an invalid private issue note before administrator authorization", async () => {
+    const data = form();
+    data.set("note", "x");
+
+    await expect(addIssueNote({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: { note: "Enter a 2–2,000 character issue note." },
       status: "error",
     });
     expect(requireUser).not.toHaveBeenCalled();

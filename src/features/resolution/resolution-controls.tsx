@@ -127,6 +127,7 @@ export function ResolutionControls({
   );
   const inspection = resolution.return_inspection;
   const cancellationErrors = cancellationState.fieldErrors;
+  const noteErrors = noteState.fieldErrors;
   const refundErrors = refundState.fieldErrors;
   const returnErrors = returnState.fieldErrors;
   const hasIssue = Boolean(
@@ -469,7 +470,20 @@ export function ResolutionControls({
             ) : null}
             <form action={noteAction} className="mt-4 space-y-3">
               <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.issueNote} />
-              <textarea className="min-h-20 w-full rounded-xl border border-stone-300 px-4 py-3" maxLength={2000} minLength={2} name="note" required />
+              <label className="block text-sm font-medium" htmlFor="issue-note">
+                Private issue note
+              </label>
+              <textarea
+                aria-describedby={noteErrors?.note ? "issue-note-error" : undefined}
+                aria-invalid={noteErrors?.note ? true : undefined}
+                className="min-h-20 w-full rounded-xl border border-stone-300 px-4 py-3"
+                id="issue-note"
+                maxLength={2000}
+                minLength={2}
+                name="note"
+                required
+              />
+              <FieldError id="issue-note-error" message={noteErrors?.note} />
               <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={notePending} type="submit">Append private note</button>
             </form>
             <ActionResult state={noteState} />

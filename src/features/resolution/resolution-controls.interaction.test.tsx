@@ -3,14 +3,15 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { decideCancellation, recordExternalRefund, recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
+const { addIssueNote, decideCancellation, recordExternalRefund, recordReturn, uploadConditionPhoto } = vi.hoisted(() => ({
+  addIssueNote: vi.fn(),
   decideCancellation: vi.fn(),
   recordExternalRefund: vi.fn(),
   recordReturn: vi.fn(),
   uploadConditionPhoto: vi.fn(),
 }));
 vi.mock("./actions", () => ({
-  addIssueNote: vi.fn(),
+  addIssueNote,
   decideCancellation,
   decideReturnReview: vi.fn(),
   recordExternalRefund,
@@ -111,6 +112,11 @@ const resolutionWithCancellation: ResolutionDetail = {
 const resolutionWithRefund: ResolutionDetail = {
   ...resolution,
   booking_state: "COMPLETED",
+};
+
+const resolutionWithIssueReview: ResolutionDetail = {
+  ...resolution,
+  booking_state: "ISSUE_REVIEW",
 };
 
 afterEach(() => {
@@ -215,6 +221,29 @@ it("identifies external-refund fields after server validation rejects them", asy
     expect(control.getAttribute("aria-invalid")).toBe("true");
     expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
   }
+});
+
+it("identifies a private issue note after server validation rejects it", async () => {
+  addIssueNote.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: { note: "Enter a 2–2,000 character issue note." },
+    status: "error",
+  });
+  render(
+    <ResolutionControls
+      actualAt="2026-08-16T10:00"
+      operationIds={operationIds}
+      resolution={resolutionWithIssueReview}
+    />,
+  );
+
+  const note = screen.getByRole("textbox", { name: "Private issue note" });
+  fireEvent.submit(screen.getByRole("button", { name: "Append private note" }).closest("form")!);
+  await waitFor(() => expect(addIssueNote).toHaveBeenCalledTimes(1));
+
+  const error = await screen.findByText("Enter a 2–2,000 character issue note.");
+  expect(note.getAttribute("aria-invalid")).toBe("true");
+  expect(note.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
 });
 
 it("identifies a rejected return-evidence upload", async () => {

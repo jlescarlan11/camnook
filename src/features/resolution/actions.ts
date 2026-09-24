@@ -360,7 +360,14 @@ export async function addIssueNote(
 ): Promise<ResolutionActionState> {
   const ids = identifiers(formData);
   const note = longTextSchema.safeParse(stringFormValue(formData, "note"));
-  if (!ids || !note.success) return { error: "invalid", status: "error" };
+  if (!ids) return { error: "invalid", status: "error" };
+  if (!note.success) {
+    return {
+      error: "invalid",
+      fieldErrors: { note: "Enter a 2–2,000 character issue note." },
+      status: "error",
+    };
+  }
 
   const authorization = await requireResolutionAdmin();
   if (!authorization.context) {
