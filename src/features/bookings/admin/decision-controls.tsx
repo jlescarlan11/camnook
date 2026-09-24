@@ -117,7 +117,7 @@ export function DecisionControls({
             value={displayedReason}
           />
           {rejectState.fieldErrors?.reason ? (
-            <p className="mt-2 text-sm font-medium text-red-800" id="reason-error">
+            <p className="mt-2 text-sm font-medium text-red-800" id="reason-error" role="alert">
               {rejectState.fieldErrors.reason}
             </p>
           ) : null}
