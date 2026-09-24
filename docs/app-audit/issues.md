@@ -186,3 +186,13 @@
 - Verification: the focused regression failed before the fix because both IDs were absent, then the residential-pin and checkout suites passed (10 tests). Lint, typecheck, optimized production build, and the full suite passed (858 passed / 2 skipped).
 - Status: verified and committed.
 - Commit: `7d723b5`.
+
+## AUD-017 — Payment-proof validation errors do not identify their fields
+- Severity: P2 accessibility. A renter receiving server validation errors for a GCash reference or private proof heard alerts, but neither form control exposed an invalid state or referenced its own message.
+- Reproduction: submit the renter payment form against a local mocked invalid response containing both `reference` and `proof` errors. The messages render while both inputs lack `aria-invalid` and error descriptions.
+- Cause: the reference input and reusable proof field rendered standalone alerts; the proof input described only its static privacy guidance.
+- Acceptance: invalid reference and proof inputs identify their respective server error; proof retains its original private-file guidance; no transfer, payment, or file upload is initiated by error rendering.
+- Fix: add stable IDs, conditional invalid state, and composed descriptions for the reference and proof fields.
+- Verification: the interaction regression failed before the fix (`expected null to be 'true'`), then the focused payment component/interaction suites passed (4 tests). Lint, typecheck, optimized production build, and the full suite passed (859 passed / 2 skipped). The test uses a mocked local action response only; no payment or upload occurred.
+- Status: verified and committed.
+- Commit: `1f08a27`.

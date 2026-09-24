@@ -49,3 +49,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-015: checkout KYC's server-returned Philippine area validation now marks the semantic selector group invalid and associates it with the visible error without replacing its status description. Focused checkout flow, the full suite (857 passed / 2 skipped), lint, typecheck, and build pass. Residential-pin error association remains untested.
 
 - AUD-016: residential pin server and reconfirmation alerts are associated with its labelled composite region. Focused residential-pin/checkout suites, the full suite (858 passed / 2 skipped), lint, typecheck, and build pass.
+
+- AUD-017: mocked renter payment validation now verifies invalid state and individual error associations for GCash reference and private proof, preserving proof guidance. Focused payment suites, the full suite (859 passed / 2 skipped), lint, typecheck, and build pass. No real payment or proof upload was attempted.

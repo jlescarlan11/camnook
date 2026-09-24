@@ -27,3 +27,5 @@
 - AUD-015 keeps PSGC loading and selection status intact by composing its generated status ID with the optional validation-error ID on the semantic fieldset.
 
 - AUD-016 treats the residential pin as a labelled composite region, not a native invalid input. Its active error or reconfirmation instruction is described from that region without applying unsupported invalid state.
+
+- AUD-017 composes a dynamic proof-error ID with the existing static file/privacy guidance so the guidance remains available when validation fails.
