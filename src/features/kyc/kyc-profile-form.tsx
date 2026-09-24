@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { CheckoutProgress } from "@/features/bookings/components/checkout-progress";
-import { useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode, useSyncExternalStore } from "react";
+import { cloneElement, useActionState, useEffect, useRef, useState, type FormEvent, type ReactElement, useSyncExternalStore } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
@@ -114,13 +114,13 @@ function ProfileForm({
       <input name="returnTo" type="hidden" value={returnTo} />
       <input name="expectedAddressRevision" type="hidden" value={kyc?.addressRevision ?? ""} />
       <div ref={personalFields} hidden={checkout && step !== 1} className={checkout ? "checkout-personal-fields" : "grid gap-5 sm:grid-cols-2"}>
-        <Field error={state.fieldErrors?.legalName} label="Full legal name">
+        <Field error={state.fieldErrors?.legalName} id="kyc-legal-name" label="Full legal name">
           <input autoComplete="name" className={inputClass} defaultValue={submitted?.legalName ?? profile?.legalName ?? ""} maxLength={160} name="legalName" minLength={2} placeholder={checkout ? "Enter your full legal name" : undefined} required />
         </Field>
-        <Field error={state.fieldErrors?.birthDate} label="Birthdate">
+        <Field error={state.fieldErrors?.birthDate} id="kyc-birthdate" label="Birthdate">
           <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={adultCutoff()} name="birthDate" required type="date" />
         </Field>
-        <Field error={state.fieldErrors?.phone} label="Mobile number">
+        <Field error={state.fieldErrors?.phone} id="kyc-phone" label="Mobile number">
           <PhilippineMobileInput aria-label="Mobile number" defaultValue={submitted?.phone ?? profile?.phone ?? ""} name="phone" required />
         </Field>
       </div>
@@ -132,25 +132,25 @@ function ProfileForm({
         <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
           <legend className="px-1 font-semibold">Residential address details</legend>
           {legacyAddress ? (
-            <Field error={state.fieldErrors?.legacyAddressLine1} help="For reference only. Complete the structured address fields below before saving." label="Existing address details">
+            <Field error={state.fieldErrors?.legacyAddressLine1} help="For reference only. Complete the structured address fields below before saving." id="kyc-legacy-address" label="Existing address details">
               <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.legacyAddressLine1 ?? legacyAddress} maxLength={500} name="legacyAddressLine1" readOnly />
             </Field>
           ) : <input name="legacyAddressLine1" type="hidden" value="" />}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field error={state.fieldErrors?.houseNumber} help="Required unless you provide both a building name and unit details." label="House or lot number">
+            <Field error={state.fieldErrors?.houseNumber} help="Required unless you provide both a building name and unit details." id="kyc-house-number" label="House or lot number">
               <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" placeholder="e.g. 12 or Lot 4 Block 2" />
             </Field>
-            <Field error={state.fieldErrors?.streetName} help="Leave blank only when the road has no official name." label="Street name">
+            <Field error={state.fieldErrors?.streetName} help="Leave blank only when the road has no official name." id="kyc-street-name" label="Street name">
               <input autoComplete="address-line1" className={inputClass} defaultValue={initialStreetName} maxLength={160} name="streetName" placeholder="e.g. Gorordo Avenue" />
             </Field>
-            <Field error={state.fieldErrors?.building} label="Building name (optional)">
+            <Field error={state.fieldErrors?.building} id="kyc-building" label="Building name (optional)">
               <input className={inputClass} defaultValue={submitted?.building ?? kyc?.building ?? ""} maxLength={160} name="building" />
             </Field>
-            <Field error={state.fieldErrors?.postalCode} label="Postal code">
+            <Field error={state.fieldErrors?.postalCode} id="kyc-postal-code" label="Postal code">
               <input autoComplete="postal-code" className={inputClass} defaultValue={submitted?.postalCode ?? kyc?.postalCode ?? ""} inputMode="numeric" maxLength={4} minLength={4} name="postalCode" pattern="[0-9]{4}" placeholder="e.g. 6000" required title="Enter a four-digit Philippine postal code" />
             </Field>
           </div>
-          <Field error={state.fieldErrors?.addressDetails} help="Required for a building address or an unnamed road. Include enough detail to find the residence." label="Unit, subdivision, sitio, or landmark">
+          <Field error={state.fieldErrors?.addressDetails} help="Required for a building address or an unnamed road. Include enough detail to find the residence." id="kyc-address-details" label="Unit, subdivision, sitio, or landmark">
             <input autoComplete="address-line2" className={inputClass} defaultValue={submitted?.addressDetails ?? kyc?.addressDetails ?? ""} maxLength={200} name="addressDetails" placeholder="e.g. Unit 4, Sitio Riverside, near the barangay hall" />
           </Field>
         </fieldset>
@@ -176,6 +176,9 @@ function ProfileForm({
   );
 }
 
-function Field({ children, error, help, label }: { children: ReactNode; error?: string; help?: string; label: string }) {
-  return <label className="block text-sm font-medium">{label}{children}{help ? <span className="mt-2 block text-xs font-normal text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" role="alert">{error}</span> : null}</label>;
+function Field({ children, error, help, id, label }: { children: ReactElement<{ "aria-describedby"?: string; "aria-invalid"?: boolean }>; error?: string; help?: string; id: string; label: string }) {
+  return <label className="block text-sm font-medium">{label}{cloneElement(children, {
+    "aria-describedby": error ? [children.props["aria-describedby"], `${id}-error`].filter(Boolean).join(" ") : children.props["aria-describedby"],
+    "aria-invalid": error ? true : children.props["aria-invalid"],
+  })}{help ? <span className="mt-2 block text-xs font-normal text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" id={`${id}-error`} role="alert">{error}</span> : null}</label>;
 }

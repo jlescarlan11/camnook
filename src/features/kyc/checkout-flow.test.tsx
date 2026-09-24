@@ -71,7 +71,11 @@ it("returns to the Details step when server validation rejects a personal field"
   await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
   await fillAddress();
   await userEvent.click(screen.getByRole("button", { name: "Save and continue to review" }));
-  expect((await screen.findByText("Check your mobile number.")).closest("[hidden]")).toBeNull();
+  const error = await screen.findByText("Check your mobile number.");
+  const phone = screen.getByLabelText("Mobile number");
+  expect(error.closest("[hidden]")).toBeNull();
+  expect(phone.getAttribute("aria-invalid")).toBe("true");
+  expect(phone.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
 });
 
 it("restores details and address after leaving checkout, isolated by account and saved revision", async () => {
