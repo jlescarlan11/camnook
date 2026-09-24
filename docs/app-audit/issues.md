@@ -334,3 +334,14 @@
 - Verification: server-action and interaction regressions both failed before the fix (the response lacked the replacement ID; the control had no label), then passed (11 focused tests). Lint, typecheck, optimized production build, and the full suite passed (872 passed / 2 skipped). The local mock never selected, uploaded, stored, accessed, or authorized evidence; the public browser remains free of console errors, while owner browser verification needs a known Development owner session.
 - Status: verified and committed.
 - Commit: `69c5530`.
+
+## AUD-031 — Hidden checkout schedule errors have no correction route
+
+- Severity: P1 operational recovery. The booking action validates pickup, return, handoff time, policy version, and camera, but checkout hides these values in the final request form. On rejection, the renter remained on review with only a generic `Check your details and try again` alert and could repeat the same invalid submission.
+- Reproduction: submit reviewed renter details against a mocked invalid `handoffTime` response. The final review screen remains active; the error message and return-to-picker link are absent.
+- Cause: `RequestForm` reopened the editable details step only for renter-contact and meetup errors. It did not classify the action's schedule-field errors, although schedule controls live on the originating camera page.
+- Acceptance: a schedule validation response returns focus to details, exposes its precise safe message and the canonical schedule-picker link, and disables review/submission until a refreshed schedule creates a new form identity.
+- Fix: centralize schedule-field detection, use it when selecting the recovery step, render an alert with the existing `returnHref`, and disable the review control while that state is active.
+- Verification: the new interaction regression failed before the change because `Choose another schedule` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (873 passed / 2 skipped). The action response is a local mock; no checkout, booking, payment, account, or schedule was submitted or changed. Public-browser inspection remains limited to the camera page because inducing a live stale-schedule response would require a booking submission.
+- Status: verified and committed.
+- Commit: `77d50a0`.

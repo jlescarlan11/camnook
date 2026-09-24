@@ -55,3 +55,5 @@
 - AUD-029 assigns an error ID and invalid semantics only when the return-evidence action supplies a field-specific photo error. Generic failure and success result announcements remain independent of the file control.
 
 - AUD-030 treats replacement-photo validation as form-specific despite its shared server action. The action returns the already validated superseded-photo ID only for a photo field error, allowing a dynamic but stable error ID to describe one matching native input without marking the primary uploader invalid.
+
+- AUD-031 treats server validation for hidden schedule fields as an authoritative schedule-reselection event, not a renter-detail error. The returned error is shown with the existing picker URL, and the current form is disabled to prevent a repeated invalid operation until a new schedule identity remounts it.
