@@ -83,3 +83,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-032: mocked hidden handoff-policy reference validation now exposes the server's reload instruction instead of a misleading visible-field prompt. Focused test, full suite (874 passed / 2 skipped), lint, typecheck, and build pass. No policy, camera, owner session, or renter availability changed.
 
 - AUD-033: mocked hidden replacement-contract reference validation now exposes the server's refresh instruction instead of a misleading visible-field prompt. Focused test, full suite (875 passed / 2 skipped), lint, typecheck, and build pass. No agreement, camera, schedule, owner session, or renter availability changed.
+
+- AUD-034: mocked hidden booking-decision reference validation now exposes the server's invalid-reference result instead of a misleading visible-field prompt. Focused test, full suite (876 passed / 2 skipped), lint, typecheck, and build pass. No booking decision, agreement, camera, schedule, owner session, or renter availability changed.

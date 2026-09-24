@@ -367,3 +367,14 @@
 - Verification: the new focused recovery test failed before the change because `Refresh this booking before issuing a replacement.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (875 passed / 2 skipped). The action response is a local mock; no agreement, camera, schedule, owner session, or renter availability changed. Owner browser verification remains unavailable without a known Development owner session.
 - Status: verified and committed.
 - Commit: `1a1830f`.
+
+## AUD-034 — Hidden booking-decision reference error is reported as a visible-field error
+
+- Severity: P2 operational recovery. Approving or rejecting a booking can reject its hidden booking ID with `This booking reference is invalid.`, but the UI replaces that result with `Correct the highlighted field and try again.` even though no visible field represents the booking reference.
+- Reproduction: pass `decisionControlPresentation` an error state with `fieldErrors.bookingId`. The resulting live alert is generic and the server's constrained result is absent.
+- Cause: the presentation layer treats every error status as a visible rejection-reason correction, despite `bookingId` representing hidden authoritative identity data.
+- Acceptance: a hidden booking-reference rejection exposes its exact safe result; ordinary visible-field validation keeps the existing generic prompt.
+- Fix: prefer `fieldErrors.bookingId` in the error result message before falling back to the generic visible-field wording.
+- Verification: the focused presenter regression failed before the change because `This booking reference is invalid.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (876 passed / 2 skipped). The state is a local mock; no booking decision, agreement, camera, schedule, owner session, or renter availability changed. Owner browser verification remains unavailable without a known Development owner session.
+- Status: verified and committed.
+- Commit: `75f8d2e`.

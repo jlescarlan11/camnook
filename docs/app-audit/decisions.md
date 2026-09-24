@@ -61,3 +61,5 @@
 - AUD-032 preserves the server's constrained reload instruction for a hidden camera/version validation error. It does not attach invalid state to a visible control because none is responsible for correcting authoritative identity data.
 
 - AUD-033 preserves the server's constrained refresh instruction for a hidden replacement-contract booking reference. It does not attach invalid state to a visible control because none is responsible for correcting authoritative identity data.
+
+- AUD-034 preserves the server's constrained invalid-reference result for a hidden booking-decision reference. It does not attach invalid state to the rejection-reason control because that control cannot correct authoritative identity data.
