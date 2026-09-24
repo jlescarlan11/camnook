@@ -35,3 +35,5 @@
 - AUD-019 treats calendar dates as action buttons. The label supplies the chosen pickup/return state, which avoids changing the date selector into a checkbox-like toggle while preserving visible range styling.
 
 - AUD-020 attaches each owner payment-review server error directly to the native control it corrects. Verification and rejection state remain separate, so each form only identifies its own current validation messages.
+
+- AUD-021 composes recipient-account validation with the reusable Philippine mobile control's existing country-code description instead of replacing that required formatting context.

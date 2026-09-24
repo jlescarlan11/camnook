@@ -226,3 +226,14 @@
 - Verification: verification and rejection interaction tests each failed before their respective UI change (`expected null to be 'true'`) and pass afterward (2 focused tests). Lint, typecheck, optimized production build, and the full suite passed (862 passed / 2 skipped). The assertions use mocked local server responses only; no owner session, payment decision, transfer, proof access, or booking state changed.
 - Status: verified and committed.
 - Commit: `be0ec4e`.
+
+## AUD-021 — GCash recipient-configuration errors do not identify their fields
+
+- Severity: P2 accessibility. An owner receiving recipient-name or GCash-number validation errors hears the alerts but the affected control does not expose invalid state or identify the message.
+- Reproduction: render `GcashConfigurationForm` against a local mocked invalid `configureGcashRecipient` response. Both validation messages render while Recipient name and GCash number lack `aria-invalid` and references to their alerts.
+- Cause: the form rendered standalone alerts without stable IDs or conditional control-to-message relationships. The reusable Philippine mobile input already supports composing extra descriptions, but the form did not supply its error.
+- Acceptance: recipient-name and GCash-number server errors identify their corresponding controls; the mobile input retains its country-code explanation alongside its error; no configuration change occurs during error rendering.
+- Fix: assign stable IDs to the two alerts and add conditional invalid state and descriptions to their controls, composing the mobile error with its established country-code description.
+- Verification: the interaction regression failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (863 passed / 2 skipped). The test uses a mocked local action response; it does not save payment-recipient configuration or use an owner session.
+- Status: verified and committed.
+- Commit: `2cb9332`.
