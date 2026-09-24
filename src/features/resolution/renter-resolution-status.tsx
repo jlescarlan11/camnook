@@ -53,6 +53,12 @@ export function RenterResolutionStatus({
             Why are you requesting cancellation?
           </label>
           <textarea
+            aria-describedby={
+              cancellationState.fieldErrors?.reason
+                ? "cancellation-request-reason-error"
+                : undefined
+            }
+            aria-invalid={Boolean(cancellationState.fieldErrors?.reason)}
             className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
             id="cancellation-request-reason"
             maxLength={1000}
@@ -62,6 +68,15 @@ export function RenterResolutionStatus({
             value={cancellationReason}
             required
           />
+          {cancellationState.fieldErrors?.reason ? (
+            <p
+              className="text-sm text-red-800"
+              id="cancellation-request-reason-error"
+              role="alert"
+            >
+              {cancellationState.fieldErrors.reason}
+            </p>
+          ) : null}
           <button
             className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60"
             disabled={cancellationPending}
@@ -81,7 +96,9 @@ export function RenterResolutionStatus({
             ? "Your request was saved. The booking state is unchanged while it awaits review."
             : cancellationState.error === "stale"
               ? "This booking is no longer eligible or already has a request. Refresh its persisted state."
-              : "The cancellation request could not be confirmed."}
+              : cancellationState.fieldErrors?.reason
+                ? "Correct the highlighted cancellation reason and try again."
+                : "The cancellation request could not be confirmed."}
         </p>
       ) : null}
 
