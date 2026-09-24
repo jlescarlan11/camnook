@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -19,6 +20,12 @@ export async function getAuthenticatedUser() {
     data: { user },
     error,
   } = await supabase.auth.getUser();
+
+  if (error && (isAuthRetryableFetchError(error) || error.status === 429 || (error.status !== undefined && error.status >= 500))) {
+    // A provider outage cannot establish that a session is invalid. Let callers
+    // retain their drafts and offer recovery, without exposing provider details.
+    throw new Error("Authentication could not be verified. Try again.");
+  }
 
   if (error || !user) {
     return null;

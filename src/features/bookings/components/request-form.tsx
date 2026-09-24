@@ -69,6 +69,15 @@ export function RequestForm({
   const previousStep = useRef(reviewing);
 
   useEffect(() => {
+    const form = formRef.current;
+    // Action completion triggers a native reset even for returned errors. Keep
+    // the reviewed radio selection valid for retry; state owns all field values.
+    const preserveDraft = (event: Event) => event.preventDefault();
+    form?.addEventListener("reset", preserveDraft);
+    return () => form?.removeEventListener("reset", preserveDraft);
+  }, []);
+
+  useEffect(() => {
     if (previousStep.current === reviewing) return;
     previousStep.current = reviewing;
     (reviewing ? reviewHeadingRef : detailsHeadingRef).current?.focus();
