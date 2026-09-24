@@ -97,6 +97,36 @@ it("opens the details step when validation rejects a field, preserving the draft
   expect((action.mock.calls[1][1] as FormData).get("legalName")).toBe("Alex");
 });
 
+it("returns a rejected hidden schedule to its authoritative picker", async () => {
+  action.mockResolvedValue({
+    error: "invalid_input",
+    fieldErrors: { handoffTime: "Choose an approved handoff time." },
+    status: "error",
+  });
+  render(
+    <RequestForm
+      camera="11111111-1111-4111-8111-111111111111"
+      meetupPlaces={[testMeetupPlace]}
+      profile={{ legalName: "Test Renter", phone: "09170000000" }}
+      returnHref="/cameras/test-camera?pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00"
+      schedule={{ pickupDate: "2099-08-24", returnDate: "2099-08-26", handoffTime: "09:00", policyVersion: "1" }}
+      summary={{ cameraName: "Test camera", dates: "Aug 24–26", handoffTime: "9 AM", rentalAmount: "₱900", securityDeposit: "₱1,000", totalDue: "₱1,900" }}
+    />,
+  );
+  await userEvent.click(screen.getByRole("radio", { name: /Public mall entrance/ }));
+  await userEvent.type(screen.getByRole("textbox", { name: "Purpose" }), "Portrait practice");
+  await userEvent.type(screen.getByRole("textbox", { name: "Shooting city" }), "Cebu City");
+  await userEvent.click(screen.getByRole("button", { name: "Review rental request" }));
+  await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
+
+  const alert = await screen.findByRole("alert");
+  const recovery = screen.getByRole("link", { name: "Choose another schedule" });
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Your details" }));
+  expect(alert.textContent).toContain("Choose an approved handoff time.");
+  expect(recovery.getAttribute("href")).toBe("/cameras/test-camera?pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00");
+  expect(screen.getByRole("button", { name: "Review rental request" }).getAttribute("disabled")).not.toBeNull();
+});
+
 it("requires a fresh selection after a stale place and preserves other answers", async () => {
   action.mockResolvedValue({status:"error",error:"meetup_changed"});
   const props={camera:"11111111-1111-4111-8111-111111111111",profile:{legalName:"Test Renter",phone:"09170000000"},schedule:{pickupDate:"2099-08-24",returnDate:"2099-08-26",handoffTime:"09:00",policyVersion:"1"},summary:{cameraName:"Camera",dates:"Dates",handoffTime:"9 AM",rentalAmount:"₱900",securityDeposit:"₱1000",totalDue:"₱1900"}};

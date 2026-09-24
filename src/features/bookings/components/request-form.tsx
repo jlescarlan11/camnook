@@ -99,11 +99,14 @@ function RequestFormContent({
       persistDraft(remainsSubmitted);
     }
     if (result.error === "meetup_changed") { setPlaceChoice(""); setReviewing(false); router.refresh(); }
-    if (result.fieldErrors && (
-      result.fieldErrors.legalName || result.fieldErrors.phone ||
-      result.fieldErrors.meetupPlace || result.fieldErrors.intendedUse ||
-      result.fieldErrors.expectedLocation
-    )) setReviewing(false);
+    if (
+      scheduleFieldError(result.fieldErrors) ||
+      (result.fieldErrors && (
+        result.fieldErrors.legalName || result.fieldErrors.phone ||
+        result.fieldErrors.meetupPlace || result.fieldErrors.intendedUse ||
+        result.fieldErrors.expectedLocation
+      ))
+    ) setReviewing(false);
     return result;
   }, initialRequestBookingActionState);
   useEffect(() => {
@@ -137,6 +140,7 @@ function RequestFormContent({
   function update(name: keyof typeof values, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
   }
+  const scheduleError = scheduleFieldError(state.fieldErrors);
 
   return (
     <form action={formAction} className={checkoutHref ? "checkout-request" : "space-y-6"} onSubmit={(event) => {
@@ -161,6 +165,11 @@ function RequestFormContent({
         <section aria-labelledby="details-heading" hidden={reviewing}>
           <h2 className="text-2xl font-semibold" id="details-heading" ref={detailsHeadingRef} tabIndex={-1}>{checkoutHref ? "Your rental plans" : "Your details"}</h2>
           {checkoutHref ? <p className="checkout-section-intro">A few details to help the owner review your request.</p> : null}
+          {scheduleError ? (
+            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800" role="alert">
+              {scheduleError} <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.
+            </div>
+          ) : null}
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <Field error={state.fieldErrors?.legalName} errorId="request-legal-name-error" label="Name">
               <input aria-describedby={state.fieldErrors?.legalName ? "request-legal-name-error" : undefined} aria-invalid={state.fieldErrors?.legalName ? true : undefined} autoComplete="name" className={inputClass} maxLength={160} name="legalName" onChange={(event) => update("legalName", event.target.value)} required value={values.legalName} />
@@ -187,7 +196,7 @@ function RequestFormContent({
               <input aria-describedby={state.fieldErrors?.expectedLocation ? "request-expected-location-error" : undefined} aria-invalid={state.fieldErrors?.expectedLocation ? true : undefined} autoComplete="address-level2" className={inputClass} maxLength={500} name="expectedLocation" onChange={(event) => update("expectedLocation", event.target.value)} placeholder="e.g. Cebu City" required value={values.expectedLocation} />
             </Field>
           </div>
-          <button disabled={!meetupPlaces?.length} className="button-primary mt-7 w-full disabled:opacity-60" onClick={() => {
+          <button disabled={Boolean(scheduleError) || !meetupPlaces?.length} className="button-primary mt-7 w-full disabled:opacity-60" onClick={() => {
             if (selectedPlace && formRef.current?.reportValidity()) setReviewing(true);
           }} type="button">Review rental request</button>
         </section>
@@ -235,6 +244,12 @@ const inputClass = "mt-2 w-full rounded-lg border border-stone-300 bg-white px-4
 
 function Field({ children, error, errorId, help, label }: { children: ReactNode; error?: string; errorId?: string; help?: string; label: string }) {
   return <label className="block text-sm font-medium">{label}{children}{help ? <span className="mt-2 block text-xs font-normal leading-5 text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" id={errorId} role="alert">{error}</span> : null}</label>;
+}
+
+function scheduleFieldError(fieldErrors: RequestBookingActionState["fieldErrors"]) {
+  return fieldErrors?.camera ?? fieldErrors?.pickup ?? fieldErrors?.pickupDate ??
+    fieldErrors?.return ?? fieldErrors?.returnDate ?? fieldErrors?.handoffTime ??
+    fieldErrors?.policyVersion;
 }
 
 function ReviewValue({ label, value }: { label: string; value: string }) {
