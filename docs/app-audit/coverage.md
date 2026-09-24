@@ -81,3 +81,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-031: mocked hidden-schedule validation now returns checkout to the details step with its exact message and a preserved picker link; the known-invalid schedule cannot be resubmitted. Focused test, full suite (873 passed / 2 skipped), lint, typecheck, and build pass. No checkout, booking, payment, account, or schedule was submitted or changed.
 
 - AUD-032: mocked hidden handoff-policy reference validation now exposes the server's reload instruction instead of a misleading visible-field prompt. Focused test, full suite (874 passed / 2 skipped), lint, typecheck, and build pass. No policy, camera, owner session, or renter availability changed.
+
+- AUD-033: mocked hidden replacement-contract reference validation now exposes the server's refresh instruction instead of a misleading visible-field prompt. Focused test, full suite (875 passed / 2 skipped), lint, typecheck, and build pass. No agreement, camera, schedule, owner session, or renter availability changed.

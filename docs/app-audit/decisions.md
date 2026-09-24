@@ -59,3 +59,5 @@
 - AUD-031 treats server validation for hidden schedule fields as an authoritative schedule-reselection event, not a renter-detail error. The returned error is shown with the existing picker URL, and the current form is disabled to prevent a repeated invalid operation until a new schedule identity remounts it.
 
 - AUD-032 preserves the server's constrained reload instruction for a hidden camera/version validation error. It does not attach invalid state to a visible control because none is responsible for correcting authoritative identity data.
+
+- AUD-033 preserves the server's constrained refresh instruction for a hidden replacement-contract booking reference. It does not attach invalid state to a visible control because none is responsible for correcting authoritative identity data.

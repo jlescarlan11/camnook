@@ -356,3 +356,14 @@
 - Verification: the new focused recovery test failed before the change because `Reload this camera before saving.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (874 passed / 2 skipped). The test uses a mocked local action response; no policy, camera, owner session, or renter availability changed. Owner browser verification remains unavailable without a known Development owner session.
 - Status: verified and committed.
 - Commit: `7628ade`.
+
+## AUD-033 — Hidden replacement-contract reference error is reported as a visible-field error
+
+- Severity: P2 operational recovery. Issuing a replacement agreement can reject its hidden booking ID with `Refresh this booking before issuing a replacement.`, but the UI replaces that instruction with `Correct the highlighted replacement details.` even though no visible control can correct the reference.
+- Reproduction: submit `SupersedeContractControl` with a mocked `fieldErrors.bookingId` response. The only live alert is generic and the server's recovery instruction is absent.
+- Cause: the common invalid-input result path treats every validation failure as a visible replacement-detail error, despite `bookingId` representing hidden authoritative identity data.
+- Acceptance: a hidden booking-reference rejection exposes its exact safe refresh instruction; ordinary visible-field validation keeps the existing generic prompt.
+- Fix: prefer `fieldErrors.bookingId` in the invalid-input result message before falling back to the generic visible-field wording.
+- Verification: the new focused recovery test failed before the change because `Refresh this booking before issuing a replacement.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (875 passed / 2 skipped). The action response is a local mock; no agreement, camera, schedule, owner session, or renter availability changed. Owner browser verification remains unavailable without a known Development owner session.
+- Status: verified and committed.
+- Commit: `1a1830f`.
