@@ -215,3 +215,14 @@
 - Verification: the new interaction regression failed before the fix (`expected 'true' to be null`) and then passed with the focused calendar suite (7 tests). Lint, typecheck, optimized production build, and the full suite passed (860 passed / 2 skipped). The hot-reloaded public browser picker reported buttons for all dates and `button Saturday, September 26, 2026, selected pickup` after selection. The picker was closed without continuing to checkout; no booking, payment, or account data changed.
 - Status: verified and committed.
 - Commit: `1f4f338`.
+
+## AUD-020 — Owner payment-review errors do not identify their fields
+
+- Severity: P2 accessibility. When owner-side server validation rejects a payment decision, the visible error alerts do not identify the amount, reference, actual-account confirmation, or rejection-reason control that needs correction.
+- Reproduction: render `PaymentReviewControls` against a local mocked invalid `decidePayment` response. Verification errors appear beneath the three review controls, and a reject-reason error appears beneath the selector, while the affected controls expose neither `aria-invalid` nor a message reference.
+- Cause: the owner review UI rendered standalone live alerts without stable IDs or conditional relationships from their corresponding native controls.
+- Acceptance: an affected review control exposes `aria-invalid` and identifies its current server message; error semantics disappear when there is no field error; verification and rejection flows remain independent.
+- Fix: add conditional invalid state and stable, field-specific `aria-describedby` IDs to observed amount, observed reference, actual-account confirmation, and rejection reason, and assign those IDs to the existing alerts.
+- Verification: verification and rejection interaction tests each failed before their respective UI change (`expected null to be 'true'`) and pass afterward (2 focused tests). Lint, typecheck, optimized production build, and the full suite passed (862 passed / 2 skipped). The assertions use mocked local server responses only; no owner session, payment decision, transfer, proof access, or booking state changed.
+- Status: verified and committed.
+- Commit: `be0ec4e`.
