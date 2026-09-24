@@ -166,3 +166,13 @@
 - Scope: PSGC area selection and residential-pin controls remain separate specialized-control audit surfaces; this checkpoint does not claim their errors are associated.
 - Status: verified and committed.
 - Commit: `00a30a8`.
+
+## AUD-015 — Invalid Philippine address selection is not identified as a group error
+- Severity: P2 accessibility. A KYC response that rejected the canonical Philippine area code rendered an alert beneath the selector, but attached that description to a non-semantic wrapper instead of the address-selection group.
+- Reproduction: complete checkout KYC and return a server `psgcAreaCode` validation error. The address selector group rendered without `aria-invalid` or an error description relationship.
+- Cause: the KYC page set `aria-describedby` on an ordinary `div`; the actual `PsgcAreaSelector` fieldset retained only its loading/status description.
+- Acceptance: the Philippine address group preserves its loading/status description and also exposes the current server error plus invalid state when area validation fails.
+- Fix: extend the selector with optional `errorId` and `invalid` props, compose the error ID with its existing status description, and pass those props from KYC.
+- Verification: the new checkout regression failed before the fix (`expected null to be 'true'`), then passed in the focused checkout flow. Lint, typecheck, optimized production build, and the full suite passed (857 passed / 2 skipped).
+- Status: verified and committed.
+- Commit: `31636f6`.

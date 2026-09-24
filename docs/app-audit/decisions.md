@@ -23,3 +23,5 @@
 - AUD-013 keeps the existing inline error alerts and focus recovery, then adds explicit control-to-error associations. Stable IDs are adequate because one request form mounts per checkout or listing flow.
 
 - AUD-014 uses the existing KYC Field wrapper to compose an error reference with any description a child already supplies. This preserves the mobile input's country-code guidance while adding validation context.
+
+- AUD-015 keeps PSGC loading and selection status intact by composing its generated status ID with the optional validation-error ID on the semantic fieldset.
