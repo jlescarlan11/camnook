@@ -196,3 +196,11 @@
 - Verification: the interaction regression failed before the fix (`expected null to be 'true'`), then the focused payment component/interaction suites passed (4 tests). Lint, typecheck, optimized production build, and the full suite passed (859 passed / 2 skipped). The test uses a mocked local action response only; no payment or upload occurred.
 - Status: verified and committed.
 - Commit: `1f08a27`.
+
+## AUD-018 — Static security review checkpoint
+
+- Scope: full repository source and migrations, with independent baseline and architecture passes. The review covered authentication and redirects, single-owner authorization, service-role boundaries, payment/KYC/condition-evidence privacy, upload intents and storage controls, Resend webhook integrity, cron/management routes, provider request boundaries, and lifecycle data integrity.
+- Result: no reportable source-supported vulnerability found. In particular, the review found database-side ownership and state checks for elevated operations, signed/bounded webhook processing, short-lived user-bound upload intents, and no committed live credential.
+- Limitation: this is not a deployed-environment attestation. Supabase migration state, role assignments, storage configuration, secret rotation, CAPTCHA/OTP throttling, and third-party dashboard restrictions were deliberately not accessed.
+- Evidence: generated report at `/Users/johnlesterescarlan/.codex/state/plugins/codex-security/scans/CamNook/00cd0b34d8eeeac90e994288a88ca05a83039600_20260924T193552Z_xcfcn9i9/report.md`; canonical manifest, findings, coverage, and SARIF are stored beside it outside this repository.
+- Status: complete static checkpoint; no product change required.

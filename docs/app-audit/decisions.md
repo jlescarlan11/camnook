@@ -29,3 +29,5 @@
 - AUD-016 treats the residential pin as a labelled composite region, not a native invalid input. Its active error or reconfirmation instruction is described from that region without applying unsupported invalid state.
 
 - AUD-017 composes a dynamic proof-error ID with the existing static file/privacy guidance so the guidance remains available when validation fails.
+
+- AUD-018 treats the generated security report as the canonical scan artifact and records only the result and its runtime limitations in repository audit notes. It does not copy scan artifacts or secret-related configuration into the repository.
