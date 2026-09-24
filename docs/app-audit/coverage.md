@@ -31,3 +31,7 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - Unrequestable Development camera shows explicit unavailable state and Browse cameras, with no schedule controls.
 - Real renter sign-out redirects to sign-in; other-tab owned booking navigation and browser Back to account require authentication. Supported synthetic session restored afterward.
 - AUD-008: one-time checkout read503 then UI Retry restores same schedule and address-edit step; fresh server estimate required. Mobile390 screenshot20 inspected.
+
+- Account read failure: injected one Development overview503; existing Try again link fetched successful profile/bookings without navigation away. No defect found. Fault harness stopped.
+
+- AUD-009: account privacy link opens separate notice tab and preserves unfinished fields plus pin-reconfirmation state. Screenshot21 mobile390 inspected; shared checkout link changed, but that variant was not separately browser-exercised in this final checkpoint.

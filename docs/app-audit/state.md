@@ -1,18 +1,15 @@
-# Continuous application audit
+# Continuous application audit — stopped by user
 
-- Goal: explore, diagnose, fix, verify, and commit useful improvements until stopped.
-- Scope: CamNook functionality, journeys, navigation, UI, responsiveness, accessibility, performance, recovery. Preserve established single-owner rental rules. No push, merge, deployment, real payments, or real-user contact authorized.
-- Branch: `codex/reliability-audit`; clean at start; starting/latest existing commit `beb1cad`.
-- Environment: actual Next.js app at `http://127.0.0.1:3000`, hosted Development only. `pnpm dev` verifies Development credentials, schema discovery, search, and map tiles. Node v25.9.0; installed pnpm reports 11.19.0 (manifest pins 10.33.1).
-- Browser: Chrome DevTools is the primary controller, explicitly allowed by the task. Screenshots saved under ignored `.vercel/app-audit/2026-09-25/`; direct tool file writes are unavailable, so returned screenshot bytes are saved locally.
-- Baseline: 957 tests passed, two provider integration checks skipped; lint and typecheck passed. Build failed downloading Geist/Geist Mono. Logs: `/tmp/camnook-audit-baseline-{tests,lint,typecheck,build}.log`.
-- Latest audit commit: `d98fe5d` (AUD-007).
-- Current task: AUD-008 verified; committing checkout read recovery. Stale profile writes time out (ENV-003); valid profile changes persisted.
-- Environment finding: initial catalog error coincided with DNS `ENOTFOUND`; later DNS/API succeeded and browser reload recovered. No evidence yet of an application data defect.
-- Exact next action: commit AUD-008, then inspect remaining account/profile recovery and catalog edge states. Owner identity question pending; ENV-003 requires backend diagnostics. Dev server session57959 uses ignored DNS fallback after successful standard checks; fault injection is stopped.
-- Browser page3: checkout address step after successful read retry; latest saved synthetic booking `3f7bdcc3-357b-4b0b-a048-a194694411e2` from lost-response recovery. Page4: account shows exactly three fixture bookings. `2cca073b-1844-43ac-9085-c701e656a2be` now has pending cancellation; older original fixture unchanged.
-- Blockers: owner lifecycle awaits existing Development owner account identity (async question pending). Management connector returns permission denied; dashboard is signed out. No overall blocker. Automated browser fails the real Cloudflare challenge; verify its recovery without bypassing it. Existing supported development session script establishes real Development auth without email.
-- Current checks: AUD-008 targeted15 tests, lint, build passed. Prior full suite977 tests passed, two skipped in final full serial suite; lint and build (including type checking) passed. Logs `/tmp/camnook-audit-draft-final-{suite,lint}.log` and `/tmp/camnook-audit-draft-build.log`.
-- Fixture: supported `pnpm dev:renter` succeeded; synthetic profile refreshed. Session established using `scripts/development-session.mjs`; no credentials in records.
-
-Historical `.codex-audit/` reports are discovery leads only, not current verification evidence. User supplied current continuous-audit instructions supersede their speculative recommendations.
+- Status: user requested “stop and finalize”; no further audit or background work scheduled.
+- Goal/scope: ongoing explore → fix → verify → commit, preserving single-owner rentals, manual GCash, and in-person original-ID verification. No push, merge, deploy, real payment, or real-user contact performed.
+- Branch: `codex/reliability-audit`; initial HEAD `beb1cad`. Final HEAD is the privacy-form checkpoint (“Keep renter forms open while reading privacy details”); preceding commit `389c135`. Use `git log` for exact final hash.
+- Completed commits: `6c6d221` AUD-001; `6564117` AUD-002/003; `c90a9b7` AUD-004; `6867376` AUD-005; `32c4d7d` AUD-006; `d98fe5d` AUD-007; `389c135` AUD-008; final HEAD AUD-009.
+- Current task: none. Verified privacy-link fix finished before stopping. Intended code and audit records committed; no unverified implementation left.
+- Environment: Development only, local Next.js at127.0.0.1:3000. Audit dev server stopped; no active fault injection. Node25.9.0, installed pnpm11.19.0. Hosted Development credentials checked by `pnpm dev`; process-local DNS fallback was needed intermittently.
+- Checks: most recent full suite at AUD-007 had977 passed/two provider integration skips. Later AUD-008 had15 targeted tests; AUD-009 had4 targeted tests. Lint and production build including TypeScript passed after each later fix. Full suite not rerun after those two small changes.
+- Evidence: `coverage.md`, `issues.md`, `decisions.md`; ignored screenshots `.vercel/app-audit/2026-09-25/`; logs `/tmp/camnook-audit-*`. No credentials/private user records committed.
+- Fixtures: three synthetic renter bookings; latest `3f7bdcc3-357b-4b0b-a048-a194694411e2` recovered after intentionally withheld committed response, no duplicate. `2cca073b-1844-43ac-9085-c701e656a2be` has pending cancellation; original `9000e739-2292-4bea-a118-7994ba724c3d` unchanged. Synthetic profile saved house Audit13; final unfinished edit discarded. No real residential data used.
+- Browser: pages3/4 at account; privacy test tab closed. Supported Development renter session exists. Browser automation does not establish successful real CAPTCHA/OTP coverage.
+- Blockers: owner lifecycle needs a known existing Development owner identity/session (question was pending when stopped). Management connector permission denied and dashboard signed out. ENV-003 stale profile conflict RPC times out even with supported direct synthetic-auth probe; valid saves and reads work. Root cause remains unresolved.
+- Untested/restricted: owner approval and payment/agreement/handoff/return/deposit transitions, successful real CAPTCHA/OTP, intended stale-profile conflict response, production/live behavior. Audit completion is not release readiness.
+- Exact next action if resumed: inspect Git/state, restart Development through standard checks (use ignored DNS fallback only if needed), obtain existing Development owner identity through supported access, then exercise synthetic request approval → agreement/manual-payment → pickup → return/deposit. If owner access remains unavailable, diagnose ENV-003 with authorized backend logs when available and continue independently useful renter coverage.

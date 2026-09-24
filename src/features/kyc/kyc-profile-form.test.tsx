@@ -31,5 +31,7 @@ describe("KycProfileForm", () => {
     expect(markup).toContain('name="psgcAreaCode"');
     expect(markup).toContain("No SMS or ID upload");
     expect(markup).not.toContain('type="file"');
+    expect(markup).toMatch(/<a[^>]*target="_blank"[^>]*>Privacy details \(opens in a new tab\)<\/a>/);
+    expect(markup).toContain('rel="noopener noreferrer"');
   });
 });

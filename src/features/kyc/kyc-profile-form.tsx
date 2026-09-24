@@ -161,7 +161,7 @@ function ProfileForm({
           initialPin={kyc?.residentialPin ?? null}
         />
       </div>
-      <p className={checkout ? "checkout-id-note" : "text-sm text-stone-600"}>{checkout ? "Bring your original ID to pickup. " : "No SMS or ID upload. Bring the original ID to pickup. "}<Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id">Privacy details</Link></p>
+      <p className={checkout ? "checkout-id-note" : "text-sm text-stone-600"}>{checkout ? "Bring your original ID to pickup. " : "No SMS or ID upload. Bring the original ID to pickup. "}<Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id" target="_blank" rel="noopener noreferrer">Privacy details (opens in a new tab)</Link></p>
 
       {state.status === "error" ? (
         <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">

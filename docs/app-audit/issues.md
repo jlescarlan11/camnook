@@ -103,5 +103,15 @@
 - Acceptance: retry obtains fresh server context with the same schedule/step; failed state exposes no submit action or stale estimate.
 - Verification: regression failed for missing form, then15 targeted tests passed; lint and production build including TypeScript passed. Browser one-time503 → Retry checkout restored the same camera/dates/handoff/policy and address step at390px, without overflow. Screenshot20 inspected. Independent review found no actionable issues.
 - Logs: `/tmp/camnook-audit-checkout-retry-{red,green,lint,build}.log`; fault simulation in ignored local harness, no hosted configuration changes.
-- Status: verified; committing.
-- Commit: pending.
+- Status: verified.
+- Commit: `389c135`.
+
+
+## AUD-009 — Opening privacy guidance discards unfinished renter details
+- Severity: P2 loss of work. Change account house field, open Privacy details, then browser Back: original saved value replaces unfinished edit.
+- Fix: supporting privacy link opens a separate tab and visibly announces that behavior; current account/checkout form remains mounted. No new personal-data storage.
+- Acceptance: privacy notice opens successfully while original form fields and pin state remain intact.
+- Verification: browser opened privacy page5 while account page3 retained synthetic unfinished house and pin-reconfirmation state;390px screenshot21 inspected with no overflow. Four targeted tests, lint and build including TypeScript passed; independent review clear. Unsaved synthetic edit discarded via reload after verification; saved profile unchanged.
+- Logs: `/tmp/camnook-audit-privacy-form-{red,green,lint,build}.log`.
+- Status: verified; final stop-checkpoint commit (HEAD, “Keep renter forms open while reading privacy details”).
+- Scope: supporting privacy navigation only; general navigation away from unsaved account edits is not claimed to persist.
