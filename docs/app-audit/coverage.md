@@ -85,3 +85,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-033: mocked hidden replacement-contract reference validation now exposes the server's refresh instruction instead of a misleading visible-field prompt. Focused test, full suite (875 passed / 2 skipped), lint, typecheck, and build pass. No agreement, camera, schedule, owner session, or renter availability changed.
 
 - AUD-034: mocked hidden booking-decision reference validation now exposes the server's invalid-reference result instead of a misleading visible-field prompt. Focused test, full suite (876 passed / 2 skipped), lint, typecheck, and build pass. No booking decision, agreement, camera, schedule, owner session, or renter availability changed.
+
+- AUD-035: mocked hidden booking and contract-version signing validation now expose their precise refresh instructions instead of a misleading consent prompt. Focused tests, full suite (878 passed / 2 skipped), lint, typecheck, and build pass. No signature, agreement, booking, payment, owner session, or renter availability changed.

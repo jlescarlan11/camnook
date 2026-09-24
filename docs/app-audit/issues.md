@@ -378,3 +378,14 @@
 - Verification: the focused presenter regression failed before the change because `This booking reference is invalid.` was absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (876 passed / 2 skipped). The state is a local mock; no booking decision, agreement, camera, schedule, owner session, or renter availability changed. Owner browser verification remains unavailable without a known Development owner session.
 - Status: verified and committed.
 - Commit: `75f8d2e`.
+
+## AUD-035 — Hidden signing references are reported as consent errors
+
+- Severity: P2 operational recovery. Signing can reject the hidden booking ID with `Refresh this booking before signing.` or the hidden contract version with `Refresh before signing this contract.`, but the UI replaces both instructions with a consent-focused result despite the checkbox not being responsible.
+- Reproduction: submit `SignContractControl` against mocked invalid `bookingId` and `contractVersionId` action responses. The live alert says to review consent rather than showing either server-provided refresh instruction.
+- Cause: the invalid-input result path assumes every validation response is consent-related and drops recovery text for the hidden authoritative references.
+- Acceptance: each hidden reference error exposes its exact safe refresh instruction; consent validation retains the existing consent correction path.
+- Fix: prefer `fieldErrors.bookingId`, then `fieldErrors.contractVersionId`, before the existing consent-focused fallback.
+- Verification: focused interaction coverage failed before the change because the booking-refresh instruction was absent, then passed for both reference types. Lint, typecheck, optimized production build, and the full suite passed (878 passed / 2 skipped). The action responses are local mocks; no signature, agreement, booking, payment, owner session, or renter availability changed. Live signing was intentionally not exercised because it is a real state-changing action.
+- Status: verified and committed.
+- Commit: `abc7d36`.

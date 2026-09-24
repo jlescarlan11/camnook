@@ -63,3 +63,5 @@
 - AUD-033 preserves the server's constrained refresh instruction for a hidden replacement-contract booking reference. It does not attach invalid state to a visible control because none is responsible for correcting authoritative identity data.
 
 - AUD-034 preserves the server's constrained invalid-reference result for a hidden booking-decision reference. It does not attach invalid state to the rejection-reason control because that control cannot correct authoritative identity data.
+
+- AUD-035 preserves server-provided refresh instructions for hidden booking and contract-version signing references. It keeps the existing consent-specific field state and result fallback, so a visible checkbox remains responsible only for its own validation.
