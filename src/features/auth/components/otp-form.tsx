@@ -7,6 +7,7 @@ import {
   resendEmailOtp,
   verifyEmailOtp,
 } from "@/features/auth/actions";
+import { withAuthActionRecovery } from "./action-recovery";
 import { initialAuthFormState } from "@/lib/auth/state";
 
 import {
@@ -22,11 +23,11 @@ export function OtpForm({
   startAgainHref: string;
 }) {
   const [state, formAction, pending] = useActionState(
-    verifyEmailOtp,
+    withAuthActionRecovery(verifyEmailOtp, "We couldn’t confirm your sign-in. Try again. If the code has already been used, refresh this page to check whether you’re signed in."),
     initialAuthFormState,
   );
   const [resendState, resendAction, resendPending] = useActionState(
-    resendEmailOtp,
+    withAuthActionRecovery(resendEmailOtp, "We couldn’t confirm the new code request. Check your email before trying again."),
     initialAuthFormState,
   );
   const [token, setToken] = useState("");

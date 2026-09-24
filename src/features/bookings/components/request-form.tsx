@@ -1,10 +1,10 @@
 "use client";
 
 import { meetupMapUrl, type MeetupPlace } from "@/features/meetups/places";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckoutProgress } from "./checkout-progress";
-import { useActionState, useEffect, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
 
 import { requestBooking, type RequestBookingActionState } from "@/features/bookings/actions/request-booking";
 import { clearRequestDraft, readRequestDraft, readRequestOperation, writeRequestDraft } from "../request-draft";
@@ -88,7 +88,15 @@ function RequestFormContent({
     setLockedPlace(selectedPlace ?? null);
     setSubmitted(true);
     persistDraft(true);
-    const result = await requestBooking(previous, data);
+    let result: RequestBookingActionState;
+    try {
+      result = await requestBooking(previous, data);
+    } catch (error) {
+      unstable_rethrow(error);
+      // A response that never reached the client can follow a committed request.
+      // Keep the operation locked so retry remains idempotent.
+      result = { status: "error", error: "request_failed", retryUnchanged: true };
+    }
     if (result.status === "success" && result.bookingId) {
       clearRequestDraft(draftKey, scheduleIdentity);
       router.push(`/account/bookings/${result.bookingId}?requested=1`);
@@ -143,11 +151,17 @@ function RequestFormContent({
   const scheduleError = scheduleFieldError(state.fieldErrors);
 
   return (
-    <form action={formAction} className={checkoutHref ? "checkout-request" : "space-y-6"} onSubmit={(event) => {
+    <form className={checkoutHref ? "checkout-request" : "space-y-6"} onSubmit={(event) => {
+      event.preventDefault();
+      if (pending) return;
       if (!reviewing) {
-        event.preventDefault();
-        if (selectedPlace && formRef.current?.reportValidity()) setReviewing(true);
+        if (formRef.current?.reportValidity() && selectedPlace) setReviewing(true);
+        return;
       }
+      // Dispatch explicitly so React does not reset the hidden required radio
+      // after a returned error, which would silently prevent retry submission.
+      const data = new FormData(event.currentTarget);
+      startTransition(() => formAction(data));
     }} ref={formRef}>
       <input name="operationId" type="hidden" value={operationId} />
       <input name="meetupPlaceId" type="hidden" value={selectedPlace?.id ?? ""} />
