@@ -83,9 +83,13 @@ it("opens the details step when validation rejects a field, preserving the draft
   await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
   await screen.findByRole("textbox", { name: /Name/ });
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Your details" }));
-  expect((await screen.findByRole("alert")).textContent).toBe("Enter your name.");
+  const error = await screen.findByRole("alert");
+  const name = screen.getByRole("textbox", { name: /Name/ });
+  expect(error.textContent).toBe("Enter your name.");
+  expect(name.getAttribute("aria-invalid")).toBe("true");
+  expect(name.getAttribute("aria-describedby")).toBe(error.getAttribute("id"));
   expect((screen.getByRole("textbox", { name: "Purpose" }) as HTMLTextAreaElement).value).toBe("Portrait practice");
-  await userEvent.type(screen.getByRole("textbox", { name: /Name/ }), "lex");
+  await userEvent.type(name, "lex");
   await userEvent.click(screen.getByRole("button", { name: "Review rental request" }));
   expect(action).toHaveBeenCalledTimes(1);
   await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));

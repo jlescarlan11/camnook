@@ -162,15 +162,15 @@ function RequestFormContent({
           <h2 className="text-2xl font-semibold" id="details-heading" ref={detailsHeadingRef} tabIndex={-1}>{checkoutHref ? "Your rental plans" : "Your details"}</h2>
           {checkoutHref ? <p className="checkout-section-intro">A few details to help the owner review your request.</p> : null}
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            <Field label="Name" error={state.fieldErrors?.legalName}>
-              <input autoComplete="name" className={inputClass} maxLength={160} name="legalName" onChange={(event) => update("legalName", event.target.value)} required value={values.legalName} />
+            <Field error={state.fieldErrors?.legalName} errorId="request-legal-name-error" label="Name">
+              <input aria-describedby={state.fieldErrors?.legalName ? "request-legal-name-error" : undefined} aria-invalid={state.fieldErrors?.legalName ? true : undefined} autoComplete="name" className={inputClass} maxLength={160} name="legalName" onChange={(event) => update("legalName", event.target.value)} required value={values.legalName} />
             </Field>
-            <Field label="Phone" error={state.fieldErrors?.phone}>
-              <PhilippineMobileInput aria-label="Phone" name="phone" onChange={(digits) => update("phone", digits)} required value={values.phone} />
+            <Field error={state.fieldErrors?.phone} errorId="request-phone-error" label="Phone">
+              <PhilippineMobileInput aria-describedby={state.fieldErrors?.phone ? "request-phone-error" : undefined} aria-invalid={state.fieldErrors?.phone ? true : undefined} aria-label="Phone" name="phone" onChange={(digits) => update("phone", digits)} required value={values.phone} />
             </Field>
           </div>
           <div className="mt-5 space-y-5">
-            <fieldset className="space-y-3" disabled={submitted}>
+            <fieldset aria-describedby={state.fieldErrors?.meetupPlace || state.error === "meetup_changed" ? "request-meetup-place-error" : undefined} aria-invalid={state.fieldErrors?.meetupPlace || state.error === "meetup_changed" ? true : undefined} className="space-y-3" disabled={submitted}>
               <legend className="mb-3 font-semibold">Choose your meetup place</legend>
               <p className="text-sm text-stone-500">Pickup and return use the same place, subject to owner approval.</p>
               {meetupPlaces === null ? <p role="alert">Meetup places could not be loaded. <button className="underline" type="button" onClick={() => router.refresh()}>Try again</button></p> : !meetupPlaces.length ? <p role="status">This camera has no meetup places available. New rental requests are unavailable.</p> : meetupPlaces.map(place => <div className="rounded-lg border border-stone-200 p-4 has-[:checked]:border-[#0b4f9c]" key={`${place.id}:${place.version}`}>
@@ -178,13 +178,13 @@ function RequestFormContent({
                 <a className="mt-2 inline-flex min-h-11 items-center text-sm underline" href={meetupMapUrl(place.latitude,place.longitude)} target="_blank" rel="noreferrer">View on map</a>
                 {place.attribution ? <p className="text-xs text-stone-500">{place.attribution}</p> : null}
               </div>)}
-              {state.fieldErrors?.meetupPlace || state.error === "meetup_changed" ? <p role="alert" className="text-sm text-red-800">{state.fieldErrors?.meetupPlace ?? "Meetup choices changed. Choose a current place before continuing."}</p> : null}
+              {state.fieldErrors?.meetupPlace || state.error === "meetup_changed" ? <p id="request-meetup-place-error" role="alert" className="text-sm text-red-800">{state.fieldErrors?.meetupPlace ?? "Meetup choices changed. Choose a current place before continuing."}</p> : null}
             </fieldset>
-            <Field label="Purpose" error={state.fieldErrors?.intendedUse}>
-              <textarea className={`${inputClass} min-h-28`} maxLength={1000} name="intendedUse" onChange={(event) => update("intendedUse", event.target.value)} placeholder="Tell the owner what you plan to shoot" required value={values.intendedUse} />
+            <Field error={state.fieldErrors?.intendedUse} errorId="request-intended-use-error" label="Purpose">
+              <textarea aria-describedby={state.fieldErrors?.intendedUse ? "request-intended-use-error" : undefined} aria-invalid={state.fieldErrors?.intendedUse ? true : undefined} className={`${inputClass} min-h-28`} maxLength={1000} name="intendedUse" onChange={(event) => update("intendedUse", event.target.value)} placeholder="Tell the owner what you plan to shoot" required value={values.intendedUse} />
             </Field>
-            <Field label="Shooting city" error={state.fieldErrors?.expectedLocation}>
-              <input autoComplete="address-level2" className={inputClass} maxLength={500} name="expectedLocation" onChange={(event) => update("expectedLocation", event.target.value)} placeholder="e.g. Cebu City" required value={values.expectedLocation} />
+            <Field error={state.fieldErrors?.expectedLocation} errorId="request-expected-location-error" label="Shooting city">
+              <input aria-describedby={state.fieldErrors?.expectedLocation ? "request-expected-location-error" : undefined} aria-invalid={state.fieldErrors?.expectedLocation ? true : undefined} autoComplete="address-level2" className={inputClass} maxLength={500} name="expectedLocation" onChange={(event) => update("expectedLocation", event.target.value)} placeholder="e.g. Cebu City" required value={values.expectedLocation} />
             </Field>
           </div>
           <button disabled={!meetupPlaces?.length} className="button-primary mt-7 w-full disabled:opacity-60" onClick={() => {
@@ -233,8 +233,8 @@ function RequestFormContent({
 
 const inputClass = "mt-2 w-full rounded-lg border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]";
 
-function Field({ children, error, help, label }: { children: ReactNode; error?: string; help?: string; label: string }) {
-  return <label className="block text-sm font-medium">{label}{children}{help ? <span className="mt-2 block text-xs font-normal leading-5 text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" role="alert">{error}</span> : null}</label>;
+function Field({ children, error, errorId, help, label }: { children: ReactNode; error?: string; errorId?: string; help?: string; label: string }) {
+  return <label className="block text-sm font-medium">{label}{children}{help ? <span className="mt-2 block text-xs font-normal leading-5 text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" id={errorId} role="alert">{error}</span> : null}</label>;
 }
 
 function ReviewValue({ label, value }: { label: string; value: string }) {
