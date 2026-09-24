@@ -284,10 +284,38 @@ export function PickupControls({
           <input name="conditionReportId" type="hidden" value={pickup.handoff.condition_report_id} />
           <input name="intentId" type="hidden" value={photoIntentId} />
           <label className="block text-sm font-medium" htmlFor="pickup-condition-photo">Condition photo</label>
-          <input accept="image/jpeg,image/png" className="block w-full text-sm" id="pickup-condition-photo" name="photo" required type="file" />
+          <input
+            accept="image/jpeg,image/png"
+            aria-describedby={
+              photoState.fieldErrors?.photo
+                ? "pickup-condition-photo-error"
+                : undefined
+            }
+            aria-invalid={photoState.fieldErrors?.photo ? true : undefined}
+            className="block w-full text-sm"
+            id="pickup-condition-photo"
+            name="photo"
+            required
+            type="file"
+          />
           <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || pickup.handoff.photos.length >= 6} type="submit">{photoPending ? "Verifying and saving…" : "Attach private photo"}</button>
         </form>
-        {photoState.status !== "idle" ? <p className={`mt-3 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`} role={photoState.status === "success" ? "status" : "alert"}>{photoState.status === "success" ? "The immutable private photo was verified and attached." : photoState.fieldErrors?.photo ?? "The photo could not be safely finalized. Retry from persisted state."}</p> : null}
+        {photoState.status !== "idle" ? (
+          <p
+            className={`mt-3 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`}
+            id={
+              photoState.fieldErrors?.photo
+                ? "pickup-condition-photo-error"
+                : undefined
+            }
+            role={photoState.status === "success" ? "status" : "alert"}
+          >
+            {photoState.status === "success"
+              ? "The immutable private photo was verified and attached."
+              : photoState.fieldErrors?.photo ??
+                "The photo could not be safely finalized. Retry from persisted state."}
+          </p>
+        ) : null}
 
         {pickup.handoff.photos.length > 0 ? (
           <ul className="mt-5 space-y-3">

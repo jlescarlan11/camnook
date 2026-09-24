@@ -3,11 +3,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const { completePickup } = vi.hoisted(() => ({ completePickup: vi.fn() }));
+const { completePickup, uploadConditionPhoto } = vi.hoisted(() => ({
+  completePickup: vi.fn(),
+  uploadConditionPhoto: vi.fn(),
+}));
 vi.mock("./actions", () => ({
   completePickup,
   requestAdminConditionPhotoAccess: vi.fn(),
-  uploadConditionPhoto: vi.fn(),
+  uploadConditionPhoto,
 }));
 
 import { PickupControls } from "./pickup-controls";
@@ -38,6 +41,23 @@ const pickup: PickupDetail = {
     retains_id_number: false,
   },
   renter_legal_name: "Named Renter",
+};
+
+const activePickup: PickupDetail = {
+  ...pickup,
+  booking_state: "ACTIVE",
+  handoff: {
+    accessory_checklist_completed: true,
+    actual_at: "2026-08-16T02:00:00Z",
+    camera_serial_checked: true,
+    condition_report_id: "84000000-0000-4000-8000-000000000006",
+    condition_summary: "Clean and functional.",
+    handoff_id: "84000000-0000-4000-8000-000000000007",
+    named_renter_present: true,
+    original_id_checked: true,
+    original_id_matched: true,
+    photos: [],
+  },
 };
 
 afterEach(() => {
@@ -90,4 +110,34 @@ it("identifies pickup controls after server validation rejects the checklist", a
     expect(control.getAttribute("aria-invalid")).toBe("true");
     expect(control.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
   }
+});
+
+it("identifies the condition photo after server validation rejects it", async () => {
+  uploadConditionPhoto.mockResolvedValue({
+    error: "invalid",
+    fieldErrors: { photo: "Choose a JPEG or PNG condition photo up to 5 MiB." },
+    status: "error",
+  });
+  render(
+    <PickupControls
+      actualAt="2026-08-16T10:00"
+      operationId="84000000-0000-4000-8000-000000000004"
+      photoIntentId="84000000-0000-4000-8000-000000000005"
+      pickup={activePickup}
+    />,
+  );
+
+  const photo = screen.getByLabelText("Condition photo");
+  fireEvent.submit(
+    screen.getByRole("button", { name: "Attach private photo" }).closest("form")!,
+  );
+  await waitFor(() => expect(uploadConditionPhoto).toHaveBeenCalledTimes(1));
+
+  const error = await screen.findByText(
+    "Choose a JPEG or PNG condition photo up to 5 MiB.",
+  );
+  expect(photo.getAttribute("aria-invalid")).toBe("true");
+  expect(photo.getAttribute("aria-describedby")).toContain(
+    error.getAttribute("id"),
+  );
 });
