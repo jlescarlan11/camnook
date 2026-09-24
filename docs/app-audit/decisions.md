@@ -15,3 +15,5 @@
 - AUD-008 uses a native GET form for reload recovery with a fixed local action and existing query allowlist. No new client bundle or backend error classification is needed; fresh authoritative context remains required.
 
 - AUD-010 keeps selected-thumbnail styling separate from the accessible meaning of a lightbox trigger. A data attribute is sufficient for the visual outline; `aria-pressed` would misdescribe activation as a toggle.
+
+- AUD-011 does not treat a transient claims failure as an authenticated decision. The proxy only defers its redirect so the existing route-level guards re-verify authorization and can surface the established retry state; missing and invalid claims still redirect to login.

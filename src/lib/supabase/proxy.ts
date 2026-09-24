@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/types/database.generated";
@@ -61,9 +62,16 @@ export async function updateSupabaseSession(request: NextRequest) {
   // refreshes expiring sessions before any response can be committed.
   const { data, error } = await supabase.auth.getClaims();
   const isAuthenticated = !error && Boolean(data?.claims.sub);
+  const claimsUnavailable = Boolean(
+    error && (
+      isAuthRetryableFetchError(error) ||
+      error.status === 429 ||
+      (error.status !== undefined && error.status >= 500)
+    ),
+  );
   const pathname = request.nextUrl.pathname;
 
-  if (isProtectedRoute(pathname) && !isAuthenticated) {
+  if (isProtectedRoute(pathname) && !isAuthenticated && !claimsUnavailable) {
     const returnTo = `${pathname}${request.nextUrl.search}`;
     return applyAuthResponseState(
       NextResponse.redirect(new URL(loginPath(returnTo), request.url)),

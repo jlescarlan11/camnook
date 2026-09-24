@@ -37,3 +37,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-009: account privacy link opens separate notice tab and preserves unfinished fields plus pin-reconfirmation state. Screenshot21 mobile390 inspected; shared checkout link changed, but that variant was not separately browser-exercised in this final checkpoint.
 
 - AUD-010: live camera-detail gallery inspected at desktop and 390×844. Thumbnails are announced as buttons that enlarge a photo, not checkbox-like selection toggles. The second photo opened in the lightbox; Escape closed it and returned focus to that trigger. Visual selected styling and layout were preserved.
+
+- AUD-011: a real Development provider DNS failure reached the page retry state, then the next protected request incorrectly redirected to sign-in. Focused proxy coverage now distinguishes transient claims failures from absent sessions. A post-fix browser session could not be established because automated CAPTCHA/OTP remains unavailable; broad-suite reruns are deferred while unrelated CPU-bound work causes untouched interaction tests to exceed their unchanged timeout.

@@ -125,3 +125,12 @@
 - Verification: regression failed before the fix (`expected 'true' to be null`), then the full suite passed with 851 passed / 2 skipped. Lint, typecheck, and production build passed. Live desktop and 390×844 browser checks showed ordinary buttons, correct lightbox photo, Escape dismissal, and focus restoration.
 - Status: verified and committed.
 - Commit: `66e04df`.
+
+## AUD-011 — Retry after a temporary auth outage signs an active renter out
+- Severity: P1 recovery. An active renter could reach a protected page's retry state after a temporary provider failure, then be redirected to sign-in on the retry even though the outage did not prove the session invalid.
+- Reproduction: while a synthetic Development renter session was active, a provider DNS failure produced the page-level retry state on `/account`. Selecting Retry then reached `/login?next=%2Faccount`. Server evidence showed `getClaims()` failed with provider DNS resolution, while the proxy treated the failed result exactly like an absent session.
+- Cause: `updateSupabaseSession` calculated `isAuthenticated` as false for every claims error and redirected every protected request. The page-level `getAuthenticatedUser` helper already classifies retryable, 429, and 5xx failures separately.
+- Acceptance: retryable claims failures preserve the protected route so its server-side guard can re-verify or expose a retry state; actual absent/invalid claims continue to redirect; no data/action authorization is granted from unverified proxy claims.
+- Fix: classify retryable, 429, and 5xx `getClaims()` errors before the proxy redirect decision. On those errors, continue to the route's existing server-side authorization guard; invalid or missing claims retain the login redirect.
+- Verification: four regression cases failed before the fix with a 307 redirect and pass afterward in the focused proxy suite (11 tests). Lint, typecheck, and optimized production build passed. The full suite was not accepted as passing: unrelated host CPU saturation caused three untouched request-form interaction tests to exceed their unchanged 5-second timeout. The post-fix browser path remains unverified because a fresh authenticated session requires a successful provider CAPTCHA/OTP challenge.
+- Status: scoped checkpoint pending broader-suite rerun.
