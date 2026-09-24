@@ -29,5 +29,5 @@ it("keeps the meetup input labelled and submits only after reviewing the rental 
   await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
   await waitFor(() => expect(requestBooking).toHaveBeenCalledTimes(1));
   expect(vi.mocked(requestBooking).mock.calls[0][1].get("policyVersion")).toBe("2");
-  expect(screen.getByRole("alert").textContent).toContain("no longer available");
+  expect((await screen.findByRole("alert")).textContent).toContain("no longer available");
 });

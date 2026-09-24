@@ -97,7 +97,9 @@ function waitForPath(path, timeoutMs = 10_000) {
   throw new Error(`timed out waiting for ${path}`);
 }
 
-describe("hosted database test runner diagnostics", { timeout: 15_000 }, () => {
+// This runner is deployed under Linux Bash with jq. Windows Bash/WSL lacks the
+// same process and signal semantics; CI runs the complete suite on Linux.
+describe.skipIf(process.platform === "win32")("hosted database test runner diagnostics", { timeout: 15_000 }, () => {
   beforeEach(() => {
     fixtureRoot = mkdtempSync(join(tmpdir(), "camnook-hosted-runner-test-"));
     fakeBin = join(fixtureRoot, "bin");

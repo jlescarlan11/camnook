@@ -124,7 +124,13 @@ describe("hosted database test policy", () => {
 
     const outside = join(repositoryRoot, "outside.sql");
     writeFileSync(outside, "begin; select 'ok 1'; rollback;");
-    symlinkSync(outside, join(repositoryRoot, "supabase/tests/hosted/link.sql"));
+    // Directory junctions need no elevated symlink privilege on Windows and
+    // still exercise the manifest's symbolic-link rejection.
+    symlinkSync(
+      process.platform === "win32" ? repositoryRoot : outside,
+      join(repositoryRoot, "supabase/tests/hosted/link.sql"),
+      process.platform === "win32" ? "junction" : "file",
+    );
     writeFileSync(
       manifestPath,
       JSON.stringify({
