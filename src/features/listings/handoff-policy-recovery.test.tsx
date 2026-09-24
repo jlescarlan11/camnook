@@ -95,3 +95,18 @@ it("identifies the Philippine address group after server validation rejects it",
   expect(area.getAttribute("aria-invalid")).toBe("true");
   expect(area.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
 });
+
+it("keeps a stale hidden camera reference actionable", async () => {
+  save.mockResolvedValue({
+    error: "invalid_input",
+    fieldErrors: { camera: "Reload this camera before saving." },
+    status: "error",
+  });
+  render(<HandoffPolicyForm policy={{ allowedWeekdays: [1], approvedTimes: ["09:00"], enabled: true, timezone: "Asia/Manila", version: 2, cityLabel: "Synthetic area", cameraId: "11111111-1111-4111-8111-111111111111", cameraName: "Test camera", cameraStatus: "published", canonicalAnchor: { active: true, current: true, areaCode: "0730600041", areaName: "Synthetic area", areaPath: [], precision: "barangay_centroid", release: "2026-q2" } }} />);
+
+  fireEvent.submit(screen.getByRole("button", { name: "Save availability" }).closest("form")!);
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+
+  expect(await screen.findByText("Reload this camera before saving.")).toBeTruthy();
+  expect(screen.queryByText("Correct the highlighted fields and try again.")).toBeNull();
+});

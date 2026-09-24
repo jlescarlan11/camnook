@@ -168,7 +168,7 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
                 : saveState.error === "unauthorized"
                   ? "Your owner access could not be verified."
                   : saveState.error === "invalid_input"
-                    ? "Correct the highlighted fields and try again."
+                    ? saveState.fieldErrors?.camera ?? "Correct the highlighted fields and try again."
                     : "The policy could not be saved. No partial settings were applied."}
           </div>
         ) : null}
