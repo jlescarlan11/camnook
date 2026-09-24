@@ -281,3 +281,14 @@
 - Verification: the recovery regression failed before the UI change because the time description was only `approved-times-error`, then passed. Lint, typecheck, optimized production build, and the full suite passed (867 passed / 2 skipped). The test uses a mocked local save action; no camera availability policy changed.
 - Status: verified and committed.
 - Commit: `9b63a93`.
+
+## AUD-026 — Handoff-policy area error describes a non-semantic wrapper
+
+- Severity: P2 accessibility. A rejected canonical pickup-area selection leaves the Philippine address fieldset appearing valid while its error is attached to an outer section.
+- Reproduction: submit `HandoffPolicyForm` with a mocked `city` field error and inspect the selector group. The outer visual section references the alert, but the `Philippine address` fieldset has neither invalid state nor the error description.
+- Cause: the form already had a selector API for an error ID and invalid state, but did not pass the `city` error to it.
+- Acceptance: the semantic Philippine address group remains described by its status text and also identifies the active city error with invalid state; the outer section does not impersonate a form control.
+- Fix: pass the existing stable `origin-error` ID and conditional invalid state to `PsgcAreaSelector`, removing the wrapper-only description.
+- Verification: the mocked recovery test failed before the UI change (`expected null to be 'true'`) and then passed. Lint, typecheck, optimized production build, and the full suite passed (868 passed / 2 skipped). No area selection or availability policy was saved.
+- Status: verified and committed.
+- Commit: `700ff24`.
