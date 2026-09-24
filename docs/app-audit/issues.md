@@ -433,3 +433,14 @@
 - Verification: action and interaction regressions failed before the change because generic `invalid` left all four controls unlocated, then passed. Lint, typecheck, optimized production build, and the full suite passed (885 passed / 2 skipped). All responses are local mocks; no refund movement, payment, booking state, owner session, or renter availability changed. Live refund recording was intentionally not exercised because it is a real financial operation.
 - Status: verified and committed.
 - Commit: `91cc76e`.
+
+## AUD-040 — Private issue-note validation is dropped and the note textarea is unlabeled
+
+- Severity: P2 owner recovery and accessibility. A malformed private issue note is rejected as generic `invalid`, while the only note textarea has no accessible label or server-error association.
+- Reproduction: submit a synthetic one-character note with valid hidden IDs. The action drops the parser result before authorization; a mocked matching UI response leaves the note textarea unnamed, not invalid, and undescribed.
+- Cause: a combined identity/note early guard discards visible note validation, and the native textarea had neither label nor error semantics.
+- Acceptance: hidden identity failures retain generic authoritative-facts recovery; with valid identity, an invalid note returns its exact bounded field error before authorization, and the labelled textarea is marked and described by that message.
+- Fix: validate identity before branching to the note parser result, then add a stable label, error ID, `aria-invalid`, and `aria-describedby` to the note control.
+- Verification: action and interaction regressions failed before the change because the field error and accessible note name were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (887 passed / 2 skipped). All responses are local mocks; no note, issue decision, refund, booking state, owner session, or renter availability changed.
+- Status: verified and committed.
+- Commit: `6011fb3`.

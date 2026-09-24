@@ -73,3 +73,5 @@
 - AUD-038 separates a visible owner decision reason from hidden cancellation identity validation. This preserves a correctable field error without exposing or attributing invalid state to request, booking, or operation references.
 
 - AUD-039 treats external refund details as distinct, operator-confirmed facts. Identity validation remains hidden and generic, while amount, reference, recipient, and time receive their own bounded correction semantics before any financial mutation.
+
+- AUD-040 separates private issue-note text from hidden operation identity. Only the labelled visible textarea receives correction semantics; identity validation remains generic and does not invite edits to an authoritative reference.
