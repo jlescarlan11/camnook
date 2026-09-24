@@ -69,3 +69,5 @@
 - AUD-036 treats a payment identity as hidden authoritative context rather than a reconciliation fact. Its refresh instruction is presented from the action state without marking amount, reference, or actual-account controls invalid.
 
 - AUD-037 preserves the cancellation action's existing field-specific message instead of classifying it as operational uncertainty. The visible textarea is the sole responsible control; identity/stale recovery stays at the action-result level.
+
+- AUD-038 separates a visible owner decision reason from hidden cancellation identity validation. This preserves a correctable field error without exposing or attributing invalid state to request, booking, or operation references.

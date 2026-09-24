@@ -411,3 +411,14 @@
 - Verification: focused interaction coverage failed before the change because the reason message and invalid semantics were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (881 passed / 2 skipped). The action response is a local mock; no cancellation request, booking state, payment, owner session, or renter availability changed.
 - Status: verified and committed.
 - Commit: `cef7143`.
+
+## AUD-038 — Owner cancellation decision reason is dropped before it reaches its textarea
+
+- Severity: P2 owner recovery and accessibility. `decideCancellation` combines invalid reason text with hidden identifiers and decision validation, then returns only a generic `invalid` result. The owner decision textarea receives no server error or invalid semantics.
+- Reproduction: submit a valid owner cancellation decision identity with an invalid reason. The action returns no field errors before authorization; a mocked matching UI response displays no inline message and the textarea remains valid.
+- Cause: the action's combined guard discards the parsed reason failure rather than treating the visible reason as a distinct correctable field after validating authoritative hidden values.
+- Acceptance: valid identity/decision plus invalid reason returns a reason field error before authorization; the owner textarea exposes that same error and invalid association. Hidden identity or decision failures retain generic authoritative-facts recovery.
+- Fix: separate the reason check after identity/request/decision checks, return the constrained reason error, and bind it to the owner decision textarea with a stable error ID.
+- Verification: action and interaction regressions failed before the change because the field error and textarea association were absent, then passed. Lint, typecheck, optimized production build, and the full suite passed (883 passed / 2 skipped). All responses are local mocks; no cancellation decision, booking state, payment, owner session, or renter availability changed.
+- Status: verified and committed.
+- Commit: `2907225`.
