@@ -1,3 +1,5 @@
+import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { testMeetupPlace } from "../../src/features/meetups/place-fixture.test-helper";
 import { PaymentPanel } from "../../src/features/payments/payment-panel";
 import { ResidentialPinPicker } from "../../src/features/kyc/residential-pin-picker";
 import { CameraPhotoGallery } from "../../src/features/bookings/components/camera-photo-gallery";
@@ -61,7 +63,7 @@ function RequestHarness() {
     window.addEventListener("usability-request", receive);
     return () => window.removeEventListener("usability-request", receive);
   }, []);
-  return <main className="page-shell"><h1>Request submission fixture</h1><p>Synthetic contact details only. The action displays its received fields and never creates a booking.</p><RequestForm camera="11111111-1111-4111-8111-111111111111" profile={{ legalName: "Test Renter", phone: "09170000000" }} schedule={{ pickupDate: "2099-08-24", returnDate: "2099-08-26", handoffTime: "09:00", policyVersion: "1" }} summary={{ cameraName: "Test camera", dates: "Aug 24–26", handoffTime: "9 AM", rentalAmount: "₱900", securityDeposit: "₱1,000", totalDue: "₱1,900" }} /><h2>Submitted form fields</h2><pre>{submitted ? JSON.stringify(submitted, null, 2) : "Not submitted"}</pre></main>;
+  return <main className="page-shell"><h1>Request submission fixture</h1><p>Synthetic contact details only. The action displays its received fields and never creates a booking.</p><RequestForm meetupPlaces={[testMeetupPlace]} camera="11111111-1111-4111-8111-111111111111" profile={{ legalName: "Test Renter", phone: "09170000000" }} schedule={{ pickupDate: "2099-08-24", returnDate: "2099-08-26", handoffTime: "09:00", policyVersion: "1" }} summary={{ cameraName: "Test camera", dates: "Aug 24–26", handoffTime: "9 AM", rentalAmount: "₱900", securityDeposit: "₱1,000", totalDue: "₱1,900" }} /><h2>Submitted form fields</h2><pre>{submitted ? JSON.stringify(submitted, null, 2) : "Not submitted"}</pre></main>;
 }
 
 const policy = { allowedWeekdays: [1, 2, 3, 4, 5], approximationLevel: "city_centroid" as const, approvedTimes: ["09:00", "17:00"], cityLabel: "Cebu City", enabled: true, timezone: "Asia/Manila" as const, version: 1 };
@@ -124,4 +126,9 @@ function Harness() {
 </>;
 }
 
-createRoot(document.getElementById("root")!).render(<Harness />);
+const fixtureRouter: AppRouterInstance = {
+  back: () => window.history.back(), forward: () => window.history.forward(),
+  refresh: () => window.location.reload(), push: (href) => window.location.assign(href),
+  replace: (href) => window.location.replace(href), prefetch: () => {}, bfcacheId: "audit-fixture",
+};
+createRoot(document.getElementById("root")!).render(<AppRouterContext.Provider value={fixtureRouter}><Harness /></AppRouterContext.Provider>);

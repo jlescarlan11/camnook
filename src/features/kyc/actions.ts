@@ -9,6 +9,7 @@ import { sanitizeReturnTo } from "@/lib/auth/routes";
 import { philippineMobileSchema } from "@/lib/phone/philippine-mobile";
 
 import { formatResidentialLine1 } from "./types";
+import { kycDateYearsAgo } from "./age";
 
 export type KycFormValues = {
   addressDetails: string;
@@ -23,7 +24,7 @@ export type KycFormValues = {
 };
 
 export type KycActionState = {
-  error?: "invalid" | "pin_reconfirmation" | "save" | "suspended" | "underage" | "unauthorized";
+  error?: "indeterminate" | "invalid" | "pin_reconfirmation" | "save" | "suspended" | "underage" | "unauthorized";
   fieldErrors?: Partial<Record<keyof KycFormValues | "psgcAreaCode" | "residentialPin", string>>;
   status: "error" | "idle";
   values?: KycFormValues;
@@ -131,12 +132,6 @@ function value(formData: FormData, key: string) {
   return typeof item === "string" ? item.trim() : "";
 }
 
-function dateYearsAgo(years: number) {
-  const value = new Date();
-  value.setUTCFullYear(value.getUTCFullYear() - years);
-  return value.toISOString().slice(0, 10);
-}
-
 function safeReturnTo(value: string) {
   // Account editing intentionally returns to this section; login strips anchors.
   if (value === "/account#default-address") return value;
@@ -190,7 +185,7 @@ export async function saveKycProfile(
       values: pickFormValues(raw),
     };
   }
-  if (parsed.data.birthDate > dateYearsAgo(18)) {
+  if (parsed.data.birthDate > kycDateYearsAgo(18)) {
     return {
       error: "underage",
       fieldErrors: { birthDate: "You must be at least 18 years old to rent." },
@@ -198,7 +193,7 @@ export async function saveKycProfile(
       values: pickFormValues(raw),
     };
   }
-  if (parsed.data.birthDate < dateYearsAgo(120)) {
+  if (parsed.data.birthDate < kycDateYearsAgo(120)) {
     return {
       error: "invalid",
       fieldErrors: { birthDate: "Check your birthdate." },
@@ -211,7 +206,7 @@ export async function saveKycProfile(
   try {
     context = await requireUser();
   } catch {
-    return { error: "unauthorized", status: "error" };
+    return { error: "unauthorized", status: "error", values: pickFormValues(raw) };
   }
   const hasStructuredAddress = Boolean(formatResidentialLine1(parsed.data));
   const addressDetails = hasStructuredAddress

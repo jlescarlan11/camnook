@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { startTransition, useActionState, useState, type ReactNode } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
@@ -23,7 +24,14 @@ const weekdayLabels = [
 
 export function HandoffPolicyForm({ policy, children, continueToPreview = false }: { policy: AdminHandoffPolicy; children?: ReactNode; continueToPreview?: boolean }) {
   const [saveState, saveAction, savePending] = useActionState(
-    saveCameraHandoffPolicy,
+    async (previous: SaveHandoffPolicyState, data: FormData): Promise<SaveHandoffPolicyState> => {
+      try {
+        return await saveCameraHandoffPolicy(previous, data);
+      } catch (error) {
+        unstable_rethrow(error);
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialSaveState,
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -167,6 +175,8 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
                 ? "Another save changed this policy. Reload before applying your changes."
                 : saveState.error === "unauthorized"
                   ? "Your owner access could not be verified."
+                  : saveState.error === "indeterminate"
+                    ? "The saved policy outcome could not be confirmed. Reload before retrying."
                   : saveState.error === "invalid_input"
                     ? saveState.fieldErrors?.camera ?? "Correct the highlighted fields and try again."
                     : "The policy could not be saved. No partial settings were applied."}

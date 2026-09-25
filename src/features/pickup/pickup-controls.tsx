@@ -1,17 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useRef, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 
 import {
   completePickup,
   requestAdminConditionPhotoAccess,
-  uploadConditionPhoto,
   type ConditionPhotoActionState,
   type PickupCompletionActionState,
 } from "./actions";
 import type { PickupDetail } from "./types";
+import { useConditionPhotoUpload } from "./use-condition-photo-upload";
 
 const initialCompletionState: PickupCompletionActionState = { status: "idle" };
 const initialPhotoState: ConditionPhotoActionState = { status: "idle" };
@@ -31,25 +31,36 @@ function completionError(error: PickupCompletionActionState["error"]) {
   }
 }
 
-export function PickupControls({
-  actualAt,
-  operationId,
-  photoIntentId,
-  pickup,
-}: {
+type PickupControlsProps = {
   actualAt: string;
   operationId: string;
   photoIntentId: string;
   pickup: PickupDetail;
-}) {
+};
+
+export function PickupControls(props: PickupControlsProps) {
+  return <PickupForm key={props.pickup.booking_id} {...props} />;
+}
+
+function PickupForm({
+  actualAt,
+  operationId,
+  photoIntentId,
+  pickup,
+}: PickupControlsProps) {
+  const [retryOperationId] = useState(operationId);
+  const [initialActualAt] = useState(actualAt);
   const [completionState, completionAction, completionPending] = useActionState(
-    completePickup,
+    async (previous: PickupCompletionActionState, data: FormData): Promise<PickupCompletionActionState> => {
+      try {
+        return await completePickup(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialCompletionState,
   );
-  const [photoState, photoAction, photoPending] = useActionState(
-    uploadConditionPhoto,
-    initialPhotoState,
-  );
+  const { state: photoState, submit: submitPhoto, pending: photoPending, retryIntentId } = useConditionPhotoUpload();
   const [accessState, accessAction, accessPending] = useActionState(
     requestAdminConditionPhotoAccess,
     initialPhotoState,
@@ -73,9 +84,16 @@ export function PickupControls({
             Automated eligibility is no longer current. Pickup is disabled and the database will fail closed.
           </p>
         ) : null}
-        <form action={completionAction} className="mt-5 space-y-5">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (completionPending || completionState.status === "success") return;
+          const data = new FormData(event.currentTarget);
+          startTransition(() => completionAction(data));
+        }} className="mt-5 space-y-5">
+          <fieldset className="space-y-5" disabled={completionPending || completionState.status === "success"}>
+          <legend className="sr-only">Pickup inspection</legend>
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
-          <input name="operationId" type="hidden" value={operationId} />
+          <input name="operationId" type="hidden" value={retryOperationId} />
           <label className="block text-sm font-medium" htmlFor="pickup-actual-at">Actual pickup time (Asia/Manila)</label>
           <input
             aria-describedby={
@@ -85,10 +103,11 @@ export function PickupControls({
             }
             aria-invalid={completionState.fieldErrors?.actualAt ? true : undefined}
             className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
-            defaultValue={actualAt}
+            defaultValue={initialActualAt}
             id="pickup-actual-at"
             name="actualAt"
             required
+            step="1"
             type="datetime-local"
           />
           {completionState.fieldErrors?.actualAt ? (
@@ -250,9 +269,10 @@ export function PickupControls({
               </p>
             ) : null}
           </div>
-          <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending} type="submit">
+          <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending || completionState.status === "success"} type="submit">
             {completionPending ? "Rechecking and recording pickup…" : "Complete pickup and mark ACTIVE"}
           </button>
+          </fieldset>
         </form>
         {completionState.status !== "idle" ? (
           <div className={`mt-5 rounded-xl border p-4 text-sm ${completionState.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-900"}`} ref={resultRef} role={completionState.status === "success" ? "status" : "alert"} tabIndex={-1}>
@@ -279,10 +299,10 @@ export function PickupControls({
       <div className="mt-7 rounded-xl border border-stone-200 p-5">
         <h3 className="font-semibold">Optional private condition photos</h3>
         <p className="mt-2 text-sm leading-6 text-stone-600">The written report is already valid. A photo uses an opaque no-overwrite path and is limited to 5 MiB JPEG/PNG.</p>
-        <form action={photoAction} className="mt-4 space-y-3">
+        <form onSubmit={submitPhoto} className="mt-4 space-y-3">
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
           <input name="conditionReportId" type="hidden" value={pickup.handoff.condition_report_id} />
-          <input name="intentId" type="hidden" value={photoIntentId} />
+          <input name="intentId" type="hidden" value={retryIntentId ?? photoIntentId} />
           <label className="block text-sm font-medium" htmlFor="pickup-condition-photo">Condition photo</label>
           <input
             accept="image/jpeg,image/png"
@@ -293,6 +313,7 @@ export function PickupControls({
             }
             aria-invalid={photoState.fieldErrors?.photo ? true : undefined}
             className="block w-full text-sm"
+            disabled={photoPending}
             id="pickup-condition-photo"
             name="photo"
             required

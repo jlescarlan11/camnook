@@ -26,6 +26,41 @@ function response(body: unknown, status = 200, headers?: HeadersInit) {
 }
 
 describe("MapboxMatrixAdapter", () => {
+  it("keeps the deadline active while consuming a stalled response body", async () => {
+    vi.useFakeTimers();
+    let bodyController!: ReadableStreamDefaultController<Uint8Array>;
+    let signal: AbortSignal | null | undefined;
+    const request = vi.fn((_url: URL, init?: RequestInit) => {
+      signal = init?.signal;
+      const body = new ReadableStream<Uint8Array>({ start(controller) { bodyController = controller; } });
+      signal?.addEventListener("abort", () => bodyController.error(new DOMException("synthetic private URL", "AbortError")));
+      return Promise.resolve(new Response(body));
+    });
+    const adapter = new MapboxMatrixAdapter(config, { fetchImplementation: request as typeof fetch });
+    let outcome: unknown;
+    const pending = adapter.calculateTravelTimes({ ...origins, targets: [origins.ownerOrigin] })
+      .then((value) => { outcome = value; }, (error: unknown) => { outcome = error; });
+    try {
+      await vi.advanceTimersByTimeAsync(501);
+      expect(outcome).toEqual(new RoutingBoundaryError("timeout"));
+      expect(signal?.aborted).toBe(true);
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally {
+      if (!signal?.aborted) bodyController.close();
+      await pending;
+      vi.useRealTimers();
+    }
+  });
+
+  it("replaces response stream errors with a safe network failure", async () => {
+    const body = new ReadableStream({ start(controller) { controller.error(new Error("synthetic private URL")); } });
+    const adapter = new MapboxMatrixAdapter(config, {
+      fetchImplementation: vi.fn().mockResolvedValue(new Response(body)),
+    });
+    await expect(adapter.calculateTravelTimes({ ...origins, targets: [origins.ownerOrigin] }))
+      .rejects.toEqual(new RoutingBoundaryError("network"));
+  });
+
   it("builds an asymmetric 2×8 duration-only Matrix request and preserves nulls", async () => {
     const durations = [
       Array.from({ length: 8 }, (_, index) => (index === 3 ? null : 300 + index)),

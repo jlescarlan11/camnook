@@ -244,14 +244,52 @@ describe("resolution Server Actions", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("submits an explicit manual issue amount and separate renter explanation", async () => {
+  it("does not acknowledge a cancellation replay for a different decision", async () => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { booking_id: BOOKING_ID, booking_state: "CANCELLED", created: false,
+        request_id: REQUEST_ID, decision_id: DECISION_ID, outcome: "accepted" },
+      error: null,
+    }));
+    const data = form();
+    data.set("requestId", REQUEST_ID);
+    data.set("decision", "decline");
+    data.set("reason", "Synthetic changed decision.");
+    await expect(decideCancellation({ status: "idle" }, data)).resolves.toEqual({ error: "indeterminate", status: "error" });
+  });
+
+  it("does not acknowledge a changed return-review outcome on replay", async () => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { booking_id: BOOKING_ID, booking_state: "COMPLETED", created: false, outcome: "clear" },
+      error: null,
+    }));
+    const data = form();
+    data.set("outcome", "issue");
+    data.set("note", "Synthetic issue requiring review.");
+    await expect(decideReturnReview({ status: "idle" }, data)).resolves.toEqual({ error: "indeterminate", status: "error" });
+  });
+
+  it.each(["1.001", "0.001"])("rejects sub-cent deduction %s before authorization", async (amount) => {
+    const data = form();
+    data.set("decisionKind", "damage");
+    data.set("deductionAmount", amount);
+    data.set("internalReason", "Synthetic documented repair decision.");
+    data.set("customerExplanation", "Synthetic renter explanation.");
+    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: { deductionAmount: "Enter a zero or positive manual deduction." },
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it.each([1000, 999])("accepts an issue decision only when its acknowledged amount %s matches the submitted amount", async (acknowledgedAmount) => {
     const rpc = vi.fn().mockResolvedValue({
       data: {
         booking_id: BOOKING_ID,
         booking_state: "COMPLETED",
         created: true,
         decision_id: DECISION_ID,
-        deduction_amount: 1000,
+        deduction_amount: acknowledgedAmount,
       },
       error: null,
     });
@@ -262,10 +300,9 @@ describe("resolution Server Actions", () => {
     data.set("deductionAmount", "1000.00");
     data.set("internalReason", "Manual repair estimate supported by return evidence.");
 
-    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual({
-      result: "resolved",
-      status: "success",
-    });
+    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual(acknowledgedAmount === 1000
+      ? { result: "resolved", status: "success" }
+      : { error: "indeterminate", status: "error" });
     expect(rpc).toHaveBeenCalledWith("resolve_return_issue", {
       p_booking_id: BOOKING_ID,
       p_customer_explanation: "PHP 1,000 was approved for documented repair.",
@@ -273,6 +310,56 @@ describe("resolution Server Actions", () => {
       p_deduction_amount: 1000,
       p_internal_reason: "Manual repair estimate supported by return evidence.",
       p_operation_id: OPERATION_ID,
+    });
+  });
+
+  it.each(["1.001", "0.001"])("rejects sub-cent refund %s before authorization", async (amount) => {
+    const data = form();
+    data.set("amount", amount);
+    data.set("externalMovedAt", "2026-08-16T10:00");
+    data.set("recipientName", "Named Renter");
+    data.set("reference", "REFUND-1234");
+    await expect(recordExternalRefund({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: { amount: "Enter the actual amount moved." },
+      status: "error",
+    });
+    expect(requireUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { amount: 3000, entry_kind: "reversal" },
+    { amount: 2999, entry_kind: "refund" },
+  ])("rejects a refund acknowledgement for different movement facts: %j", async (movement) => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { ...movement, booking_id: BOOKING_ID, created: false,
+        refund_record_id: RECORD_ID, transaction_id: TRANSACTION_ID },
+      error: null,
+    }));
+    const data = form();
+    data.set("amount", "3000.00");
+    data.set("externalMovedAt", "2026-08-16T10:00");
+    data.set("recipientName", "Named Renter");
+    data.set("reference", "REFUND-1234");
+    await expect(recordExternalRefund({ status: "idle" }, data)).resolves.toEqual({
+      error: "indeterminate", status: "error",
+    });
+  });
+
+  it("does not acknowledge a refund as a completed reversal", async () => {
+    authorizeAdmin(vi.fn().mockResolvedValue({
+      data: { amount: 3000, entry_kind: "refund", booking_id: BOOKING_ID,
+        created: false, refund_record_id: RECORD_ID, transaction_id: TRANSACTION_ID },
+      error: null,
+    }));
+    const data = form();
+    data.set("counterpartyName", "Named Renter");
+    data.set("externalMovedAt", "2026-08-16T11:00");
+    data.set("reason", "The transfer was returned.");
+    data.set("reference", "REVERSAL-1234");
+    data.set("refundRecordId", RECORD_ID);
+    await expect(reverseExternalRefund({ status: "idle" }, data)).resolves.toEqual({
+      error: "indeterminate", status: "error",
     });
   });
 

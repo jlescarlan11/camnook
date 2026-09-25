@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  abortCatalogPhotoPublication,
   assertExpectedImage,
   assertProjectTarget,
   CatalogPublicationError,
@@ -200,7 +201,7 @@ describe("catalog publication reconciliation", () => {
     });
   });
 
-  it("guards every mutation and completes upload, copy, finalize, and cleanup", async () => {
+  it.each([false, true])("guards publication and rechecks finalized metadata (changed=%s)", async (changedMetadata) => {
     let stagingBytes = null;
     let destinationBytes = null;
     let status = "awaiting_upload";
@@ -211,6 +212,8 @@ describe("catalog publication reconciliation", () => {
     let publicPath;
     const guardedMutations = [];
     const uploadOptions = [];
+    const downloadBuckets = [];
+    const metadataBuckets = [];
 
     function publication() {
       return {
@@ -243,6 +246,7 @@ describe("catalog publication reconciliation", () => {
               status = "ready_to_copy";
             } else if (name === "finalize_catalog_photo_publication") {
               status = "published";
+              if (changedMetadata) expected.sha256Hex = "0".repeat(64);
             }
             return { data: publication(), error: null };
           },
@@ -256,6 +260,7 @@ describe("catalog publication reconciliation", () => {
               return { data: {}, error: null };
             },
             async download() {
+              downloadBuckets.push(bucket);
               const bytes =
                 bucket === "draft-staging" ? stagingBytes : destinationBytes;
               return bytes
@@ -264,6 +269,12 @@ describe("catalog publication reconciliation", () => {
                     data: null,
                     error: { message: "Object not found", statusCode: "404" },
                   };
+            },
+            async info() {
+              metadataBuckets.push(bucket);
+              const bytes = bucket === "draft-staging" ? stagingBytes : destinationBytes;
+              return bytes ? { data: { size: bytes.length }, error: null }
+                : { data: null, error: { message: "Object not found", statusCode: "404" } };
             },
             async remove() {
               if (bucket === "draft-staging") stagingBytes = null;
@@ -280,7 +291,7 @@ describe("catalog publication reconciliation", () => {
       },
     };
 
-    const result = await createAndPublishCatalogPhoto({
+    const pending = createAndPublishCatalogPhoto({
       altText: "Front view",
       beforeMutation: async () => guardedMutations.push("checked"),
       bytes: png,
@@ -289,6 +300,13 @@ describe("catalog publication reconciliation", () => {
       sortPosition: 0,
     });
 
+    if (changedMetadata) {
+      await expect(pending).rejects.toMatchObject({ category: "integrity" });
+      expect(stagingBytes).toEqual(png);
+      expect(downloadBuckets).toEqual(["draft-staging", "camera-listings"]);
+      return;
+    }
+    const result = await pending;
     expect(result).toEqual({
       cleanup: "complete",
       publicationId,
@@ -298,7 +316,49 @@ describe("catalog publication reconciliation", () => {
     expect(uploadOptions).toEqual([
       { cacheControl: "0", contentType: "image/png", upsert: false },
     ]);
+    expect(downloadBuckets).toEqual(["draft-staging", "camera-listings"]);
+    expect(metadataBuckets).toEqual(["draft-staging", "draft-staging"]);
     expect(stagingBytes).toBeNull();
     expect(destinationBytes).toEqual(png);
+  });
+});
+
+
+describe("catalog cleanup metadata verification", () => {
+  it.each(["missing", "forbidden", "bad-request", "remaining", "malformed"])("handles %s metadata without downloading photo bodies", async (scenario) => {
+    const id = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const expected = inspectImageBytes(png);
+    const publication = {
+      id, camera_id: "dddddddd-dddd-4ddd-8ddd-ddddddddddde",
+      expected_byte_size: expected.byteSize, expected_media_type: expected.mediaType,
+      expected_sha256: expected.sha256Hex, staging_object_path: "synthetic/staged.png",
+      public_object_path: "synthetic/public.png", status: "ready_to_copy",
+    };
+    const rpc = vi.fn(async (name) => {
+      if (name === "prepare_catalog_photo_abort") publication.status = "abort_pending";
+      if (name === "finalize_catalog_photo_abort") publication.status = "aborted";
+      return { data: { ...publication }, error: null };
+    });
+    const info = vi.fn(async () => {
+      if (scenario === "missing") return { data: null, error: { statusCode: "404", message: "Object not found" } };
+      if (scenario === "forbidden") return { data: null, error: { statusCode: "403", message: "Forbidden" } };
+      if (scenario === "bad-request") return { data: null, error: { statusCode: "400", message: "Bad request" } };
+      if (scenario === "malformed") return { data: null, error: null };
+      return { data: { size: png.length }, error: null };
+    });
+    const remove = vi.fn().mockResolvedValue({ data: [], error: null });
+    const download = vi.fn();
+    const client = { schema: () => ({ rpc }), storage: { from: () => ({ info, remove, download }) } };
+    const pending = abortCatalogPhotoPublication({ client, publicationId: id });
+    if (scenario === "missing") {
+      await expect(pending).resolves.toMatchObject({ status: "aborted", cleanup: "complete" });
+      expect(info).toHaveBeenCalledTimes(2);
+      expect(rpc).toHaveBeenCalledWith("finalize_catalog_photo_abort", expect.any(Object));
+    } else {
+      await expect(pending).rejects.toMatchObject({ category: scenario === "remaining" ? "cleanup_pending" : "indeterminate" });
+      expect(rpc.mock.calls.some(([name]) => name === "finalize_catalog_photo_abort")).toBe(false);
+    }
+    expect(download).not.toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledTimes(scenario === "remaining" ? 1 : 0);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
 import {
   decidePayment,
@@ -13,12 +13,20 @@ import { PAYMENT_REJECTION_LABELS } from "./types";
 const initialAccessState: PaymentAccessActionState = { status: "idle" };
 const initialDecisionState: PaymentDecisionActionState = { status: "idle" };
 
+async function submitPaymentDecision(previous: PaymentDecisionActionState, data: FormData): Promise<PaymentDecisionActionState> {
+  try {
+    return await decidePayment(previous, data);
+  } catch {
+    return { action: data.get("decision") === "rejected" ? "reject" : "verify", error: "indeterminate", status: "error" };
+  }
+}
+
 function accessErrorMessage(error: PaymentAccessActionState["error"]) {
   switch (error) {
     case "unauthorized":
       return "Administrator authorization is required.";
     case "stale":
-      return "This payment is no longer pending. Return to the queue.";
+      return "This payment or its proof changed. Refresh before opening evidence.";
     case "unavailable":
       return "No current finalized proof is available.";
     case "invalid":
@@ -47,25 +55,38 @@ function decisionErrorMessage(state: PaymentDecisionActionState) {
   }
 }
 
-export function PaymentReviewControls({
-  hasProof,
-  paymentId,
-  proofId,
-}: {
+type PaymentReviewProps = {
   hasProof: boolean;
   paymentId: string;
   proofId?: string;
-}) {
+};
+
+export function PaymentReviewControls(props: PaymentReviewProps) {
+  // Revalidated evidence must not inherit an older signed URL or attestation.
+  return <PaymentReviewForm key={`${props.paymentId}:${props.proofId ?? "none"}`} {...props} />;
+}
+
+function PaymentReviewForm({
+  hasProof,
+  paymentId,
+  proofId,
+}: PaymentReviewProps) {
   const [accessState, accessAction, accessPending] = useActionState(
-    requestPaymentProofAccess,
+    async (previous: PaymentAccessActionState, data: FormData): Promise<PaymentAccessActionState> => {
+      try {
+        return await requestPaymentProofAccess(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialAccessState,
   );
   const [verifyState, verifyAction, verifyPending] = useActionState(
-    decidePayment,
+    submitPaymentDecision,
     initialDecisionState,
   );
   const [rejectState, rejectAction, rejectPending] = useActionState(
-    decidePayment,
+    submitPaymentDecision,
     initialDecisionState,
   );
   const [lastDecision, setLastDecision] = useState<"reject" | "verify">("verify");
@@ -108,6 +129,7 @@ export function PaymentReviewControls({
       {hasProof ? (
         <form action={accessAction} className="mt-4">
           <input name="paymentId" type="hidden" value={paymentId} />
+          <input name="expectedProofId" type="hidden" value={proofId ?? ""} />
           <button
             className="min-h-12 rounded-xl border border-stone-300 bg-white px-5 py-3 font-semibold disabled:opacity-60"
             disabled={accessPending || committed}
@@ -145,9 +167,15 @@ export function PaymentReviewControls({
 
       <div className="mt-8 grid gap-5 border-t border-stone-200 pt-7 lg:grid-cols-2">
         <form
-          action={verifyAction}
           className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
-          onSubmit={() => setLastDecision("verify")}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (pending || committed) return;
+            setLastDecision("verify");
+            const formData = new FormData(event.currentTarget);
+            // Returned errors must not reset the observed transfer details.
+            startTransition(() => verifyAction(formData));
+          }}
         >
           <input name="decision" type="hidden" value="verified" />
           <input name="paymentId" type="hidden" value={paymentId} />
@@ -245,9 +273,14 @@ export function PaymentReviewControls({
         </form>
 
         <form
-          action={rejectAction}
           className="rounded-xl border border-red-200 bg-red-50 p-5"
-          onSubmit={() => setLastDecision("reject")}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (pending || committed) return;
+            setLastDecision("reject");
+            const formData = new FormData(event.currentTarget);
+            startTransition(() => rejectAction(formData));
+          }}
         >
           <input name="decision" type="hidden" value="rejected" />
           <input name="paymentId" type="hidden" value={paymentId} />

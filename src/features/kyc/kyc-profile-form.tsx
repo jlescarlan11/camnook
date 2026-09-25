@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { CheckoutProgress } from "@/features/bookings/components/checkout-progress";
-import { cloneElement, useActionState, useEffect, useRef, useState, type FormEvent, type ReactElement, useSyncExternalStore } from "react";
+import { cloneElement, startTransition, useActionState, useEffect, useRef, useState, type FormEvent, type ReactElement, useSyncExternalStore } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
@@ -13,17 +14,12 @@ import type { KycProfile } from "./types";
 
 import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
 import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
+import { kycDateYearsAgo } from "./age";
 
 const subscribe = () => () => {};
 
 const initialState: KycActionState = { status: "idle" };
 const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]";
-
-function adultCutoff() {
-  const value = new Date();
-  value.setFullYear(value.getFullYear() - 18);
-  return value.toISOString().slice(0, 10);
-}
 
 type FormProps = {
   checkout?: boolean;
@@ -51,7 +47,13 @@ function ProfileForm({
   const [draft] = useState(() => readCheckoutDraft<Record<string, string>>(draftKey));
   const [step, setStep] = useState<1 | 2>(initialStep);
   const [state, action, pending] = useActionState(async (previous: KycActionState, data: FormData) => {
-    const result = await saveKycProfile(previous, data);
+    let result: KycActionState;
+    try {
+      result = await saveKycProfile(previous, data);
+    } catch (error) {
+      unstable_rethrow(error);
+      result = { error: "indeterminate", status: "error" };
+    }
     if (checkout && result.status === "error") {
       setStep(result.error === "underage" || result.fieldErrors?.legalName || result.fieldErrors?.birthDate || result.fieldErrors?.phone ? 1 : 2);
     }
@@ -98,13 +100,17 @@ function ProfileForm({
   }
 
   return (
-    <form action={action} className={checkout ? "checkout-kyc" : "mt-6 space-y-5"} onChange={trackAddressChange}
+    <form className={checkout ? "checkout-kyc" : "mt-6 space-y-5"} onChange={trackAddressChange}
       noValidate={checkout} onSubmit={(event) => {
-        if (!checkout) return;
-        if (step === 1) {
-          event.preventDefault();
+        event.preventDefault();
+        if (pending) return;
+        if (checkout && step === 1) {
           if (validateDetails()) setStep(2);
-        } else if (!validateDetails() || !event.currentTarget.reportValidity()) event.preventDefault();
+          return;
+        }
+        if (checkout && (!validateDetails() || !event.currentTarget.reportValidity())) return;
+        const data = new FormData(event.currentTarget);
+        startTransition(() => action(data));
       }}>
       {checkout ? <>
         <CheckoutProgress step={step} onDetails={() => setStep(1)} />
@@ -118,7 +124,7 @@ function ProfileForm({
           <input autoComplete="name" className={inputClass} defaultValue={submitted?.legalName ?? profile?.legalName ?? ""} maxLength={160} name="legalName" minLength={2} placeholder={checkout ? "Enter your full legal name" : undefined} required />
         </Field>
         <Field error={state.fieldErrors?.birthDate} id="kyc-birthdate" label="Birthdate">
-          <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={adultCutoff()} name="birthDate" required type="date" />
+          <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={kycDateYearsAgo(18)} name="birthDate" required type="date" />
         </Field>
         <Field error={state.fieldErrors?.phone} id="kyc-phone" label="Mobile number">
           <PhilippineMobileInput aria-label="Mobile number" defaultValue={submitted?.phone ?? profile?.phone ?? ""} name="phone" required />
@@ -165,7 +171,7 @@ function ProfileForm({
 
       {state.status === "error" ? (
         <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-          {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm the pin, or reload if you edited this profile elsewhere." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}
+          {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm the pin, or reload if you edited this profile elsewhere." : state.error === "indeterminate" ? "The saved outcome could not be confirmed. Reload to check your details before retrying." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}
         </p>
       ) : null}
       <button className={checkout ? "checkout-primary" : "min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-60"} disabled={pending} type="submit">

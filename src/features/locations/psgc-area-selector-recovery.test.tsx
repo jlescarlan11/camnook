@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ const response = (choices: unknown[]) => new Response(JSON.stringify({ choices, 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("address lookup recovery", () => {
@@ -62,4 +63,54 @@ it("reuses loaded children and restores an unfinished address after remounting",
   await screen.findByRole("option", { name: "Cebu" });
   expect((screen.getByLabelText("Region") as HTMLSelectElement).value).toBe(region.code);
   sessionStorage.clear();
+});
+
+
+it.each([
+  ["initial", "headers"], ["initial", "body"],
+  ["child", "headers"], ["child", "body"],
+])("recovers a stalled %s lookup during %s without losing the address", async (stage, phase) => {
+  vi.useFakeTimers();
+  const request = vi.fn();
+  if (stage === "child") request.mockResolvedValueOnce(response([region]));
+  request.mockImplementationOnce((_url: string, init?: RequestInit) => {
+    const pending = () => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    });
+    return phase === "headers" ? pending() : Promise.resolve({ ok: true, json: pending });
+  });
+  request.mockResolvedValueOnce(response(stage === "child" ? [province] : [region]));
+  vi.stubGlobal("fetch", request);
+  render(<form><label>Address note<input defaultValue="Unsaved landmark" /></label><PsgcAreaSelector /></form>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  if (stage === "child") {
+    fireEvent.change(screen.getByLabelText("Region"), { target: { value: region.code } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  }
+  await act(async () => { await vi.advanceTimersByTimeAsync(20_001); });
+  const retry = screen.getByRole("button", { name: "Retry area lookup" });
+  expect((screen.getByLabelText("Address note") as HTMLInputElement).value).toBe("Unsaved landmark");
+  if (stage === "child") expect((screen.getByLabelText("Region") as HTMLSelectElement).value).toBe(region.code);
+  fireEvent.click(retry);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByRole("option", { name: stage === "child" ? "Cebu" : "Region VII" })).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+
+it("aborts an unfinished initial lookup and clears its deadline on unmount", async () => {
+  vi.useFakeTimers();
+  let signal: AbortSignal | null | undefined;
+  vi.stubGlobal("fetch", vi.fn((_url, init?: RequestInit) => {
+    signal = init?.signal;
+    return new Promise((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    });
+  }));
+  const view = render(<PsgcAreaSelector />);
+  expect(signal?.aborted).toBe(false);
+  await act(async () => { view.unmount(); });
+  expect(signal?.aborted).toBe(true);
+  expect(vi.getTimerCount()).toBe(0);
 });

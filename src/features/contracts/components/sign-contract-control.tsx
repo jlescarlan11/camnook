@@ -9,16 +9,28 @@ import {
 
 const initialState: SignContractActionState = { status: "idle" };
 
-export function SignContractControl({
-  bookingId,
-  canSign,
-  contractVersionId,
-}: {
+type SignContractProps = {
   bookingId: string;
   canSign: boolean;
   contractVersionId: string;
-}) {
-  const [state, action, pending] = useActionState(signContract, initialState);
+};
+
+export function SignContractControl(props: SignContractProps) {
+  return <SignContractForm key={`${props.bookingId}:${props.contractVersionId}`} {...props} />;
+}
+
+function SignContractForm({
+  bookingId,
+  canSign,
+  contractVersionId,
+}: SignContractProps) {
+  const [state, action, pending] = useActionState(async (previous: SignContractActionState, data: FormData): Promise<SignContractActionState> => {
+    try {
+      return await signContract(previous, data);
+    } catch {
+      return { error: "unknown", status: "indeterminate" };
+    }
+  }, initialState);
   const resultRef = useRef<HTMLDivElement>(null);
   const message = actionMessage(state, pending);
 

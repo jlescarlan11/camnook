@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { useConditionPhotoUpload } from "@/features/pickup/use-condition-photo-upload";
 import {
   requestAdminConditionPhotoAccess,
-  uploadConditionPhoto,
   type ConditionPhotoActionState,
 } from "@/features/pickup/actions";
 
@@ -91,36 +91,39 @@ export function ResolutionControls({
   operationIds: ResolutionOperationIds;
   resolution: ResolutionDetail;
 }) {
+  const [returnOperationId] = useState(operationIds.recordReturn);
+  const [issueOperationId] = useState(operationIds.resolveIssue);
+  const [reviewOperationId] = useState(operationIds.returnReview);
+  const [cancellationOperationId] = useState(operationIds.cancellation);
+  const [initialReturnAt] = useState(actualAt);
   const [cancellationState, cancellationAction, cancellationPending] =
-    useActionState(decideCancellation, initialState);
+    useActionState((previous: ResolutionActionState, data: FormData) => submitResolutionAction(decideCancellation, previous, data), initialState);
   const [returnState, returnAction, returnPending] = useActionState(
-    recordReturn,
+    (previous: ResolutionActionState, data: FormData) => submitResolutionAction(recordReturn, previous, data),
     initialState,
   );
   const [reviewState, reviewAction, reviewPending] = useActionState(
-    decideReturnReview,
+    (previous: ResolutionActionState, data: FormData) => submitResolutionAction(decideReturnReview, previous, data),
     initialState,
   );
+  const [note, setNote] = useState("");
+  const [noteOperationId, setNoteOperationId] = useState(operationIds.issueNote);
   const [noteState, noteAction, notePending] = useActionState(
-    addIssueNote,
+    async (previous: ResolutionActionState, formData: FormData) => {
+      const result = await submitResolutionAction(addIssueNote, previous, formData);
+      if (result.status === "success") {
+        setNote("");
+        setNoteOperationId(crypto.randomUUID());
+      }
+      return result;
+    },
     initialState,
   );
   const [issueState, issueAction, issuePending] = useActionState(
-    resolveIssue,
+    (previous: ResolutionActionState, data: FormData) => submitResolutionAction(resolveIssue, previous, data),
     initialState,
   );
-  const [refundState, refundAction, refundPending] = useActionState(
-    recordExternalRefund,
-    initialState,
-  );
-  const [reversalState, reversalAction, reversalPending] = useActionState(
-    reverseExternalRefund,
-    initialState,
-  );
-  const [photoState, photoAction, photoPending] = useActionState(
-    uploadConditionPhoto,
-    initialPhotoState,
-  );
+  const { state: photoState, submit: submitPhoto, pending: photoPending, retryIntentId } = useConditionPhotoUpload();
   const [accessState, accessAction, accessPending] = useActionState(
     requestAdminConditionPhotoAccess,
     initialPhotoState,
@@ -129,7 +132,6 @@ export function ResolutionControls({
   const cancellationErrors = cancellationState.fieldErrors;
   const issueErrors = issueState.fieldErrors;
   const noteErrors = noteState.fieldErrors;
-  const refundErrors = refundState.fieldErrors;
   const reviewErrors = reviewState.fieldErrors;
   const returnErrors = returnState.fieldErrors;
   const hasIssue = Boolean(
@@ -189,10 +191,14 @@ export function ResolutionControls({
               />
             </dl>
           ) : (
-            <form action={cancellationAction} className="mt-4 space-y-4">
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter);
+              startTransition(() => cancellationAction(data));
+            }} className="mt-4 space-y-4">
               <HiddenIds
                 bookingId={resolution.booking_id}
-                operationId={operationIds.cancellation}
+                operationId={cancellationOperationId}
               />
               <input
                 name="requestId"
@@ -210,6 +216,7 @@ export function ResolutionControls({
                 }
                 aria-invalid={cancellationErrors?.reason ? true : undefined}
                 className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+                disabled={cancellationPending || cancellationState.status === "success"}
                 id="cancellation-decision-reason"
                 maxLength={1000}
                 minLength={2}
@@ -231,7 +238,7 @@ export function ResolutionControls({
                 <button
                   className="min-h-11 rounded-xl bg-red-800 px-4 py-2 font-semibold text-white disabled:opacity-60"
                   disabled={
-                    cancellationPending ||
+                    cancellationPending || cancellationState.status === "success" ||
                     !resolution.cancellation.acceptance_enabled
                   }
                   name="decision"
@@ -242,7 +249,7 @@ export function ResolutionControls({
                 </button>
                 <button
                   className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60"
-                  disabled={cancellationPending}
+                  disabled={cancellationPending || cancellationState.status === "success"}
                   name="decision"
                   type="submit"
                   value="decline"
@@ -257,10 +264,17 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.booking_state === "ACTIVE" ? (
-        <form action={returnAction} className="mt-6 space-y-5 rounded-xl border border-stone-200 p-5">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (returnPending || returnState.status === "success") return;
+          const data = new FormData(event.currentTarget);
+          startTransition(() => returnAction(data));
+        }} className="mt-6 space-y-5 rounded-xl border border-stone-200 p-5">
+          <fieldset className="space-y-5" disabled={returnPending || returnState.status === "success"}>
+          <legend className="sr-only">Return inspection</legend>
           <HiddenIds
             bookingId={resolution.booking_id}
-            operationId={operationIds.recordReturn}
+            operationId={returnOperationId}
           />
           <h3 className="font-semibold">Record physical return</h3>
           <label className="block text-sm font-medium" htmlFor="return-actual-at">
@@ -272,7 +286,7 @@ export function ResolutionControls({
             }
             aria-invalid={returnErrors?.actualAt ? true : undefined}
             className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
-            defaultValue={actualAt}
+            defaultValue={initialReturnAt}
             id="return-actual-at"
             name="actualAt"
             required
@@ -377,11 +391,12 @@ export function ResolutionControls({
           <FieldError id="return-notes-error" message={returnErrors?.notes} />
           <button
             className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
-            disabled={returnPending}
+            disabled={returnPending || returnState.status === "success"}
             type="submit"
           >
             {returnPending ? "Rechecking and recording…" : "Record return for review"}
           </button>
+          </fieldset>
           <ActionResult state={returnState} />
         </form>
       ) : null}
@@ -393,7 +408,7 @@ export function ResolutionControls({
             <Value label="Actual return" value={formatManilaDateTime(inspection.actual_at)} />
             <Value label="Expected return" value={formatManilaDateTime(inspection.expected_return_at)} />
             <Value label="Late fact" value={inspection.late_return ? "Yes" : "No"} />
-            <Value label="Camera damage" value={inspection.camera_has_damage ? "Observed" : "Not observed"} />
+            <Value label="Camera or accessory damage" value={inspection.camera_has_damage ? "Observed" : "Not observed"} />
             <Value label="Missing inclusion" value={inspection.has_missing_items ? "Observed" : "Not observed"} />
             <Value label="Written condition" value={inspection.camera_condition_summary} />
           </dl>
@@ -410,8 +425,8 @@ export function ResolutionControls({
             accessState={accessState}
             bookingId={resolution.booking_id}
             conditionReportId={inspection.condition_report_id}
-            intentId={operationIds.conditionPhoto}
-            photoAction={photoAction}
+            intentId={retryIntentId ?? operationIds.conditionPhoto}
+            submitPhoto={submitPhoto}
             photoPending={photoPending}
             photos={inspection.photos}
             photoState={photoState}
@@ -420,10 +435,14 @@ export function ResolutionControls({
       ) : null}
 
       {resolution.booking_state === "RETURN_REVIEW" && inspection ? (
-        <form action={reviewAction} className="mt-6 space-y-4 rounded-xl border border-stone-200 p-5">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          startTransition(() => reviewAction(data));
+        }} className="mt-6 space-y-4 rounded-xl border border-stone-200 p-5">
           <HiddenIds
             bookingId={resolution.booking_id}
-            operationId={operationIds.returnReview}
+            operationId={reviewOperationId}
           />
           <h3 className="font-semibold">Decide return review</h3>
           <input name="outcome" type="hidden" value={hasIssue ? "issue" : "clear"} />
@@ -438,6 +457,7 @@ export function ResolutionControls({
             aria-describedby={reviewErrors?.note ? "return-review-note-error" : undefined}
             aria-invalid={reviewErrors?.note ? true : undefined}
             className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+            disabled={reviewPending || reviewState.status === "success"}
             id="return-review-note"
             maxLength={2000}
             minLength={hasIssue ? 2 : undefined}
@@ -448,7 +468,7 @@ export function ResolutionControls({
           <button
             className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60"
             disabled={
-              reviewPending ||
+              reviewPending || reviewState.status === "success" ||
               ((inspection.camera_has_damage || inspection.has_missing_items) &&
                 inspection.photos.length === 0)
             }
@@ -474,7 +494,7 @@ export function ResolutionControls({
               </ol>
             ) : null}
             <form action={noteAction} className="mt-4 space-y-3">
-              <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.issueNote} />
+              <HiddenIds bookingId={resolution.booking_id} operationId={noteOperationId} />
               <label className="block text-sm font-medium" htmlFor="issue-note">
                 Private issue note
               </label>
@@ -482,25 +502,33 @@ export function ResolutionControls({
                 aria-describedby={noteErrors?.note ? "issue-note-error" : undefined}
                 aria-invalid={noteErrors?.note ? true : undefined}
                 className="min-h-20 w-full rounded-xl border border-stone-300 px-4 py-3"
+                disabled={notePending}
                 id="issue-note"
                 maxLength={2000}
                 minLength={2}
                 name="note"
+                onChange={(event) => setNote(event.target.value)}
                 required
+                value={note}
               />
               <FieldError id="issue-note-error" message={noteErrors?.note} />
               <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={notePending} type="submit">Append private note</button>
             </form>
             <ActionResult state={noteState} />
           </div>
-          <form action={issueAction} className="space-y-4 border-t border-red-200 pt-5">
-            <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.resolveIssue} />
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            startTransition(() => issueAction(data));
+          }} className="space-y-4 border-t border-red-200 pt-5">
+            <HiddenIds bookingId={resolution.booking_id} operationId={issueOperationId} />
             <h3 className="font-semibold">Explicit issue decision</h3>
             <label className="block text-sm font-medium" htmlFor="issue-kind">Decision kind</label>
             <select
               aria-describedby={issueErrors?.decisionKind ? "issue-kind-error" : undefined}
               aria-invalid={issueErrors?.decisionKind ? true : undefined}
               className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-kind"
               name="decisionKind"
               required
@@ -518,6 +546,7 @@ export function ResolutionControls({
               aria-invalid={issueErrors?.deductionAmount ? true : undefined}
               className="min-h-12 w-full rounded-xl border border-stone-300 px-4"
               defaultValue="0.00"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-deduction"
               min="0"
               name="deductionAmount"
@@ -532,6 +561,7 @@ export function ResolutionControls({
               aria-describedby={issueErrors?.internalReason ? "issue-internal-reason-error" : undefined}
               aria-invalid={issueErrors?.internalReason ? true : undefined}
               className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-internal-reason"
               maxLength={2000}
               minLength={2}
@@ -544,6 +574,7 @@ export function ResolutionControls({
               aria-describedby={issueErrors?.customerExplanation ? "issue-customer-explanation-error" : undefined}
               aria-invalid={issueErrors?.customerExplanation ? true : undefined}
               className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              disabled={issuePending || issueState.status === "success"}
               id="issue-customer-explanation"
               maxLength={500}
               minLength={2}
@@ -551,7 +582,7 @@ export function ResolutionControls({
               required
             />
             <FieldError id="issue-customer-explanation-error" message={issueErrors?.customerExplanation} />
-            <button className="min-h-12 w-full rounded-xl bg-red-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={issuePending} type="submit">Record decision and complete booking</button>
+            <button className="min-h-12 w-full rounded-xl bg-red-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={issuePending || issueState.status === "success"} type="submit">Record decision and complete booking</button>
           </form>
           <ActionResult state={issueState} />
         </div>
@@ -581,48 +612,34 @@ export function ResolutionControls({
             <Value label="Remaining liability" value={phpFormatter.format(resolution.deposit.remaining_refund_liability)} />
           </dl>
           {resolution.deposit.remaining_refund_liability > 0 ? (
-            <form action={refundAction} className="mt-5 grid gap-4 sm:grid-cols-2">
-              <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.refund} />
-              <Field defaultValue={resolution.deposit.remaining_refund_liability.toFixed(2)} error={refundErrors?.amount} errorId="refund-amount-error" label="Actual amount moved (PHP)" name="amount" type="number" />
-              <Field error={refundErrors?.reference} errorId="refund-reference-error" label="Outgoing GCash reference" name="reference" />
-              <Field error={refundErrors?.recipientName} errorId="refund-recipient-name-error" label="Recipient name" name="recipientName" />
-              <Field defaultValue={actualAt} error={refundErrors?.externalMovedAt} errorId="refund-external-moved-at-error" label="Actual movement time (Asia/Manila)" name="externalMovedAt" type="datetime-local" />
-              <button className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:col-span-2" disabled={refundPending} type="submit">Record completed external refund</button>
-            </form>
+            <ExternalRefundControls
+              actualAt={actualAt}
+              bookingId={resolution.booking_id}
+              operationId={operationIds.refund}
+              remainingLiability={resolution.deposit.remaining_refund_liability}
+            />
           ) : null}
-          <ActionResult state={refundState} />
           {resolution.refunds.length > 0 ? (
             <ol className="mt-6 space-y-4 border-t border-stone-200 pt-5">
-              {resolution.refunds.map((entry) => {
-                const reversalErrors =
-                  reversalState.refundRecordId === entry.refund_record_id
-                    ? reversalState.fieldErrors
-                    : undefined;
-
-                return (
-                  <li className="rounded-xl bg-stone-50 p-4" key={entry.refund_record_id}>
-                    <p className="font-medium">{entry.entry_kind === "refund" ? "Outgoing refund" : "Offsetting reversal"} · {phpFormatter.format(entry.amount)} · ref …{entry.reference_last4}</p>
-                    <p className="mt-1 text-sm text-stone-600">Moved {formatManilaDateTime(entry.external_moved_at)}{entry.reversal_reason ? ` · ${entry.reversal_reason}` : ""}</p>
-                    {entry.entry_kind === "refund" && !reversedRefundIds.has(entry.refund_record_id) ? (
-                      <details className="mt-3">
-                        <summary className="cursor-pointer text-sm font-semibold text-red-900">Record correction as reversal</summary>
-                        <form action={reversalAction} className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <HiddenIds bookingId={resolution.booking_id} operationId={operationIds.reversals[entry.refund_record_id]} />
-                          <input name="refundRecordId" type="hidden" value={entry.refund_record_id} />
-                          <Field error={reversalErrors?.reference} errorId={`reversal-reference-${entry.refund_record_id}-error`} label="Incoming reversal reference" name="reference" />
-                          <Field error={reversalErrors?.counterpartyName} errorId={`reversal-counterparty-${entry.refund_record_id}-error`} label="Counterparty name" name="counterpartyName" />
-                          <Field defaultValue={actualAt} error={reversalErrors?.externalMovedAt} errorId={`reversal-moved-at-${entry.refund_record_id}-error`} label="Actual reversal time (Asia/Manila)" name="externalMovedAt" type="datetime-local" />
-                          <Field error={reversalErrors?.reason} errorId={`reversal-reason-${entry.refund_record_id}-error`} label="Correction reason" name="reason" />
-                          <button className="min-h-11 rounded-xl border border-red-300 bg-white px-4 py-2 font-semibold text-red-900 disabled:opacity-60 sm:col-span-2" disabled={reversalPending} type="submit">Append offsetting reversal</button>
-                        </form>
-                      </details>
-                    ) : null}
-                  </li>
-                );
-              })}
+              {resolution.refunds.map((entry) => (
+                <li className="rounded-xl bg-stone-50 p-4" key={entry.refund_record_id}>
+                  <p className="font-medium">{entry.entry_kind === "refund" ? "Outgoing refund" : "Offsetting reversal"} · {phpFormatter.format(entry.amount)} · ref …{entry.reference_last4}</p>
+                  <p className="mt-1 text-sm text-stone-600">Moved {formatManilaDateTime(entry.external_moved_at)}{entry.reversal_reason ? ` · ${entry.reversal_reason}` : ""}</p>
+                  {entry.entry_kind === "refund" && !reversedRefundIds.has(entry.refund_record_id) ? (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-red-900">Record correction as reversal</summary>
+                      <RefundReversalControls
+                        actualAt={actualAt}
+                        bookingId={resolution.booking_id}
+                        operationId={operationIds.reversals[entry.refund_record_id]}
+                        refundRecordId={entry.refund_record_id}
+                      />
+                    </details>
+                  ) : null}
+                </li>
+              ))}
             </ol>
           ) : null}
-          <ActionResult state={reversalState} />
         </div>
       ) : null}
     </section>
@@ -636,7 +653,7 @@ function ConditionEvidence({
   bookingId,
   conditionReportId,
   intentId,
-  photoAction,
+  submitPhoto,
   photoPending,
   photos,
   photoState,
@@ -647,7 +664,7 @@ function ConditionEvidence({
   bookingId: string;
   conditionReportId: string;
   intentId: string;
-  photoAction: (payload: FormData) => void;
+  submitPhoto: (event: FormEvent<HTMLFormElement>) => void;
   photoPending: boolean;
   photos: NonNullable<ResolutionDetail["return_inspection"]>["photos"];
   photoState: ConditionPhotoActionState;
@@ -672,12 +689,13 @@ function ConditionEvidence({
   return (
     <div className="mt-5 rounded-xl bg-stone-50 p-4">
       <h4 className="font-semibold">Private return evidence</h4>
-      <form action={photoAction} className="mt-3 space-y-3">
+      <form onSubmit={submitPhoto} className="mt-3 space-y-3">
         <input name="bookingId" type="hidden" value={bookingId} />
         <input name="conditionReportId" type="hidden" value={conditionReportId} />
         <input name="intentId" type="hidden" value={intentId} />
         <label className="block text-sm font-medium" htmlFor="return-condition-photo">Return condition photo</label>
-        <input accept="image/jpeg,image/png" aria-describedby={primaryPhotoError ? photoErrorId : undefined} aria-invalid={primaryPhotoError ? true : undefined} id="return-condition-photo" name="photo" required type="file" />
+        <label className="block text-sm font-medium" htmlFor="return-condition-photo">Return condition photo</label>
+        <input accept="image/jpeg,image/png" aria-describedby={primaryPhotoError ? photoErrorId : undefined} aria-invalid={primaryPhotoError ? true : undefined} disabled={photoPending} id="return-condition-photo" name="photo" required type="file" />
         <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || currentPhotoCount >= 6} type="submit">Attach verified return photo</button>
       </form>
       {photoState.status !== "idle" ? (
@@ -702,13 +720,14 @@ function ConditionEvidence({
                 ) : (
                   <details>
                     <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-amber-900 underline">Replace with a new version</summary>
-                    <form action={photoAction} className="mt-2 space-y-2">
+                    <form onSubmit={submitPhoto} className="mt-2 space-y-2">
                       <input name="bookingId" type="hidden" value={bookingId} />
                       <input name="conditionReportId" type="hidden" value={conditionReportId} />
                       <input name="intentId" type="hidden" value={intentId} />
                       <input name="supersedesPhotoId" type="hidden" value={photo.photo_id} />
                       <label className="block text-sm font-medium" htmlFor={`return-replacement-photo-${photo.photo_id}`}>Replacement return condition photo {index + 1}</label>
-                      <input accept="image/jpeg,image/png" aria-describedby={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? photoErrorId : undefined} aria-invalid={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? true : undefined} id={`return-replacement-photo-${photo.photo_id}`} name="photo" required type="file" />
+                      <label className="block text-sm font-medium" htmlFor={`return-replacement-photo-${photo.photo_id}`}>Replacement return condition photo {index + 1}</label>
+                      <input accept="image/jpeg,image/png" aria-describedby={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? photoErrorId : undefined} aria-invalid={photoState.supersedesPhotoId === photo.photo_id && photoState.fieldErrors?.photo ? true : undefined} disabled={photoPending} id={`return-replacement-photo-${photo.photo_id}`} name="photo" required type="file" />
                       <button className="min-h-11 rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold" disabled={photoPending} type="submit">Upload versioned replacement</button>
                     </form>
                   </details>
@@ -729,6 +748,91 @@ function ConditionEvidence({
   );
 }
 
+async function submitResolutionAction(
+  action: typeof recordExternalRefund,
+  previous: ResolutionActionState,
+  formData: FormData,
+): Promise<ResolutionActionState> {
+  try {
+    return await action(previous, formData);
+  } catch {
+    // A lost Server Action response does not establish whether the mutation committed.
+    return { error: "indeterminate", status: "error" };
+  }
+}
+
+function RefundReversalControls({ actualAt, bookingId, operationId, refundRecordId }: {
+  actualAt: string;
+  bookingId: string;
+  operationId: string;
+  refundRecordId: string;
+}) {
+  const [retryOperationId] = useState(operationId);
+  const [inputs, setInputs] = useState({
+    reference: "", counterpartyName: "", externalMovedAt: actualAt, reason: "",
+  });
+  const [state, action, pending] = useActionState(
+    (previous: ResolutionActionState, formData: FormData) => submitResolutionAction(reverseExternalRefund, previous, formData),
+    initialState,
+  );
+  const errors = state.fieldErrors;
+  const disabled = pending || state.status === "success";
+  return (
+    <>
+      <form action={action} className="mt-3 grid gap-3 sm:grid-cols-2">
+        <HiddenIds bookingId={bookingId} operationId={retryOperationId} />
+        <input name="refundRecordId" type="hidden" value={refundRecordId} />
+        <Field disabled={disabled} error={errors?.reference} errorId={`reversal-reference-${refundRecordId}-error`} label="Incoming reversal reference" name="reference" onChange={(reference) => setInputs({ ...inputs, reference })} value={inputs.reference} />
+        <Field disabled={disabled} error={errors?.counterpartyName} errorId={`reversal-counterparty-${refundRecordId}-error`} label="Counterparty name" name="counterpartyName" onChange={(counterpartyName) => setInputs({ ...inputs, counterpartyName })} value={inputs.counterpartyName} />
+        <Field disabled={disabled} error={errors?.externalMovedAt} errorId={`reversal-moved-at-${refundRecordId}-error`} label="Actual reversal time (Asia/Manila)" name="externalMovedAt" onChange={(externalMovedAt) => setInputs({ ...inputs, externalMovedAt })} type="datetime-local" value={inputs.externalMovedAt} />
+        <Field disabled={disabled} error={errors?.reason} errorId={`reversal-reason-${refundRecordId}-error`} label="Correction reason" name="reason" onChange={(reason) => setInputs({ ...inputs, reason })} value={inputs.reason} />
+        <button className="min-h-11 rounded-xl border border-red-300 bg-white px-4 py-2 font-semibold text-red-900 disabled:opacity-60 sm:col-span-2" disabled={disabled} type="submit">Append offsetting reversal</button>
+      </form>
+      <ActionResult state={state} />
+    </>
+  );
+}
+
+function ExternalRefundControls({ actualAt, bookingId, operationId, remainingLiability }: {
+  actualAt: string;
+  bookingId: string;
+  operationId: string;
+  remainingLiability: number;
+}) {
+  const [refundOperationId, setRefundOperationId] = useState(operationId);
+  const [refundInputs, setRefundInputs] = useState({
+    amount: remainingLiability.toFixed(2),
+    externalMovedAt: actualAt,
+    recipientName: "",
+    reference: "",
+  });
+  const [refundState, refundAction, refundPending] = useActionState(
+    async (previous: ResolutionActionState, formData: FormData) => {
+      const result = await submitResolutionAction(recordExternalRefund, previous, formData);
+      if (result.status === "success") {
+        setRefundOperationId(crypto.randomUUID());
+        setRefundInputs({ amount: "", externalMovedAt: actualAt, recipientName: "", reference: "" });
+      }
+      return result;
+    },
+    initialState,
+  );
+  const refundErrors = refundState.fieldErrors;
+  return (
+    <>
+      <form action={refundAction} className="mt-5 grid gap-4 sm:grid-cols-2">
+        <HiddenIds bookingId={bookingId} operationId={refundOperationId} />
+        <Field disabled={refundPending} error={refundErrors?.amount} errorId="refund-amount-error" label="Actual amount moved (PHP)" name="amount" onChange={(amount) => setRefundInputs({ ...refundInputs, amount })} type="number" value={refundInputs.amount} />
+        <Field disabled={refundPending} error={refundErrors?.reference} errorId="refund-reference-error" label="Outgoing GCash reference" name="reference" onChange={(reference) => setRefundInputs({ ...refundInputs, reference })} value={refundInputs.reference} />
+        <Field disabled={refundPending} error={refundErrors?.recipientName} errorId="refund-recipient-name-error" label="Recipient name" name="recipientName" onChange={(recipientName) => setRefundInputs({ ...refundInputs, recipientName })} value={refundInputs.recipientName} />
+        <Field disabled={refundPending} error={refundErrors?.externalMovedAt} errorId="refund-external-moved-at-error" label="Actual movement time (Asia/Manila)" name="externalMovedAt" onChange={(externalMovedAt) => setRefundInputs({ ...refundInputs, externalMovedAt })} type="datetime-local" value={refundInputs.externalMovedAt} />
+        <button className="min-h-12 rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:col-span-2" disabled={refundPending} type="submit">Record completed external refund</button>
+      </form>
+      <ActionResult state={refundState} />
+    </>
+  );
+}
+
 function HiddenIds({ bookingId, operationId }: { bookingId: string; operationId: string }) {
   return (
     <>
@@ -738,12 +842,22 @@ function HiddenIds({ bookingId, operationId }: { bookingId: string; operationId:
   );
 }
 
-function Field({ defaultValue, error, errorId, label, name, type = "text" }: { defaultValue?: number | string; error?: string; errorId?: string; label: string; name: string; type?: "datetime-local" | "number" | "text" }) {
+function Field({ defaultValue, disabled, error, errorId, label, name, onChange, type = "text", value }: {
+  defaultValue?: number | string;
+  disabled?: boolean;
+  error?: string;
+  errorId?: string;
+  label: string;
+  name: string;
+  onChange?: (value: string) => void;
+  type?: "datetime-local" | "number" | "text";
+  value?: string;
+}) {
   return (
     <div>
       <label className="block text-sm font-medium">
         {label}
-        <input aria-describedby={error ? errorId : undefined} aria-invalid={error ? true : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3" defaultValue={defaultValue} min={type === "number" ? 0 : undefined} name={name} required step={type === "number" ? "0.01" : type === "datetime-local" ? "1" : undefined} type={type} />
+        <input aria-describedby={error ? errorId : undefined} aria-invalid={error ? true : undefined} className="mt-2 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3" defaultValue={defaultValue} disabled={disabled} min={type === "number" ? 0 : undefined} name={name} onChange={onChange ? (event) => onChange(event.target.value) : undefined} required step={type === "number" ? "0.01" : type === "datetime-local" ? "1" : undefined} type={type} value={value} />
       </label>
       {error && errorId ? <FieldError id={errorId} message={error} /> : null}
     </div>

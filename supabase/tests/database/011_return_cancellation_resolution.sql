@@ -270,9 +270,19 @@ begin
   );
   retry_result := api.request_cancellation_resolution(
     '90400000-0000-4000-8000-000000000003',
-    'Plans changed before approval.',
+    '  Plans changed before approval.  ',
     '90800000-0000-4000-8000-000000000001'
   );
+  begin
+    perform api.request_cancellation_resolution(
+      '90400000-0000-4000-8000-000000000003',
+      'Changed synthetic cancellation request reason.',
+      '90800000-0000-4000-8000-000000000001'
+    );
+    raise exception 'cancellation request replay accepted a changed reason';
+  exception
+    when serialization_failure then null;
+  end;
   owner_state := api.get_my_resolution_state('90400000-0000-4000-8000-000000000003');
 
   if not (request_result ->> 'created')::boolean
@@ -330,6 +340,7 @@ set local "request.jwt.claim.sub" = '90000000-0000-4000-8000-000000000001';
 do $$
 declare
   queues jsonb := api.get_resolution_queues();
+  variant integer;
   decision jsonb;
   detail jsonb;
 begin
@@ -348,6 +359,29 @@ begin
     0,
     '90800000-0000-4000-8000-000000000004'
   );
+  for variant in 1..4 loop
+    begin
+      perform api.decide_cancellation_resolution(
+        current_setting('test.unpaid_cancellation_request_id')::uuid,
+        variant <> 1,
+        case when variant = 2 then 'Changed synthetic cancellation reason.'
+          else 'Accepted before payment under the approved no-fee path.' end,
+        case when variant = 3 then 1 else 0 end,
+        case when variant = 4 then 1 else 0 end,
+        '90800000-0000-4000-8000-000000000004'
+      );
+      raise exception 'cancellation retry accepted changed decision facts: %', variant;
+    exception
+      when serialization_failure then null;
+    end;
+  end loop;
+  if (api.decide_cancellation_resolution(
+    current_setting('test.unpaid_cancellation_request_id')::uuid, true,
+    '  Accepted before payment under the approved no-fee path.  ', 0, 0,
+    '90800000-0000-4000-8000-000000000004'
+  ) ->> 'created')::boolean then
+    raise exception 'normalized cancellation decision retry was not idempotent';
+  end if;
   detail := api.get_resolution_detail('90400000-0000-4000-8000-000000000003');
   if decision ->> 'booking_state' <> 'CANCELLED'
     or (detail #>> '{cancellation,decision,fee_amount}')::numeric <> 0
@@ -407,6 +441,7 @@ do $$
 declare
   clear_result jsonb;
   retry_result jsonb;
+  variant integer;
 begin
   begin
     perform api.record_return_inspection(
@@ -440,6 +475,32 @@ begin
     when check_violation then null;
   end;
 
+  begin
+    perform api.record_return_inspection(
+      '90400000-0000-4000-8000-000000000001',
+      statement_timestamp() - interval '1 minute',
+      'PRIVATE-RESOLUTION-SERIAL-001',
+      'Camera returned clean and working.',
+      '[{"id":"90200000-0000-4000-8000-000000000001","status":null}]'::jsonb,
+      false,
+      null,
+      '90900000-0000-4000-8000-000000000009'
+    );
+    raise exception 'return accepted a null accessory status';
+  exception
+    when check_violation then null;
+  end;
+
+  if exists (
+    select 1 from public.handoffs
+    where booking_id = '90400000-0000-4000-8000-000000000001' and type = 'return'
+  ) or not exists (
+    select 1 from public.bookings
+    where id = '90400000-0000-4000-8000-000000000001' and state = 'ACTIVE'
+  ) then
+    raise exception 'invalid return checklist left partial persisted state';
+  end if;
+
   clear_result := api.record_return_inspection(
     '90400000-0000-4000-8000-000000000001',
     statement_timestamp() - interval '1 minute',
@@ -467,6 +528,43 @@ begin
   then
     raise exception 'return recording was not complete, atomic, or idempotent';
   end if;
+
+  for variant in 1..7 loop
+    begin
+      perform api.record_return_inspection(
+        '90400000-0000-4000-8000-000000000001',
+        statement_timestamp() - interval '1 minute' + case when variant = 1 then interval '1 second' else interval '0' end,
+        case when variant = 2 then 'CHANGED-SYNTHETIC-SERIAL' else 'PRIVATE-RESOLUTION-SERIAL-001' end,
+        case when variant = 3 then 'Changed synthetic return condition.' else 'Camera returned clean and working.' end,
+        case when variant = 5 then '[{"id":"90200000-0000-4000-8000-000000000001","status":"damaged"}]'::jsonb
+          when variant = 7 then '[]'::jsonb
+          else '[{"id":"90200000-0000-4000-8000-000000000001","status":"returned"}]'::jsonb end,
+        variant = 6,
+        case when variant = 4 then 'Changed synthetic return note.' else null end,
+        '90900000-0000-4000-8000-000000000003'
+      );
+      raise exception 'changed return retry falsely acknowledged new facts: %', variant;
+    exception
+      when serialization_failure then null;
+    end;
+  end loop;
+  retry_result := api.record_return_inspection(
+    '90400000-0000-4000-8000-000000000001',
+    statement_timestamp() - interval '1 minute',
+    '  PRIVATE-RESOLUTION-SERIAL-001  ',
+    '  Camera returned clean and working.  ',
+    '[{"status":"returned","id":"90200000-0000-4000-8000-000000000001"}]'::jsonb,
+    false,
+    '  ',
+    '90900000-0000-4000-8000-000000000003'
+  );
+  if (retry_result ->> 'created')::boolean
+    or retry_result ->> 'handoff_id' <> clear_result ->> 'handoff_id'
+  then
+    raise exception 'normalized return replay was not idempotent';
+  end if;
+
+
 end;
 $$;
 
@@ -481,6 +579,33 @@ begin
     'No issue found during review.',
     '90900000-0000-4000-8000-000000000004'
   );
+  begin
+    perform api.decide_return_inspection(
+      '90400000-0000-4000-8000-000000000001',
+      'issue',
+      'Synthetic changed review decision.',
+      '90900000-0000-4000-8000-000000000004'
+    );
+    raise exception 'return review retry accepted a changed outcome';
+  exception
+    when serialization_failure then null;
+  end;
+  begin
+    perform api.decide_return_inspection(
+      '90400000-0000-4000-8000-000000000001', 'clear',
+      'Changed synthetic review note.', '90900000-0000-4000-8000-000000000004'
+    );
+    raise exception 'return review retry accepted a changed note';
+  exception
+    when serialization_failure then null;
+  end;
+  if (api.decide_return_inspection(
+    '90400000-0000-4000-8000-000000000001', 'clear',
+    '  No issue found during review.  ', '90900000-0000-4000-8000-000000000004'
+  ) ->> 'created')::boolean then
+    raise exception 'normalized return review retry was not idempotent';
+  end if;
+
 end;
 $$;
 
@@ -500,6 +625,29 @@ begin
     '90900000-0000-4000-8000-000000000005'
   );
   perform set_config('test.issue_report_id', result ->> 'condition_report_id', true);
+  -- Flush the recorded return as a separate RPC transaction would.
+  set constraints all immediate;
+  set constraints all deferred;
+
+  begin
+    perform api.decide_return_inspection(
+      '90400000-0000-4000-8000-000000000002',
+      null,
+      null,
+      '90900000-0000-4000-8000-000000000019'
+    );
+    set constraints all immediate;
+    raise exception 'null return outcome bypassed evidence and issue-note requirements';
+  exception
+    when invalid_parameter_value then null;
+  end;
+  set constraints all deferred;
+  if not exists (
+    select 1 from public.bookings
+    where id = '90400000-0000-4000-8000-000000000002' and state = 'RETURN_REVIEW'
+  ) then
+    raise exception 'invalid return outcome advanced booking state';
+  end if;
 
   begin
     perform api.decide_return_inspection(
@@ -563,12 +711,61 @@ set constraints all immediate;
 set constraints all deferred;
 
 do $$
+declare
+  variant integer;
+  invalid_amount numeric;
 begin
   perform api.add_return_issue_note(
     '90400000-0000-4000-8000-000000000002',
     'Compared the return image with the pickup report.',
     '90900000-0000-4000-8000-000000000011'
   );
+
+  if (api.add_return_issue_note(
+    '90400000-0000-4000-8000-000000000002',
+    '  Compared the return image with the pickup report.  ',
+    '90900000-0000-4000-8000-000000000011'
+  ) ->> 'created')::boolean then
+    raise exception 'identical note retry created another note';
+  end if;
+
+  begin
+    perform api.add_return_issue_note(
+      '90400000-0000-4000-8000-000000000002',
+      'A different finding that must not be silently discarded.',
+      '90900000-0000-4000-8000-000000000011'
+    );
+    raise exception 'changed note retry falsely reported success';
+  exception when serialization_failure then null;
+  end;
+
+  begin
+    perform api.add_return_issue_note(
+      '90400000-0000-4000-8000-000000000001',
+      'Compared the return image with the pickup report.',
+      '90900000-0000-4000-8000-000000000011'
+    );
+    raise exception 'note retry accepted a different booking';
+  exception when serialization_failure then null;
+  end;
+
+  for invalid_amount in select value from (values (1.001::numeric), (0.001::numeric)) as amounts(value) loop
+    begin
+      perform api.resolve_return_issue(
+        '90400000-0000-4000-8000-000000000002',
+        'damage',
+        invalid_amount,
+        'Synthetic deduction with unsupported sub-cent precision.',
+        'Synthetic precision validation.',
+        '90900000-0000-4000-8000-000000000029'
+      );
+      set constraints all immediate;
+      raise exception 'sub-cent issue deduction was accepted: %', invalid_amount;
+    exception
+      when invalid_parameter_value then null;
+    end;
+  end loop;
+  set constraints all deferred;
 
   begin
     perform api.resolve_return_issue(
@@ -592,6 +789,32 @@ begin
     'A PHP 1,000 deduction was approved for documented body repair.',
     '90900000-0000-4000-8000-000000000013'
   );
+  for variant in 1..5 loop
+    begin
+      perform api.resolve_return_issue(
+        case when variant = 5 then '90400000-0000-4000-8000-000000000001'::uuid else '90400000-0000-4000-8000-000000000002'::uuid end,
+        case when variant = 2 then 'other' else 'damage' end,
+        case when variant = 1 then 999 else 1000 end,
+        case when variant = 3 then 'Changed synthetic internal reason.' else 'Approved manual deduction for the documented body repair.' end,
+        case when variant = 4 then 'Changed synthetic renter explanation.' else 'A PHP 1,000 deduction was approved for documented body repair.' end,
+        '90900000-0000-4000-8000-000000000013'
+      );
+      raise exception 'changed issue decision retry falsely reported success: %', variant;
+    exception
+      when serialization_failure then null;
+    end;
+  end loop;
+  if (api.resolve_return_issue(
+    '90400000-0000-4000-8000-000000000002',
+    'damage',
+    1000.00,
+    '  Approved manual deduction for the documented body repair.  ',
+    '  A PHP 1,000 deduction was approved for documented body repair.  ',
+    '90900000-0000-4000-8000-000000000013'
+  ) ->> 'created')::boolean then
+    raise exception 'normalized issue decision retry created a duplicate';
+  end if;
+
 end;
 $$;
 
@@ -633,7 +856,26 @@ declare
   issue_refund jsonb;
   reversal jsonb;
   detail jsonb;
+  variant integer;
+  invalid_amount numeric;
 begin
+  for invalid_amount in select value from (values (1.001::numeric), (0.001::numeric)) as amounts(value) loop
+    begin
+      perform api.record_external_refund(
+        '90400000-0000-4000-8000-000000000001',
+        invalid_amount,
+        'SYNTHETIC-SUBCENT-REFUND',
+        'Synthetic Renter',
+        statement_timestamp(),
+        '91000000-0000-4000-8000-000000000029'
+      );
+      set constraints all immediate;
+      raise exception 'sub-cent external refund was accepted: %', invalid_amount;
+    exception
+      when invalid_parameter_value then null;
+    end;
+  end loop;
+  set constraints all deferred;
   clear_refund := api.record_external_refund(
     '90400000-0000-4000-8000-000000000001',
     4000,
@@ -667,6 +909,59 @@ begin
   then
     raise exception 'refund correction was not an immutable offsetting reversal';
   end if;
+
+  -- The same transfer can be acknowledged again, but changed facts cannot.
+  if (api.record_external_refund(
+    '90400000-0000-4000-8000-000000000001', 4000,
+    'resolution refund clear 001', ' Resolution Renter ', statement_timestamp(),
+    '91000000-0000-4000-8000-000000000001'
+  ) ->> 'refund_record_id') is distinct from clear_refund ->> 'refund_record_id' then
+    raise exception 'identical refund replay lost original identity';
+  end if;
+  if (api.reverse_external_refund(
+    (clear_refund ->> 'refund_record_id')::uuid,
+    'resolution reversal clear 001', ' Resolution Renter ', statement_timestamp(),
+    ' External refund was returned and must be re-sent. ',
+    '91000000-0000-4000-8000-000000000003'
+  ) ->> 'refund_record_id') is distinct from reversal ->> 'refund_record_id' then
+    raise exception 'identical reversal replay lost original identity';
+  end if;
+
+  for variant in 1..7 loop
+    begin
+      perform api.record_external_refund(
+        case when variant = 1 then '90400000-0000-4000-8000-000000000002'::uuid
+          else '90400000-0000-4000-8000-000000000001'::uuid end,
+        case when variant = 2 then 3999 else 4000 end,
+        case when variant = 3 then 'ANOTHER-REFERENCE' else 'RESOLUTION-REFUND-CLEAR-001' end,
+        case when variant = 4 then 'Another Synthetic Renter' else 'Resolution Renter' end,
+        statement_timestamp() - case when variant = 5 then interval '1 minute' else interval '0' end,
+        case when variant = 6 then '91000000-0000-4000-8000-000000000003'::uuid
+          else '91000000-0000-4000-8000-000000000001'::uuid end
+      );
+      -- Variant 7 is the unchanged control and must still succeed.
+      if variant <> 7 then raise exception 'changed refund retry falsely reported success: %', variant; end if;
+    exception when serialization_failure then
+      if variant = 7 then raise; end if;
+    end;
+  end loop;
+
+  for variant in 1..6 loop
+    begin
+      perform api.reverse_external_refund(
+        case when variant = 1 then (issue_refund ->> 'refund_record_id')::uuid
+          else (clear_refund ->> 'refund_record_id')::uuid end,
+        case when variant = 2 then 'ANOTHER-REFERENCE' else 'RESOLUTION-REVERSAL-CLEAR-001' end,
+        case when variant = 3 then 'Another Synthetic Renter' else 'Resolution Renter' end,
+        statement_timestamp() - case when variant = 4 then interval '1 minute' else interval '0' end,
+        case when variant = 5 then 'Different correction reason.' else 'External refund was returned and must be re-sent.' end,
+        case when variant = 6 then '91000000-0000-4000-8000-000000000001'::uuid
+          else '91000000-0000-4000-8000-000000000003'::uuid end
+      );
+      raise exception 'changed reversal retry falsely reported success: %', variant;
+    exception when serialization_failure then null;
+    end;
+  end loop;
 
   detail := api.get_resolution_detail('90400000-0000-4000-8000-000000000002');
   if detail #>> '{booking_state}' <> 'COMPLETED'

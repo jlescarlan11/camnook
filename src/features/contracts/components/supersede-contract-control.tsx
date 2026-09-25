@@ -2,6 +2,7 @@
 
 import {
   cloneElement,
+  startTransition,
   useActionState,
   useEffect,
   useRef,
@@ -15,21 +16,33 @@ import {
 
 const initialState: SupersedeContractActionState = { status: "idle" };
 
-export function SupersedeContractControl({
-  bookingId,
-  cameras,
-  currentCameraId,
-  pickup,
-  returnValue,
-}: {
+type SupersedeContractProps = {
   bookingId: string;
   cameras: { id: string; name: string }[];
   currentCameraId: string;
   pickup: string;
   returnValue: string;
-}) {
+};
+
+export function SupersedeContractControl(props: SupersedeContractProps) {
+  return <SupersedeContractForm key={props.bookingId} {...props} />;
+}
+
+function SupersedeContractForm({
+  bookingId,
+  cameras,
+  currentCameraId,
+  pickup,
+  returnValue,
+}: SupersedeContractProps) {
   const [state, action, pending] = useActionState(
-    supersedeContract,
+    async (previous: SupersedeContractActionState, data: FormData): Promise<SupersedeContractActionState> => {
+      try {
+        return await supersedeContract(previous, data);
+      } catch {
+        return { error: "unknown", status: "indeterminate" };
+      }
+    },
     initialState,
   );
   const resultRef = useRef<HTMLDivElement>(null);
@@ -54,7 +67,11 @@ export function SupersedeContractControl({
         signature stay immutable and non-actionable. The original deadline does
         not move.
       </p>
-      <form action={action} className="mt-5 grid gap-4 sm:grid-cols-2">
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        startTransition(() => action(data));
+      }} className="mt-5 grid gap-4 sm:grid-cols-2">
         <input name="bookingId" type="hidden" value={bookingId} />
         <Field label="Camera" error={state.fieldErrors?.camera} id="camera">
           <select

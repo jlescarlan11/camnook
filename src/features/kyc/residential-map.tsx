@@ -28,12 +28,22 @@ export function ResidentialMap({
   const container = useRef<HTMLDivElement>(null);
   const callback = useRef(onDraftChange);
   const searchRequest = useRef(0);
+  const pendingSearch = useRef<{ query: string; request: number; controller: AbortController } | null>(null);
+  const pinRequest = useRef(0);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [status, setStatus] = useState("");
   const [latitude, setLatitude] = useState(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
   const [longitude, setLongitude] = useState(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
   const [coordinateError, setCoordinateError] = useState(false);
+
+  useEffect(() => () => {
+    // Geolocation cannot be aborted. Invalidate its callback when the editor
+    // closes so it cannot publish a private pin after cancellation.
+    pinRequest.current += 1;
+    searchRequest.current += 1;
+    pendingSearch.current?.controller.abort();
+  }, []);
 
   useEffect(() => {
     latestPin.current = initialPin;
@@ -47,6 +57,9 @@ export function ResidentialMap({
   }, [initialPin]);
 
   function selectPin(pin: DraftPin) {
+    pinRequest.current += 1;
+    latestPin.current = pin;
+    setLocating(false);
     setCoordinateError(false);
     if (mapView.current && pinMarker.current) {
       pinMarker.current.setLatLng([pin.latitude, pin.longitude]).addTo(mapView.current);
@@ -54,6 +67,13 @@ export function ResidentialMap({
     }
     onDraftChange(pin);
   }
+
+  useEffect(() => () => {
+    // Geolocation cannot be aborted. Invalidate its callback when the editor
+    // closes so it cannot publish a private pin after cancellation.
+    pinRequest.current += 1;
+    searchRequest.current += 1;
+  }, []);
 
   useEffect(() => { callback.current = onDraftChange; }, [onDraftChange]);
 
@@ -86,19 +106,32 @@ export function ResidentialMap({
       pinMarker.current = marker;
       if (latestPin.current) marker.addTo(map);
       const choose = (lat: number, lng: number) => {
+        const request = ++pinRequest.current;
+        setLocating(false);
         setCoordinateError(false);
+        if (!isPhilippineCoordinate(lat, lng)) {
+          const previous = latestPin.current ?? CEBU_CENTER;
+          marker.setLatLng([previous.latitude, previous.longitude]);
+          setStatus("Choose a pin within the Philippines.");
+          return;
+        }
+        setStatus("Pin selected. Confirm the pin below.");
         marker.setLatLng([lat, lng]).addTo(map);
         setLatitude(lat.toFixed(5));
         setLongitude(lng.toFixed(5));
-        callback.current({
+        const pin: DraftPin = {
           accuracyMeters: null,
           label: "Manually selected pin",
           latitude: lat,
           longitude: lng,
           source: "map_pin",
-        });
+        };
+        latestPin.current = pin;
+        callback.current(pin);
         void reverseLabel(lat, lng).then((label) => {
-          if (label) setStatus(`Selected near ${label}`);
+          if (!disposed && request === pinRequest.current && label) {
+            setStatus(`Selected near ${label}`);
+          }
         });
       };
       map.on("click", (event) => choose(event.latlng.lat, event.latlng.lng));
@@ -112,18 +145,28 @@ export function ResidentialMap({
   }, [mapKey]);
 
   async function search() {
+    const queryValue = query.trim();
+    // Button clicks and Enter share the same in-flight lookup. Do not spend
+    // another provider reservation for an unchanged, still-pending request.
+    if (pendingSearch.current?.query === queryValue &&
+      pendingSearch.current.request === searchRequest.current) return;
     const request = ++searchRequest.current;
     setSuggestions([]);
-    if (query.trim().length < 3) {
+    if (queryValue.length < 3) {
       setStatus("Enter at least 3 characters.");
       return;
     }
+    pendingSearch.current?.controller.abort();
+    const controller = new AbortController();
+    pendingSearch.current = { query: queryValue, request, controller };
+    const timeout = setTimeout(() => controller.abort(), 20_000);
     setStatus("Searching…");
     try {
       const response = await fetch("/api/kyc/residential-geocode", {
-        body: JSON.stringify({ mode: "search", query: query.trim() }),
+        body: JSON.stringify({ mode: "search", query: queryValue }),
         headers: { "content-type": "application/json" },
         method: "POST",
+        signal: controller.signal,
       });
       const body = await response.json() as { suggestions?: Suggestion[] };
       if (request !== searchRequest.current) return;
@@ -134,6 +177,9 @@ export function ResidentialMap({
       if (request === searchRequest.current) {
         setStatus("Address search is unavailable. Tap the map to place your pin.");
       }
+    } finally {
+      clearTimeout(timeout);
+      if (pendingSearch.current?.request === request) pendingSearch.current = null;
     }
   }
 
@@ -155,10 +201,12 @@ export function ResidentialMap({
       setStatus("Location is not available in this browser. Search for your address or place the pin manually.");
       return;
     }
+    const request = ++pinRequest.current;
     setLocating(true);
     setStatus("Finding your location…");
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (request !== pinRequest.current) return;
         setLocating(false);
         const next = {
           accuracyMeters: position.coords.accuracy,
@@ -176,7 +224,11 @@ export function ResidentialMap({
         selectPin(next);
         setStatus("Device location selected. Confirm the pin below.");
       },
-      () => { setLocating(false); setStatus("Location is unavailable. Search for your address or tap the map to place your pin."); },
+      () => {
+        if (request !== pinRequest.current) return;
+        setLocating(false);
+        setStatus("Location is unavailable. Search for your address or tap the map to place your pin.");
+      },
       { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
     );
   }

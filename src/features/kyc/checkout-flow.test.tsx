@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { redirect } from "next/navigation";
+import { Component, type ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("./actions", () => ({ saveKycProfile: vi.fn() }));
@@ -89,6 +91,70 @@ it("identifies the address selection group when server validation rejects its ar
   const area = screen.getByRole("group", { name: "Philippine address" });
   expect(area.getAttribute("aria-invalid")).toBe("true");
   expect(area.getAttribute("aria-describedby")).toContain(error.getAttribute("id"));
+});
+
+it("restores details and address after leaving checkout, isolated by account and saved revision", async () => {
+  sessionStorage.clear();
+  const props = { checkout: true, kyc: null, profile: null, returnTo: "/checkout?camera=test", draftKey: "checkout:renter-a:new" };
+  const first = render(<KycProfileForm {...props} />);
+  await fillDetails();
+  await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
+  await fillAddress();
+  first.unmount();
+  const second = render(<KycProfileForm {...props} returnTo="/checkout?camera=test&pickupDate=2026-10-01" />);
+  expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("Test Renter");
+  expect((screen.getByLabelText("Birthdate") as HTMLInputElement).value).toBe("1995-01-15");
+  await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
+  expect((screen.getByLabelText(/^Street name/) as HTMLInputElement).value).toBe("Test Street");
+  expect((screen.getByLabelText("Postal code") as HTMLInputElement).value).toBe("6000");
+  second.unmount();
+  const other = render(<KycProfileForm {...props} draftKey="checkout:renter-b:new" />);
+  expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("");
+  other.unmount();
+  render(<KycProfileForm {...props} draftKey="checkout:renter-a:saved-revision" />);
+  expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("");
+  sessionStorage.clear();
+});
+
+it("keeps personal and address fields through a lost save response and explicit retry", async () => {
+  vi.mocked(saveKycProfile).mockRejectedValueOnce(new Error("Synthetic connection failure"));
+  setup();
+  await fillDetails();
+  await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
+  await fillAddress();
+  await userEvent.click(screen.getByRole("button", { name: "Save and continue to review" }));
+  await screen.findByText("The saved outcome could not be confirmed. Reload to check your details before retrying.");
+  expect((screen.getByLabelText("Full legal name") as HTMLInputElement).value).toBe("Test Renter");
+  expect((screen.getByLabelText(/^Street name/) as HTMLInputElement).value).toBe("Test Street");
+  expect((screen.getByLabelText("Postal code") as HTMLInputElement).value).toBe("6000");
+  await userEvent.click(screen.getByRole("button", { name: "Save and continue to review" }));
+  await waitFor(() => expect(saveKycProfile).toHaveBeenCalledTimes(2));
+  expect(Object.fromEntries(vi.mocked(saveKycProfile).mock.calls[1][1])).toEqual(Object.fromEntries(vi.mocked(saveKycProfile).mock.calls[0][1]));
+});
+
+it("passes a successful save redirect back to Next instead of displaying a save failure", async () => {
+  const caught = vi.fn();
+  class NavigationBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+    state = { failed: false };
+    static getDerivedStateFromError() { return { failed: true }; }
+    componentDidCatch(error: Error) { caught(error); }
+    render() { return this.state.failed ? <p>Framework navigation</p> : this.props.children; }
+  }
+  vi.mocked(saveKycProfile).mockImplementation(async () => redirect("/checkout"));
+  const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    render(<NavigationBoundary><KycProfileForm checkout kyc={null} profile={null} returnTo="/checkout" /></NavigationBoundary>);
+    await fillDetails();
+    await userEvent.click(screen.getByRole("button", { name: "Continue to address" }));
+    await fillAddress();
+    await userEvent.click(screen.getByRole("button", { name: "Save and continue to review" }));
+    await screen.findByText("Framework navigation");
+    expect(caught).toHaveBeenCalledOnce();
+    expect(caught.mock.calls[0][0]).toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT;") });
+    expect(screen.queryByText("The saved outcome could not be confirmed. Reload to check your details before retrying.")).toBeNull();
+  } finally {
+    diagnostic.mockRestore();
+  }
 });
 
 it("restores details and address after leaving checkout, isolated by account and saved revision", async () => {

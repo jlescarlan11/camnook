@@ -578,6 +578,32 @@ describe("camera handoff city and policy actions", () => {
     );
   });
 
+  it.each(["unauthorized", "stale", "save_failed"] as const)("rejects a canonical save with %s before claiming provider quota", async (error) => {
+    const api = authorize({
+      anchor: { version: error === "stale" ? 3 : 2 },
+      anchorError: error === "unauthorized"
+        ? { code: "42501", message: "admin authorization required" }
+        : error === "save_failed" ? { code: "08006" } : undefined,
+      resolvedArea: {
+        active: true, current: true, code: "0722170010", name: "Lahug",
+        path: [{ code: "0722170010", name: "Lahug", type: "barangay" }],
+        release: "2026-q2", type: "barangay",
+      },
+    });
+    const request = vi.fn().mockRejectedValue(new Error("Synthetic provider request should not occur"));
+    vi.stubGlobal("fetch", request);
+    const data = validSaveFields();
+    data.set("psgcRelease", "2026-q2");
+    data.set("psgcAreaCode", "0722170010");
+
+    const result = await saveCameraHandoffPolicy({ status: "idle" }, data);
+    expect(claimGeoapifyProviderBudget).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(result).toEqual({ error, status: "error" });
+    expect(api.rpc).toHaveBeenCalledTimes(1);
+    expect(api.rpc).toHaveBeenCalledWith("get_camera_handoff_policy_admin_v2", { p_camera_id: CAMERA_ID });
+  });
+
   it("rejects a city-level canonical origin before geocoding", async () => {
     const api = authorize({
       resolvedArea: {
@@ -672,6 +698,8 @@ describe("camera handoff city and policy actions", () => {
     ["40001", "stale"],
     ["42501", "unauthorized"],
     ["22023", "save_failed"],
+    ["", "indeterminate"],
+    ["08006", "indeterminate"],
   ])("maps %s without returning private database detail", async (code, error) => {
     authorize({
       replace: {
@@ -687,6 +715,23 @@ describe("camera handoff city and policy actions", () => {
 
     expect(result).toEqual({ error, status: "error" });
     expect(JSON.stringify(result)).not.toContain("private provider");
+  });
+
+  it.each(["thrown", "missing"])("keeps a %s write acknowledgement indeterminate", async (failure) => {
+    const api = authorize();
+    const original = api.rpc.getMockImplementation()!;
+    let saved = false;
+    api.rpc.mockImplementation((name) => {
+      if (name === "replace_camera_handoff_policy") {
+        saved = true;
+        if (failure === "thrown") return Promise.reject(new Error("Synthetic private connection failure"));
+        return Promise.resolve({ data: null, error: null });
+      }
+      return original(name);
+    });
+    await expect(saveCameraHandoffPolicy({ status: "idle" }, validSaveFields())).resolves.toEqual({ status: "error", error: "indeterminate" });
+    expect(saved).toBe(true);
+    expect(api.rpc.mock.calls.filter(([name]) => name === "replace_camera_handoff_policy")).toHaveLength(1);
   });
 
   it("revalidates persisted read paths after a successful save", async () => {

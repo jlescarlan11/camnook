@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 
@@ -15,6 +15,18 @@ import {
 } from "./types";
 
 const initialState: PaymentActionState = { status: "idle" };
+async function submitPaymentAction(
+  action: typeof submitPayment,
+  previous: PaymentActionState,
+  data: FormData,
+): Promise<PaymentActionState> {
+  try {
+    return await action(previous, data);
+  } catch {
+    return { error: "indeterminate", status: "error" };
+  }
+}
+
 const phpFormatter = new Intl.NumberFormat("en-PH", {
   currency: "PHP",
   style: "currency",
@@ -37,7 +49,7 @@ function actionErrorMessage(error: PaymentActionState["error"]) {
   }
 }
 
-function ProofField({ error, id }: { error?: string; id: string }) {
+function ProofField({ disabled, error, id }: { disabled: boolean; error?: string; id: string }) {
   const describedBy = [`${id}-help`, error ? `${id}-error` : undefined].filter(Boolean).join(" ");
   return (
     <div>
@@ -48,6 +60,7 @@ function ProofField({ error, id }: { error?: string; id: string }) {
         accept="image/jpeg,image/png"
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
+        disabled={disabled}
         className="mt-2 block min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-2 file:font-medium file:text-amber-950"
         id={id}
         name="proof"
@@ -75,13 +88,15 @@ export function PaymentPanel({
   payment: PaymentState;
 }) {
   const [submitState, submitAction, submitPending] = useActionState(
-    submitPayment,
+    (previous: PaymentActionState, data: FormData) => submitPaymentAction(submitPayment, previous, data),
     initialState,
   );
   const [proofState, proofAction, proofPending] = useActionState(
-    uploadPaymentProof,
+    (previous: PaymentActionState, data: FormData) => submitPaymentAction(uploadPaymentProof, previous, data),
     initialState,
   );
+  const [lastAction, setLastAction] = useState<"submit" | "proof">("submit");
+  const resultState = lastAction === "proof" ? proofState : submitState;
   const resultRef = useRef<HTMLDivElement>(null);
   const proofFormRef = useRef<HTMLFormElement>(null);
   const submitFormRef = useRef<HTMLFormElement>(null);
@@ -180,6 +195,7 @@ export function PaymentPanel({
           event.preventDefault();
           if (submitPending) return;
           const formData = new FormData(event.currentTarget);
+          setLastAction("submit");
           startTransition(() => submitAction(formData));
         }} className="mt-5 space-y-4">
           <input name="attemptId" type="hidden" value={attemptId} />
@@ -192,6 +208,7 @@ export function PaymentPanel({
               autoComplete="off"
               aria-describedby={submitState.fieldErrors?.reference ? "payment-reference-error" : undefined}
               aria-invalid={submitState.fieldErrors?.reference ? true : undefined}
+              disabled={submitPending}
               className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
               id="payment-reference"
               maxLength={120}
@@ -203,7 +220,7 @@ export function PaymentPanel({
               <p className="mt-2 text-sm text-red-800" id="payment-reference-error" role="alert">{submitState.fieldErrors.reference}</p>
             ) : null}
           </div>
-          <ProofField error={submitState.fieldErrors?.proof} id="payment-proof" />
+          <ProofField disabled={submitPending} error={submitState.fieldErrors?.proof} id="payment-proof" />
           <button
             className="min-h-12 w-full rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={submitPending}
@@ -219,6 +236,7 @@ export function PaymentPanel({
           event.preventDefault();
           if (proofPending) return;
           const formData = new FormData(event.currentTarget);
+          setLastAction("proof");
           startTransition(() => proofAction(formData));
         }} className="mt-5 space-y-4 rounded-xl border border-stone-200 p-5">
           <input name="bookingId" type="hidden" value={payment.booking_id} />
@@ -226,7 +244,7 @@ export function PaymentPanel({
           <h3 className="font-semibold">
             {transaction.proof_exists ? "Replace payment proof" : "Add payment proof"}
           </h3>
-          <ProofField error={proofState.fieldErrors?.proof} id="pending-payment-proof" />
+          <ProofField disabled={proofPending} error={proofState.fieldErrors?.proof} id="pending-payment-proof" />
           <button
             className="min-h-12 rounded-xl border border-stone-300 bg-white px-5 py-3 font-semibold disabled:opacity-60"
             disabled={proofPending}
@@ -237,24 +255,22 @@ export function PaymentPanel({
         </form>
       ) : null}
 
-      {submitState.status !== "idle" || proofState.status !== "idle" ? (
+      {resultState.status !== "idle" ? (
         <div
           className={`mt-5 rounded-xl border p-4 text-sm ${
-            submitState.status === "success" || proofState.status === "success"
+            resultState.status === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-900"
               : "border-red-200 bg-red-50 text-red-900"
           }`}
           ref={resultRef}
-          role={submitState.status === "success" || proofState.status === "success" ? "status" : "alert"}
+          role={resultState.status === "success" ? "status" : "alert"}
           tabIndex={-1}
         >
-          {proofState.status === "success"
-            ? "The private proof was saved. The payment remains in review."
-            : proofState.status === "error"
-              ? actionErrorMessage(proofState.error)
-              : submitState.status === "success"
-                ? "Payment details were accepted for reconciliation. The original deadline remains unchanged."
-                : actionErrorMessage(submitState.error)}
+          {resultState.status === "success"
+            ? lastAction === "proof"
+              ? "The private proof was saved. The payment remains in review."
+              : "Payment details were accepted for reconciliation. The original deadline remains unchanged."
+            : actionErrorMessage(resultState.error)}
         </div>
       ) : null}
     </section>

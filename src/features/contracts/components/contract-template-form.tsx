@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useState } from "react";
 
 import {
   publishContractTemplate,
@@ -19,11 +19,21 @@ export function ContractTemplateForm({
 }: {
   configuration: ContractTemplateConfiguration;
 }) {
+  const [draftTemplate] = useState(configuration.active);
+  const [expectedActiveId, setExpectedActiveId] = useState(configuration.active?.id ?? "");
+  const [approved, setApproved] = useState(false);
   const [state, action, pending] = useActionState(
-    publishContractTemplate,
+    async (previous: PublishContractTemplateState, data: FormData): Promise<PublishContractTemplateState> => {
+      try {
+        return await publishContractTemplate(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialState,
   );
   const active = configuration.active;
+  const activeChanged = (active?.id ?? "") !== expectedActiveId;
 
   return (
     <section
@@ -48,11 +58,26 @@ export function ContractTemplateForm({
           : "No active template. New requests are disabled."}
       </p>
 
-      <form action={action} className="mt-6 space-y-5">
+      {activeChanged ? (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="alert">
+          <p>The active template changed. Your draft is preserved below. Review it again before publishing a replacement.</p>
+          <button className="mt-3 min-h-11 font-semibold underline" disabled={pending} onClick={() => {
+            setExpectedActiveId(active?.id ?? "");
+            setApproved(false);
+          }} type="button">Review replacement draft</button>
+        </div>
+      ) : null}
+
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        if (activeChanged) return;
+        const data = new FormData(event.currentTarget);
+        startTransition(() => action(data));
+      }} className="mt-6 space-y-5">
         <input
           name="expectedActiveId"
           type="hidden"
-          value={active?.id ?? ""}
+          value={expectedActiveId}
         />
         <div>
           <label className="block text-sm font-medium" htmlFor="template-version">
@@ -66,7 +91,8 @@ export function ContractTemplateForm({
             }
             aria-invalid={state.fieldErrors?.version ? true : undefined}
             className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
-            defaultValue={active ? "" : "rental-v1"}
+            defaultValue={draftTemplate ? "" : "rental-v1"}
+            disabled={pending}
             id="template-version"
             maxLength={80}
             name="version"
@@ -102,7 +128,8 @@ export function ContractTemplateForm({
                 }
                 aria-invalid={state.fieldErrors?.terms ? true : undefined}
                 className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3 leading-6"
-                defaultValue={active?.terms[key] ?? ""}
+                defaultValue={draftTemplate?.terms[key] ?? ""}
+                disabled={pending}
                 id={`term-${key}`}
                 maxLength={4000}
                 minLength={10}
@@ -130,8 +157,11 @@ export function ContractTemplateForm({
                 : undefined
             }
             aria-invalid={state.fieldErrors?.approval ? true : undefined}
+            checked={approved}
             className="mt-1 size-5"
+            disabled={pending}
             name="approval"
+            onChange={(event) => setApproved(event.target.checked)}
             required
             type="checkbox"
           />
@@ -152,7 +182,7 @@ export function ContractTemplateForm({
 
         <button
           className="min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={pending}
+          disabled={pending || activeChanged}
           type="submit"
         >
           {pending

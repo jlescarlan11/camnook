@@ -383,7 +383,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
 
             {pickupData?.status === "success" ? (
               <PickupControls
-                actualAt={formatManilaDateTimeInput(new Date().toISOString())}
+                actualAt={formatManilaDateTimeInput(new Date().toISOString(), true)}
                 operationId={randomUUID()}
                 photoIntentId={randomUUID()}
                 pickup={pickupData.pickup}
@@ -396,6 +396,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
 
             {resolutionData?.status === "success" && resolutionOperationIds ? (
               <ResolutionControls
+                key={resolutionData.resolution.booking_id}
                 actualAt={formatManilaDateTimeInput(
                   new Date().toISOString(),
                   true,

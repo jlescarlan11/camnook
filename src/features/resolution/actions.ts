@@ -208,7 +208,12 @@ export async function decideCancellation(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.request_id !== requestId ||
+      parsed.data.outcome !== (decision === "accept" ? "accepted" : "declined")
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return {
@@ -349,7 +354,12 @@ export async function decideReturnReview(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.outcome !== outcome ||
+      parsed.data.booking_state !== (outcome === "clear" ? "COMPLETED" : "ISSUE_REVIEW")
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return {
@@ -466,7 +476,11 @@ export async function resolveIssue(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.deduction_amount !== deductionAmount
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "resolved", status: "success" };
@@ -534,7 +548,12 @@ export async function recordExternalRefund(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.entry_kind !== "refund" ||
+      parsed.data.amount !== amount
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "refund_recorded", status: "success" };
@@ -605,7 +624,11 @@ export async function reverseExternalRefund(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.entry_kind !== "reversal"
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "reversed", status: "success" };

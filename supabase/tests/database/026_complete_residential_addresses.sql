@@ -25,7 +25,7 @@ begin
       'pin_source', null, 'pin_latitude', null, 'pin_longitude', null,
       'pin_accuracy_meters', null, 'pin_consent_version', null
     ));
-    set constraints renter_address_requires_residential_pin immediate;
+    set constraints private.renter_address_requires_residential_pin immediate;
     raise exception 'named-street address without a pin unexpectedly saved';
   exception when sqlstate '22023' then null;
   end;
@@ -72,7 +72,7 @@ begin
       'pin_longitude', null, 'pin_accuracy_meters', null,
       'pin_consent_version', null
     ));
-    set constraints renter_address_requires_residential_pin immediate;
+    set constraints private.renter_address_requires_residential_pin immediate;
     raise exception 'unnamed-road address without a pin unexpectedly saved';
   exception when sqlstate '22023' then null;
   end;
@@ -89,8 +89,8 @@ begin
     'pin_accuracy_meters', null,
     'pin_consent_version', 'residential-pin-v1'
   ));
-  set constraints renter_address_requires_residential_pin immediate;
-  set constraints renter_address_requires_residential_pin deferred;
+  set constraints private.renter_address_requires_residential_pin immediate;
+  set constraints private.renter_address_requires_residential_pin deferred;
 
   begin
     perform api.save_my_kyc_profile_v2(jsonb_build_object(
@@ -105,7 +105,7 @@ begin
       'pin_longitude', null, 'pin_accuracy_meters', null,
       'pin_consent_version', null
     ));
-    set constraints renter_pin_preserves_required_address immediate;
+    set constraints private.renter_pin_preserves_required_address immediate;
     raise exception 'required residential pin was unexpectedly removed';
   exception when sqlstate '22023' then null;
   end;

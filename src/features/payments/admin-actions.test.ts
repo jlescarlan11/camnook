@@ -163,6 +163,7 @@ describe("payment admin actions", () => {
     } as never);
     const data = new FormData();
     data.set("paymentId", PAYMENT_ID);
+    data.set("expectedProofId", PROOF_ID);
 
     const result = await requestPaymentProofAccess(
       { status: "idle" },
@@ -183,5 +184,22 @@ describe("payment admin actions", () => {
       "opaque/private-proof.png",
       60,
     );
+  });
+
+  it("does not sign a different proof version from the one under review", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue({ user: { id: ADMIN_ID } } as never);
+    const rpc = vi.fn().mockResolvedValue({ data: {
+      expires_in_seconds: 60, object_path: "opaque/new-proof.png",
+      proof_id: "73000000-0000-4000-8000-000000000004", transaction_id: PAYMENT_ID,
+    }, error: null });
+    const createSignedUrl = vi.fn().mockResolvedValue({ data: { signedUrl: "https://example.invalid/new-proof" }, error: null });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      schema: vi.fn(() => ({ rpc })), storage: { from: vi.fn(() => ({ createSignedUrl })) },
+    } as never);
+    const data = new FormData();
+    data.set("paymentId", PAYMENT_ID);
+    data.set("expectedProofId", PROOF_ID);
+    await expect(requestPaymentProofAccess({ status: "idle" }, data)).resolves.toEqual({ error: "stale", status: "error" });
+    expect(createSignedUrl).not.toHaveBeenCalled();
   });
 });

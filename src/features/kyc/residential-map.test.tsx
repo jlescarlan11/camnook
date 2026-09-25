@@ -9,9 +9,96 @@ import { ResidentialMap } from "./residential-map";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("ResidentialMap fallbacks", () => {
+  it("unlocks a stalled search after its timeout so the same query can retry", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init.signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    }));
+    vi.stubGlobal("fetch", request);
+    render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Search a Philippine address"), { target: { value: "Cebu public fixture" } });
+    const search = screen.getByRole("button", { name: "Search" });
+    fireEvent.click(search);
+    expect(request).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(screen.getByText(/Address search is unavailable/)).toBeTruthy();
+    fireEvent.click(search);
+    expect(request).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+  });
+
+  it("sends one lookup for repeated pending searches and permits retry after failure", async () => {
+    let finish!: (response: Response) => void;
+    const request = vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; }));
+    vi.stubGlobal("fetch", request);
+    render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Search a Philippine address"), { target: { value: "Cebu public fixture" } });
+    const search = screen.getByRole("button", { name: "Search" });
+    fireEvent.click(search);
+    fireEvent.click(search);
+    fireEvent.click(search);
+    expect(request).toHaveBeenCalledTimes(1);
+    await act(async () => finish(new Response(JSON.stringify({ error: "provider" }), { status: 502 })));
+    expect(screen.getByText(/Address search is unavailable/)).toBeTruthy();
+    fireEvent.click(search);
+    expect(request).toHaveBeenCalledTimes(2);
+    await act(async () => finish(new Response(JSON.stringify({ suggestions: [] }))));
+  });
+
+  it("lets a changed query start immediately without an older completion unlocking duplicates", async () => {
+    const finishes: Array<(response: Response) => void> = [];
+    const request = vi.fn(() => new Promise<Response>((resolve) => finishes.push(resolve)));
+    vi.stubGlobal("fetch", request);
+    render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={vi.fn()} />);
+    const input = screen.getByLabelText("Search a Philippine address");
+    const search = screen.getByRole("button", { name: "Search" });
+    fireEvent.change(input, { target: { value: "Cebu public fixture" } });
+    fireEvent.click(search);
+    fireEvent.change(input, { target: { value: "Mandaue public fixture" } });
+    fireEvent.click(search);
+    expect(request).toHaveBeenCalledTimes(2);
+    await act(async () => finishes[0](new Response(JSON.stringify({ suggestions: [] }))));
+    fireEvent.click(search);
+    expect(request).toHaveBeenCalledTimes(2);
+    await act(async () => finishes[1](new Response(JSON.stringify({ suggestions: [] }))));
+  });
+
+  it("does not replace a later manual pin with a delayed device location", async () => {
+    let finish!: PositionCallback;
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition: vi.fn((success: PositionCallback) => { finish = success; }) },
+    });
+    const onDraftChange = vi.fn();
+    render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={onDraftChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "Use my location" }));
+    fireEvent.change(screen.getByLabelText("Latitude"), { target: { value: "10.32" } });
+    fireEvent.change(screen.getByLabelText("Longitude"), { target: { value: "123.90" } });
+    fireEvent.click(screen.getByRole("button", { name: "Place pin at coordinates" }));
+    act(() => finish({ coords: { accuracy: 8, latitude: 10.3157, longitude: 123.8854 } } as GeolocationPosition));
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ latitude: 10.32, longitude: 123.9, source: "map_pin" }));
+    expect(screen.getByText("Coordinates selected. Confirm the pin below.")).toBeTruthy();
+  });
+
+  it("does not publish a delayed device location after the picker closes", async () => {
+    let finish!: PositionCallback;
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition: vi.fn((success: PositionCallback) => { finish = success; }) },
+    });
+    const onDraftChange = vi.fn();
+    const view = render(<ResidentialMap initialPin={null} mapKey="" onDraftChange={onDraftChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "Use my location" }));
+    view.unmount();
+    act(() => finish({ coords: { accuracy: 8, latitude: 10.3157, longitude: 123.8854 } } as GeolocationPosition));
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
+
   it("removes earlier suggestions when the query changes and the next lookup fails", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ suggestions: [{ label: "Old Cebu result", latitude: 10.31, longitude: 123.89 }] })))

@@ -28,9 +28,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // The lifecycle accepts at most 5 MiB. Multipart framing needs a small
-      // amount of headroom before application and database validation run.
-      bodySizeLimit: "6mb",
+      // Catalog photos accept up to 10 MiB; private evidence keeps its own
+      // lower limits. Leave room for multipart fields and framing.
+      bodySizeLimit: "11mb",
     },
   },
   images: {

@@ -106,6 +106,49 @@ describe("payment owner actions", () => {
     expect(JSON.stringify(result)).not.toMatch(/private|contract\/config/);
   });
 
+  it("returns an indeterminate outcome when submission throws without retrying", async () => {
+    const rpc = authorize(null).mockRejectedValue(new Error("synthetic private transport detail"));
+
+    await expect(submitPayment({ status: "idle" }, submissionForm())).resolves.toEqual({
+      error: "indeterminate",
+      status: "error",
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).toHaveBeenCalledWith(`/account/bookings/${BOOKING_ID}`);
+  });
+
+  it("preserves accepted payment recovery when proof processing throws", async () => {
+    const rpc = authorize(null)
+      .mockResolvedValueOnce({
+        data: { booking_state: "PAYMENT_REVIEW", created: true, status: "submitted", transaction_id: PAYMENT_ID },
+        error: null,
+      })
+      .mockRejectedValueOnce(new Error("synthetic private proof detail"));
+
+    await expect(submitPayment({ status: "idle" }, submissionForm())).resolves.toEqual({
+      error: "proof_failed",
+      status: "error",
+      transactionId: PAYMENT_ID,
+    });
+    expect(rpc.mock.calls.filter(([name]) => name === "submit_payment")).toHaveLength(1);
+    expect(revalidatePath).toHaveBeenCalledWith(`/account/bookings/${BOOKING_ID}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/admin/payments/${PAYMENT_ID}`);
+  });
+
+  it("returns proof recovery when a correction throws", async () => {
+    const rpc = authorize(null).mockRejectedValue(new Error("synthetic private proof detail"));
+    const data = submissionForm();
+    data.set("transactionId", PAYMENT_ID);
+
+    await expect(uploadPaymentProof({ status: "idle" }, data)).resolves.toEqual({
+      error: "proof_failed",
+      status: "error",
+      transactionId: PAYMENT_ID,
+    });
+    expect(rpc).not.toHaveBeenCalledWith("submit_payment", expect.anything());
+    expect(revalidatePath).toHaveBeenCalledWith(`/account/bookings/${BOOKING_ID}`);
+  });
+
   it("requires a non-empty proof when using the correction action", async () => {
     const data = new FormData();
     data.set("bookingId", BOOKING_ID);
