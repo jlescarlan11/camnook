@@ -54,12 +54,14 @@ describe("ResidentialPinPicker", () => {
 
     expect(screen.queryByRole("button", { name: "Add map pin" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
-    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(hidden(container, "pinOperation")?.value).toBe("keep");
     expect(hidden(container, "savedPinPresent")?.value).toBe("0");
     expect(hidden(container, "pinLatitude")?.value).toBe("");
     expect(screen.getByText("No residential pin selected.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add map pin" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add map pin" }));
     expect(screen.getByRole("button", { name: "Choose synthetic point" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Confirm this pin" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -71,8 +73,9 @@ describe("ResidentialPinPicker", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Choose synthetic point" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm this pin" }));
-    expect(screen.getByRole("button", { name: "Choose synthetic point" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Confirm this pin" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Adjust map pin" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Choose synthetic point" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm this pin" })).toBeNull();
 
     expect(hidden(container, "pinOperation")?.value).toBe("set");
     expect(hidden(container, "pinLatitude")?.value).toBe("10.3157");
@@ -98,7 +101,7 @@ describe("ResidentialPinPicker", () => {
     expect(screen.queryByRole("button", { name: "Remove map pin" })).toBeNull();
     expect(hidden(container, "savedPinPresent")?.value).toBe("1");
     expect(hidden(container, "pinOperation")?.value).toBe("keep");
-    expect(screen.getByRole("button", { name: "Choose synthetic point" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Adjust map pin" })).toBeTruthy();
   });
 });
 

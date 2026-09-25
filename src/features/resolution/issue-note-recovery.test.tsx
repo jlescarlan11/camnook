@@ -29,7 +29,7 @@ it.each(["returned", "transport"])("preserves a note and its operation reference
     return_inspection: null, refunds: [], issue_notes: [], deposit: { held_amount: 4000 },
   } as unknown as ResolutionDetail;
   const view = render(<ResolutionControls actualAt="2026-09-22T10:00:45" operationIds={ids} resolution={resolution} />);
-  const note = screen.getByLabelText("Additional private note") as HTMLTextAreaElement;
+  const note = screen.getByLabelText("Private issue note") as HTMLTextAreaElement;
   const user = userEvent.setup();
   await user.type(note, "Synthetic inspection observation.");
   await user.click(screen.getByRole("button", { name: "Append private note" }));

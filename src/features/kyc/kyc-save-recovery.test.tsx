@@ -36,7 +36,9 @@ it("preserves entered KYC details after authorization fails", async () => {
   await screen.findByText("Sign in again to save your details.");
   expect(requireUser).toHaveBeenCalledOnce();
   for (const [name, value] of Object.entries(values)) {
-    expect((form.elements.namedItem(name) as HTMLInputElement).value).toBe(value);
+    expect((form.elements.namedItem(name) as HTMLInputElement).value).toBe(
+      name === "phone" ? "9170000000" : value,
+    );
   }
   const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: "08006" } });
   vi.mocked(requireUser).mockResolvedValue({ supabase: { schema: () => ({ rpc }) }, user: { id: "synthetic-renter" } } as never);

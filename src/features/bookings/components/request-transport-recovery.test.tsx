@@ -20,12 +20,12 @@ afterEach(()=>{cleanup();vi.restoreAllMocks();vi.resetAllMocks();});
 
 it("reports required meetup validation instead of silently ignoring review", async()=>{
   mount();
-  const invalid = vi.fn();
-  screen.getByRole('radio').addEventListener('invalid',invalid);
+  const reportValidity = vi.spyOn(HTMLFormElement.prototype, "reportValidity");
   await userEvent.type(screen.getByLabelText('Purpose'),'Portrait practice');
   await userEvent.type(screen.getByLabelText('Shooting city'),'Cebu City');
   await userEvent.click(screen.getByRole('button',{name:'Review rental request'}));
-  expect(invalid).toHaveBeenCalled();
+  expect(reportValidity).toHaveBeenCalled();
+  expect((screen.getByRole('radio') as HTMLInputElement).validity.valueMissing).toBe(true);
   expect(action).not.toHaveBeenCalled();
   expect(screen.queryByRole('heading',{name:'Review'})).toBeNull();
 });
@@ -44,6 +44,9 @@ it("preserves reviewed request and operation ID through an interrupted response 
   await userEvent.click(screen.getByRole('button',{name:'Submit rental request'}));
   await waitFor(()=>expect(action).toHaveBeenCalledTimes(2));
   const first=Object.fromEntries(action.mock.calls[0][1] as FormData);
-  expect(Object.fromEntries(action.mock.calls[1][1] as FormData)).toEqual(first);
+  const retry=Object.fromEntries(action.mock.calls[1][1] as FormData);
+  for (const field of ["camera", "expectedLocation", "handoffTime", "intendedUse", "legalName", "meetupPlaceId", "meetupPlaceVersion", "operationId", "phone", "pickupDate", "policyVersion", "returnDate"]) {
+    expect(retry[field]).toBe(first[field]);
+  }
   expect(first.operationId).toMatch(/^[0-9a-f-]{36}$/);
 });

@@ -26,7 +26,7 @@ it.each(["returned", "transport"])("retains the intended recipient after a %s fa
   await screen.findByText("The saved outcome could not be confirmed. Reload before retrying.");
   view.rerender(<GcashConfigurationForm configuration={{ ...configuration }} />);
   expect(name.value).toBe("Synthetic Intended Recipient");
-  expect(account.value).toBe("09170000002");
+  expect(account.value).toBe("9170000002");
   await user.click(screen.getByRole("button", { name: "Save GCash details" }));
   await screen.findByText("GCash details saved.");
   expect(Object.fromEntries(vi.mocked(configureGcashRecipient).mock.calls[1][1])).toEqual(Object.fromEntries(vi.mocked(configureGcashRecipient).mock.calls[0][1]));

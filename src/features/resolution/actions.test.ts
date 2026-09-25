@@ -274,7 +274,11 @@ describe("resolution Server Actions", () => {
     data.set("deductionAmount", amount);
     data.set("internalReason", "Synthetic documented repair decision.");
     data.set("customerExplanation", "Synthetic renter explanation.");
-    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual({ error: "invalid", status: "error" });
+    await expect(resolveIssue({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: { deductionAmount: "Enter a zero or positive manual deduction." },
+      status: "error",
+    });
     expect(requireUser).not.toHaveBeenCalled();
   });
 
@@ -315,7 +319,11 @@ describe("resolution Server Actions", () => {
     data.set("externalMovedAt", "2026-08-16T10:00");
     data.set("recipientName", "Named Renter");
     data.set("reference", "REFUND-1234");
-    await expect(recordExternalRefund({ status: "idle" }, data)).resolves.toEqual({ error: "invalid", status: "error" });
+    await expect(recordExternalRefund({ status: "idle" }, data)).resolves.toEqual({
+      error: "invalid",
+      fieldErrors: { amount: "Enter the actual amount moved." },
+      status: "error",
+    });
     expect(requireUser).not.toHaveBeenCalled();
   });
 

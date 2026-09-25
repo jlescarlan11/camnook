@@ -211,7 +211,7 @@ function RequestFormContent({
             </Field>
           </div>
           <button disabled={Boolean(scheduleError) || !meetupPlaces?.length} className="button-primary mt-7 w-full disabled:opacity-60" onClick={() => {
-            if (selectedPlace && formRef.current?.reportValidity()) setReviewing(true);
+            if (formRef.current?.reportValidity() && selectedPlace) setReviewing(true);
           }} type="button">Review rental request</button>
         </section>
         <section aria-labelledby="review-heading" hidden={!reviewing}>
