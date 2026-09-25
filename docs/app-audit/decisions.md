@@ -83,3 +83,5 @@
 - AUD-043 treats the return-review outcome and IDs as hidden authoritative context, while the review note is the only correctable visible fact. The note receives its own bounded error before any return completion or ISSUE_REVIEW transition.
 
 - AUD-044 uses the PSGC selector's existing semantic fieldset API for a current-barangay recovery instruction, preserving the server's generic treatment of invalid official-area context without inventing a new visible field error.
+
+- AUD-045 keeps rejection-reason recovery on the existing labelled textarea and promotes the returned error to an alert; it does not alter the decision action or its persisted state.

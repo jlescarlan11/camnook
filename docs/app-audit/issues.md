@@ -485,3 +485,12 @@
 - Verification: the focused interaction test failed before the change because the fieldset was not invalid, then passed. Lint, typecheck, build, and the full suite passed (894 passed / 2 skipped). The action response is a local mock; no address, provider request, booking, account, or session changed.
 - Status: verified and committed.
 - Commit: `4b35afa`.
+
+## AUD-045 — Booking rejection reason validation is not announced
+
+- Severity: P2 accessibility and recovery. The rejection textarea is correctly marked and described by its server-returned error, but the error node has no alert semantics for prompt announcement.
+- Reproduction: mock an invalid rejection reason; the message renders and remains associated with the textarea, but has no `role="alert"`.
+- Fix: add `role="alert"` to the existing `reason-error` node without changing the field association or booking-decision behavior.
+- Verification: focused interaction test failed before the change, then passed. Lint, typecheck, optimized production build, and the full suite passed (895 passed / 2 skipped). All responses are local mocks; no booking decision, state, session, or renter availability changed.
+- Status: verified and committed.
+- Commit: `6b2821c`.

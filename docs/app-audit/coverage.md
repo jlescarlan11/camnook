@@ -105,3 +105,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD-043: mocked return-review validation now marks and describes the issue-opening note with its server-returned error. Focused action/UI tests, full suite (893 passed / 2 skipped), lint, typecheck, and build pass. No return decision, issue opening, refund, booking state, owner session, or renter availability changed.
 
 - AUD-044: mocked saved-origin rejection now marks and describes the Philippine-address selector with its existing recovery instruction. Focused UI test, full suite (894 passed / 2 skipped), lint, typecheck, and build pass. No address, provider request, booking, account, or session changed.
+
+- AUD-045: mocked booking-rejection validation now announces the existing reason error while retaining its association with the textarea. Focused UI test, full suite (895 passed / 2 skipped), lint, typecheck, and build pass. No booking decision, state, session, or renter availability changed.
