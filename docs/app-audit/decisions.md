@@ -141,3 +141,5 @@ The serial default rerun also encountered interaction timeouts while the16GB hos
 - Browser observation caveat: sanitized text/DOM extraction omitted the synthetic tel input value even though the rendered screenshot showed it correctly. Verify suspected input defects visually before filing; Grammarly extension also injected body attributes causing a development hydration warning, not an application defect.
 
 - AUD064 applies the same intrinsic-size correction only to two independently browser-reproduced checkout grids. Browser screenshots and geometry cover CSS behavior; existing interaction tests cover unchanged validation/draft transitions.
+
+- AUD065 uses npm_execpath from the documented pnpm script invocation and process.execPath, preserving executable and argument boundaries without adding a shell. Local Vercel link is ignored machine state; exclude the CLI-injected OIDC token from active app environment files.

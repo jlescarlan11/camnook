@@ -665,3 +665,13 @@
 - Cause: each affected form uses an implicit auto grid column, retaining native input intrinsic width, matching AUD063 at separate checkout containers.
 - Fix: explicit minmax(0,1fr) for checkout-personal-fields and grid-cols-1 for request contact grid; preserve sm two-column contacts and all form behavior.
 - Verification: both affected steps fit305/305 at320px and375/375 at390px; desktop1425/1425 retains side-by-side rental-plan contacts and full-width personal details. Fresh settled screenshots inspected. Details→Address→save returns same schedule; browser Back and Review→Edit preserve draft meetup/purpose/city. Missing meetup blocks review and focuses radio; long-purpose review fits320px. No booking submitted.29 focused checkout/request tests, lint/typecheck and optimized build pass. Commit pending.
+
+## AUD-065 — Windows Development setup cannot launch its download command
+
+- Severity: medium for local setup. After successful Vercel reauthentication, the setup script immediately reports Could not pull Development configuration without invoking Vercel.
+- Cause: a second shell-free spawn of the Windows pnpm shim, in the configuration-download path (separate from AUD062's server launch).
+- Acceptance/fix: invoke pnpm's JavaScript entry point supplied by npm_execpath through the current Node runtime; preserve fixed Development pull arguments, argument boundaries, errors, and credential target validation. Direct invocation without package-manager context gives the documented pnpm dev:setup instruction.
+- Verification: extracted old behavior fails the command/invocation tests;10 focused configuration/startup tests pass after fix. Actual pnpm dev:setup under Node24.19.0 downloads CamNook Development values and passes database, search, tile and origin checks. Focused lint/diff checks pass; full suite1134passed/14skipped across159passed/4skipped files (221.88s). Local app remains accessible. Commit pending.
+
+- AUD064 committed as7f7ce73.
+- Owner-only AUD061 reassessment deferred pending Supabase dashboard authentication. Connected account cannot list CamNook; dashboard/GitHub signed out; historical bootstrap user absent in Development; service-role template metadata read correctly denied42501. No permission changes, invented owner account, or privileged bypass attempted.

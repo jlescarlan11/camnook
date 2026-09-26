@@ -168,3 +168,6 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD063 committed asd14c46c. Continue into renter rental history and checkout. Existing expired-pickup request shows correct next-action guidance; Choose new dates returns to catalog. No booking state changed.
 
 - AUD064: both checkout Details and rental-plan contact fields fixed from305/345 to305/305 at320px,375/375 at390px; desktop1425/1425. Address fits unchanged. Missing meetup validation/focus, long-purpose review, edit/back draft persistence and same-schedule address-save redirect verified.29 focused tests, lint/typecheck/build pass. No new rental request.
+
+- AUD065: real Windows pnpm dev:setup now downloads/reconstructs verified Development-only configuration and passes live dependencies. Full cumulative suite1134pass/14skip; lint passes.
+- Checkout saved-pin edit: invalid latitude999 shows guidance and aria-invalid=true; Cancel restores saved pin and focuses Adjust map pin. No pin saved or changed. Privacy link opens a separate local notice tab; original checkout remains open. Expanded notice fits320px305/305. No issue found in these states.

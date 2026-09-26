@@ -2,6 +2,11 @@
 
 Run `pnpm dev:setup`, then `pnpm dev:real`. The latter starts the actual Next.js app at http://127.0.0.1:3000 after checking Development authentication, meetup schema discovery, live Geoapify search, and map tiles for localhost and 127.0.0.1. `pnpm dev:check` repeats these dependency checks without starting the app.
 
+Use the repository's required Node version (24 or newer). Run setup through
+`pnpm dev:setup`: it uses pnpm's supplied JavaScript entry point so Windows does
+not need to execute a package-manager shim. Startup invokes the installed Next.js
+CLI with the same Node executable that ran the dependency checks.
+
 The setup command uses Vercel CLI 59.23.2, downloads Development variables into ignored `.vercel/local-development/downloaded.env`, and writes a private `.env.development.local`. It preserves the verified Development public Supabase URL/key from `.env.local` and the separately provisioned browser map key from `.env.development.local`. It only imports an allowlist of server settings; downloaded public Supabase values and unrelated tokens are excluded. Production and lookalike database URLs fail closed. Never substitute the server Geoapify key for the browser key.
 
 The existing Vercel Development public Supabase settings were found to identify Production on 2026-09-20. Local setup avoids those incorrect values. This does not change hosted Vercel settings. Development project: `ekmoiepalelqpmemvrkl`. Production project: `iegcixcevvkryfwfotqz`.
