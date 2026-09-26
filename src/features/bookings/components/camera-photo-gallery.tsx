@@ -20,7 +20,7 @@ export function CameraPhotoGallery({ name, photos }: {
     </button>
     <ol className="camera-thumbnails">
       {photos.map((photo, index) => <li key={photo.url}>
-        <button type="button" aria-label={`Enlarge photo ${index + 1}: ${photo.alt}`} aria-pressed={selected === index} onClick={() => zoom(index)}>
+        <button type="button" aria-label={`Enlarge photo ${index + 1}: ${photo.alt}`} data-selected={selected === index ? "true" : undefined} onClick={() => zoom(index)}>
           <CameraPhoto name={name} photo={photo} fit="contain" />
         </button>
       </li>)}

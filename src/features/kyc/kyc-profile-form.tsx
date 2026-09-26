@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { CheckoutProgress } from "@/features/bookings/components/checkout-progress";
-import { useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode, useSyncExternalStore } from "react";
+import { cloneElement, startTransition, useActionState, useEffect, useRef, useState, type FormEvent, type ReactElement, useSyncExternalStore } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
 
@@ -13,17 +14,12 @@ import type { KycProfile } from "./types";
 
 import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
 import { PhilippineMobileInput } from "@/components/philippine-mobile-input";
+import { kycDateYearsAgo } from "./age";
 
 const subscribe = () => () => {};
 
 const initialState: KycActionState = { status: "idle" };
 const inputClass = "mt-2 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none focus:border-[#0b4f9c] focus:ring-4 focus:ring-[#c9dcfb]";
-
-function adultCutoff() {
-  const value = new Date();
-  value.setFullYear(value.getFullYear() - 18);
-  return value.toISOString().slice(0, 10);
-}
 
 type FormProps = {
   checkout?: boolean;
@@ -51,7 +47,13 @@ function ProfileForm({
   const [draft] = useState(() => readCheckoutDraft<Record<string, string>>(draftKey));
   const [step, setStep] = useState<1 | 2>(initialStep);
   const [state, action, pending] = useActionState(async (previous: KycActionState, data: FormData) => {
-    const result = await saveKycProfile(previous, data);
+    let result: KycActionState;
+    try {
+      result = await saveKycProfile(previous, data);
+    } catch (error) {
+      unstable_rethrow(error);
+      result = { error: "indeterminate", status: "error" };
+    }
     if (checkout && result.status === "error") {
       setStep(result.error === "underage" || result.fieldErrors?.legalName || result.fieldErrors?.birthDate || result.fieldErrors?.phone ? 1 : 2);
     }
@@ -98,13 +100,17 @@ function ProfileForm({
   }
 
   return (
-    <form action={action} className={checkout ? "checkout-kyc" : "mt-6 space-y-5"} onChange={trackAddressChange}
+    <form className={checkout ? "checkout-kyc" : "mt-6 space-y-5"} onChange={trackAddressChange}
       noValidate={checkout} onSubmit={(event) => {
-        if (!checkout) return;
-        if (step === 1) {
-          event.preventDefault();
+        event.preventDefault();
+        if (pending) return;
+        if (checkout && step === 1) {
           if (validateDetails()) setStep(2);
-        } else if (!validateDetails() || !event.currentTarget.reportValidity()) event.preventDefault();
+          return;
+        }
+        if (checkout && (!validateDetails() || !event.currentTarget.reportValidity())) return;
+        const data = new FormData(event.currentTarget);
+        startTransition(() => action(data));
       }}>
       {checkout ? <>
         <CheckoutProgress step={step} onDetails={() => setStep(1)} />
@@ -114,43 +120,43 @@ function ProfileForm({
       <input name="returnTo" type="hidden" value={returnTo} />
       <input name="expectedAddressRevision" type="hidden" value={kyc?.addressRevision ?? ""} />
       <div ref={personalFields} hidden={checkout && step !== 1} className={checkout ? "checkout-personal-fields" : "grid gap-5 sm:grid-cols-2"}>
-        <Field error={state.fieldErrors?.legalName} label="Full legal name">
+        <Field error={state.fieldErrors?.legalName} id="kyc-legal-name" label="Full legal name">
           <input autoComplete="name" className={inputClass} defaultValue={submitted?.legalName ?? profile?.legalName ?? ""} maxLength={160} name="legalName" minLength={2} placeholder={checkout ? "Enter your full legal name" : undefined} required />
         </Field>
-        <Field error={state.fieldErrors?.birthDate} label="Birthdate">
-          <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={adultCutoff()} name="birthDate" required type="date" />
+        <Field error={state.fieldErrors?.birthDate} id="kyc-birthdate" label="Birthdate">
+          <input className={inputClass} defaultValue={submitted?.birthDate ?? kyc?.birthDate ?? ""} max={kycDateYearsAgo(18)} name="birthDate" required type="date" />
         </Field>
-        <Field error={state.fieldErrors?.phone} label="Mobile number">
+        <Field error={state.fieldErrors?.phone} id="kyc-phone" label="Mobile number">
           <PhilippineMobileInput aria-label="Mobile number" defaultValue={submitted?.phone ?? profile?.phone ?? ""} name="phone" required />
         </Field>
       </div>
       <div hidden={checkout && step !== 2} className={checkout ? "checkout-address-fields" : "space-y-5"}>
-        <div aria-describedby={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined}>
-          <PsgcAreaSelector initialPath={kyc?.path} draftKey={draftKey ? `${draftKey}:area` : undefined} onSelectionChange={() => setAddressChanged(true)} />
+        <div>
+          <PsgcAreaSelector errorId={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined} initialPath={kyc?.path} draftKey={draftKey ? `${draftKey}:area` : undefined} invalid={Boolean(state.fieldErrors?.psgcAreaCode)} onSelectionChange={() => setAddressChanged(true)} />
           {state.fieldErrors?.psgcAreaCode ? <p className="mt-2 text-sm text-red-700" id="kyc-area-error" role="alert">{state.fieldErrors.psgcAreaCode}</p> : null}
         </div>
         <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
           <legend className="px-1 font-semibold">Residential address details</legend>
           {legacyAddress ? (
-            <Field error={state.fieldErrors?.legacyAddressLine1} help="For reference only. Complete the structured address fields below before saving." label="Existing address details">
+            <Field error={state.fieldErrors?.legacyAddressLine1} help="For reference only. Complete the structured address fields below before saving." id="kyc-legacy-address" label="Existing address details">
               <input autoComplete="address-line1" className={inputClass} defaultValue={submitted?.legacyAddressLine1 ?? legacyAddress} maxLength={500} name="legacyAddressLine1" readOnly />
             </Field>
           ) : <input name="legacyAddressLine1" type="hidden" value="" />}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field error={state.fieldErrors?.houseNumber} help="Required unless you provide both a building name and unit details." label="House or lot number">
+            <Field error={state.fieldErrors?.houseNumber} help="Required unless you provide both a building name and unit details." id="kyc-house-number" label="House or lot number">
               <input className={inputClass} defaultValue={submitted?.houseNumber ?? kyc?.houseNumber ?? ""} maxLength={80} name="houseNumber" placeholder="e.g. 12 or Lot 4 Block 2" />
             </Field>
-            <Field error={state.fieldErrors?.streetName} help="Leave blank only when the road has no official name." label="Street name">
+            <Field error={state.fieldErrors?.streetName} help="Leave blank only when the road has no official name." id="kyc-street-name" label="Street name">
               <input autoComplete="address-line1" className={inputClass} defaultValue={initialStreetName} maxLength={160} name="streetName" placeholder="e.g. Gorordo Avenue" />
             </Field>
-            <Field error={state.fieldErrors?.building} label="Building name (optional)">
+            <Field error={state.fieldErrors?.building} id="kyc-building" label="Building name (optional)">
               <input className={inputClass} defaultValue={submitted?.building ?? kyc?.building ?? ""} maxLength={160} name="building" />
             </Field>
-            <Field error={state.fieldErrors?.postalCode} label="Postal code">
+            <Field error={state.fieldErrors?.postalCode} id="kyc-postal-code" label="Postal code">
               <input autoComplete="postal-code" className={inputClass} defaultValue={submitted?.postalCode ?? kyc?.postalCode ?? ""} inputMode="numeric" maxLength={4} minLength={4} name="postalCode" pattern="[0-9]{4}" placeholder="e.g. 6000" required title="Enter a four-digit Philippine postal code" />
             </Field>
           </div>
-          <Field error={state.fieldErrors?.addressDetails} help="Required for a building address or an unnamed road. Include enough detail to find the residence." label="Unit, subdivision, sitio, or landmark">
+          <Field error={state.fieldErrors?.addressDetails} help="Required for a building address or an unnamed road. Include enough detail to find the residence." id="kyc-address-details" label="Unit, subdivision, sitio, or landmark">
             <input autoComplete="address-line2" className={inputClass} defaultValue={submitted?.addressDetails ?? kyc?.addressDetails ?? ""} maxLength={200} name="addressDetails" placeholder="e.g. Unit 4, Sitio Riverside, near the barangay hall" />
           </Field>
         </fieldset>
@@ -161,11 +167,11 @@ function ProfileForm({
           initialPin={kyc?.residentialPin ?? null}
         />
       </div>
-      <p className={checkout ? "checkout-id-note" : "text-sm text-stone-600"}>{checkout ? "Bring your original ID to pickup. " : "No SMS or ID upload. Bring the original ID to pickup. "}<Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id">Privacy details</Link></p>
+      <p className={checkout ? "checkout-id-note" : "text-sm text-stone-600"}>{checkout ? "Bring your original ID to pickup. " : "No SMS or ID upload. Bring the original ID to pickup. "}<Link className="font-semibold text-[#0b4f9c] underline" href="/privacy/government-id" target="_blank" rel="noopener noreferrer">Privacy details (opens in a new tab)</Link></p>
 
       {state.status === "error" ? (
         <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-          {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm the pin, or reload if you edited this profile elsewhere." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}
+          {state.error === "underage" ? "Renters must be at least 18 years old." : state.error === "suspended" ? "This account cannot complete KYC." : state.error === "unauthorized" ? "Sign in again to save your details." : state.error === "pin_reconfirmation" ? "Your address or pin changed. Reconfirm the pin, or reload if you edited this profile elsewhere." : state.error === "indeterminate" ? "The saved outcome could not be confirmed. Reload to check your details before retrying." : state.error === "save" ? "Your KYC details could not be saved. Please retry." : "Correct the highlighted KYC details."}
         </p>
       ) : null}
       <button className={checkout ? "checkout-primary" : "min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-60"} disabled={pending} type="submit">
@@ -176,6 +182,9 @@ function ProfileForm({
   );
 }
 
-function Field({ children, error, help, label }: { children: ReactNode; error?: string; help?: string; label: string }) {
-  return <label className="block text-sm font-medium">{label}{children}{help ? <span className="mt-2 block text-xs font-normal text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" role="alert">{error}</span> : null}</label>;
+function Field({ children, error, help, id, label }: { children: ReactElement<{ "aria-describedby"?: string; "aria-invalid"?: boolean }>; error?: string; help?: string; id: string; label: string }) {
+  return <label className="block text-sm font-medium">{label}{cloneElement(children, {
+    "aria-describedby": error ? [children.props["aria-describedby"], `${id}-error`].filter(Boolean).join(" ") : children.props["aria-describedby"],
+    "aria-invalid": error ? true : children.props["aria-invalid"],
+  })}{help ? <span className="mt-2 block text-xs font-normal text-stone-500">{help}</span> : null}{error ? <span className="mt-2 block text-sm font-normal text-red-700" id={`${id}-error`} role="alert">{error}</span> : null}</label>;
 }

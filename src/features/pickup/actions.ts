@@ -47,6 +47,7 @@ export type ConditionPhotoActionState = {
   result?: "saved";
   signedUrl?: string;
   status: "error" | "idle" | "success";
+  supersedesPhotoId?: string;
 };
 
 const idSchema = z.uuid();
@@ -371,16 +372,17 @@ async function saveConditionPhoto(
     return "unavailable" as const;
   }
 
-  const uploaded = await context.supabase.storage
-    .from("condition-evidence")
-    .upload(intent.data.object_path, bytes, {
-      cacheControl: "0",
-      contentType: photo.type,
-      upsert: false,
-    });
-  if (uploaded.error) {
-    await cleanupPhotoIntent(context, intent.data.id);
-    return "unavailable" as const;
+  try {
+    await context.supabase.storage
+      .from("condition-evidence")
+      .upload(intent.data.object_path, bytes, {
+        cacheControl: "0",
+        contentType: photo.type,
+        upsert: false,
+      });
+  } catch {
+    // The object may exist despite a lost upload acknowledgement. The same
+    // byte/hash verification below decides whether this intent can finalize.
   }
 
   if (!(await storedConditionPhotoMatches(intent.data.object_path, bytes, sha256))) {
@@ -453,6 +455,7 @@ export async function uploadConditionPhoto(
       error: "invalid",
       fieldErrors: { photo: "Choose a non-empty JPEG or PNG no larger than 5 MiB." },
       status: "error",
+      ...(supersedesPhotoId ? { supersedesPhotoId } : {}),
     };
   }
 
@@ -480,6 +483,7 @@ export async function uploadConditionPhoto(
         error: "invalid",
         fieldErrors: { photo: "The file contents must match its JPEG or PNG type." },
         status: "error",
+        ...(supersedesPhotoId ? { supersedesPhotoId } : {}),
       };
     }
     return saved === "saved"

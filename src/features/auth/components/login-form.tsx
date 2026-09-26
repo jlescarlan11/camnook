@@ -3,6 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 
 import { requestEmailOtp } from "@/features/auth/actions";
+import { withAuthActionRecovery } from "./action-recovery";
 import { initialAuthFormState } from "@/lib/auth/state";
 
 import {
@@ -18,7 +19,7 @@ export function LoginForm({
   returnTo: string;
 }) {
   const [state, formAction, pending] = useActionState(
-    requestEmailOtp,
+    withAuthActionRecovery(requestEmailOtp, "We couldn’t confirm your code request. Check your email before trying again."),
     initialAuthFormState,
   );
   const captchaRef = useRef<CaptchaChallengeHandle>(null);

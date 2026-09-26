@@ -6,6 +6,21 @@ vi.mock("server-only", () => ({}));
 import { KycProfileForm } from "./kyc-profile-form";
 
 describe("KycProfileForm", () => {
+  it.each([
+    ["2026-09-21T15:59:59Z", "2008-09-21"],
+    ["2026-09-21T16:00:00Z", "2008-09-22"],
+    ["2028-02-29T08:00:00Z", "2010-02-28"],
+  ])("uses the Manila adult cutoff at %s", (instant, cutoff) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(instant));
+    try {
+      const markup = renderToStaticMarkup(<KycProfileForm kyc={null} profile={null} returnTo="/account" />);
+      expect(markup).toContain(`max="${cutoff}"`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("collects minimum renter details without SMS OTP or ID upload", () => {
     const markup = renderToStaticMarkup(
       <KycProfileForm
@@ -31,5 +46,7 @@ describe("KycProfileForm", () => {
     expect(markup).toContain('name="psgcAreaCode"');
     expect(markup).toContain("No SMS or ID upload");
     expect(markup).not.toContain('type="file"');
+    expect(markup).toMatch(/<a[^>]*target="_blank"[^>]*>Privacy details \(opens in a new tab\)<\/a>/);
+    expect(markup).toContain('rel="noopener noreferrer"');
   });
 });

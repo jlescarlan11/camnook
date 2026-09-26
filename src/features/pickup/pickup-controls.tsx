@@ -1,17 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useRef, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
 
 import {
   completePickup,
   requestAdminConditionPhotoAccess,
-  uploadConditionPhoto,
   type ConditionPhotoActionState,
   type PickupCompletionActionState,
 } from "./actions";
 import type { PickupDetail } from "./types";
+import { useConditionPhotoUpload } from "./use-condition-photo-upload";
 
 const initialCompletionState: PickupCompletionActionState = { status: "idle" };
 const initialPhotoState: ConditionPhotoActionState = { status: "idle" };
@@ -31,25 +31,36 @@ function completionError(error: PickupCompletionActionState["error"]) {
   }
 }
 
-export function PickupControls({
-  actualAt,
-  operationId,
-  photoIntentId,
-  pickup,
-}: {
+type PickupControlsProps = {
   actualAt: string;
   operationId: string;
   photoIntentId: string;
   pickup: PickupDetail;
-}) {
+};
+
+export function PickupControls(props: PickupControlsProps) {
+  return <PickupForm key={props.pickup.booking_id} {...props} />;
+}
+
+function PickupForm({
+  actualAt,
+  operationId,
+  photoIntentId,
+  pickup,
+}: PickupControlsProps) {
+  const [retryOperationId] = useState(operationId);
+  const [initialActualAt] = useState(actualAt);
   const [completionState, completionAction, completionPending] = useActionState(
-    completePickup,
+    async (previous: PickupCompletionActionState, data: FormData): Promise<PickupCompletionActionState> => {
+      try {
+        return await completePickup(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialCompletionState,
   );
-  const [photoState, photoAction, photoPending] = useActionState(
-    uploadConditionPhoto,
-    initialPhotoState,
-  );
+  const { state: photoState, submit: submitPhoto, pending: photoPending, retryIntentId } = useConditionPhotoUpload();
   const [accessState, accessAction, accessPending] = useActionState(
     requestAdminConditionPhotoAccess,
     initialPhotoState,
@@ -73,48 +84,195 @@ export function PickupControls({
             Automated eligibility is no longer current. Pickup is disabled and the database will fail closed.
           </p>
         ) : null}
-        <form action={completionAction} className="mt-5 space-y-5">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (completionPending || completionState.status === "success") return;
+          const data = new FormData(event.currentTarget);
+          startTransition(() => completionAction(data));
+        }} className="mt-5 space-y-5">
+          <fieldset className="space-y-5" disabled={completionPending || completionState.status === "success"}>
+          <legend className="sr-only">Pickup inspection</legend>
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
-          <input name="operationId" type="hidden" value={operationId} />
+          <input name="operationId" type="hidden" value={retryOperationId} />
           <label className="block text-sm font-medium" htmlFor="pickup-actual-at">Actual pickup time (Asia/Manila)</label>
-          <input className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3" defaultValue={actualAt} id="pickup-actual-at" name="actualAt" required type="datetime-local" />
-          {completionState.fieldErrors?.actualAt ? <p className="text-sm text-red-800">{completionState.fieldErrors.actualAt}</p> : null}
+          <input
+            aria-describedby={
+              completionState.fieldErrors?.actualAt
+                ? "pickup-actual-at-error"
+                : undefined
+            }
+            aria-invalid={completionState.fieldErrors?.actualAt ? true : undefined}
+            className="min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
+            defaultValue={initialActualAt}
+            id="pickup-actual-at"
+            name="actualAt"
+            required
+            step="1"
+            type="datetime-local"
+          />
+          {completionState.fieldErrors?.actualAt ? (
+            <p className="text-sm text-red-800" id="pickup-actual-at-error" role="alert">
+              {completionState.fieldErrors.actualAt}
+            </p>
+          ) : null}
 
           <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Named renter and original ID</legend>
             <p className="text-sm text-stone-600">Expected renter: {pickup.renter_legal_name}. Inspect one original current government ID in person. Do not photograph it or record its number, type, or expiry.</p>
-            <Checklist name="namedRenter" value="confirmed-named-renter">The named contract renter is physically present; no representative or substitute is collecting.</Checklist>
-            <Checklist name="originalIdChecked" value="confirmed-original-id">I inspected the original physical ID.</Checklist>
-            <Checklist name="originalIdMatched" value="confirmed-id-match">The original ID photo and name match the physically present named renter, and the ID confirms the renter is at least 18.</Checklist>
+            <Checklist
+              aria-describedby={
+                completionState.fieldErrors?.renter
+                  ? "pickup-renter-error"
+                  : undefined
+              }
+              invalid={Boolean(completionState.fieldErrors?.renter)}
+              name="namedRenter"
+              value="confirmed-named-renter"
+            >
+              The named contract renter is physically present; no representative or substitute is collecting.
+            </Checklist>
+            {completionState.fieldErrors?.renter ? (
+              <p className="text-sm text-red-800" id="pickup-renter-error" role="alert">
+                {completionState.fieldErrors.renter}
+              </p>
+            ) : null}
+            <Checklist
+              aria-describedby={
+                completionState.fieldErrors?.originalId
+                  ? "pickup-original-id-error"
+                  : undefined
+              }
+              invalid={Boolean(completionState.fieldErrors?.originalId)}
+              name="originalIdChecked"
+              value="confirmed-original-id"
+            >
+              I inspected the original physical ID.
+            </Checklist>
+            <Checklist
+              aria-describedby={
+                completionState.fieldErrors?.originalId
+                  ? "pickup-original-id-error"
+                  : undefined
+              }
+              invalid={Boolean(completionState.fieldErrors?.originalId)}
+              name="originalIdMatched"
+              value="confirmed-id-match"
+            >
+              The original ID photo and name match the physically present named renter, and the ID confirms the renter is at least 18.
+            </Checklist>
+            {completionState.fieldErrors?.originalId ? (
+              <p className="text-sm text-red-800" id="pickup-original-id-error" role="alert">
+                {completionState.fieldErrors.originalId}
+              </p>
+            ) : null}
           </fieldset>
 
           <div>
             <label className="block text-sm font-medium" htmlFor="pickup-camera-serial">Serial observed on camera</label>
             <p className="mt-1 text-sm text-stone-600">Enter the physical serial. The database compares it with the private camera and current contract snapshots.</p>
-            <input autoComplete="off" className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3" id="pickup-camera-serial" maxLength={160} name="cameraSerial" required />
-            {completionState.fieldErrors?.cameraSerial ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.cameraSerial}</p> : null}
+            <input
+              aria-describedby={
+                completionState.fieldErrors?.cameraSerial
+                  ? "pickup-camera-serial-error"
+                  : undefined
+              }
+              aria-invalid={
+                completionState.fieldErrors?.cameraSerial ? true : undefined
+              }
+              autoComplete="off"
+              className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="pickup-camera-serial"
+              maxLength={160}
+              name="cameraSerial"
+              required
+            />
+            {completionState.fieldErrors?.cameraSerial ? (
+              <p
+                className="mt-2 text-sm text-red-800"
+                id="pickup-camera-serial-error"
+                role="alert"
+              >
+                {completionState.fieldErrors.cameraSerial}
+              </p>
+            ) : null}
           </div>
 
           <fieldset className="space-y-3 rounded-xl border border-stone-200 p-5">
             <legend className="px-2 font-semibold">Included accessories</legend>
             {pickup.accessories.length === 0 ? <p className="text-sm text-stone-600">The signed contract has no included accessories.</p> : pickup.accessories.map((accessory) => (
-              <Checklist key={accessory.id} name="accessoryId" value={accessory.id}>{accessory.name} × {accessory.quantity} is present.</Checklist>
+              <Checklist
+                aria-describedby={
+                  completionState.fieldErrors?.accessories
+                    ? "pickup-accessories-error"
+                    : undefined
+                }
+                invalid={Boolean(completionState.fieldErrors?.accessories)}
+                key={accessory.id}
+                name="accessoryId"
+                value={accessory.id}
+              >
+                {accessory.name} × {accessory.quantity} is present.
+              </Checklist>
             ))}
+            {completionState.fieldErrors?.accessories ? (
+              <p className="text-sm text-red-800" id="pickup-accessories-error" role="alert">
+                {completionState.fieldErrors.accessories}
+              </p>
+            ) : null}
           </fieldset>
 
           <div>
             <label className="block text-sm font-medium" htmlFor="pickup-condition-summary">Starting condition report</label>
-            <textarea className="mt-2 min-h-32 w-full rounded-xl border border-stone-300 px-4 py-3" id="pickup-condition-summary" maxLength={2000} minLength={2} name="conditionSummary" required />
-            {completionState.fieldErrors?.conditionSummary ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.conditionSummary}</p> : null}
+            <textarea
+              aria-describedby={
+                completionState.fieldErrors?.conditionSummary
+                  ? "pickup-condition-summary-error"
+                  : undefined
+              }
+              aria-invalid={
+                completionState.fieldErrors?.conditionSummary ? true : undefined
+              }
+              className="mt-2 min-h-32 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="pickup-condition-summary"
+              maxLength={2000}
+              minLength={2}
+              name="conditionSummary"
+              required
+            />
+            {completionState.fieldErrors?.conditionSummary ? (
+              <p
+                className="mt-2 text-sm text-red-800"
+                id="pickup-condition-summary-error"
+                role="alert"
+              >
+                {completionState.fieldErrors.conditionSummary}
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="block text-sm font-medium" htmlFor="pickup-notes">Private handoff notes (optional)</label>
-            <textarea className="mt-2 min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3" id="pickup-notes" maxLength={2000} name="notes" />
-            {completionState.fieldErrors?.notes ? <p className="mt-2 text-sm text-red-800">{completionState.fieldErrors.notes}</p> : null}
+            <textarea
+              aria-describedby={
+                completionState.fieldErrors?.notes
+                  ? "pickup-notes-error"
+                  : undefined
+              }
+              aria-invalid={completionState.fieldErrors?.notes ? true : undefined}
+              className="mt-2 min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
+              id="pickup-notes"
+              maxLength={2000}
+              name="notes"
+            />
+            {completionState.fieldErrors?.notes ? (
+              <p className="mt-2 text-sm text-red-800" id="pickup-notes-error" role="alert">
+                {completionState.fieldErrors.notes}
+              </p>
+            ) : null}
           </div>
-          <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending} type="submit">
+          <button className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-60" disabled={!pickup.eligibility.eligible || completionPending || completionState.status === "success"} type="submit">
             {completionPending ? "Rechecking and recording pickup…" : "Complete pickup and mark ACTIVE"}
           </button>
+          </fieldset>
         </form>
         {completionState.status !== "idle" ? (
           <div className={`mt-5 rounded-xl border p-4 text-sm ${completionState.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-900"}`} ref={resultRef} role={completionState.status === "success" ? "status" : "alert"} tabIndex={-1}>
@@ -141,15 +299,44 @@ export function PickupControls({
       <div className="mt-7 rounded-xl border border-stone-200 p-5">
         <h3 className="font-semibold">Optional private condition photos</h3>
         <p className="mt-2 text-sm leading-6 text-stone-600">The written report is already valid. A photo uses an opaque no-overwrite path and is limited to 5 MiB JPEG/PNG.</p>
-        <form action={photoAction} className="mt-4 space-y-3">
+        <form onSubmit={submitPhoto} className="mt-4 space-y-3">
           <input name="bookingId" type="hidden" value={pickup.booking_id} />
           <input name="conditionReportId" type="hidden" value={pickup.handoff.condition_report_id} />
-          <input name="intentId" type="hidden" value={photoIntentId} />
+          <input name="intentId" type="hidden" value={retryIntentId ?? photoIntentId} />
           <label className="block text-sm font-medium" htmlFor="pickup-condition-photo">Condition photo</label>
-          <input accept="image/jpeg,image/png" className="block w-full text-sm" id="pickup-condition-photo" name="photo" required type="file" />
+          <input
+            accept="image/jpeg,image/png"
+            aria-describedby={
+              photoState.fieldErrors?.photo
+                ? "pickup-condition-photo-error"
+                : undefined
+            }
+            aria-invalid={photoState.fieldErrors?.photo ? true : undefined}
+            className="block w-full text-sm"
+            disabled={photoPending}
+            id="pickup-condition-photo"
+            name="photo"
+            required
+            type="file"
+          />
           <button className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60" disabled={photoPending || pickup.handoff.photos.length >= 6} type="submit">{photoPending ? "Verifying and saving…" : "Attach private photo"}</button>
         </form>
-        {photoState.status !== "idle" ? <p className={`mt-3 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`} role={photoState.status === "success" ? "status" : "alert"}>{photoState.status === "success" ? "The immutable private photo was verified and attached." : photoState.fieldErrors?.photo ?? "The photo could not be safely finalized. Retry from persisted state."}</p> : null}
+        {photoState.status !== "idle" ? (
+          <p
+            className={`mt-3 text-sm ${photoState.status === "success" ? "text-emerald-800" : "text-red-800"}`}
+            id={
+              photoState.fieldErrors?.photo
+                ? "pickup-condition-photo-error"
+                : undefined
+            }
+            role={photoState.status === "success" ? "status" : "alert"}
+          >
+            {photoState.status === "success"
+              ? "The immutable private photo was verified and attached."
+              : photoState.fieldErrors?.photo ??
+                "The photo could not be safely finalized. Retry from persisted state."}
+          </p>
+        ) : null}
 
         {pickup.handoff.photos.length > 0 ? (
           <ul className="mt-5 space-y-3">
@@ -173,8 +360,33 @@ export function PickupControls({
   );
 }
 
-function Checklist({ children, name, value }: { children: ReactNode; name: string; value: string }) {
-  return <label className="flex gap-3 text-sm leading-6"><input className="mt-1 size-5 shrink-0" name={name} required type="checkbox" value={value} /><span>{children}</span></label>;
+function Checklist({
+  "aria-describedby": describedBy,
+  children,
+  invalid = false,
+  name,
+  value,
+}: {
+  "aria-describedby"?: string;
+  children: ReactNode;
+  invalid?: boolean;
+  name: string;
+  value: string;
+}) {
+  return (
+    <label className="flex gap-3 text-sm leading-6">
+      <input
+        aria-describedby={describedBy}
+        aria-invalid={invalid ? true : undefined}
+        className="mt-1 size-5 shrink-0"
+        name={name}
+        required
+        type="checkbox"
+        value={value}
+      />
+      <span>{children}</span>
+    </label>
+  );
 }
 
 function Status({ label, value }: { label: string; value: string }) {

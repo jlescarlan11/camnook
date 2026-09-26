@@ -1,3 +1,4 @@
+import { requestDraftKey } from "@/features/bookings/request-draft";
 import { loadCameraMeetupPlaces } from "@/features/meetups/place-data";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -49,7 +50,14 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
         <h1 className="page-title">Rental checkout</h1>
         <section className="mt-8 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
           <h2 className="text-xl font-semibold">Your checkout needs an updated estimate</h2>
-          <p className="mt-2 leading-7">We couldn’t load your rental details, or this schedule is no longer available. Return to the cameras and choose your schedule again.</p>
+          <p className="mt-2 leading-7">We couldn’t load your rental details, or this schedule is no longer available. Try loading your checkout again. If the schedule is still unavailable, browse cameras to choose another.</p>
+          <form action="/checkout" method="get" className="mt-4">
+            {Array.from(new URLSearchParams(query), ([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
+            {edit === "details" || edit === "address" ? <input type="hidden" name="edit" value={edit} /> : null}
+            <button className="button-secondary" type="submit">Retry checkout</button>
+          </form>
           <Link className="mt-4 inline-flex min-h-11 items-center font-semibold underline" href="/">Browse cameras</Link>
         </section>
       </main>
@@ -82,6 +90,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
         kyc={kycProfile ?? null} profile={profile ?? null} returnTo={checkoutHref} />
     ) : (
       <RequestForm
+        draftKey={requestDraftKey(context.user.id, values.camera)}
         meetupPlaces={meetupPlaces}
         checkoutHref={checkoutHref}
         camera={values.camera}

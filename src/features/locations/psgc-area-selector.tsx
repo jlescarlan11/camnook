@@ -9,6 +9,28 @@ import type { PsgcChoice } from "./types";
 type Selection = { code: string; name: string; type: PsgcChoice["type"] };
 const EMPTY_PATH: Selection[] = [];
 
+type AreaChoices = { choices: PsgcChoice[]; release: string };
+
+async function fetchAreaChoices(parent: string | null, signal: AbortSignal): Promise<AreaChoices> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  const timeout = setTimeout(abort, 20_000);
+  signal.addEventListener("abort", abort, { once: true });
+  if (signal.aborted) controller.abort();
+  try {
+    const response = await fetch(`/api/locations/psgc${parent ? `?parent=${parent}` : ""}`, {
+      cache: "default",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error("reference unavailable");
+    return await response.json() as AreaChoices;
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener("abort", abort);
+  }
+}
+
+
 // PSGC correctly places highly urbanized cities directly below their region.
 // The address form presents these cities inside the geographic area people use
 // in everyday addresses, while the submitted barangay code remains canonical.
@@ -68,16 +90,20 @@ export function PsgcAreaSelector({
   initialPath = EMPTY_PATH,
   name = "psgcAreaCode",
   draftKey,
+  errorId,
+  invalid = false,
   onSelectionChange,
 }: {
   initialPath?: Selection[];
   draftKey?: string;
+  errorId?: string;
+  invalid?: boolean;
   name?: string;
   onSelectionChange?: (selection: Selection | null, release: string | null) => void;
 }) {
   const id = useId();
   const [restorePath] = useState(() => readCheckoutDraft<Selection[]>(draftKey) ?? initialPath);
-  const choicesCache = useRef(new Map<string, { choices: PsgcChoice[]; release: string }>());
+  const choicesCache = useRef(new Map<string, AreaChoices>());
   const activeRequest = useRef<AbortController | null>(null);
   const requestGate = useRef(createLatestRequestGate());
   const [levels, setLevels] = useState<Array<{ choices: PsgcChoice[]; selected: string }>>([]);
@@ -88,6 +114,7 @@ export function PsgcAreaSelector({
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function loadInitial() {
       retrySelection.current = null;
       setStatus("loading");
@@ -97,9 +124,7 @@ export function PsgcAreaSelector({
         // The saved path already identifies every parent: restore its levels together.
         const parents = [null, ...restorePath.filter((area) => area.type !== "barangay").map((area) => area.code)];
         const payloads = await Promise.all(parents.map(async (parent) => {
-          const response = await fetch(`/api/locations/psgc${parent ? `?parent=${parent}` : ""}`, { cache: "default" });
-          if (!response.ok) throw new Error("reference unavailable");
-          const payload = await response.json() as { choices: PsgcChoice[]; release: string };
+          const payload = await fetchAreaChoices(parent, controller.signal);
           if (parent) choicesCache.current.set(parent, payload);
           return payload;
         }));
@@ -114,11 +139,7 @@ export function PsgcAreaSelector({
         const officialAreaCode = loaded[1]?.selected ?? "";
         const friendlyAreaCode = FRIENDLY_AREA_BY_LOCALITY[officialAreaCode];
         if (friendlyAreaCode) {
-          const response = await fetch(`/api/locations/psgc?parent=${friendlyAreaCode}`, {
-            cache: "default",
-          });
-          if (!response.ok) throw new Error("reference unavailable");
-          const payload = await response.json() as { choices: PsgcChoice[]; release: string };
+          const payload = await fetchAreaChoices(friendlyAreaCode, controller.signal);
           loaded.splice(
             1,
             1,
@@ -152,11 +173,12 @@ export function PsgcAreaSelector({
           setStatus("ready");
         }
       } catch {
+        controller.abort();
         if (!cancelled) setStatus("error");
       }
     }
     void loadInitial();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [restorePath, initialAttempt]);
 
   useEffect(() => () => { activeRequest.current?.abort(); requestGate.current.begin(); }, []);
@@ -185,12 +207,7 @@ export function PsgcAreaSelector({
     try {
       let payload = choicesCache.current.get(selected.code);
       if (!payload) {
-        const response = await fetch(`/api/locations/psgc?parent=${selected.code}`, {
-          cache: "default",
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("reference unavailable");
-        payload = await response.json() as { choices: PsgcChoice[]; release: string };
+        payload = await fetchAreaChoices(selected.code, controller.signal);
         choicesCache.current.set(selected.code, payload);
       }
       if (!requestGate.current.isCurrent(request)) return;
@@ -201,10 +218,10 @@ export function PsgcAreaSelector({
       setLevels([...next, { choices, selected: "" }]);
       setRelease(payload.release);
       setStatus("ready");
-    } catch (error) {
+    } catch {
       if (
         requestGate.current.isCurrent(request) &&
-        !(error instanceof DOMException && error.name === "AbortError")
+        !controller.signal.aborted
       ) {
         setStatus("error");
       }
@@ -219,7 +236,7 @@ export function PsgcAreaSelector({
   const selectedCode = selectedArea?.code ?? "";
 
   return (
-    <fieldset aria-describedby={`${id}-status`} className="space-y-3">
+    <fieldset aria-describedby={[`${id}-status`, errorId].filter(Boolean).join(" ")} aria-invalid={invalid ? true : undefined} className="space-y-3">
       <legend className="text-sm font-medium">Philippine address</legend>
       <input name={name} type="hidden" value={selectedCode} />
       <input name="psgcRelease" type="hidden" value={status === "ready" ? release ?? "" : ""} />

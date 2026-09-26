@@ -41,6 +41,7 @@ export type ResolutionActionState = {
     | "resolved"
     | "reversed"
     | "returned_clear";
+  refundRecordId?: string;
   status: "error" | "idle" | "success";
 };
 
@@ -174,10 +175,16 @@ export async function decideCancellation(
   if (
     !ids ||
     !idSchema.safeParse(requestId).success ||
-    !["accept", "decline"].includes(decision) ||
-    !reason.success
+    !["accept", "decline"].includes(decision)
   ) {
     return { error: "invalid", status: "error" };
+  }
+  if (!reason.success) {
+    return {
+      error: "invalid",
+      fieldErrors: { reason: "Enter a 2–1,000 character cancellation reason." },
+      status: "error",
+    };
   }
 
   const authorization = await requireResolutionAdmin();
@@ -201,7 +208,12 @@ export async function decideCancellation(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.request_id !== requestId ||
+      parsed.data.outcome !== (decision === "accept" ? "accepted" : "declined")
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return {
@@ -307,13 +319,20 @@ export async function decideReturnReview(
   const outcome = stringFormValue(formData, "outcome");
   const noteValue = stringFormValue(formData, "note");
   const note = z.string().trim().max(2000).safeParse(noteValue);
-  if (
-    !ids ||
-    !["clear", "issue"].includes(outcome) ||
-    !note.success ||
-    (outcome === "issue" && note.data.length < 2)
-  ) {
+  if (!ids || !["clear", "issue"].includes(outcome)) {
     return { error: "invalid", status: "error" };
+  }
+  if (!note.success || (outcome === "issue" && note.data.length < 2)) {
+    return {
+      error: "invalid",
+      fieldErrors: {
+        note:
+          outcome === "issue"
+            ? "Enter a 2–2,000 character issue-opening note."
+            : "Review note cannot exceed 2,000 characters.",
+      },
+      status: "error",
+    };
   }
 
   const authorization = await requireResolutionAdmin();
@@ -335,7 +354,12 @@ export async function decideReturnReview(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.outcome !== outcome ||
+      parsed.data.booking_state !== (outcome === "clear" ? "COMPLETED" : "ISSUE_REVIEW")
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return {
@@ -354,7 +378,14 @@ export async function addIssueNote(
 ): Promise<ResolutionActionState> {
   const ids = identifiers(formData);
   const note = longTextSchema.safeParse(stringFormValue(formData, "note"));
-  if (!ids || !note.success) return { error: "invalid", status: "error" };
+  if (!ids) return { error: "invalid", status: "error" };
+  if (!note.success) {
+    return {
+      error: "invalid",
+      fieldErrors: { note: "Enter a 2–2,000 character issue note." },
+      status: "error",
+    };
+  }
 
   const authorization = await requireResolutionAdmin();
   if (!authorization.context) {
@@ -401,14 +432,28 @@ export async function resolveIssue(
   const customerExplanation = customerTextSchema.safeParse(
     stringFormValue(formData, "customerExplanation"),
   );
+  if (!ids) return { error: "invalid", status: "error" };
   if (
-    !ids ||
     !kind.success ||
     deductionAmount === null ||
     !internalReason.success ||
     !customerExplanation.success
   ) {
-    return { error: "invalid", status: "error" };
+    const fieldErrors: Record<string, string> = {};
+    if (!kind.success) {
+      fieldErrors.decisionKind = "Choose a documented issue decision.";
+    }
+    if (deductionAmount === null) {
+      fieldErrors.deductionAmount = "Enter a zero or positive manual deduction.";
+    }
+    if (!internalReason.success) {
+      fieldErrors.internalReason = "Enter a 2–2,000 character internal reason.";
+    }
+    if (!customerExplanation.success) {
+      fieldErrors.customerExplanation =
+        "Enter a 2–500 character renter-visible explanation.";
+    }
+    return { error: "invalid", fieldErrors, status: "error" };
   }
 
   const authorization = await requireResolutionAdmin();
@@ -431,7 +476,11 @@ export async function resolveIssue(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.deduction_amount !== deductionAmount
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "resolved", status: "success" };
@@ -456,14 +505,27 @@ export async function recordExternalRefund(
   const movedAt = parseManilaWallClock(
     stringFormValue(formData, "externalMovedAt"),
   );
+  if (!ids) {
+    return { error: "invalid", status: "error" };
+  }
   if (
-    !ids ||
     amount === null ||
     !reference.success ||
     !recipient.success ||
     !movedAt.ok
   ) {
-    return { error: "invalid", status: "error" };
+    const fieldErrors: Record<string, string> = {};
+    if (amount === null) fieldErrors.amount = "Enter the actual amount moved.";
+    if (!reference.success) {
+      fieldErrors.reference = "Enter the recorded GCash reference.";
+    }
+    if (!recipient.success) {
+      fieldErrors.recipientName = "Enter the recipient's name.";
+    }
+    if (!movedAt.ok) {
+      fieldErrors.externalMovedAt = "Enter the actual movement time.";
+    }
+    return { error: "invalid", fieldErrors, status: "error" };
   }
 
   const authorization = await requireResolutionAdmin();
@@ -486,7 +548,12 @@ export async function recordExternalRefund(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.entry_kind !== "refund" ||
+      parsed.data.amount !== amount
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "refund_recorded", status: "success" };
@@ -512,15 +579,29 @@ export async function reverseExternalRefund(
   const movedAt = parseManilaWallClock(
     stringFormValue(formData, "externalMovedAt"),
   );
-  if (
-    !ids ||
-    !idSchema.safeParse(refundRecordId).success ||
-    !reference.success ||
-    !counterparty.success ||
-    !reason.success ||
-    !movedAt.ok
-  ) {
+  if (!ids || !idSchema.safeParse(refundRecordId).success) {
     return { error: "invalid", status: "error" };
+  }
+  if (!reference.success || !counterparty.success || !reason.success || !movedAt.ok) {
+    const fieldErrors: Record<string, string> = {};
+    if (!reference.success) {
+      fieldErrors.reference = "Enter the recorded GCash reference.";
+    }
+    if (!counterparty.success) {
+      fieldErrors.counterpartyName = "Enter the counterparty's name.";
+    }
+    if (!reason.success) {
+      fieldErrors.reason = "Enter a 2–1,000 character correction reason.";
+    }
+    if (!movedAt.ok) {
+      fieldErrors.externalMovedAt = "Enter the actual correction time.";
+    }
+    return {
+      error: "invalid",
+      fieldErrors,
+      refundRecordId,
+      status: "error",
+    };
   }
 
   const authorization = await requireResolutionAdmin();
@@ -543,7 +624,11 @@ export async function reverseExternalRefund(
     if (result.error) {
       return { error: mapResolutionError(result.error), status: "error" };
     }
-    if (!parsed.success || parsed.data.booking_id !== ids.bookingId) {
+    if (
+      !parsed.success ||
+      parsed.data.booking_id !== ids.bookingId ||
+      parsed.data.entry_kind !== "reversal"
+    ) {
       return { error: "indeterminate", status: "error" };
     }
     return { result: "reversed", status: "success" };

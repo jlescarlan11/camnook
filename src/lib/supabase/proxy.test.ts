@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +16,11 @@ import { updateSupabaseSession } from "./proxy";
 
 const createServerClientMock = vi.mocked(createServerClient);
 
-function mockClaims(claims: { sub?: string } | null, withRefresh = false) {
+function mockClaims(
+  claims: { sub?: string } | null,
+  withRefresh = false,
+  error: unknown = claims ? null : { name: "AuthSessionMissingError" },
+) {
   createServerClientMock.mockImplementation((_url, _key, options) => {
     if (withRefresh) {
       options.cookies.setAll?.(
@@ -34,7 +39,7 @@ function mockClaims(claims: { sub?: string } | null, withRefresh = false) {
       auth: {
         getClaims: vi.fn().mockResolvedValue({
           data: claims ? { claims } : null,
-          error: claims ? null : { name: "AuthSessionMissingError" },
+          error,
         }),
       },
     } as never;
@@ -55,6 +60,22 @@ describe("Supabase session proxy", () => {
     expect(response.headers.get("location")).toBe(
       "https://camnook.test/login?next=%2Fadmin%3Ftab%3Dpayments",
     );
+  });
+
+  it.each([
+    new AuthRetryableFetchError("network unavailable", 0),
+    new AuthRetryableFetchError("provider unavailable", 503),
+    new AuthApiError("rate limited", 429, "over_request_rate_limit"),
+    new AuthApiError("provider unavailable", 500, "unexpected_failure"),
+  ])("keeps a protected request on its route when claims cannot be verified ($status)", async (error) => {
+    mockClaims(null, false, error);
+
+    const response = await updateSupabaseSession(
+      new NextRequest("https://camnook.test/account"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("round-trips the current checkout schedule for signed-out and signed-in login", async () => {

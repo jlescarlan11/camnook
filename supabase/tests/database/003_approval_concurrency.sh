@@ -6,6 +6,11 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Python 3 is required for the meetup concurrency test" >&2
+  exit 2
+fi
+
 if ! postgresql_prefix="$(brew --prefix postgresql@17 2>/dev/null)"; then
   echo "Homebrew postgresql@17 is required" >&2
   exit 2
@@ -313,106 +318,25 @@ for migration in "$repo_root"/supabase/migrations/*.sql; do
   "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
 
-echo "running domain and authorization invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/001_domain_invariants.sql"
+# Discover active SQL suites so a newly added acceptance file cannot silently
+# fall outside CI. Retired online-ID suites require a historical schema; the
+# pgTAP-only access test runs in the Supabase-backed CI job instead.
+for test_file in "$repo_root"/supabase/tests/database/*.sql; do
+  case "$(basename "$test_file")" in
+    004_verification_evidence_lifecycle.sql|007_admin_identity_review.sql)
+      continue ;;
+    006_hosted_verification_rls.sql)
+      continue ;;
+  esac
+  echo "running $(basename "$test_file")"
+  "$postgres_bin/psql" "$database_url" -v ON_ERROR_STOP=1 -f "$test_file"
+done
 
-echo "running pricing and approval invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/002_pricing_and_approval.sql"
-
-echo "running retired verification surface invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/005_verification_policy_disabled.sql"
-
-echo "running versioned contract lifecycle invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/008_contract_lifecycle.sql"
-
-echo "running manual GCash reconciliation invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/009_manual_gcash_reconciliation.sql"
-
-echo "running pickup and active-rental invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/010_pickup_active_rental.sql"
-
-echo "running return, cancellation, and resolution invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/011_return_cancellation_resolution.sql"
-
-echo "running owner operations and portfolio reporting invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/012_owner_operations_portfolio_reporting.sql"
-
-echo "running camera handoff policy invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/013_camera_handoff_policies.sql"
-
-echo "running handoff schedule booking invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/014_handoff_schedule_booking_flow.sql"
-
-echo "running booking meetup plan invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/015_booking_meetup_plans.sql"
-
-echo "running privacy email forwarding invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/016_privacy_email_forwarding.sql"
-
-echo "running abandoned private upload cleanup invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/017_abandoned_private_upload_cleanup.sql"
-
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/018_mapbox_routing_budget.sql"
-
-echo "running PSGC and private location-origin invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/019_psgc_location_origins.sql"
-
-echo "running structured residential address invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/022_structured_residential_addresses.sql"
-
-echo "running lender meetup place and snapshot invariants"
-"$postgres_bin/psql" \
-  "$database_url" \
-  -v ON_ERROR_STOP=1 \
-  -f "$repo_root/supabase/tests/database/024_lender_meetup_places.sql"
+# This race commits its fixtures, so isolate it from the other acceptance/race data.
+"$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
+  -c 'create database camnook_meetup_race template postgres' >/dev/null
+python3 "$repo_root/supabase/tests/database/025_meetup_concurrency.py" \
+  --psql "$postgres_bin/psql" --socket "$socket_dir"
 
 "$postgres_bin/psql" "$template_database_url" -v ON_ERROR_STOP=1 \
   -c 'create database camnook_hosted_compat template postgres' >/dev/null

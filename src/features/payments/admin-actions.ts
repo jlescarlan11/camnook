@@ -46,6 +46,7 @@ export type PaymentDecisionActionState = {
     actualAccount?: string;
     observedAmount?: string;
     observedReference?: string;
+    paymentId?: string;
     rejectionReasonCode?: string;
   };
   status: "error" | "idle" | "success";
@@ -181,6 +182,10 @@ export async function requestPaymentProofAccess(
   if (!paymentIdSchema.safeParse(paymentId).success) {
     return { error: "invalid", status: "error" };
   }
+  const expectedProofId = stringFormValue(formData, "expectedProofId");
+  if (!proofIdSchema.safeParse(expectedProofId).success) {
+    return { error: "stale", status: "error" };
+  }
 
   let context: Awaited<ReturnType<typeof requireAdmin>>;
   try {
@@ -213,6 +218,9 @@ export async function requestPaymentProofAccess(
     }
     if (!grant.success || grant.data.transaction_id !== paymentId) {
       return { error: "indeterminate", status: "error" };
+    }
+    if (grant.data.proof_id !== expectedProofId) {
+      return { error: "stale", status: "error" };
     }
 
     const signed = await admin.storage
@@ -259,7 +267,11 @@ export async function decidePayment(
   const fieldErrors: PaymentDecisionActionState["fieldErrors"] = {};
 
   if (!paymentIdSchema.safeParse(paymentId).success) {
-    return { action, error: "invalid", status: "error" };
+    return {
+      action,
+      fieldErrors: { paymentId: "Refresh this payment before reviewing it." },
+      status: "error",
+    };
   }
 
   if (decision === "verified") {

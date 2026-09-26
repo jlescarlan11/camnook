@@ -14,6 +14,11 @@ Implemented and verified on 2026-09-20. The migration was applied to the hosted 
 ## Verified behavior
 
 - Owners manage the reusable place library through admin-checked RPCs. Renters only receive eligible camera choices and cannot write the library or inspect unassigned library entries through table reads.
+- New place forms retain a creation reference across failed or interrupted saves.
+  An unchanged retry returns the original place without changing its version.
+  A changed retry or a retry after edit/archive fails stale. After confirmed
+  creation, the form clears and allocates a new reference for the next place.
+  Older callers without a creation reference retain their original create behavior.
 - Checkout requires explicit selection and submits only the place ID and version as location authority. The database reads and copies the venue fields itself.
 - Latitude/longitude are stored to six decimals. Booking and contract snapshots keep the original pin, address, and arrival instructions after library edits or archive.
 - Booking creation and snapshot insertion are atomic. Existing KYC, schedule, account, request-limit, and idempotency checks remain enforced.
@@ -26,7 +31,7 @@ Implemented and verified on 2026-09-20. The migration was applied to the hosted 
 - Full Vitest suite passes; existing opt-in provider tests remain separate from the default suite.
 - Lint, TypeScript, production build, and git diff whitespace checks pass.
 - `supabase/tests/database/024_lender_meetup_places.sql`: real database assertions for permissions, precision, duplicate assignments, immutable booking/contract snapshots, stale selection, retry idempotency, archive behavior, and absence of orphan bookings.
-- `supabase/tests/database/025_meetup_concurrency.py`: two real database sessions verify that booking waits for an in-flight owner edit, then rejects the old version without creating a booking. Run only against a disposable Docker database; this test commits its fixture.
+- `supabase/tests/database/025_meetup_concurrency.py`: two real database sessions verify that booking waits for an in-flight owner edit, then rejects the old version without creating a booking. `pnpm db:test:concurrency` runs it automatically in a dedicated database cloned inside the harness-owned socket-only cluster, including in CI. The test observes the blocking session through `pg_blocking_pids`, bounds waits and queries, and terminates its sessions on failure. It commits synthetic fixtures only in that disposable database; Docker is not required.
 - Clean migration replay and the SQL suite passed against an isolated copy of the existing full CamNook test database.
 - Standard Supabase local startup failed during database initialization with exit 139. Used task-owned Docker copies instead. The migration was created with the Supabase CLI and contains the SQL applied directly during local iteration; standard local diff/advisor commands were unavailable against that failed stack. No hosted advisor claim is made. Explicit grants, RLS and denial paths are tested in the SQL suite.
 - Generated only the affected TypeScript schema sections from the isolated database using the available working Postgres Meta image; unrelated generated sections were preserved.

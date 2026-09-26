@@ -55,7 +55,9 @@ export function decisionControlPresentation(
   } else if (state.category) {
     liveMessage = categoryMessages[state.category];
   } else if (state.status === "error") {
-    liveMessage = "Correct the highlighted field and try again.";
+    liveMessage =
+      state.fieldErrors?.bookingId ??
+      "Correct the highlighted field and try again.";
   }
 
   const isErrorResult =

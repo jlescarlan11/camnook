@@ -95,6 +95,23 @@ describe("pickup Server Actions", () => {
     expect(requireUser).not.toHaveBeenCalled();
   });
 
+  it("preserves the rejected replacement photo's identity for field recovery", async () => {
+    const data = new FormData();
+    data.set("bookingId", BOOKING_ID);
+    data.set("conditionReportId", REPORT_ID);
+    data.set("intentId", INTENT_ID);
+    data.set("photo", new File([], "empty.png", { type: "image/png" }));
+    data.set("supersedesPhotoId", PHOTO_ID);
+
+    await expect(
+      uploadConditionPhoto({ status: "idle" }, data),
+    ).resolves.toMatchObject({
+      fieldErrors: { photo: expect.any(String) },
+      supersedesPhotoId: PHOTO_ID,
+    });
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
   it("submits only observed facts to the atomic pickup RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: {
@@ -146,7 +163,10 @@ describe("pickup Server Actions", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("uploads an exact no-overwrite photo, verifies bytes, then finalizes", async () => {
+  it.each([
+    ["success", true], ["duplicate", true], ["interrupted", true],
+    ["duplicate", false], ["interrupted", false],
+  ] as const)("reconciles %s upload acknowledgement only when stored bytes match (%s)", async (outcome, matches) => {
     const objectPath = `${BOOKING_ID}/${REPORT_ID}/${PHOTO_ID}.png`;
     let claimedIntentId = "";
     const rpc = vi.fn(async (name: string, input: Record<string, unknown>) => {
@@ -167,6 +187,7 @@ describe("pickup Server Actions", () => {
           error: null,
         };
       }
+      if (name === "prepare_condition_photo_upload_cleanup") return { data: { status: "cleaned" }, error: null };
       if (name === "finalize_condition_photo_upload") {
         return {
           data: {
@@ -181,11 +202,13 @@ describe("pickup Server Actions", () => {
       }
       throw new Error(`unexpected RPC ${name}`);
     });
-    const upload = vi.fn().mockResolvedValue({ data: {}, error: null });
+    const upload = outcome === "interrupted"
+      ? vi.fn().mockRejectedValue(new Error("synthetic interrupted upload"))
+      : vi.fn().mockResolvedValue({ data: outcome === "success" ? {} : null, error: outcome === "duplicate" ? { statusCode: "400", message: "Asset Already Exists" } : null });
     authorizeAdmin(rpc, { from: vi.fn(() => ({ upload })) });
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]);
     const download = vi.fn().mockResolvedValue({
-      data: new Blob([bytes], { type: "image/png" }),
+      data: new Blob([matches ? bytes : new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1])], { type: "image/png" }),
       error: null,
     });
     vi.mocked(createSupabaseAdminClient).mockReturnValue({
@@ -197,9 +220,17 @@ describe("pickup Server Actions", () => {
     data.set("intentId", INTENT_ID);
     data.set("photo", new File([bytes], "condition.png", { type: "image/png" }));
 
-    await expect(
-      uploadConditionPhoto({ status: "idle" }, data),
-    ).resolves.toMatchObject({ result: "saved", status: "success" });
+    const result = await uploadConditionPhoto({ status: "idle" }, data);
+    if (!matches) {
+      expect(result).toEqual({ error: "unavailable", status: "error" });
+      expect(rpc.mock.calls.some(([name]) => name === "finalize_condition_photo_upload")).toBe(false);
+      expect(rpc.mock.calls.some(([name]) => name === "prepare_condition_photo_upload_cleanup")).toBe(true);
+      return;
+    }
+    expect(result).toMatchObject({ result: "saved", status: "success" });
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(download).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls.some(([name]) => name === "prepare_condition_photo_upload_cleanup")).toBe(false);
     expect(upload).toHaveBeenCalledWith(
       objectPath,
       expect.any(Buffer),

@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { startTransition, useActionState, useState, type ReactNode } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
@@ -23,7 +24,14 @@ const weekdayLabels = [
 
 export function HandoffPolicyForm({ policy, children, continueToPreview = false }: { policy: AdminHandoffPolicy; children?: ReactNode; continueToPreview?: boolean }) {
   const [saveState, saveAction, savePending] = useActionState(
-    saveCameraHandoffPolicy,
+    async (previous: SaveHandoffPolicyState, data: FormData): Promise<SaveHandoffPolicyState> => {
+      try {
+        return await saveCameraHandoffPolicy(previous, data);
+      } catch (error) {
+        unstable_rethrow(error);
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialSaveState,
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -49,14 +57,15 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
       }}>
         <input name="cameraId" type="hidden" value={policy.cameraId} />
         <input name="expectedVersion" type="hidden" value={version} />
-        <section
-          aria-describedby={saveState.fieldErrors?.city ? "origin-error" : undefined}
-          className="rounded-xl border border-stone-200 p-5"
-        >
+        <section className="rounded-xl border border-stone-200 p-5">
           <h2 className="text-lg font-semibold">Pickup area</h2>
           <div className="mt-4">
             <PsgcAreaSelector
+              errorId={
+                saveState.fieldErrors?.city ? "origin-error" : undefined
+              }
               initialPath={policy.canonicalAnchor?.areaPath}
+              invalid={Boolean(saveState.fieldErrors?.city)}
               name={canonicalSelectionChanged ? "psgcAreaCode" : "preservedPsgcAreaCode"}
               onSelectionChange={(selection) => {
                 setCanonicalSelectionChanged(true);
@@ -88,6 +97,14 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
                 key={label}
               >
                 <input
+                  aria-describedby={
+                    saveState.fieldErrors?.weekdays
+                      ? "weekdays-error"
+                      : undefined
+                  }
+                  aria-invalid={
+                    saveState.fieldErrors?.weekdays ? true : undefined
+                  }
                   defaultChecked={policy.allowedWeekdays.includes(value)}
                   name="weekdays"
                   type="checkbox"
@@ -111,10 +128,12 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
           <textarea
             aria-describedby={
               saveState.fieldErrors?.approvedTimes
-                ? "approved-times-error"
+                ? "approved-times-help approved-times-error"
                 : "approved-times-help"
             }
-            aria-invalid={Boolean(saveState.fieldErrors?.approvedTimes)}
+            aria-invalid={
+              saveState.fieldErrors?.approvedTimes ? true : undefined
+            }
             className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 px-4 py-3 font-mono"
             defaultValue={policy.approvedTimes.join("\n")}
             id="approvedTimes"
@@ -156,8 +175,10 @@ export function HandoffPolicyForm({ policy, children, continueToPreview = false 
                 ? "Another save changed this policy. Reload before applying your changes."
                 : saveState.error === "unauthorized"
                   ? "Your owner access could not be verified."
+                  : saveState.error === "indeterminate"
+                    ? "The saved policy outcome could not be confirmed. Reload before retrying."
                   : saveState.error === "invalid_input"
-                    ? "Correct the highlighted fields and try again."
+                    ? saveState.fieldErrors?.camera ?? "Correct the highlighted fields and try again."
                     : "The policy could not be saved. No partial settings were applied."}
           </div>
         ) : null}

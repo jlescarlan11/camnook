@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -38,7 +39,7 @@ it("renders current server prices, review controls and camera edit selection, ex
   expect(markup).toContain("2,200.00");
   expect(markup).toContain("Estimated total");
   expect(markup).toContain("Estimate only—not reserved");
-  expect(markup).toContain("Submit rental request");
+  expect(markup).toContain("Loading your rental plans");
   expect(markup).toContain("Checkout progress");
   expect(markup).not.toContain("Step 3 of 4");
   expect(markup).not.toContain('name="totalDue"');
@@ -99,4 +100,18 @@ it("redirects legacy links with supported first values and no price or external 
 it("recovers empty legacy links and announces loading", async () => {
   await expect(LegacyPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:/checkout");
   expect(renderToStaticMarkup(<LoadingCheckout />)).toContain('role="status"');
+});
+
+it("retries failed checkout reads with the selected schedule and profile step", async () => {
+  vi.mocked(loadBookingRequestPageContext).mockResolvedValue({ status: "error" });
+  const markup = renderToStaticMarkup(await CheckoutPage({ searchParams: Promise.resolve({ ...selection, edit: "address", totalDue: "0", next: "https://evil.test" }) }));
+  const document = new DOMParser().parseFromString(markup, "text/html");
+  const form = document.querySelector('form[action="/checkout"]');
+  expect(form).not.toBeNull();
+  expect(form?.getAttribute("method")).toBe("get");
+  const fields = Object.fromEntries([...form!.querySelectorAll("input")].map(input => [input.name, input.value]));
+  expect(fields).toEqual({ ...selection, edit: "address" });
+  expect(form?.textContent).toContain("Retry checkout");
+  expect(markup).not.toContain("Submit rental request");
+  expect(markup).not.toContain("Estimated total");
 });

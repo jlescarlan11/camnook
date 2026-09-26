@@ -9,16 +9,28 @@ import {
 
 const initialState: SignContractActionState = { status: "idle" };
 
-export function SignContractControl({
-  bookingId,
-  canSign,
-  contractVersionId,
-}: {
+type SignContractProps = {
   bookingId: string;
   canSign: boolean;
   contractVersionId: string;
-}) {
-  const [state, action, pending] = useActionState(signContract, initialState);
+};
+
+export function SignContractControl(props: SignContractProps) {
+  return <SignContractForm key={`${props.bookingId}:${props.contractVersionId}`} {...props} />;
+}
+
+function SignContractForm({
+  bookingId,
+  canSign,
+  contractVersionId,
+}: SignContractProps) {
+  const [state, action, pending] = useActionState(async (previous: SignContractActionState, data: FormData): Promise<SignContractActionState> => {
+    try {
+      return await signContract(previous, data);
+    } catch {
+      return { error: "unknown", status: "indeterminate" };
+    }
+  }, initialState);
   const resultRef = useRef<HTMLDivElement>(null);
   const message = actionMessage(state, pending);
 
@@ -119,7 +131,11 @@ function actionMessage(state: SignContractActionState, pending: boolean) {
     return "You are not authorized to sign this agreement.";
   }
   if (state.error === "invalid_input") {
-    return "Review the required consent and refresh if this contract version changed.";
+    return (
+      state.fieldErrors?.bookingId ??
+      state.fieldErrors?.contractVersionId ??
+      "Review the required consent and refresh if this contract version changed."
+    );
   }
   if (state.status === "indeterminate") {
     return "The result could not be confirmed. Refresh before retrying; a safe retry will not duplicate the signature.";

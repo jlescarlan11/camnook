@@ -89,12 +89,16 @@ equivalent), and never run a direct `supabase db reset --linked`; those forms ca
 reset a hosted project. Do not start, reset, or prune Docker as CamNook
 troubleshooting; Docker may contain unrelated local data. The socket-only
 `pnpm db:test:concurrency` harness does not require Docker. It requires Homebrew
-`postgresql@17`, creates a socket-only disposable cluster, applies all
+`postgresql@17` and Python 3, creates a socket-only disposable cluster, applies all
 migrations, runs the domain/authorization invariants and real two-session
-approval, contract, payment-submission, payment-decision, and pickup races; it
+approval, contract, payment-submission, payment-decision, pickup, and meetup-edit races; it
 also runs the return/cancellation/deposit and owner-portfolio acceptance suites
 before removing the cluster. It refuses a caller-supplied
 `DATABASE_URL`, so it cannot be redirected to a developer or hosted database.
+The harness discovers active SQL acceptance files automatically, including KYC,
+contract-template administration, owner manual blocks, and complete residential
+addresses. The retired online-ID suites are explicitly excluded; the pgTAP-only
+retired-access check runs in the separate Supabase-backed CI job.
 
 The repository currently contains sixty-one forward migrations. On 13 August 2026,
 the four booking-milestone migrations were applied to Production through a

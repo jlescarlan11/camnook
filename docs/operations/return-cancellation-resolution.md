@@ -81,7 +81,10 @@ fail without a partial handoff or transition.
 ## Issue review and manual deductions
 
 1. Review the immutable report and purpose-authorized evidence.
-2. Append additional private notes; never edit an earlier note.
+2. Append additional private notes; never edit an earlier note. An identical
+   same-operation retry returns the saved note. Reusing that operation for a
+   different note or booking fails as stale; inspect the saved history before
+   submitting a new note with a new operation identity.
 3. Choose a decision kind that matches the recorded facts: damage,
    missing-item, late-return, mixed, or documented other.
 4. Enter the deduction manually. No hourly formula, grace period, automatic
@@ -139,7 +142,10 @@ incoming reversal and restores the liability.
 
 If a response is indeterminate, refresh the persisted ledger before retrying.
 Reuse the original operation identity when the same browser submission is
-retried. Never create a second movement to make the UI look successful. A
+retried. Refund and reversal retries must match the original movement's kind,
+target, amount where supplied, normalized reference, counterparty, movement time,
+and reversal reason where supplied. Changed facts return a stale result and do
+not modify the saved movement. Never create a second movement to make the UI look successful. A
 database or UI defect is repaired by a reviewed roll-forward change; immutable
 evidence and finance records are not deleted.
 

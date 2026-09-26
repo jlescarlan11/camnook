@@ -1,0 +1,109 @@
+# Coverage
+
+| Journey / state | Current evidence | Remaining |
+| --- | --- | --- |
+| Guest catalog, desktop, failed request | Error and retry control observed; `01-catalog-error.png`; no console errors | Retry after transient failure under controlled conditions |
+| Guest catalog, desktop, success | Fresh reload shows two Development listings after DNS recovered | Screenshot, detail dialog, mobile, keyboard |
+| Schedule → quote → checkout | Canon R50 Sept 26–28 selected; sole 09:00 time; PHP 900 rental + 1,000 deposit = 1,900 total. Synthetic renter selected meetup, reviewed, survived injected auth outage, and submitted successfully | Invalid dates, change-date round trip, unavailable camera |
+| Sign-in and renter profile | CAPTCHA failure/retry verified with real widget; 390×844 screenshot, no horizontal overflow; desktop Lighthouse 30 checks passed. Supported synthetic renter refreshed and authenticated | Successful real CAPTCHA/OTP unverified; renter profile browser persistence |
+| Rental lifecycle | Real synthetic request saved; owner-review status, schedule and meetup persisted after reload and page-error retry | Owner response, agreement/payment/handoff/return and exceptions |
+| Owner inventory/settings/reports | Routes and prior fixes inspected | Current browser verification |
+
+Screenshots alone do not prove accessibility compliance. Synthetic or simulated checks will be explicitly distinguished from real Development integration.
+
+- AUD-004: booking desktop1440/mobile390 Lighthouse33 checks passed, zero failed; account desktop42 passed, mobile one unrelated attribution-link finding. Privacy mobile27 passed. Screenshot09–12. Account mobile overflow discovered (AUD-005), so responsive account coverage is not passing.
+
+- AUD-005: actual account page now fits320px and390px, including profile form; desktop1440 two-column layout preserved. Screenshots13–15.
+
+- AUD-006: real account map attribution visibly underlined; mobile Lighthouse42 checks passed, zero failed. Screenshot16.
+
+- Renter lifecycle: empty cancellation reason blocked with focus; valid synthetic cancellation saved, persisted after reload, and removed repeat request form. No owner decision yet. Renter /admin redirects to Access denied.
+- Account profile: missing required pin produces actionable validation while preserving fields. Structured synthetic address and confirmed public-location test pin saved via UI and persisted on reload. No real residential data used.
+
+- AUD-007: camera/profile navigation and refresh preserve rental plans; same schedule retry identity retained. Real Development committed-response-loss → alternate date draft → original date exact-payload retry recovered the same booking, no duplicate. Successful draft cleanup verified. New booking3f7bdcc3-357b-4b0b-a048-a194694411e2; account total3. Screenshot18–19.
+- Catalog details tooltip and schedule calendar dismiss with Escape and return focus to trigger; mobile390 fits. Old dates disabled; selected dates return through Change dates.
+- Profile stale-edit path remains unverified (ENV-003). Current persisted synthetic house Audit13 and pin remain intact.
+
+- Camera lightbox: mobile390 screenshot inspected; keyboard arrow wrap, Escape dismissal and focus restoration verified; open-dialog Lighthouse20 passed, zero failed. Native dialog confines page focus (browser chrome remains reachable).
+- Missing camera and synthetic nonexistent booking both show specific not-found screens; recovery links return to catalog/account successfully.
+- AUD-007 post-success fresh checkout confirmed blank purpose/city/meetup and a new operation identity.
+
+- Unrequestable Development camera shows explicit unavailable state and Browse cameras, with no schedule controls.
+- Real renter sign-out redirects to sign-in; other-tab owned booking navigation and browser Back to account require authentication. Supported synthetic session restored afterward.
+- AUD-008: one-time checkout read503 then UI Retry restores same schedule and address-edit step; fresh server estimate required. Mobile390 screenshot20 inspected.
+
+- Account read failure: injected one Development overview503; existing Try again link fetched successful profile/bookings without navigation away. No defect found. Fault harness stopped.
+
+- AUD-009: account privacy link opens separate notice tab and preserves unfinished fields plus pin-reconfirmation state. Screenshot21 mobile390 inspected; shared checkout link changed, but that variant was not separately browser-exercised in this final checkpoint.
+
+- AUD-010: live camera-detail gallery inspected at desktop and 390×844. Thumbnails are announced as buttons that enlarge a photo, not checkbox-like selection toggles. The second photo opened in the lightbox; Escape closed it and returned focus to that trigger. Visual selected styling and layout were preserved.
+
+- AUD-011: a real Development provider DNS failure reached the page retry state, then the next protected request incorrectly redirected to sign-in. Focused proxy coverage now distinguishes transient claims failures from absent sessions. The later unchanged full suite passed with 856 passed / 2 skipped; a post-fix browser session could not be established because automated CAPTCHA/OTP remains unavailable.
+
+- AUD-012: live desktop inspection first found the primary 676px camera photo at `loading="auto"`, with no image preload link and a Next LCP warning. Focused render coverage now asserts eager loading for that initial photo; thumbnails stay lazy. A transient Development provider failure prevented a post-fix browser render, but the focused gallery suite plus the full suite (856 passed / 2 skipped), lint, typecheck, and build pass.
+
+- AUD-013: a client interaction reproduction of a server validation return now verifies invalid state and alert association for Name; the same relationship covers phone, meetup choice, purpose, and shooting city. Details-step focus recovery and form values remain verified. Focused request-form suites, the full suite (856 passed / 2 skipped), lint, typecheck, and build pass.
+
+- AUD-014: checkout KYC's server-returned phone validation path now verifies the mobile control's invalid state and association with its visible error while retaining country-code context. Standard personal/address controls use the same wrapper. Focused KYC suites, the full suite (856 passed / 2 skipped), lint, typecheck, and build pass. PSGC and residential-pin error associations remain untested specialized controls.
+
+- AUD-015: checkout KYC's server-returned Philippine area validation now marks the semantic selector group invalid and associates it with the visible error without replacing its status description. Focused checkout flow, the full suite (857 passed / 2 skipped), lint, typecheck, and build pass. Residential-pin error association remains untested.
+
+- AUD-016: residential pin server and reconfirmation alerts are associated with its labelled composite region. Focused residential-pin/checkout suites, the full suite (858 passed / 2 skipped), lint, typecheck, and build pass.
+
+- AUD-017: mocked renter payment validation now verifies invalid state and individual error associations for GCash reference and private proof, preserving proof guidance. Focused payment suites, the full suite (859 passed / 2 skipped), lint, typecheck, and build pass. No real payment or proof upload was attempted.
+
+- AUD-018: full source-only security scan completed with separate architecture and baseline review receipts. No source-supported reportable finding across authentication, authorization, KYC/payment/evidence privacy, upload integrity, webhooks, cron/management routes, provider boundaries, and rental lifecycle integrity. Deployed-state verification remains outside this static checkpoint.
+
+- AUD-019: public camera-date picker uses button semantics both before and after selecting a pickup date. The live AX tree retains the explicit selected-pickup label while no longer exposing a checkbox/toggle state. Focused calendar tests, full suite (860 passed / 2 skipped), lint, typecheck, and build pass.
+
+- AUD-020: mocked owner payment-decision responses now mark amount, reference, actual-account confirmation, and rejection reason invalid and associate each with its current alert. Both interaction paths, full suite (862 passed / 2 skipped), lint, typecheck, and build pass. Owner browser verification remains unavailable without a known Development owner session; no payment operation was performed.
+
+- AUD-021: mocked owner GCash-configuration validation now marks recipient name and GCash number invalid and associates each with its current alert while retaining the mobile control's country-code description. Focused test, full suite (863 passed / 2 skipped), lint, typecheck, and build pass. Owner browser verification remains unavailable without a known Development owner session; no configuration was changed.
+
+- AUD-022: mocked owner pickup validation now marks every direct pickup field and affected identity/accessory checklist checkbox invalid and associates it with the returned error. Focused test, full suite (864 passed / 2 skipped), lint, typecheck, and build pass. Owner browser verification remains unavailable without a known Development owner session; no pickup or evidence action was performed.
+
+- AUD-023: mocked owner condition-photo validation now marks the private file input invalid and associates it with its returned error. Focused test, full suite (865 passed / 2 skipped), lint, typecheck, and build pass. No condition photo was selected, uploaded, stored, or accessed.
+
+- AUD-024: mocked owner contract-template validation now marks the version, every required term, and approval confirmation invalid and associates each with its returned error. Focused test, full suite (866 passed / 2 skipped), lint, typecheck, and build pass. No template was published or activated.
+
+- AUD-025: mocked owner handoff-policy validation now retains time-format guidance and associates its shared weekday error with every weekday checkbox. Focused recovery tests, full suite (867 passed / 2 skipped), lint, typecheck, and build pass. No availability policy was saved.
+
+- AUD-026: mocked owner handoff-area validation now marks the semantic Philippine address group invalid and associates it with its returned city error. Focused recovery tests, full suite (868 passed / 2 skipped), lint, typecheck, and build pass. No area selection or availability policy was saved.
+
+- AUD-027: invalid manual residential coordinates now mark Latitude and Longitude invalid and associate both with their live correction; editing clears stale error state. Existing map fallback suite, full suite (868 passed / 2 skipped), lint, typecheck, and build pass. No location permission, map request, or pin persistence occurred.
+
+- AUD-028: mocked return-recording validation now identifies return time, serial, every accessory selector, condition report, and notes. Focused test, full suite (869 passed / 2 skipped), lint, typecheck, and build pass. No return, evidence, refund, or booking transition occurred.
+
+- AUD-029: mocked return-evidence validation now labels the primary file input and associates it with its returned photo error. Focused test, full suite (870 passed / 2 skipped), lint, typecheck, and build pass. No photo was selected, uploaded, stored, accessed, or authorized.
+
+- AUD-030: mocked versioned return-evidence validation now labels the matching replacement file input and associates only it with its returned error. The action preserves the replacement target for field recovery. Focused tests, full suite (872 passed / 2 skipped), lint, typecheck, and build pass. No photo was selected, uploaded, stored, accessed, or authorized.
+
+- AUD-031: mocked hidden-schedule validation now returns checkout to the details step with its exact message and a preserved picker link; the known-invalid schedule cannot be resubmitted. Focused test, full suite (873 passed / 2 skipped), lint, typecheck, and build pass. No checkout, booking, payment, account, or schedule was submitted or changed.
+
+- AUD-032: mocked hidden handoff-policy reference validation now exposes the server's reload instruction instead of a misleading visible-field prompt. Focused test, full suite (874 passed / 2 skipped), lint, typecheck, and build pass. No policy, camera, owner session, or renter availability changed.
+
+- AUD-033: mocked hidden replacement-contract reference validation now exposes the server's refresh instruction instead of a misleading visible-field prompt. Focused test, full suite (875 passed / 2 skipped), lint, typecheck, and build pass. No agreement, camera, schedule, owner session, or renter availability changed.
+
+- AUD-034: mocked hidden booking-decision reference validation now exposes the server's invalid-reference result instead of a misleading visible-field prompt. Focused test, full suite (876 passed / 2 skipped), lint, typecheck, and build pass. No booking decision, agreement, camera, schedule, owner session, or renter availability changed.
+
+- AUD-035: mocked hidden booking and contract-version signing validation now expose their precise refresh instructions instead of a misleading consent prompt. Focused tests, full suite (878 passed / 2 skipped), lint, typecheck, and build pass. No signature, agreement, booking, payment, owner session, or renter availability changed.
+
+- AUD-036: mocked invalid hidden payment-reference validation now returns an exact refresh instruction instead of incorrectly calling it an observed-transfer mismatch. Focused action/UI tests, full suite (880 passed / 2 skipped), lint, typecheck, and build pass. No payment, proof access, booking, agreement, owner session, or renter availability changed.
+
+- AUD-037: mocked cancellation-reason validation now marks and describes the native textarea with the existing server message, while its result alert calls for correction rather than an uncertain outcome. Focused test, full suite (881 passed / 2 skipped), lint, typecheck, and build pass. No cancellation request, booking state, payment, owner session, or renter availability changed.
+
+- AUD-038: mocked owner cancellation-decision validation now preserves the reason error before authorization and associates it with the native textarea. Focused action/UI tests, full suite (883 passed / 2 skipped), lint, typecheck, and build pass. No cancellation decision, booking state, payment, owner session, or renter availability changed.
+
+- AUD-039: mocked external-refund validation now marks and describes actual amount, GCash reference, recipient name, and movement time with their server-returned errors. Focused action/UI tests, full suite (885 passed / 2 skipped), lint, typecheck, and build pass. No refund movement, payment, booking state, owner session, or renter availability changed.
+
+- AUD-040: mocked private issue-note validation now labels, marks, and describes the note textarea with the server-returned error. Focused action/UI tests, full suite (887 passed / 2 skipped), lint, typecheck, and build pass. No note, issue decision, refund, booking state, owner session, or renter availability changed.
+
+- AUD-041: mocked issue-decision validation now marks and describes decision kind, manual deduction, private evidence basis, and renter-visible explanation with their server-returned errors. Focused action/UI tests, full suite (889 passed / 2 skipped), lint, typecheck, and build pass. No issue decision, deduction, refund, booking state, owner session, or renter availability changed.
+
+- AUD-042: mocked external-refund reversal validation now marks and describes incoming reference, counterparty, correction reason, and movement time only in the rejected refund record's form. Focused action/UI tests, full suite (891 passed / 2 skipped), lint, typecheck, and build pass. No reversal, refund, booking state, payment, owner session, or renter availability changed.
+
+- AUD-043: mocked return-review validation now marks and describes the issue-opening note with its server-returned error. Focused action/UI tests, full suite (893 passed / 2 skipped), lint, typecheck, and build pass. No return decision, issue opening, refund, booking state, owner session, or renter availability changed.
+
+- AUD-044: mocked saved-origin rejection now marks and describes the Philippine-address selector with its existing recovery instruction. Focused UI test, full suite (894 passed / 2 skipped), lint, typecheck, and build pass. No address, provider request, booking, account, or session changed.
+
+- AUD-045: mocked booking-rejection validation now announces the existing reason error while retaining its association with the textarea. Focused UI test, full suite (895 passed / 2 skipped), lint, typecheck, and build pass. No booking decision, state, session, or renter availability changed.

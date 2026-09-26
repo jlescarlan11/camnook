@@ -23,7 +23,7 @@ import {
 } from "./handoff-city-reference";
 
 export type SaveHandoffPolicyState = {
-  error?: "invalid_input" | "save_failed" | "stale" | "unauthorized";
+  error?: "indeterminate" | "invalid_input" | "save_failed" | "stale" | "unauthorized";
   fieldErrors?: Partial<
     Record<
       | "approvedTimes"
@@ -529,6 +529,7 @@ export async function saveCameraHandoffPolicy(
     >
   >;
   let savedCityLabel: string;
+  let mutationStarted = false;
   try {
     if (hasCanonicalInput) {
       const canonical = z.object({
@@ -540,6 +541,19 @@ export async function saveCameraHandoffPolicy(
       });
       if (!canonical.success) {
         return { error: "invalid_input", fieldErrors: { city: "Select a valid barangay." }, status: "error" };
+      }
+
+      // Authorize and reject known-stale edits before spending provider quota.
+      // The replacement RPC still rechecks both atomically after geocoding.
+      const current = await loadCurrentAnchor(context, base.data.cameraId);
+      if (current.status === "unauthorized") {
+        return { error: "unauthorized", status: "error" };
+      }
+      if (current.status === "error") {
+        return { error: "save_failed", status: "error" };
+      }
+      if (current.data.version !== base.data.expectedVersion) {
+        return { error: "stale", status: "error" };
       }
 
       const resolved = await context.supabase.schema("api").rpc("resolve_psgc_area", {
@@ -578,6 +592,7 @@ export async function saveCameraHandoffPolicy(
         return { error: "save_failed", status: "error" };
       }
 
+      mutationStarted = true;
       outcome = await context.supabase.schema("api").rpc("replace_camera_handoff_policy_v3", {
         p_input: {
           accuracy_meters: null,
@@ -603,6 +618,7 @@ export async function saveCameraHandoffPolicy(
         return { error: "invalid_input", fieldErrors: { city: "Confirm a handoff city before saving." }, status: "error" };
       }
       savedCityLabel = cityAnchor.label;
+      mutationStarted = true;
       outcome = await context.supabase
         .schema("api")
         .rpc("replace_camera_handoff_policy", {
@@ -619,7 +635,7 @@ export async function saveCameraHandoffPolicy(
       });
     }
   } catch {
-    return { error: "save_failed", status: "error" };
+    return { error: mutationStarted ? "indeterminate" : "save_failed", status: "error" };
   }
   const { data, error } = outcome;
 
@@ -630,13 +646,15 @@ export async function saveCameraHandoffPolicy(
           ? "stale"
           : error.code === "42501"
             ? "unauthorized"
-            : "save_failed",
+            : error.code === "22023" || error.code === "23514"
+              ? "save_failed"
+              : "indeterminate",
       status: "error",
     };
   }
   const version = Number(data);
   if (!Number.isSafeInteger(version) || version < 1) {
-    return { error: "save_failed", status: "error" };
+    return { error: "indeterminate", status: "error" };
   }
 
   revalidatePath("/admin");

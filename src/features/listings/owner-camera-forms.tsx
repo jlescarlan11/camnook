@@ -47,22 +47,42 @@ export function CameraDetailsContinueButton() {
   return <button className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white" form="camera-details-form" name="intent" value="continue" type="submit">Save camera and continue to availability</button>;
 }
 
-export function CameraPhotoForm({ cameraId, cameraName, photoCount }: { cameraId: string; cameraName: string; photoCount: number }) {
-  const [state, action, pending] = useActionState(uploadCameraPhoto, initial);
+type CameraPhotoFormProps = { cameraId: string; cameraName: string; photoCount: number };
+
+export function CameraPhotoForm(props: CameraPhotoFormProps) {
+  return <CameraPhotoFormContent key={props.cameraId} {...props} />;
+}
+
+function CameraPhotoFormContent({ cameraId, cameraName, photoCount }: CameraPhotoFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state.status === "success") formRef.current?.reset();
-  }, [state]);
+  const [selection, setSelection] = useState<{ publicationId: string; cameraName: string; sortPosition: number } | null>(null);
+  const [state, action, pending] = useActionState(async (previous: CameraActionState, data: FormData) => {
+    let result: CameraActionState;
+    try {
+      result = await uploadCameraPhoto(previous, data);
+    } catch {
+      return { status: "error" as const, error: "The photo publication could not be confirmed. Retry the unchanged photo or reload to check the saved photos." };
+    }
+    if (result.status === "success") {
+      formRef.current?.reset();
+      setSelection(null);
+    }
+    return result;
+  }, initial);
   return <form className="mt-6 rounded-xl border border-stone-200 p-5" onSubmit={(event) => {
     event.preventDefault();
+    if (pending || !selection) return;
     const data = new FormData(event.currentTarget);
     startTransition(() => action(data));
   }} ref={formRef}>
     <input name="cameraId" type="hidden" value={cameraId} />
-    <input name="cameraName" type="hidden" value={cameraName} />
-    <input name="sortPosition" type="hidden" value={photoCount} />
+    <input name="cameraName" type="hidden" value={selection?.cameraName ?? cameraName} />
+    <input name="sortPosition" type="hidden" value={selection?.sortPosition ?? photoCount} />
+    <input name="publicationId" type="hidden" value={selection?.publicationId ?? ""} />
     <label className="block font-semibold">Photos <span className="font-normal text-stone-500">({photoCount} added)</span>
-      <input accept="image/jpeg,image/png,image/webp" className={inputClass} name="photo" required type="file" />
+      <input accept="image/jpeg,image/png,image/webp" className={inputClass} disabled={pending} name="photo" onChange={(event) => {
+        setSelection(event.target.files?.length ? { publicationId: crypto.randomUUID(), cameraName, sortPosition: photoCount } : null);
+      }} required type="file" />
     </label>
     <p className="mt-2 text-xs text-stone-500">JPEG, PNG, or WebP up to 10 MB.</p>
     <ActionMessage state={state} success="Photo added." />

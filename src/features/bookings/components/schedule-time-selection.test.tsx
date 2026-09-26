@@ -74,3 +74,15 @@ it("opens a shared calendar, retains dates after close, and edits only the retur
   expect((screen.getByRole("combobox", { name: "Handoff time" }) as HTMLSelectElement).value).toBe("");
   expect(screen.queryByRole("link", { name: "Continue to checkout" })).toBeNull();
 });
+
+it("keeps a selected pickup date as an action button", async () => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+  render(<ScheduleQuoteForm compact cameraId="11111111-1111-4111-8111-111111111111" cameraName="Test camera" availability={[]} policy={{ allowedWeekdays: [0, 1, 2, 3, 4, 5, 6], approvedTimes: ["09:00"], approximationLevel: "city_centroid", cityLabel: "Cebu City", enabled: true, timezone: "Asia/Manila", version: 1 }} />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Pickup date Choose date" }));
+  await userEvent.click(screen.getByRole("button", { name: /August 24, 2099, available/ }));
+
+  const selectedPickup = screen.getByRole("button", { name: /August 24, 2099, selected pickup/ });
+  expect(selectedPickup.getAttribute("aria-pressed")).toBeNull();
+});

@@ -41,6 +41,30 @@ function fields(overrides: Record<string, string> = {}) {
 describe("renter KYC action", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("accepts an eighteenth birthday starting at Manila midnight", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-21T16:00:00Z"));
+    const rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
+    vi.mocked(requireUser).mockResolvedValue({ supabase: { schema: () => ({ rpc }) }, user: { id: "renter" } } as never);
+    try {
+      await expect(saveKycProfile({ status: "idle" }, fields({ birthDate: "2008-09-22" }))).rejects.toThrow("redirect:/checkout?camera=example");
+      expect(rpc).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not round a leap-day age cutoff into the next month", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2028-02-29T08:00:00Z"));
+    try {
+      await expect(saveKycProfile({ status: "idle" }, fields({ birthDate: "2010-03-01" }))).resolves.toMatchObject({ error: "underage" });
+      expect(requireUser).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
     ["/checkout?camera=test&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3", "/checkout?camera=test&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3"],
     ["/account#default-address", "/account#default-address"],

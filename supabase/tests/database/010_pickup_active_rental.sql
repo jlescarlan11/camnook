@@ -508,6 +508,7 @@ do $$
 declare
   first_result jsonb;
   retry_result jsonb;
+  variant integer;
 begin
   first_result := api.complete_pickup(
     '80500000-0000-4000-8000-000000000001',
@@ -541,6 +542,42 @@ begin
   then
     raise exception 'pickup retry was not idempotent';
   end if;
+  for variant in 1..6 loop
+    begin
+      perform api.complete_pickup(
+        '80500000-0000-4000-8000-000000000001',
+        statement_timestamp() - case when variant = 1 then interval '1 second' else interval '0' end,
+        true, true, true,
+        case when variant = 2 then 'CHANGED-SYNTHETIC-SERIAL' else 'PRIVATE-PICKUP-SERIAL-001' end,
+        case when variant = 5 then array[]::uuid[]
+          when variant = 6 then array['80300000-0000-4000-8000-000000000001','80300000-0000-4000-8000-000000000001']::uuid[]
+          else array['80300000-0000-4000-8000-000000000001']::uuid[] end,
+        case when variant = 3 then 'Changed synthetic pickup condition.' else 'No visible damage; clean and functional.' end,
+        case when variant = 4 then 'Changed synthetic pickup note.' else '' end,
+        '80800000-0000-4000-8000-000000000004'
+      );
+      raise exception 'changed pickup retry falsely acknowledged new facts: %', variant;
+    exception
+      when serialization_failure then null;
+    end;
+  end loop;
+  retry_result := api.complete_pickup(
+    '80500000-0000-4000-8000-000000000001',
+    statement_timestamp(),
+    true, true, true,
+    '  PRIVATE-PICKUP-SERIAL-001  ',
+    array['80300000-0000-4000-8000-000000000001']::uuid[],
+    '  No visible damage; clean and functional.  ',
+    null,
+    '80800000-0000-4000-8000-000000000004'
+  );
+  if (retry_result ->> 'created')::boolean
+    or retry_result ->> 'handoff_id' <> first_result ->> 'handoff_id'
+  then
+    raise exception 'normalized pickup replay was not idempotent';
+  end if;
+
+
 
   perform set_config('test.pickup_report_id', first_result ->> 'condition_report_id', true);
 

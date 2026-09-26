@@ -102,6 +102,9 @@ historical record.
   verifies absence. Finalized proofs are outside this automatic cleanup.
 - A corrected screenshot creates a new proof UUID and immutable
   `supersedes_id` chain. It never overwrites or deletes the earlier metadata.
+- When the current proof changes, refresh the review page and request access
+  again. Review controls discard the earlier link and attestation on that
+  version change; access requests must match the displayed proof version.
 - If a 60-second review URL expires, request a new purpose-bound authorization.
   Do not persist or relay the old URL.
 - Repeated cleanup/finalization failures require an incident record containing

@@ -145,6 +145,15 @@ describe("admin decision control presentation", () => {
       "Administrator authorization is required. No decision was applied.",
       "alert",
     ],
+    [
+      {
+        action: "approve",
+        fieldErrors: { bookingId: "This booking reference is invalid." },
+        status: "error" as const,
+      },
+      "This booking reference is invalid.",
+      "alert",
+    ],
   ] satisfies [DecisionActionState, string, string][])("presents an allowlisted result %#", (state, liveMessage, role) => {
     expect(decisionControlPresentation(state, false, true)).toMatchObject({
       liveMessage,

@@ -136,35 +136,37 @@ export class MapboxMatrixAdapter {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.data.timeoutMs);
-    let response: Response;
     try {
-      response = await this.fetchImplementation(url, {
+      const response = await this.fetchImplementation(url, {
         cache: "no-store",
         headers: { accept: "application/json" },
         method: "GET",
         signal: controller.signal,
       });
+      if (!response.ok) throw new RoutingBoundaryError(statusError(response.status));
+
+      const parsed = matrixResponseSchema.safeParse(await readBoundedJson(response));
+      if (!parsed.success) throw new RoutingBoundaryError("malformed");
+      const [ownerRoutes, renterRoutes] = parsed.data.durations;
+      if (
+        ownerRoutes.length !== targets.data.length ||
+        renterRoutes.length !== targets.data.length
+      ) {
+        throw new RoutingBoundaryError("malformed");
+      }
+      return targets.data.map((_, index) => ({
+        ownerSeconds: ownerRoutes[index] ?? null,
+        renterSeconds: renterRoutes[index] ?? null,
+      }));
     } catch (error) {
+      if (error instanceof RoutingBoundaryError) throw error;
       throw new RoutingBoundaryError(
-        error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
+        controller.signal.aborted || (error instanceof Error && error.name === "AbortError")
+          ? "timeout"
+          : "network",
       );
     } finally {
       clearTimeout(timeout);
     }
-    if (!response.ok) throw new RoutingBoundaryError(statusError(response.status));
-
-    const parsed = matrixResponseSchema.safeParse(await readBoundedJson(response));
-    if (!parsed.success) throw new RoutingBoundaryError("malformed");
-    const [ownerRoutes, renterRoutes] = parsed.data.durations;
-    if (
-      ownerRoutes.length !== targets.data.length ||
-      renterRoutes.length !== targets.data.length
-    ) {
-      throw new RoutingBoundaryError("malformed");
-    }
-    return targets.data.map((_, index) => ({
-      ownerSeconds: ownerRoutes[index] ?? null,
-      renterSeconds: renterRoutes[index] ?? null,
-    }));
   }
 }

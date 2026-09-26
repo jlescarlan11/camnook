@@ -10,6 +10,7 @@ type Props = {
   "aria-label"?: string;
   className?: string;
   defaultValue?: string;
+  disabled?: boolean;
   id?: string;
   name: string;
   onChange?: (digits: string) => void;

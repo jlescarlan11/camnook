@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState } from "react";
 
 import {
   configureGcashRecipient,
@@ -17,7 +17,13 @@ export function GcashConfigurationForm({
   configuration: GcashRecipientConfiguration;
 }) {
   const [state, action, pending] = useActionState(
-    configureGcashRecipient,
+    async (previous: GcashConfigurationActionState, data: FormData): Promise<GcashConfigurationActionState> => {
+      try {
+        return await configureGcashRecipient(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    },
     initialState,
   );
 
@@ -43,15 +49,26 @@ export function GcashConfigurationForm({
           : "Not configured"}
       </p>
 
-      <form action={action} className="mt-5 grid gap-4 sm:grid-cols-2">
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        startTransition(() => action(data));
+      }} className="mt-5 grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium" htmlFor="recipientName">
             Recipient name
           </label>
           <input
+            aria-describedby={
+              state.fieldErrors?.recipientName
+                ? "gcash-recipient-name-error"
+                : undefined
+            }
+            aria-invalid={state.fieldErrors?.recipientName ? true : undefined}
             autoComplete="name"
             className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-4 py-3"
             defaultValue={configuration.recipient_name ?? ""}
+            disabled={pending}
             id="recipientName"
             maxLength={160}
             minLength={2}
@@ -59,7 +76,11 @@ export function GcashConfigurationForm({
             required
           />
           {state.fieldErrors?.recipientName ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="gcash-recipient-name-error"
+              role="alert"
+            >
               {state.fieldErrors.recipientName}
             </p>
           ) : null}
@@ -69,14 +90,25 @@ export function GcashConfigurationForm({
             GCash number
           </label>
           <PhilippineMobileInput
+            aria-describedby={
+              state.fieldErrors?.recipientAccount
+                ? "gcash-recipient-account-error"
+                : undefined
+            }
+            aria-invalid={state.fieldErrors?.recipientAccount ? true : undefined}
             aria-label="GCash number"
             defaultValue={configuration.recipient_account ?? ""}
+            disabled={pending}
             id="recipientAccount"
             name="recipientAccount"
             required
           />
           {state.fieldErrors?.recipientAccount ? (
-            <p className="mt-2 text-sm text-red-800" role="alert">
+            <p
+              className="mt-2 text-sm text-red-800"
+              id="gcash-recipient-account-error"
+              role="alert"
+            >
               {state.fieldErrors.recipientAccount}
             </p>
           ) : null}

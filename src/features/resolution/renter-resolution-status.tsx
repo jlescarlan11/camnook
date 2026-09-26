@@ -21,16 +21,29 @@ const phpFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
 });
 
-export function RenterResolutionStatus({
-  operationId,
-  resolution,
-}: {
+type RenterResolutionStatusProps = {
   operationId: string;
   resolution: MyResolutionState;
-}) {
+};
+
+export function RenterResolutionStatus(props: RenterResolutionStatusProps) {
+  return <RenterResolutionStatusContent key={props.resolution.booking_id} {...props} />;
+}
+
+function RenterResolutionStatusContent({
+  operationId,
+  resolution,
+}: RenterResolutionStatusProps) {
+  const [cancellationOperationId] = useState(operationId);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationState, cancellationAction, cancellationPending] =
-    useActionState(requestCancellation, initialState);
+    useActionState(async (previous: ResolutionActionState, data: FormData): Promise<ResolutionActionState> => {
+      try {
+        return await requestCancellation(previous, data);
+      } catch {
+        return { error: "indeterminate", status: "error" };
+      }
+    }, initialState);
   const [accessState, accessAction, accessPending] = useActionState(
     requestMyConditionPhotoAccess,
     initialPhotoState,
@@ -48,11 +61,17 @@ export function RenterResolutionStatus({
       {resolution.can_request_cancellation ? (
         <form action={cancellationAction} className="mt-4 space-y-3 rounded-xl border border-stone-200 p-4">
           <input name="bookingId" type="hidden" value={resolution.booking_id} />
-          <input name="operationId" type="hidden" value={operationId} />
+          <input name="operationId" type="hidden" value={cancellationOperationId} />
           <label className="block text-sm font-medium" htmlFor="cancellation-request-reason">
             Why are you requesting cancellation?
           </label>
           <textarea
+            aria-describedby={
+              cancellationState.fieldErrors?.reason
+                ? "cancellation-request-reason-error"
+                : undefined
+            }
+            aria-invalid={Boolean(cancellationState.fieldErrors?.reason)}
             className="min-h-24 w-full rounded-xl border border-stone-300 px-4 py-3"
             id="cancellation-request-reason"
             maxLength={1000}
@@ -62,6 +81,15 @@ export function RenterResolutionStatus({
             value={cancellationReason}
             required
           />
+          {cancellationState.fieldErrors?.reason ? (
+            <p
+              className="text-sm text-red-800"
+              id="cancellation-request-reason-error"
+              role="alert"
+            >
+              {cancellationState.fieldErrors.reason}
+            </p>
+          ) : null}
           <button
             className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 font-semibold disabled:opacity-60"
             disabled={cancellationPending}
@@ -78,10 +106,12 @@ export function RenterResolutionStatus({
           role={cancellationState.status === "success" ? "status" : "alert"}
         >
           {cancellationState.status === "success"
-            ? "Your request was saved. The booking state is unchanged while it awaits review."
+            ? "Your cancellation request was saved."
             : cancellationState.error === "stale"
               ? "This booking is no longer eligible or already has a request. Refresh its persisted state."
-              : "The cancellation request could not be confirmed."}
+              : cancellationState.fieldErrors?.reason
+                ? "Correct the highlighted cancellation reason and try again."
+                : "The cancellation request could not be confirmed."}
         </p>
       ) : null}
 
@@ -113,7 +143,7 @@ export function RenterResolutionStatus({
             <Value label="Actual return" value={formatManilaDateTime(resolution.return_inspection.actual_at)} />
             <Value label="Expected return" value={formatManilaDateTime(resolution.return_inspection.expected_return_at)} />
             <Value label="Late" value={resolution.return_inspection.late_return ? "Yes" : "No"} />
-            <Value label="Camera damage" value={resolution.return_inspection.camera_has_damage ? "Yes" : "No"} />
+            <Value label="Camera or accessory damage" value={resolution.return_inspection.camera_has_damage ? "Yes" : "No"} />
             <Value label="Missing items" value={resolution.return_inspection.has_missing_items ? "Yes" : "No"} />
           </dl>
           <ul className="mt-3 space-y-2 text-sm">
