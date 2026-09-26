@@ -107,6 +107,11 @@ describe("signContract", () => {
   it.each([
     ["42501", "contract_signing_unauthorized", "unauthorized", "error"],
     ["40001", "contract_version_stale", "stale", "stale"],
+    ["P0001", "contract_version_stale", "stale", "stale"],
+    ["P0001", "contract_signature_stale", "stale", "stale"],
+    ["P0001", "contract_not_signable", "stale", "stale"],
+    ["P0001", "unrelated_failure", "unknown", "indeterminate"],
+    ["P0001", "contract_version_stale_extra", "unknown", "indeterminate"],
     ["22023", "contract_deadline_elapsed", "expired", "stale"],
   ])("constrains RPC failure %s/%s", async (code, message, error, status) => {
     authorize({ data: null, error: { code, details: "private", message } });

@@ -15,6 +15,7 @@ set local "request.jwt.claim.sub" = 'f2200000-0000-4000-8000-000000000001';
 do $$
 declare
   saved jsonb;
+  profile_before jsonb;
 begin
   saved := api.save_my_kyc_profile_v2(jsonb_build_object(
     'legal_name', 'Address Renter',
@@ -44,9 +45,13 @@ begin
     or saved ?| array['user_id', 'updated_by', 'consent_version']
   then raise exception 'structured KYC projection was incomplete or widened'; end if;
 
+  select to_jsonb(profile) into profile_before
+  from public.profiles profile
+  where user_id = 'f2200000-0000-4000-8000-000000000001';
+
   begin
     perform api.save_my_kyc_profile_v2(jsonb_build_object(
-      'legal_name', 'Address Renter', 'phone', '+639220000001',
+      'legal_name', 'Rejected Pin Renter', 'phone', '+639220000099',
       'birth_date', '1990-03-15', 'legacy_address_line1', null,
       'house_number', '13', 'street_name', 'Mango Avenue',
       'building', 'Tower A', 'address_details', 'Unit 4',
@@ -61,8 +66,10 @@ begin
     if sqlerrm <> 'kyc_pin_reconfirmation_required' then raise; end if;
   end;
 
-  if api.get_my_kyc_profile_v2() ->> 'house_number' <> '12'
-    or api.get_my_kyc_profile_v2() -> 'residential_pin' is null
+  if api.get_my_kyc_profile_v2() is distinct from saved
+    or (select to_jsonb(profile) from public.profiles profile
+      where user_id = 'f2200000-0000-4000-8000-000000000001')
+      is distinct from profile_before
   then raise exception 'failed address/pin update was not atomic'; end if;
 
   begin
@@ -101,7 +108,7 @@ begin
 
   begin
     perform api.save_my_kyc_profile_v2(jsonb_build_object(
-      'legal_name', 'Address Renter', 'phone', '+639220000001',
+      'legal_name', 'Rejected Revision Renter', 'phone', '+639220000098',
       'birth_date', '1990-03-15', 'legacy_address_line1', null,
       'house_number', '12', 'street_name', 'Mango Avenue',
       'building', 'Tower A', 'address_details', 'Unit 4',
@@ -115,6 +122,12 @@ begin
   exception when sqlstate 'P0001' then
     if sqlerrm <> 'kyc_address_revision_conflict' then raise; end if;
   end;
+
+  if api.get_my_kyc_profile_v2() is distinct from saved
+    or (select to_jsonb(profile) from public.profiles profile
+      where user_id = 'f2200000-0000-4000-8000-000000000001')
+      is distinct from profile_before
+  then raise exception 'stale address revision changed profile, address, or pin'; end if;
 end;
 $$;
 
@@ -124,9 +137,85 @@ do $$ begin
     raise exception 'authenticated role directly read private residential pins';
   exception when insufficient_privilege then null;
   end;
+  begin
+    perform private.save_my_kyc_profile_v2('{}'::jsonb);
+    raise exception 'authenticated role directly called the private KYC writer';
+  exception when insufficient_privilege then null;
+  end;
 end; $$;
 
 reset role;
+do $$ begin
+  if has_function_privilege('anon', 'api.save_my_kyc_profile_v2(jsonb)', 'EXECUTE')
+    or not has_function_privilege('authenticated', 'api.save_my_kyc_profile_v2(jsonb)', 'EXECUTE')
+    or has_function_privilege('anon', 'private.save_my_kyc_profile_v2(jsonb)', 'EXECUTE')
+    or has_function_privilege('authenticated', 'private.save_my_kyc_profile_v2(jsonb)', 'EXECUTE')
+    or has_function_privilege('service_role', 'private.save_my_kyc_profile_v2(jsonb)', 'EXECUTE')
+  then raise exception 'KYC API normalization changed execution grants'; end if;
+end; $$;
+
+set local role anon;
+do $$ begin
+  begin
+    perform api.save_my_kyc_profile_v2('{}'::jsonb);
+    raise exception 'anonymous role called the KYC writer';
+  exception when insufficient_privilege then null;
+  end;
+end; $$;
+
+reset role;
+-- Inject an unrelated serialization failure after the real profile and KYC
+-- writes. The API must preserve this error and roll back both writes.
+create function pg_temp.fail_unrelated_kyc_write()
+returns trigger language plpgsql as $$
+begin
+  raise exception 'unrelated_kyc_serialization_failure' using errcode = '40001';
+end;
+$$;
+create trigger test_unrelated_kyc_serialization_failure
+after update on private.renter_kyc_profiles
+for each row execute function pg_temp.fail_unrelated_kyc_write();
+
+set local role authenticated;
+do $$
+declare
+  saved jsonb := api.get_my_kyc_profile_v2();
+  profile_before jsonb;
+begin
+  select to_jsonb(profile) into profile_before
+  from public.profiles profile
+  where user_id = 'f2200000-0000-4000-8000-000000000001';
+
+  begin
+    perform api.save_my_kyc_profile_v2(jsonb_build_object(
+      'legal_name', 'Rejected Transaction Renter', 'phone', '+639220000097',
+      'birth_date', '1991-03-15', 'legacy_address_line1', null,
+      'house_number', '14', 'street_name', 'Mango Avenue',
+      'building', 'Tower A', 'address_details', 'Unit 5',
+      'postal_code', '6000', 'release_key', '2026-q2',
+      'expected_address_revision', saved ->> 'address_revision',
+      'area_code', '0730600041', 'pin_operation', 'set',
+      'pin_source', 'map_pin', 'pin_latitude', '10.3158',
+      'pin_longitude', '123.8855', 'pin_accuracy_meters', null,
+      'pin_consent_version', 'residential-pin-v1'
+    ));
+    raise exception 'unrelated serialization failure unexpectedly saved';
+  exception when sqlstate '40001' then
+    if sqlerrm <> 'unrelated_kyc_serialization_failure' then raise; end if;
+  end;
+
+  if api.get_my_kyc_profile_v2() is distinct from saved
+    or (select to_jsonb(profile) from public.profiles profile
+      where user_id = 'f2200000-0000-4000-8000-000000000001')
+      is distinct from profile_before
+  then raise exception 'unrelated serialization failure retained a partial KYC save'; end if;
+end;
+$$;
+
+reset role;
+drop trigger test_unrelated_kyc_serialization_failure on private.renter_kyc_profiles;
+drop function pg_temp.fail_unrelated_kyc_write();
+
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'f2200000-0000-4000-8000-000000000002';
 do $$ begin
@@ -224,6 +313,6 @@ do $$ begin
   end;
 end; $$;
 
-select 'ok 1 - structured residential addresses and required pins are actor-owned, atomic, private, legacy-safe, and snapshotted';
+select 'ok 1 - structured residential addresses and required pins normalize only known API conflicts and remain actor-owned, atomic, private, legacy-safe, and snapshotted';
 
 rollback;

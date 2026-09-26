@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CalendarIcon, ChevronDownIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { useMemo, useRef, useState } from "react";
 
@@ -18,7 +19,7 @@ import {
   type CalendarAvailability,
 } from "../calendar";
 import { canScheduleRental } from "../scheduling";
-import type { ScheduleSelection } from "../schedule-navigation";
+import { restoreScheduleSelection, type ScheduleSelection } from "../schedule-navigation";
 
 const monthFormatter = new Intl.DateTimeFormat("en-PH", { month: "long", timeZone: "UTC", year: "numeric" });
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -34,12 +35,21 @@ type ScheduleQuoteFormProps = {
 };
 
 export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, requestable = true, initialSchedule, compact = false }: ScheduleQuoteFormProps) {
+  const searchParams = useSearchParams();
+  const [startingSchedule] = useState(() => {
+    if (!searchParams) return initialSchedule;
+    const params = Object.fromEntries(["pickupDate", "returnDate", "handoffTime"].map((field) => {
+      const values = searchParams.getAll(field);
+      return [field, values.length === 1 ? values[0] : values];
+    }));
+    return restoreScheduleSelection(params, policy, availability);
+  });
   const today = getManilaToday();
   const currentMonth = monthFromCalendarDate(today)!;
-  const [visibleMonth, setVisibleMonth] = useState(initialSchedule ? monthFromCalendarDate(initialSchedule.pickupDate)! : currentMonth);
-  const [pickupDate, setPickupDate] = useState(initialSchedule?.pickupDate ?? "");
-  const [returnDate, setReturnDate] = useState(initialSchedule?.returnDate ?? "");
-  const [handoffTime, setHandoffTime] = useState(initialSchedule?.handoffTime ?? (policy?.approvedTimes.length === 1 ? policy.approvedTimes[0] : ""));
+  const [visibleMonth, setVisibleMonth] = useState(startingSchedule ? monthFromCalendarDate(startingSchedule.pickupDate)! : currentMonth);
+  const [pickupDate, setPickupDate] = useState(startingSchedule?.pickupDate ?? "");
+  const [returnDate, setReturnDate] = useState(startingSchedule?.returnDate ?? "");
+  const [handoffTime, setHandoffTime] = useState(startingSchedule?.handoffTime ?? (policy?.approvedTimes.length === 1 ? policy.approvedTimes[0] : ""));
   const calendarDialog = useRef<HTMLDialogElement>(null);
   const [calendarTarget, setCalendarTarget] = useState<"pickup" | "return">("pickup");
   const days = useMemo(() => buildCalendarMonth(visibleMonth), [visibleMonth]);
@@ -75,6 +85,15 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
     if (compact) return calendarTarget === "return" && pickupDate && date > pickupDate ? "return" : "pickup";
     return calendarEndpointRole({ date, pickupDate, returnDate });
   }
+  function rememberSchedule(selection: ScheduleSelection) {
+    const validSelection = restoreScheduleSelection(selection, activePolicy, availability);
+    const url = new URL(window.location.href);
+    for (const field of ["pickupDate", "returnDate", "handoffTime"] as const) {
+      if (validSelection) url.searchParams.set(field, validSelection[field]);
+      else url.searchParams.delete(field);
+    }
+    if (url.href !== window.location.href) window.history.replaceState(null, "", url);
+  }
   function chooseDate(date: string) {
     const role = dateRole(date);
     const status = calendarDateStatus({ allowedWeekdays: activePolicy.allowedWeekdays, approvedTimes: activePolicy.approvedTimes, availability, date, role, selectedPickup: pickupDate });
@@ -82,7 +101,9 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
     if (role === "return") setReturnDate(date);
     else { setPickupDate(date); setReturnDate(""); }
     const times = role === "return" ? handoffTimesForRange(activePolicy, availability, pickupDate, date) : [];
-    setHandoffTime(times.length === 1 ? times[0] : "");
+    const nextHandoffTime = times.length === 1 ? times[0] : "";
+    setHandoffTime(nextHandoffTime);
+    rememberSchedule({ pickupDate: role === "return" ? pickupDate : date, returnDate: role === "return" ? date : "", handoffTime: nextHandoffTime });
     if (compact) {
       if (role === "return") calendarDialog.current?.close();
       else setCalendarTarget("return");
@@ -144,7 +165,7 @@ export function ScheduleQuoteForm({ availability, cameraId, cameraName, policy, 
 
         <div className="mt-7 max-w-xl">
           <label className="block font-semibold" htmlFor="handoff-time">Handoff time</label>
-          <select aria-describedby="handoff-time-help" className="mt-3 min-h-12 w-full rounded-lg border border-[#b9c6d6] bg-white px-4 text-base outline-none focus:border-[#0b4f9c] disabled:bg-[#f2f4f7]" disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0} id="handoff-time" name="handoffTime" onChange={(event) => setHandoffTime(event.target.value)} required value={handoffTime}>
+          <select aria-describedby="handoff-time-help" className="mt-3 min-h-12 w-full rounded-lg border border-[#b9c6d6] bg-white px-4 text-base outline-none focus:border-[#0b4f9c] disabled:bg-[#f2f4f7]" disabled={!pickupDate || !returnDate || validHandoffTimes.length === 0} id="handoff-time" name="handoffTime" onChange={(event) => { setHandoffTime(event.target.value); rememberSchedule({ pickupDate, returnDate, handoffTime: event.target.value }); }} required value={handoffTime}>
             <option value="">{pickupDate && returnDate ? "Choose a time" : "Choose dates first"}</option>
             {validHandoffTimes.map((time) => <option key={time} value={time}>{formatHandoffTime(time)}</option>)}
           </select>

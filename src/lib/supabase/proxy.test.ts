@@ -62,6 +62,44 @@ describe("Supabase session proxy", () => {
     );
   });
 
+  it.each(["/checkout", "/account", "/admin"])("lets a signed-out Server Action on %s return its own authentication result", async (path) => {
+    mockClaims(null, true);
+
+    const response = await updateSupabaseSession(new NextRequest(`https://camnook.test${path}`, {
+      method: "POST",
+      headers: { "next-action": "test-action-id" },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.cookies.get("sb-session")?.value).toBe("refreshed");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it.each([
+    { method: "GET", headers: { "next-action": "test-action-id" } },
+    { method: "POST" },
+  ])("still redirects a signed-out page request with $method", async (init) => {
+    mockClaims(null);
+
+    const response = await updateSupabaseSession(new NextRequest("https://camnook.test/checkout", init));
+
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("lets a signed-in login Server Action handle its own response", async () => {
+    mockClaims({ sub: "user-1" });
+
+    const response = await updateSupabaseSession(new NextRequest("https://camnook.test/login?next=%2Faccount", {
+      method: "POST",
+      headers: { "next-action": "test-action-id" },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it.each([
     new AuthRetryableFetchError("network unavailable", 0),
     new AuthRetryableFetchError("provider unavailable", 503),

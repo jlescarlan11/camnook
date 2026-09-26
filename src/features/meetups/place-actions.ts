@@ -156,7 +156,9 @@ export async function assignCameraMeetupPlaces(
   };
 }
 export async function searchMeetupPlaces(query: string) {
-  const context = await requireAdmin();
+  const authorization = await authorizePlaceAction();
+  if (!authorization.context) return { error: authorization.error.message, places: [] };
+  const context = authorization.context;
   const input = z.string().trim().min(3).max(200).safeParse(query);
   if (!input.success)
     return { error: "Enter at least three characters.", places: [] };

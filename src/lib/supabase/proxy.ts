@@ -71,6 +71,14 @@ export async function updateSupabaseSession(request: NextRequest) {
   );
   const pathname = request.nextUrl.pathname;
 
+  // Fetch-based Server Actions need Next's action response protocol, not an
+  // HTML page redirect. Each action authenticates before protected work; this
+  // header identifies the protocol and does not grant access. Keep refresh
+  // cookies and headers on the response handed to Next.
+  if (request.method === "POST" && request.headers.has("next-action")) {
+    return response;
+  }
+
   if (isProtectedRoute(pathname) && !isAuthenticated && !claimsUnavailable) {
     const returnTo = `${pathname}${request.nextUrl.search}`;
     return applyAuthResponseState(

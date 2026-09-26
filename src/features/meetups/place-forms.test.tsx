@@ -9,9 +9,12 @@ vi.mock("./place-actions", () => ({
   assignCameraMeetupPlaces: vi.fn(),
   searchMeetupPlaces: vi.fn(),
 }));
-import { saveMeetupPlace, searchMeetupPlaces } from "./place-actions";
-import { MeetupPlaceForm } from "./place-forms";
-afterEach(cleanup);
+import { assignCameraMeetupPlaces, saveMeetupPlace, searchMeetupPlaces } from "./place-actions";
+import { CameraMeetupPlacesForm, MeetupPlaceForm } from "./place-forms";
+afterEach(() => {
+  cleanup();
+  vi.resetAllMocks();
+});
 it("keeps the same creation reference on failure and resets only after success", async () => {
   vi.mocked(saveMeetupPlace)
     .mockResolvedValueOnce({ status: "error", message: "Retry this save." })
@@ -63,4 +66,36 @@ it("normalizes live search coordinates to the precision accepted by the form", a
   expect(latitude.value).toBe("10.318116");
   expect(longitude.validity.stepMismatch).toBe(false);
   expect(latitude.validity.stepMismatch).toBe(false);
+});
+
+it.each(["success", "error"] as const)("keeps meetup selections and subsequent submissions consistent after %s", async (status) => {
+  vi.mocked(assignCameraMeetupPlaces).mockResolvedValue({
+    status,
+    message: status === "success" ? "Meetup choices saved." : "Could not save. Try again.",
+  });
+  const place = {
+    id: "11111111-1111-4111-8111-111111111111",
+    version: 1,
+    name: "Public meetup",
+    address: "Public entrance, Cebu City",
+    city: "Cebu City",
+    latitude: 10.33,
+    longitude: 123.9,
+    arrival_instructions: "",
+    attribution: null,
+  };
+  render(<CameraMeetupPlacesForm cameraId="22222222-2222-4222-8222-222222222222" places={[place]} selected={[]} />);
+  const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
+  const submit = screen.getByRole("button", { name: "Save meetup choices" });
+  await userEvent.click(checkbox);
+  await userEvent.click(submit);
+  await screen.findByText(status === "success" ? "Meetup choices saved." : "Could not save. Try again.");
+  expect(checkbox.checked).toBe(true);
+  expect((vi.mocked(assignCameraMeetupPlaces).mock.calls[0][1] as FormData).getAll("places")).toEqual([place.id]);
+
+  await userEvent.click(checkbox);
+  await userEvent.click(submit);
+  expect(checkbox.checked).toBe(false);
+  expect((vi.mocked(assignCameraMeetupPlaces).mock.calls[1][1] as FormData).getAll("places")).toEqual([]);
+  expect(screen.getByText("Assign a place to allow new rental requests.")).toBeTruthy();
 });

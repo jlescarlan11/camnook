@@ -277,7 +277,12 @@ export function CameraMeetupPlacesForm({
   );
   const [ids, setIds] = useState(selected);
   return (
-    <form action={action} className="space-y-4">
+    <form className="space-y-4" onSubmit={(event) => {
+      event.preventDefault();
+      if (pending) return;
+      const data = new FormData(event.currentTarget);
+      startTransition(() => action(data));
+    }}>
       <input type="hidden" name="camera" value={cameraId} />
       <p>
         Choose up to three public places you can use at this camera’s pickup and
