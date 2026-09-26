@@ -44,6 +44,8 @@ jobs:
           recovery="$RUNNER_TEMP/migration-recovery"
           mkdir -p "$recovery/supabase" "$RUNNER_TEMP/recovered-source"
           cp supabase/config.toml "$recovery/supabase/config.toml"
+          cp -R supabase/templates "$recovery/supabase/templates"
+          cp supabase/seed.sql "$recovery/supabase/seed.sql"
           supabase link --project-ref "$SUPABASE_PROJECT_ID" --workdir "$recovery" --yes
           supabase migration list --linked --workdir "$recovery"
           supabase migration fetch --linked --workdir "$recovery" --yes
