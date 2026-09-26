@@ -89,11 +89,16 @@
 - Status: verified scoped fix.
 - Commit: `d98fe5d`.
 
-## ENV-003 — Development profile conflict responses time out
+## ENV-003 — KYC business conflicts trigger repeated database retries
 - Evidence: real two-tab stale-profile submissions returned generic retry after the app's30s deadline. Direct supported synthetic-auth probe read the current profile in667ms, but stale save timed out after45s. Current stored house remains Audit13, not the stale draft. Logs `/tmp/camnook-audit-profile-conflict{,-extended}.log`.
 - Expected: SQL migration raises40001 for revision mismatch and pin reconfirmation; application then explains conflict. Cause not established: do not claim the intended conflict journey passed.
-- Status: investigation pending Development database management access; no policy or schema bypass. Other reads and valid profile save passed.
-- Commit: none.
+- 2026-09-26 follow-up: reproduced with a real Audit 13 → Audit 13B address revision in one tab and an old Audit 13 submission in another. Save and one retry both reach the generic message after the app's 30-second deadline. Reload confirms Audit 13B was retained; restored Audit 13 through the normal form and verified another reload. Source inspection confirms the SDK does not retry POST; existing booking migrations normalize known SQLSTATE 40001 business errors, while this KYC API wrapper is a passthrough. Backend cause remains unproven. Current Chrome dashboard and Supabase connector cannot access the CamNook Development management project.
+- Root cause confirmed after user restored dashboard access: live API wrapper was a SQL passthrough, PostgREST sessions identified version 14.5, and sampled logs repeatedly recorded `40001 kyc_address_revision_conflict` while dashboard reported 100% CPU and approximately 355k PostgreSQL errors/hour. Supabase documents infinite transaction retries for custom business errors using that SQLSTATE in PostgREST 14.
+- Fix: API wrapper catches only the known revision-conflict and pin-reconfirmation messages and returns non-retryable `P0001`; unknown serialization failures still propagate. Application recognizes exact normalized messages and retains compatibility with legacy `40001`. Existing security-definer boundary, private access restrictions, and public execution grants remain unchanged.
+- Verification: disposable PostgreSQL 17 applied all 79 migrations and passed real SQL tests covering both known conflicts, atomic rollback of profile/address/pin changes, private/anonymous execution restrictions, and propagation of an injected unrelated serialization error. Eight action cases cover exact errors, near-miss messages, and timeout fallback. Fresh full suite 907 passed / two skipped, lint/typecheck/build and diff review pass. Earlier interrupted-suite calendar timeouts passed in both focused and fresh full reruns.
+- Development: exact migration `20260926025452` applied transactionally with migration history through the verified Development SQL editor. Readback confirms PL/pgSQL wrapper, exact messages, and anon=false/authenticated=true execution. Actual two-tab stale save returned actionable guidance in 732ms while retaining entered fields; reload proved the newer address survived. Restored original synthetic Audit 13 and verified reload. Post-fix activity query found zero matching KYC PostgREST sessions, so no backend termination or restart was needed. Production unchanged.
+- Status: fixed and browser-verified; committed with this checkpoint (hash recorded in state at next cycle).
+- Evidence: `/tmp/camnook-env003-*`, ignored `.vercel/app-audit/kyc-sql-{red,green}.log`, and `.vercel/app-audit/2026-09-26/kyc-conflict-after.txt`.
 
 
 ## AUD-008 — Temporary checkout reads force schedule reselection
@@ -494,3 +499,141 @@
 - Verification: focused interaction test failed before the change, then passed. Lint, typecheck, optimized production build, and the full suite passed (895 passed / 2 skipped). All responses are local mocks; no booking decision, state, session, or renter availability changed.
 - Status: verified and committed.
 - Commit: `6b2821c`.
+
+## AUD-046 — Nested local worktree breaks lint and regression discovery
+
+- Severity: P2 engineering verification. Running the documented root lint/tests with `.worktrees/pr-152-rebase` present traverses a second checkout and its dependency tree, producing duplicate React invalid-hook failures and timeouts unrelated to root behavior.
+- Evidence: baseline root commands discovered nested tests; direct ESLint probe returned ignored=false for nested source. Runs were interrupted after capturing repeated failures.
+- Cause: Git ignore rules do not govern Vitest/ESLint discovery; both tool configurations omitted `.worktrees/**`.
+- Acceptance: nested worktree source/tests are excluded; normal root app and script tests and Vitest default exclusions remain included.
+- Fix: add `.worktrees/**` to ESLint global ignores and extend Vitest's existing default exclusions. No assertions, timeout thresholds, application behavior, or nested checkout files changed.
+- Verification: discovery finds 125 root test files and zero nested paths; direct ESLint probes keep root source and ignore nested source. Full lint passes; serial full suite has 895 passed / 2 skipped; typecheck and optimized build pass after regenerating a malformed local generated Next validator with dev stopped. No source workaround for that generated-file conflict.
+- Status: verified and committed.
+- Commit: `2da15f3`.
+
+## AUD-047 — Camera schedule is lost on Back from sign-in or refresh
+
+- Severity: P2 renter task interruption. A guest must repeat a completed schedule after backing out of checkout authentication or refreshing the camera page.
+- Browser evidence: requested Chrome extension profile, actual Development-backed app on port 3100. Choose Canon R50 Sep 29–Oct 2, 09:00; Continue to checkout reaches sign-in with the full schedule in `next`; browser Back returns a bare camera URL and both dates reset to Choose date. Independently selecting Sep 27–28 and reloading also clears both dates.
+- Cause: selected schedule lives only in client component state; the camera history entry stays at its bare URL even though the page already supports validated schedule query restoration.
+- Acceptance: completed valid schedules survive reload and Back from checkout/sign-in, preserving unrelated query/hash and avoiding extra history entries. Editing a schedule must not resurrect a previous completed range; current availability/policy validation remains authoritative.
+- Fix: replace the camera history entry with the completed, validated schedule as selections change. On mount, restore from the current search parameters rather than cached server props; incomplete edits clear the previous recovery query without resetting the in-progress form.
+- Verification: actual Chrome extension browser passes authenticated checkout → Back, reload, incomplete new pickup → reload without old dates, and guest cross-month schedule → sign-in → Back. The initial URL-only implementation failed the real cached-page Back check and was corrected before committing. Fresh screenshot confirms both recovered dates and enabled checkout. Three regressions cover stale server props, history recovery, incomplete edits, and changed/cleared handoff times; all 898 tests pass (two skipped), lint/typecheck/build pass, independent review clear.
+- Status: verified; committed with this audit checkpoint (hash recorded in state at next cycle).
+
+## AUD-048 — Review button gives no feedback for a missing meetup selection
+
+- Severity: P2 checkout recovery. A renter who misses the required meetup choice sees an apparently unresponsive Review rental request button.
+- Browser evidence: actual Development checkout, existing synthetic renter name/phone, entered purpose and shooting city, available meetup radio left unselected. Clicking Review leaves focus on the button, shows no validation message, and does not explain the missing choice; fresh screenshot confirms this state.
+- Cause: both details transition handlers check `selectedPlace` before calling native `reportValidity()`, suppressing the required radio's validation feedback.
+- Acceptance: Review identifies/focuses the missing required control, keeps entered answers, prevents review/submission until valid, and opens review after choosing an available place.
+- Fix: both review entry points run native form validation before requiring the selected meetup; review and server dispatch remain gated.
+- Verification: browser now focuses the unselected radio and displays “Please select one of these options.” Selecting the place opens review, focuses its heading, and retains name, phone, purpose, and shooting city. Regression observes the real native invalid event, no premature action, and correction recovery. All 899 tests pass (two skipped); lint/typecheck/build and independent review pass.
+- Status: verified; committed with this checkpoint (hash recorded in state at next cycle).
+
+## AUD-049 — Long rental-purpose text stretches the mobile review grid
+
+- Severity: P2 mobile checkout readability. A valid project reference in Purpose makes all review rows wider than the screen and clips the meetup text.
+- Browser evidence: real checkout at 320×740, purpose includes a long synthetic example.com project URL within the 1,000-character limit. Document usable width 305px, scroll width 325px; review `dt`/`dd` reach x=325 and a horizontal scrollbar appears. Fresh screenshot confirms right-edge clipping.
+- Cause: review uses an implicit mobile grid track with intrinsic minimum width. Existing `break-words` cannot shrink that track; only the desktop two-column track is explicit.
+- Acceptance: full review text fits 320px and 390px with no document overflow, while desktop retains two columns. Preserve edit/review behavior and entered answers.
+- Fix: add an explicit mobile `minmax(0, 1fr)` grid column using the existing Tailwind utility; retain the desktop two-column breakpoint and existing word wrapping.
+- Verification: actual browser usable/scroll widths now match at 305/305 (320px viewport), 375/375 (390px viewport), and 1425/1425 (1440px viewport). Desktop retains two 294px columns. Fresh mobile screenshots show complete meetup and long purpose text; Edit your details retains the draft, Review restores it, and mobile price summary expands/collapses correctly. Lint and optimized build pass. No class-mirroring unit test added for this layout-only fix.
+- Status: verified; committed with this checkpoint (hash recorded in state at next cycle).
+
+## AUD-050 — Rejected agreement replacement discards the owner's edited schedule
+
+- Severity: medium. A validation response resets the edited camera and dates to the existing agreement while displaying errors for the discarded draft. The owner cannot see or correct the submitted values and may inadvertently retry a different schedule.
+- Evidence/reproduction: approve a future synthetic Development request, open material replacement, enter a return before pickup, submit. Chrome resets return to the original later date while saying “Return must be after pickup.” Screenshot and AX evidence under ignored `2026-09-26/aud050-*` artifacts. The regression also reproduces camera and pickup reset.
+- Cause: React's form action resets uncontrolled inputs after the action resolves, including returned application validation errors. This form used `action={action}` with persisted `defaultValue` props.
+- Acceptance: preserve the edited camera/pickup/return on rejection; associate the error with the retained field; correcting return submits all retained draft values and issues the expected persisted replacement.
+- Fix: dispatch the existing action from a prevented native submit inside `startTransition`, retaining pending guards and native validation. No server contract or business-rule change.
+- Verification: regression failed on the discarded camera before the fix; all 39 contract tests pass afterward. Actual Chrome retains Sep 29 pickup/Sep 28 invalid return; changing only return to Oct 1 creates version 2 with Sep 29–Oct 1 and survives reload. Fresh screenshot confirms error matches visible values. Lint, typecheck, and optimized build pass; independent diff review found no actionable issue. Commit `b8585a2`.
+
+## AUD-051 — Signing a superseded agreement times out instead of explaining the changed version
+
+- Severity: high. A renter with a superseded open agreement waits through the request deadline and receives an uncertain-signature message. The database retry loop also consumes Development resources.
+- Reproduction: create and approve a synthetic future request, load renter version 2, issue version 3 as owner, restore renter authorization without reloading the old tab, consent and sign version 2. Action took 33.6s; the full response took 42s and displayed an indeterminate result. Refreshed version 3 remained unsigned.
+- Cause: the live SQL API wrapper passed the private signer's known SQLSTATE `40001` business conflicts to PostgREST 14.5. The same backend session repeatedly executed the signing query after the browser response; the targeted cancel query matched zero rows between attempts. API normalization stops the retry path, as in ENV-003.
+- Acceptance: exact known signing conflicts fail promptly with changed-agreement guidance; no signature/state mutation; refreshed latest agreement remains unsigned and signable; unexpected transaction failures retain their SQLSTATE and rollback behavior; access and consent boundaries remain intact.
+- Fix: PL/pgSQL API wrapper maps only `contract_version_stale`, `contract_signature_stale`, and `contract_not_signable` to `P0001`; security-invoker mode and grants preserved. Action recognizes exact normalized messages and remains compatible with legacy `40001`.
+- Verification so far: three new action cases failed before implementation; real SQL regression failed on the old stale-version SQLSTATE. All 44 contract tests and disposable PostgreSQL lifecycle regression with all 80 migrations pass. SQL covers rollback, unrelated serialization failures, anonymous denial, cross-renter denial, consent, idempotent signing, supersession, expiry and history. Independent review found no actionable issue. Development migration/history applied atomically and readback confirms PL/pgSQL, invoker mode, correct grants and zero matching retry sessions. Lint/typecheck pass. Optimized build and fresh serial full suite pass (913 tests, two opt-in checks skipped). Earlier concurrent full suite/build was stopped after timing-related failures; no test timeout was relaxed. Actual stale version-3 signing returns changed-agreement guidance, refreshes the current view to unsigned version 4 and clears consent (action 4.867s; full response 6.8s, versus 33.6s/42s before). The initially interrupted extra reload/post-retest SQL check is now complete after Chrome reconnection: version 4 remained unsigned, and later cleanup confirms zero signatures, zero active blocks and zero signing retries. No signature or payment created by browser testing. Commit `62ac0c0`.
+
+## AUD-052 — Rejected template publication discards all edited terms
+
+- Severity: medium. Choosing an existing template version correctly rejects publication, but the owner loses the entered version and all edited terms, making the instruction to choose a new version costly to follow.
+- Reproduction: on Development Settings, enter the active version, change pickup instructions, approve and submit. The version becomes empty, pickup reverts to persisted text and approval clears while “That template version already exists. Choose a new version.” remains. Active terms are unchanged.
+- Cause: the uncontrolled form used a React action, whose resolved validation/error return resets native controls.
+- Acceptance: retain the entire rejected draft and approval on failure; resubmit corrected values intact; preserve the existing form reset after success and active-template authority.
+- Fix: explicit submit dispatch in a transition with a pending guard, and reset only after success.
+- Verification: regression failed on the lost version before the fix, then all 45 contract tests pass. Test asserts retention of all seven terms, version and approval, corrected resubmission, and success-only reset. Actual Chrome duplicate-version response preserves the edited pickup and version; retrying with the original active terms succeeds idempotently and resets version/approval. Reload confirms the original active terms. Lint, typecheck and optimized build pass; independent review found no actionable issue. No new template or terms activated. Commit `a2efe94`.
+
+## AUD-053 — Saved meetup checkboxes revert to their initial state
+
+- Severity: medium. Owners see selected places unchecked after saving, or a removed place checked beside “No meetup places assigned,” making subsequent edits unreliable.
+- Reproduction: assign the new synthetic public meetup to the Development test camera and save: checkbox clears while the ordered row remains. Reload shows the saved selection. Remove and save: checkbox rechecks while the empty-assignment guidance appears. Fresh screenshot: ignored `2026-09-26/aud053-checkbox-reset.png`.
+- Cause: React action completion resets native checkboxes to their mount-time checked state without updating the controlled selected-ID list or its hidden submission fields.
+- Acceptance: success and error preserve the actual draft selection; the next toggle submits the corresponding IDs; saved add/remove state agrees with reload and guidance.
+- Fix: capture form data on prevented submit and dispatch the existing action inside a transition; retain the pending guard.
+- Verification: success/error regression cases both failed before implementation; all 89 meetup tests pass, two opt-in provider checks skipped. Actual Chrome add/save/reload and remove/save/reload now keep the correct checkbox state; screenshots inspected. Lint, typecheck, optimized build and independent review pass. The test-camera assignment is restored to empty; the synthetic meetup is archived and remains absent after reload. Commit `8949d2a`.
+
+## AUD-054 — Rejected meetup edits clear the pin checkbox but leave Save enabled
+
+- Severity: low. After a rejected save, the visible confirmation is cleared while client state still considers the pin confirmed, leaving an enabled Save button that native validation then rejects.
+- Evidence: saved stale editor for the archived synthetic meetup, received the correct changed-place message, retained arrival instructions, but confirmation became unchecked and Save changes remained enabled. Screenshot: ignored `2026-09-26/aud054-confirmation-reset.png`.
+- Cause: React's native form reset changes the checkbox without updating its controlled confirmation state, matching AUD-053's mechanism in the adjacent editor.
+- Acceptance: failed saves retain draft and confirmation; editing details clears confirmation and disables Save; corrected/reconfirmed submissions contain the draft; success clears confirmation consistently to prevent immediate repeat creation.
+- Fix: explicit transition dispatch and a success-only confirmation-state reset in the action callback. Server validation and explicit public-pin confirmation remain required.
+- Verification: regression failed before implementation and passes after, covering rejected draft, editing/reconfirmation, corrected payload and success-only clearing. All 90 meetup tests pass/two opt-in provider checks skipped; lint/typecheck pass. Actual Chrome server rejection of a one-character place name retains confirmation; correcting the name disables Save until reconfirmed, then creates the synthetic place. Editing it succeeds and refreshes to the persisted revision with confirmation clear. Optimized build and independent review pass. Synthetic fixture archived and absent after reload; existing Ayala meetup unchanged. Commit `bc68eb6`.
+
+## AUD-055 — Rejected GCash configuration discards the recipient draft
+
+- Severity: medium. Validation resets the entered recipient name/number to the stored configuration while reporting errors for the discarded draft.
+- Browser evidence: on Development Settings submit a two-space recipient name with the existing number. “Enter the approved recipient name” appears under the restored saved name. Screenshot: ignored `2026-09-26/aud055-recipient-reset.png`.
+- Cause: automatic native reset after a React form action resolves with an application error.
+- Acceptance/fix: explicit transition dispatch preserves the actual submitted recipient fields and pending/native-validation behavior. Correction must submit retained fields.
+- Verification: new regression fails before the fix and passes after, checking both fields and corrected retry/success payload. All 24 payment tests, lint/typecheck/build and independent review pass. Fresh Chrome reload then rejected submission retains the whitespace draft and original number. Correcting to the original recipient reaches a separate backend rejection, now tracked as AUD-056; no recipient value changed and no payment occurred. After AUD-056 was applied to Development, the original recipient saves successfully and persists through reload. Commit `3e700ee`.
+
+## AUD-056 — Canonical +63 GCash recipient is rejected by the database
+
+- Severity: high for owner configuration. Saving the existing valid Development recipient through the real form returns the generic invalid-recipient error after client/server schema validation.
+- Cause: action normalizes to +63; the August 30 idempotency migration doubled the regex escape before the plus. Live function matches that migration with standard_conforming_strings enabled. Existing SQL coverage used only local 09 numbers.
+- Acceptance: canonical +63 and legacy 09 numbers save; malformed numbers still fail without mutation; same-value retries preserve version/audit count; authorization and grants unchanged.
+- Fix: forward migration uses `[+]` for literal plus, avoiding backslash ambiguity. The remainder of the prior function, admin guard, locking, idempotency and grants is unchanged.
+- Verification: added real PostgreSQL regression fails before the fix on canonical save. All 81 migrations and full manual-payment SQL lifecycle test pass afterward, including canonical persistence, retry version stability, invalid prefixes/lengths/non-digits/backslashes, audit counts and legacy flow. Independent review found no actionable issue. Applied exact migration/history atomically only to Development; readback confirms literal-plus pattern, anonymous denial and authenticated execute. Actual Chrome correction now saves; reload confirms same recipient identity in canonical +63 format. Fresh success screenshot inspected. Actual repeat save succeeds and leaves configuration version/audit-event count at 2/2. Full serial suite passes: 918 tests, two opt-in provider checks skipped; current lint/typecheck/build pass from AUD-055. No payment, Production change, or new recipient identity. Commit `22d958f`.
+
+## AUD-057 — KYC validation clears visible address selections
+
+- Severity: medium. A personal-field rejection resets Region, Province/area, City and Barangay to “Select…” while the form still announces “Barangay selected” and holds a hidden selected code. Renters cannot reliably see the address being resubmitted.
+- Reproduction: existing synthetic renter Account → replace legal name with two spaces → Update KYC. Name error appears, all four selects clear, other address fields remain. DOM values and fresh screenshot confirm the mismatch (`2026-09-26/aud057-address-select-reset.png`, ignored).
+- Cause: resolved React form action triggers native reset on controlled select elements. Returned scalar draft values do not restore child selector DOM state.
+- Acceptance: preserve all four visible selections and entered details through account and checkout errors; corrected submissions retain the canonical code; checkout first-step gating, error-step focus, native validity and successful redirect remain intact.
+- Fix: prevent native submit and dispatch the action in a transition only after the existing mode/step validation gates, with pending guard.
+- Verification: regression uses the real PSGC selector with mocked lookup responses; both account and checkout fail before the fix on blank region and pass after. All 56 KYC/location tests and 234 serial booking tests pass; lint/typecheck/build and independent review pass. The initial parallel booking run hit timing failures; serial rerun passed without relaxed timeouts. Actual Account name error preserves all selects, future DOB still receives native max-date guidance, and restoring original values saves and persists. Actual Checkout rejection focuses Details, correction retains all selects on Address; corrected save redirects back to rental plans with the same selected schedule. No new booking or changed saved identity/address. Commit pending.
+
+
+## AUD-058 — Expired-session form actions reach a generic page error
+
+- Severity: medium. A renter who signs out in another tab cannot recover an open checkout save: the form is replaced by a generic connection-error boundary.
+- Reproduction: keep a changed checkout Details/Address draft open, sign out through a second same-profile account tab, then Save and continue to review. Next reports an unexpected Server Action response; ignored screenshot `2026-09-26/aud058-signed-out-checkout.png`.
+- Cause: the session proxy sends a 307 page redirect for the action POST, which follows through to login HTML rather than the expected Next action response. The KYC action's existing unauthorized result never reaches its form.
+- Acceptance/fix: after session refresh, let POST requests carrying `next-action` reach Next's action handling and independent action authorization. Keep page redirects for GET (even with the header) and ordinary POST. Retain refresh cookies and cache headers.
+- Verification: four new proxy regressions fail before the fix; all 42 focused proxy/KYC action tests pass after. Real two-tab sign-out now returns inline sign-in guidance while retaining name and all four address selections. Supported synthetic sign-in followed by original-name retry succeeds and preserves the schedule; fresh Account view confirms unchanged stored identity/address. No rental request submitted. Fresh screenshot `aud058-inline-session-guidance.png`; independent review found no actionable issue. Lint, typecheck and optimized build pass. Full serial run: 923 passed, two opt-in skips, four 5-second timeouts in one booking recovery file under concurrent host load; unchanged isolated rerun passes all ten tests (2.53 seconds of tests). All 927 non-skipped cases therefore pass across the suite and rerun. Commit `6947bb2`.
+
+
+## AUD-059 — Owner camera actions lose the editor on expired access
+
+- Severity: medium. A signed-out owner saving an open camera editor receives a generic connection-error page and loses the unsaved draft.
+- Browser reproduction: edit the synthetic camera description, sign out through Account in another tab, then Save camera. Console shows uncaught `AuthenticationRequiredError` from `requireUser` → `requireAdmin` → `updateCameraDraft`; screenshot `2026-09-26/aud059-owner-session-error.png`.
+- Cause: seven owner camera actions awaited `requireAdmin` without returning a recoverable form result when authentication or authorization failed.
+- Acceptance/fix: a shared camera-action helper catches only authorization acquisition and returns safe sign-in/retry guidance. Every mutation, storage operation, revalidation and success redirect stays outside that catch and requires a returned owner context. Existing explicit form submission preserves the rejected draft.
+- Verification: all 22 new action cases fail before the fix and pass after. 132 listing/auth tests plus the updated six-case form suite pass; lint/typecheck/optimized build and independent review pass. Cases cover seven actions for signed-out, non-owner and unavailable verification, zero mutation/storage calls, retained draft, and successful retry. Actual Chrome retains the camera description with inline guidance after sign-out and after switching to a renter. Restored owner session saves that exact draft, which persists after reload. Original synthetic description then restored through Save camera and continue; no price, kit, availability or publication change. Commit `96425c9`.
+
+
+## AUD-060 — Meetup actions discard the editor after session expiry
+
+- Severity: medium. A completed meetup draft disappears into the generic connection-error boundary when its owner signs out in another tab before saving.
+- Reproduction/evidence: complete a synthetic public-place draft and confirm the pin; sign out elsewhere; Save meetup place throws uncaught `AuthenticationRequiredError` through `saveMeetupPlace`. Screenshot `2026-09-26/aud060-meetup-session-error.png`. No place was created by the failed submission.
+- Cause/fix: meetup save/archive/assignment/search awaited authorization without a form/search recovery result. A module-local helper catches authorization acquisition only and returns safe access guidance; mutations, revalidation and provider requests remain gated by a verified owner context.
+- Acceptance: failed auth never mutates or spends search budget; draft fields/confirmation survive; search finishes with guidance; restored owner can retry; archive cleanup persists.
+- Verification: five regressions fail before implementation; 155 meetup/auth tests pass, two opt-in provider checks skipped. Lint/typecheck/optimized build and independent review pass. Real signed-out save retains every field and checked confirmation; signed-out search returns access guidance and re-enables Search. Restored owner creates the retained synthetic place, reload confirms it, then Archive removes it and a second reload confirms absence. Place was never assigned to a camera; existing Ayala place unchanged. Recovery screenshot inspected: `aud060-meetup-recovery-guidance.png`.

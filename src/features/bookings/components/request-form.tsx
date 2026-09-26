@@ -216,7 +216,7 @@ function RequestFormContent({
         </section>
         <section aria-labelledby="review-heading" hidden={!reviewing}>
           <h2 className="mt-2 text-2xl font-semibold" id="review-heading" ref={reviewHeadingRef} tabIndex={-1}>Review</h2>
-          <dl className="mt-6 grid gap-3 sm:grid-cols-2">
+          <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {!checkoutHref ? <>
             <ReviewValue label="Camera" value={summary.cameraName} />
             <ReviewValue label="Dates" value={summary.dates} />

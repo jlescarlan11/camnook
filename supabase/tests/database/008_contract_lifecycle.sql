@@ -277,6 +277,58 @@ begin
 end;
 $$;
 
+reset role;
+-- A real serialization failure during the signature write must still escape
+-- unchanged, and the attempted insert must be rolled back.
+create function pg_temp.fail_unrelated_signature_write()
+returns trigger language plpgsql as $$
+begin
+  raise exception 'unrelated_signature_serialization_failure' using errcode = '40001';
+end;
+$$;
+create trigger test_unrelated_signature_serialization_failure
+after insert on public.contract_signatures
+for each row execute function pg_temp.fail_unrelated_signature_write();
+
+set local role authenticated;
+do $$
+begin
+  begin
+    perform * from api.sign_contract(current_setting('test.contract_v1')::uuid, true);
+    raise exception 'unrelated serialization failure unexpectedly signed';
+  exception when sqlstate '40001' then
+    if sqlerrm <> 'unrelated_signature_serialization_failure' then raise; end if;
+  end;
+
+  if exists (
+    select 1 from public.contract_signatures
+    where contract_version_id = current_setting('test.contract_v1')::uuid
+  ) or not exists (
+    select 1 from public.bookings
+    where id = '55000000-0000-4000-8000-000000000001'
+      and state = 'CONTRACT_PENDING'
+  ) then
+    raise exception 'failed signature retained partial writes';
+  end if;
+end;
+$$;
+
+reset role;
+drop trigger test_unrelated_signature_serialization_failure on public.contract_signatures;
+drop function pg_temp.fail_unrelated_signature_write();
+
+set local role anon;
+do $$
+begin
+  begin
+    perform * from api.sign_contract(current_setting('test.contract_v1')::uuid, true);
+    raise exception 'anonymous role called the contract signer';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+set local role authenticated;
 do $$
 declare
   first_result record;

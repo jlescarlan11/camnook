@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local checkouts have their own source, dependencies, and generated output.
+    ".worktrees/**",
   ]),
 ]);
 

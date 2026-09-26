@@ -85,3 +85,40 @@
 - AUD-044 uses the PSGC selector's existing semantic fieldset API for a current-barangay recovery instruction, preserving the server's generic treatment of invalid official-area context without inventing a new visible field error.
 
 - AUD-045 keeps rejection-reason recovery on the existing labelled textarea and promotes the returned error to an alert; it does not alter the decision action or its persisted state.
+
+- 2026-09-26: current request authorizes local commits only; older promotion instructions in audit records are historical. Use port 3100 because 3000 belongs to another project. Use the requested existing Chrome profile through the extension, with the personal profile preference stored outside Git.
+- AUD-046: ignore only the existing local `.worktrees/` container in lint/test discovery. Preserve Vitest default exclusions and root regression coverage; do not change TypeScript exclusions since its parsed file list contains no nested worktree paths.
+- AUD-047: store only complete schedules in the current camera URL using Next's documented native history integration. Read current search parameters once per form mount because Back can reuse cached server props. Keep partial edits in component state and remove old complete recovery values; never create extra history entries or bypass current schedule validation.
+- Browser evidence takes precedence over redacted text values: the synthetic phone field appeared empty in automation text but a fresh screenshot confirmed its saved value. This was not recorded as an application defect.
+- AUD-048 uses the existing required radio's native validation and focus instead of adding parallel validation state. Keep selected-place and availability guards after validity reporting.
+- AUD-049 constrains the mobile grid track rather than hiding overflowing content; existing word wrapping handles valid long references while desktop columns remain unchanged.
+- ENV-003 normalizes known business conflicts at the API wrapper, matching existing booking API conventions. Preserve true transaction failures and private function behavior; avoid a racy client pre-read or an increased request timeout. Live PostgREST 14.5 metadata and repeated conflict logs match [Supabase's documented retry-loop mechanism](https://supabase.com/docs/guides/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions-77326b). Apply the tested migration and history atomically to Development only; query active sessions afterward before considering any targeted cleanup.
+- AUD-050 preserves replacement form drafts through the existing explicit action-dispatch pattern used by camera editing. Returned validation failures must not trigger React's uncontrolled-input reset; the server still validates every submitted value and refreshes the persisted agreement after success.
+- AUD-051 applies the same narrowly scoped business-conflict API boundary to signing: normalize only three exact private-signer messages, keep invoker privileges and genuine transaction errors, and retain legacy client compatibility. Browser verification uses only the synthetic Development agreement and no payment. A targeted cancellation attempt matched no rows; after migration the retry-session count is zero without any backend termination.
+- AUD-052 preserves failed template drafts with explicit dispatch and keeps the previous reset semantics only after success. Browser success verification uses the existing API's identical-active-template idempotency, so test recovery does not create or activate a new template.
+
+- AUD-053 uses explicit action dispatch for the controlled assignment form, keeping visible checkboxes synchronized with its ordered ID list through both success and error. Native resets are inappropriate for a saved configuration editor; server validation and the three-place limit remain unchanged.
+- AUD-054 preserves explicit confirmation for an unchanged failed draft, but clears it through React state after successful saves and when any place detail changes. This retains the public-pin requirement and keeps checkbox validity aligned with Save availability.
+- AUD-055 preserves GCash drafts with the existing explicit dispatch pattern. Treat the valid-number SQL rejection as a separate backend defect (AUD-056); do not hide it by weakening the shared canonical phone schema.
+- AUD-056 repairs the SQL literal-plus match with `[+]` rather than weakening canonical phone normalization or rewriting stored accounts. Preserve the prior function body and privileges. [PostgreSQL pattern documentation](https://www.postgresql.org/docs/17/functions-matching.html) confirms the escape/string-literal distinction; the exact faulty live definition and red/green SQL execution are the decisive evidence. Development form verification saves the same recipient in canonical format; no different account or payment is introduced.
+- AUD-057 moves final KYC submission to explicit transition dispatch while preserving native account validation and both checkout step gates. Avoid patching PSGC selection state around React's reset; the parent configuration form must retain its draft as a whole. Server-returned errors still choose the appropriate checkout step.
+
+- AUD-058 treats POST plus `next-action` as a protocol signal only. Session refresh still runs, and each Server Action/page retains authoritative authentication. Returning the existing response preserves refresh cookies/cache headers; no client-supplied header grants protected data or mutations. Installed Next request metadata confirms this fetch-action distinction.
+
+- AUD-059 handles authorization acquisition as a recoverable owner-form boundary across the camera action family. Catch only `requireAdmin`; never catch the mutation or successful Next redirect. Generic recovery wording covers both expired sessions and unavailable verification without exposing provider details or treating a failed check as permission.
+
+- AUD-060 preserves each meetup consumer's existing result shape while handling authorization acquisition separately. Failed owner checks return before budget claims or provider search, and search guidance explains access recovery rather than incorrectly presenting it as a location-provider outage.
+
+## 2026-09-26 — Reconcile audit work with newly merged main
+
+User reported new origin/main changes. Fetched accae35 and created an isolated audit worktree from it; preserved original audit commits through6a31ddc and unrelated notes. Retain main's new location autofill, Profile/rentals routes, idempotent mutation recovery, publication identity, and exact migration bytes. Carry only missing runtime behavior (AUD047/049/053/058/search part of060), tooling exclusions, and conflict/rollback regression coverage. Historical audit entries refer to original audit commits, not claims that every original patch is needed on main.
+
+Photo boundary evidence from the old6MB server limit must be reassessed because main now sets11MB. Hosted ingress remains separately constrained; no obsolete patch or production mutation is authorized by this reconciliation.
+
+## User stop checkpoint
+
+Stopped immediately on “stop and finalize.” Preserve carry-forward work uncommitted because remaining browser checks and final suite are incomplete. Goal paused; no background audit, push, merge, or deployment. Leave local development server available for inspection and retain synthetic renter session; no fixture cleanup pending.
+
+## User-authorized integration after stop
+
+User explicitly requested committing and pushing all audit changes to main. Finish only the pending verification/integration; continuous exploration remains stopped. Reconfirmed origin/main is accae35. Carry residual reviewed changes forward rather than merging obsolete audit implementations over newer features. Use GitHub's protected-main and exact-SHA release path, preserving required checks/review. Unrelated original-checkout notes remain outside this change.

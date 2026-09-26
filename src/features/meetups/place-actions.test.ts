@@ -6,7 +6,8 @@ vi.mock("./provider-budget", () => ({
   claimGeoapifyProviderBudget: vi.fn().mockResolvedValue(false),
 }));
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { saveMeetupPlace, assignCameraMeetupPlaces, archiveMeetupPlace } from "./place-actions";
+import { saveMeetupPlace, assignCameraMeetupPlaces, archiveMeetupPlace, searchMeetupPlaces } from "./place-actions";
+import { claimGeoapifyProviderBudget } from "./provider-budget";
 const rpc = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
@@ -112,4 +113,14 @@ it("keeps an interrupted creation retryable without exposing transport details",
   expect(rpc).toHaveBeenCalledTimes(1);
   expect(await saveMeetupPlace(failed, form)).toMatchObject({ status: "success" });
   expect(rpc.mock.calls[0][1]).toEqual(rpc.mock.calls[1][1]);
+});
+
+it("returns recoverable search guidance before spending provider budget when authorization fails", async () => {
+  vi.mocked(requireAdmin).mockRejectedValue(new Error("Synthetic private authorization failure"));
+  await expect(searchMeetupPlaces("Public entrance")).resolves.toEqual({
+    error: "Administrator authorization could not be verified. Reload before retrying.",
+    places: [],
+  });
+  expect(claimGeoapifyProviderBudget).not.toHaveBeenCalled();
+  expect(rpc).not.toHaveBeenCalled();
 });
