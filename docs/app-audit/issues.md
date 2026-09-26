@@ -674,4 +674,12 @@
 - Verification: extracted old behavior fails the command/invocation tests;10 focused configuration/startup tests pass after fix. Actual pnpm dev:setup under Node24.19.0 downloads CamNook Development values and passes database, search, tile and origin checks. Focused lint/diff checks pass; full suite1134passed/14skipped across159passed/4skipped files (221.88s). Local app remains accessible. Commit pending.
 
 - AUD064 committed as7f7ce73.
+- AUD065 committed as24d732e.
+
+## AUD-066 — Owner Work summary omits pending cancellations
+
+- Severity: medium. Real owner Today shows8 items needing attention but only6 Booking review in Work; Bookings contains2 pending cancellation requests that have no summary link. Cancellation-only work consequently produces an empty summary.
+- Cause: summary links read only queue_counts while the attention total also includes supporting_queue_counts.cancellation. The existing cancellation section has no queue anchor.
+- Fix/acceptance: include cancellation in the same displayed count map used for the total, show its summary link only when populated, and add the existing section's target anchor. Preserve all decision rules and data contracts.
+- Verification: new cancellation-only regression fails before fix and passes after;18 focused portfolio/resolution tests, lint and typecheck pass. Actual Today shows6 review +2 cancellation links; its cancellation link lands at the visible queue. After accepting only the new synthetic audit booking's cancellation, summary updates to5+1; the in-page link also reaches the queue. Settled screenshots inspected. Empty state remains covered. Commit pending.
 - Owner-only AUD061 reassessment deferred pending Supabase dashboard authentication. Connected account cannot list CamNook; dashboard/GitHub signed out; historical bootstrap user absent in Development; service-role template metadata read correctly denied42501. No permission changes, invented owner account, or privileged bypass attempted.

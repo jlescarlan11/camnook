@@ -143,3 +143,4 @@ The serial default rerun also encountered interaction timeouts while the16GB hos
 - AUD064 applies the same intrinsic-size correction only to two independently browser-reproduced checkout grids. Browser screenshots and geometry cover CSS behavior; existing interaction tests cover unchanged validation/draft transitions.
 
 - AUD065 uses npm_execpath from the documented pnpm script invocation and process.execPath, preserving executable and argument boundaries without adding a shell. Local Vercel link is ignored machine state; exclude the CLI-injected OIDC token from active app environment files.
+- AUD066 includes existing cancellation work in the summary's count map and adds a destination to the already-rendered queue. No new workflow, queue schema, permissions, fees, or state transitions. The user's explicit autonomous-fix authority supersedes a redundant per-fix design approval; bounded scope and observable acceptance were stated before implementation.
