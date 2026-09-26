@@ -51,6 +51,7 @@ function ProfileForm({
   const [addressEditRevision, setAddressEditRevision] = useState(Number(draft?.addressEditRevision) || 0);
   const revision = useRef(addressEditRevision);
   const [locationInvalidation, setLocationInvalidation] = useState(0);
+  const [mapInvalidation, setMapInvalidation] = useState(0);
   const locationSequence = useRef(0);
   const pendingPin = useRef<{requestId:number;pin:DraftPin} | null>(null);
   const [externalSelection,setExternalSelection] = useState<{requestId:number;release:string;path:AddressLocationResult["path"]}>();
@@ -133,6 +134,7 @@ function ProfileForm({
         event.preventDefault();
         invalidateLocation();
         if (pending) return;
+        setMapInvalidation(n=>n+1);
         if ((!checkout || step === 2) && new FormData(event.currentTarget).get("pinConfirmationRequired") === "1") {
           event.preventDefault();setPinError(true);return;
         }
@@ -164,7 +166,9 @@ function ProfileForm({
       </div>
       <div hidden={checkout && step !== 2} className={checkout ? "checkout-address-fields" : "space-y-5"}>
         <div>
-          <AddressLocationControl invalidationKey={locationInvalidation} disabled={pending} onResult={(result,pin)=>{
+          <AddressLocationControl invalidationKey={locationInvalidation} disabled={pending}
+            onStart={()=>{setExternalSelection(undefined);pendingPin.current=null;setMapInvalidation(n=>n+1);}}
+            onResult={(result,pin)=>{
             const requestId=++locationSequence.current;
             if (!result.path.length) {setSuggestedPin({requestId,pin});return;}
             pendingPin.current={requestId,pin};
@@ -209,6 +213,7 @@ function ProfileForm({
           addressChanged={addressChanged || Boolean(draft)}
           addressEditRevision={addressEditRevision}
           suggestedPin={suggestedPin}
+          mapInvalidationKey={mapInvalidation}
           onManualPinChange={()=>{invalidateLocation();setPinError(false);}}
           error={pinError ? "Confirm your residential map pin before saving." : state.fieldErrors?.residentialPin}
           initialPin={kyc?.residentialPin ?? null}

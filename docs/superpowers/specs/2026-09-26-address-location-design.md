@@ -1,6 +1,8 @@
 # Current-location address autofill and simpler regions
 
-Status: proposed architecture for review; no application changes implemented.
+Status: implemented locally on `codex/address-location`; not deployed. See the
+[implementation verification](../plans/2026-09-26-address-location-verification.md)
+for checks, review fixes, and release limitations.
 Date: 2026-09-26. Repository inspected at `b24c867`.
 
 ## Outcome and scope

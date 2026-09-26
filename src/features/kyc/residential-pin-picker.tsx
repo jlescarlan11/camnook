@@ -28,6 +28,7 @@ export function ResidentialPinPicker({
   addressEditRevision = 0,
   suggestedPin,
   onManualPinChange,
+  mapInvalidationKey = 0,
 }: {
   addressChanged: boolean;
   draftKey?: string;
@@ -36,6 +37,7 @@ export function ResidentialPinPicker({
   addressEditRevision?: number;
   suggestedPin?: {requestId:number;pin:DraftPin};
   onManualPinChange?: ()=>void;
+  mapInvalidationKey?: number;
 }) {
   const initial = initialPin ? {
     accuracyMeters: initialPin.accuracyMeters,
@@ -106,6 +108,8 @@ export function ResidentialPinPicker({
       </div> : null}
       {editorOpen ? <div className="mt-4 space-y-3" id={editorId}>
         <ResidentialMap
+          invalidationKey={mapInvalidationKey}
+          onInteractionStart={onManualPinChange}
           initialPin={activeDraft}
           mapKey={process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY ?? ""}
           onDraftChange={value=>{

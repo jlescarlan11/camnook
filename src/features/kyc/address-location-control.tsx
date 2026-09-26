@@ -4,8 +4,9 @@ import { Crosshair2Icon } from "@radix-ui/react-icons";
 import { addressLocationResultSchema, type AddressLocationResult } from "@/features/locations/types";
 import type { DraftPin } from "./residential-pin-picker";
 
-export function AddressLocationControl({invalidationKey, disabled, onResult}: {
+export function AddressLocationControl({invalidationKey, disabled, onResult, onStart}: {
   invalidationKey:number; disabled:boolean; onResult:(result:AddressLocationResult,pin:DraftPin)=>void;
+  onStart?:()=>void;
 }) {
   const [state,setState]=useState({key:invalidationKey,busy:false,message:""});
   const requestId=useRef(0);
@@ -14,6 +15,7 @@ export function AddressLocationControl({invalidationKey, disabled, onResult}: {
   useEffect(()=>()=>{requestId.current++;controller.current?.abort();},[invalidationKey]);
   function locate() {
     if (busy || disabled) return;
+    onStart?.();
     const request=++requestId.current;
     const report=(message:string,busy=false)=>{
       if(request===requestId.current) setState({key:invalidationKey,message,busy});

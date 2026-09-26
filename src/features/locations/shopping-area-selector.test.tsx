@@ -19,6 +19,22 @@ it("falls back to official regions with a version-2 draft when a new region is i
   expect(await screen.findByRole("option",{name:"New official region"})).toBeTruthy();
   await waitFor(()=>expect((screen.getByLabelText("Barangay") as HTMLSelectElement).value).toBe("0730600041"));
 });
+it("applies GPS to the visible official fallback before acknowledging its pin",async()=>{
+  const next={...reference,nodes:[...reference.nodes,area("2000000000","New official region","region",null)]};
+  vi.stubGlobal("fetch",vi.fn(async(url:string)=>{
+    const parent=new URL(url,"https://test").searchParams.get("parent");
+    return Response.json(url.includes("view=") ? next : parent ? children(parent) : {release:reference.release,choices:next.nodes.filter(n=>n.type==="region")});
+  }));
+  const onApplied=vi.fn();
+  const view=render(<PsgcAreaSelector presentation="shopping" initialPath={cebuPath} onExternalSelectionApplied={onApplied}/>);
+  await screen.findByRole("option",{name:"New official region"});
+  const path=[reference.nodes[6],reference.nodes[7]].map(({code,name,type})=>({code,name,type}));
+  view.rerender(<PsgcAreaSelector presentation="shopping" initialPath={cebuPath} onExternalSelectionApplied={onApplied} externalSelection={{requestId:1,release:reference.release,path}}/>);
+  await waitFor(()=>expect(onApplied).toHaveBeenCalledWith(1));
+  expect((screen.getByLabelText("Region") as HTMLSelectElement).value).toBe("1300000000");
+  expect((screen.getByLabelText("City or municipality") as HTMLSelectElement).value).toBe("1380600000");
+  expect(view.container.querySelector<HTMLInputElement>('[name="psgcAreaCode"]')?.value).toBe("");
+});
 function setupFetch() {
   const fetcher = vi.fn(async (url: string) => Response.json(url.includes("view=") ? reference : children(new URL(url,"https://test").searchParams.get("parent")!)));
   vi.stubGlobal("fetch",fetcher);

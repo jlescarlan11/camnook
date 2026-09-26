@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useEffectEvent, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { readCheckoutDraft, writeCheckoutDraft } from "@/features/kyc/checkout-draft";
 import { ADDRESS_GROUPS, canonicalPath, FRIENDLY_AREA_BY_LOCALITY, groupForRegion, projectAddressPath, provinceAreaChoices } from "./address-presentation";
 import { prepareAddressSelection, restoredAddress } from "./address-selection";
@@ -9,8 +9,8 @@ import type { PsgcAreaSelectorProps } from "./psgc-area-selector";
 const EMPTY_PATH: AddressPath = [];
 const inputClass = "min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2";
 export function ShoppingAreaSelector({initialPath = EMPTY_PATH, draftKey, name = "psgcAreaCode", errorId, invalid,
-  onSelectionChange, onManualSelectionChange, externalSelection, onExternalSelectionApplied, fallback,
-}: PsgcAreaSelectorProps & {fallback: ReactNode}) {
+  onSelectionChange, onManualSelectionChange, externalSelection, onExternalSelectionApplied,
+}: PsgcAreaSelectorProps) {
   const id = useId();
   const [restore] = useState(()=>restoredAddress(readCheckoutDraft<unknown>(draftKey),initialPath));
   const [reference,setReference] = useState<AddressReference | null>(null);
@@ -122,12 +122,20 @@ export function ShoppingAreaSelector({initialPath = EMPTY_PATH, draftKey, name =
       setPath(prepared.path);setBarangays(prepared.barangays);setStatus("ready");
     } catch {if(request === requestId.current) setStatus("error");}
   }
-  if (reference?.nodes.some(n=>n.type==="region" && !groupForRegion(n.code))) return <>{fallback}</>;
+  // Keep one canonical state owner even when a new region needs official labels.
+  const officialFallback = reference?.nodes.some(n=>n.type==="region" && !groupForRegion(n.code));
+  const regionCode = path.find(n=>n.type==="region")?.code ?? "";
+  const metroManila = officialFallback ? regionCode === "1300000000" : group === "metro-manila";
+  const showArea = officialFallback ? Boolean(regionCode) && !metroManila : Boolean(group) && !metroManila;
+  const areas = officialFallback ? reference!.nodes.filter(n=>n.parentCode===regionCode &&
+    ["province","city","municipality"].includes(n.type) &&
+    !reference!.nodes.some(p=>p.code===FRIENDLY_AREA_BY_LOCALITY[n.code])) :
+    reference && group ? provinceAreaChoices(reference,group).map(n=>({code:n.id,name:n.label})) : [];
   const presented = reference ? projectAddressPath(reference,path) : null;
   const areaId = presented?.areaId;
   const localities = reference?.nodes.filter(n=>
     ["city","municipality"].includes(n.type) &&
-    (group === "metro-manila" ? n.parentCode==="1300000000" :
+    (metroManila ? n.parentCode==="1300000000" :
       n.parentCode===areaId || n.code===areaId || FRIENDLY_AREA_BY_LOCALITY[n.code]===areaId),
   ).sort((a,b)=>a.name.localeCompare(b.name)) ?? [];
   const districts = reference?.nodes.filter(n=>n.type==="submunicipality" && n.parentCode===presented?.localityCode) ?? [];
@@ -137,8 +145,9 @@ export function ShoppingAreaSelector({initialPath = EMPTY_PATH, draftKey, name =
     <input name={name} type="hidden" value={selectedCode}/>
     <input name="psgcRelease" type="hidden" value={status==="ready" ? reference?.release ?? "" : ""}/>
     {reference ? <>
-      <AreaDropdown label="Region" value={group ?? ""} choices={ADDRESS_GROUPS.map(g=>({code:g.id,name:g.label}))} onChange={code=>void select(code==="metro-manila" ? "1300000000" : "",code as AddressGroupId || null)}/>
-      {group && group!=="metro-manila" ? <AreaDropdown label="Province or area" value={areaId ?? ""} choices={provinceAreaChoices(reference,group).map(a=>({code:a.id,name:a.label}))} onChange={code=>void select(code)}/> : null}
+      {officialFallback ? <AreaDropdown label="Region" value={regionCode} choices={reference.nodes.filter(n=>n.type==="region")} onChange={code=>void select(code,groupForRegion(code))}/> :
+        <AreaDropdown label="Region" value={group ?? ""} choices={ADDRESS_GROUPS.map(g=>({code:g.id,name:g.label}))} onChange={code=>void select(code==="metro-manila" ? "1300000000" : "",code as AddressGroupId || null)}/>}
+      {showArea ? <AreaDropdown label="Province or area" value={areaId ?? ""} choices={areas} onChange={code=>void select(code)}/> : null}
       {localities.length ? <AreaDropdown label="City or municipality" value={presented?.localityCode ?? ""} choices={localities} onChange={code=>void select(code || areaId || "")}/> : null}
       {districts.length ? <AreaDropdown label="District" value={presented?.districtCode ?? ""} choices={districts} onChange={code=>void select(code || presented?.localityCode || "")}/> : null}
       {barangays.length ? <AreaDropdown label="Barangay" value={presented?.barangayCode ?? ""} choices={barangays} onChange={code=>void select(code || presented?.districtCode || presented?.localityCode || "")}/> : null}

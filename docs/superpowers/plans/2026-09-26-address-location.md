@@ -10,6 +10,13 @@
 
 **Spec:** [Address location architecture](../specs/2026-09-26-address-location-design.md).
 
+**Implementation status:** Tasks 1–5 implemented on `codex/address-location`.
+Task 6 local verification and independent review completed; release remains
+out of scope. Detailed evidence and departures from the original checklist are
+recorded in [implementation verification](2026-09-26-address-location-verification.md).
+The checklist below preserves the original planning requirements, not a claim
+that every proposed verification environment was available.
+
 ## Global Constraints
 
 - Exactly five normal Region choices: Metro Manila, North Luzon, South Luzon, Visayas, Mindanao.
@@ -110,4 +117,5 @@
 
 The normal Region dropdown contains the five requested choices; a permitted location action fills every uniquely matched official area; uncertain results remain easy to finish manually; existing saved addresses/drafts still work; no pin is silently confirmed; and the published revision is verified live when shipping is in scope.
 
-This plan is ready for review. Implementation and release have not been performed by this planning task.
+Implementation is recorded in the linked verification report. No release or
+production database change was performed by this implementation task.

@@ -8,6 +8,27 @@ import { KycProfileForm } from "./kyc-profile-form";
 import { saveKycProfile } from "./actions";
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.clearAllMocks();sessionStorage.clear();});
 
+it("a new location attempt cancels an earlier result still awaiting barangay validation",async()=>{
+  let success!:PositionCallback;let failure!:PositionErrorCallback;
+  Object.defineProperty(navigator,"geolocation",{configurable:true,value:{getCurrentPosition:(ok:PositionCallback,bad:PositionErrorCallback)=>{success=ok;failure=bad;}}});
+  let finishLeaf!: (value:Response)=>void;
+  const fetcher=vi.fn(async(url:string)=>url.includes("view=") ? Response.json(reference) : url.includes("residential-geocode") ?
+    Response.json({outcome:"complete",release:reference.release,countryCode:"PH",reason:"matched",path:cebuPath}) :
+    new Promise<Response>(resolve=>{finishLeaf=resolve;}));
+  vi.stubGlobal("fetch",fetcher);
+  const view=render(<KycProfileForm kyc={null} profile={null} returnTo="/account"/>);
+  await screen.findByLabelText("Region");
+  fireEvent.click(screen.getByRole("button",{name:"Use my current location"}));
+  act(()=>{void success({coords:{latitude:10.33,longitude:123.9,accuracy:20}} as GeolocationPosition);});
+  await waitFor(()=>expect(finishLeaf).toBeTypeOf("function"));
+  fireEvent.click(screen.getByRole("button",{name:"Use my current location"}));
+  act(()=>failure({code:1} as GeolocationPositionError));
+  await act(async()=>finishLeaf(Response.json({release:reference.release,choices:[lahug]})));
+  expect((screen.getByLabelText("Region") as HTMLSelectElement).value).toBe("");
+  expect(new FormData(view.container.querySelector("form")!).get("pinConfirmationRequired")).toBe("0");
+  expect((screen.getByRole("button",{name:"Confirm this pin"}) as HTMLButtonElement).disabled).toBe(true);
+});
+
 it("fills the shopping area, preserves typed details, and requires pin reconfirmation after edits",async()=>{
   let success!:PositionCallback;
   Object.defineProperty(navigator,"geolocation",{configurable:true,value:{getCurrentPosition:(ok:PositionCallback)=>{success=ok;}}});

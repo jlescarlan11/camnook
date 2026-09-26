@@ -98,7 +98,7 @@ export type PsgcAreaSelectorProps = {
 };
 export function PsgcAreaSelector(props: PsgcAreaSelectorProps) {
   return props.presentation === "shopping"
-    ? <ShoppingAreaSelector {...props} fallback={<OfficialPsgcAreaSelector {...props}/>}/>
+    ? <ShoppingAreaSelector {...props}/>
     : <OfficialPsgcAreaSelector {...props}/>;
 }
 function OfficialPsgcAreaSelector({
