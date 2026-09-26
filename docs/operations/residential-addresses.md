@@ -125,7 +125,7 @@ Cebu's reviewed city aliases remain presentation-only.
 
 `api.list_psgc_address_reference()` is an authenticated, bounded read of the
 active non-barangay catalogue. The form lazy-loads barangays. Apply the additive
-`20260926043245_add_psgc_address_reference.sql` migration before publishing the
+`20260926045727_add_psgc_address_reference.sql` migration before publishing the
 application. Its rollback does not require removing the read RPC.
 
 “Use my current location” requests browser permission only on click and makes
