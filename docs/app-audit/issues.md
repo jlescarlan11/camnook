@@ -716,3 +716,15 @@
 - Severity: low. Reports for October2-3 show 1 days in camera inventory duration and, with a synthetic single-day block, Manual unavailability.
 - Cause/fix: the duration formatter unconditionally appends days. Select day when the already-formatted displayed count is1, including values rounded to1; preserve numeric formatting and all calculations.
 - Verification: actual Reports show1 day for October2-3 and2 days for October2-4.18 existing portfolio tests and focused lint pass; no added copy-only test. The synthetic block was removed and reload-verified; Reports returned to zero manual unavailability. No pending cleanup. Commit pending.
+- AUD070 committed as00955a6.
+
+## AUD-071 — Owner cannot find bookings after they leave the work queues
+
+- Severity: medium. The new synthetic cancellation remains available at its owner detail URL, but Back to bookings returns only current work queues. There is no history/search route to recover cancelled, rejected, expired, or completed records.
+- Reproduction: open Bookings as the Development owner; inspect all navigation and queues; cancelled fixture2fc499fa-654c-46ee-b3c0-e2c99d9ec34e is absent. Its known detail URL correctly shows CANCELLED, proving the record and authorization still exist.
+- Fix/acceptance: add Booking history from the queues, with renter-name/status filters, newest-request ordering, twenty records per page, and links to existing owner detail. Authenticate as owner before reading minimal identity/status/schedule summaries through the existing user-scoped Supabase client and RLS. Invalid filters/read failures must not appear as empty results; pagination retains filters; applying filters starts on page1.
+- Implementation: read-only Server Component and minimized joined query. No schema, grant, booking state, financial, or Production changes. Extract the already-verified cached-history form restoration into AppliedFiltersForm and reuse it in Reports and history.
+- Verification:24 focused tests pass (query shape/filter/pagination/error validation, owner guard, navigation, existing report restoration); focused lint/typecheck and optimized build pass. Actual browser owner navigation lists closed records; case-insensitive renter+Cancelled search finds the synthetic fixture, Completed gives no matches, Back/Forward restores the selected statuses/results, reload retains filters, and the result opens the persisted cancelled detail. Fresh screenshot inspected at actual1021px viewport. Renter direct access shows Access denied with no records; owner session restored. Independent read-only review found no actionable issues.
+- Navigation caveat: two client transitions stalled in the long-lived development document around recompilation/build; a fresh document restored normal link navigation. No console error captured; not classified as a history defect. Recheck outside HMR before claiming a separate defect.
+- Full suite and commit pending. No fixture mutations or cleanup pending.
+- Full suite passes:1167 tests passed/14 skipped across164 passed/4 skipped files (213.18s). Build includes the dynamic history route. AUD071 verified; commit pending.
