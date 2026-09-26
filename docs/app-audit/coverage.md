@@ -162,3 +162,5 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - Baseline on e4487ec with Node24.19.0: lint/typecheck pass; full suite1128pass,14skip across158pass/4skip files (327.89s). Build and local authenticated journeys pending configuration.
 
 - AUD062: repaired startup launches real Development app on Windows using Node24.19.0. Actual catalog loads; full post-fix suite1131pass/14skip. Synthetic Profile initial values and invalid-name recovery inspected; all address selections retained.320px Profile overflow found for next cycle.
+
+- AUD063 Profile responsive verification: before320px client305/scroll358; after320px305/305,390px375/375,1440px1425/1425. Screenshots confirm fields fit mobile and remain two columns on desktop. Real synthetic invalid-name recovery, correction save and full reload pass without changing stored values.10 focused tests and lint/typecheck pass. Optimized build baseline passed immediately before this one-class change.

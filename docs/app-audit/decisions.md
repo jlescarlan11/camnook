@@ -135,3 +135,5 @@ The serial default rerun also encountered interaction timeouts while the16GB hos
 - Use the existing Chrome profile and cua_repl as the primary browser controller. Production is read-only; synthetic mutations require Development.
 - Use pinned Node24.19.0 from isolated pnpm cache instead of changing system Node22 globally.
 - User explicitly requested recovery of Development configuration from Vercel and CLI reauthentication. Verify CamNook team/project and Development Supabase target before using recovered settings; never expose or commit credentials.
+
+- AUD063 uses the existing Tailwind single-column minmax utility for the Profile form's intrinsic sizing issue. Retain desktop columns and checkout behavior; verify actual browser geometry rather than adding a class-string test.

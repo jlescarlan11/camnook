@@ -648,3 +648,13 @@
 - Verification: extracted unchanged launcher reproduces two failing regression cases (command target and swallowed spawn failure); all7 startup/configuration tests pass after fix. Actual launcher reports Ready and Chrome renders both Development listings at127.0.0.1:3000. Focused lint and diff whitespace check pass. Full post-fix suite running; commit pending.
 
 - AUD062 final verification: full post-fix suite1131 passed/14 skipped across159 passed/4 skipped files (221.30s). Real Development startup and browser catalog verified; no Next route changes. Build baseline remains pending. Diff reviewed: only launcher target/error handling and relevant records/tests; no credentials or unrelated plan included.
+
+## AUD-063 — Profile personal fields overflow narrow screens
+
+- Severity: medium.320px Profile requires horizontal scrolling; name, birthdate, and mobile controls extend beyond their card and viewport.
+- Browser reproduction: synthetic renter Profile, both initial/saved and invalid-name states, viewport320x800. clientWidth305/scrollWidth358, personal field right357.39. Fresh screenshots visibly show clipped controls and horizontal scrollbar.
+- Cause: personal-details grid has an implicit auto column below sm; native input intrinsic size expands that track. This is inside the new Profile form, distinct from AUD005's former outer Account grid.
+- Acceptance/fix: use Tailwind grid-cols-1 (minmax(0,1fr)) below sm, preserving sm:grid-cols-2. No behavioral or business-rule change.
+- Verification: actual browser after fix320px305/305 and390px375/375; desktop1440px1425/1425 with name and birthdate side by side (405.2px each). Fresh screenshots inspected at all three sizes. Invalid-name recovery preserves all address selects/pin; corrected original synthetic details save and persist after reload.10 focused Profile/KYC tests, lint/typecheck pass. No new assertion mirroring a CSS class; browser geometry is the regression evidence. Commit pending.
+
+- AUD062 committed as422ecec. Subsequent optimized build baseline passes on this checkout with Development public configuration; no deployment.

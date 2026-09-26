@@ -153,7 +153,7 @@ function ProfileForm({
       </> : null}
       <input name="returnTo" type="hidden" value={returnTo} />
       <input name="expectedAddressRevision" type="hidden" value={kyc?.addressRevision ?? ""} />
-      <div ref={personalFields} hidden={checkout && step !== 1} className={checkout ? "checkout-personal-fields" : "grid gap-5 sm:grid-cols-2"}>
+      <div ref={personalFields} hidden={checkout && step !== 1} className={checkout ? "checkout-personal-fields" : "grid grid-cols-1 gap-5 sm:grid-cols-2"}>
         <Field error={state.fieldErrors?.legalName} id="kyc-legal-name" label="Full legal name">
           <input autoComplete="name" className={inputClass} defaultValue={submitted?.legalName ?? profile?.legalName ?? ""} maxLength={160} name="legalName" minLength={2} placeholder={checkout ? "Enter your full legal name" : undefined} required />
         </Field>
