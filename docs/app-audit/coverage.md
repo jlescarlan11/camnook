@@ -1,5 +1,13 @@
 # Coverage
 
+Latest checkpoint: older rows below are chronological evidence and may list dependencies resolved in later entries; current access and exact next action are in state.md.
+
+- Owner history empty pagination: direct Expired page2 has no records, clear recovery guidance and Previous page. Following Previous page restores the two expired records on page1 while preserving Expired. Clear filters returns13 records with no Next page. No defect or mutation.
+- Owner overdue request9000e739-2292-4bea-a118-7994ba724c3d: Sep21-23 schedule remains awaiting review, but Approval readiness explicitly identifies passed pickup and requests a new schedule; Approve booking is disabled. Rejection remains available. Read-only check passes; renter counterpart is next.
+- Existing history records currently cover awaiting review, cancelled, rejected and expired only. Later payment/handoff/return integration requires synthetic fixtures; no later-state coverage is claimed from mocked tests.
+- History responsive verification remains blocked by ineffective browser viewport control even on a fresh tab (requested320x844, observed1036 innerWidth/1021 document width). Reset override/zoom and closed temporary tab. Earlier genuinely measured mobile checks remain valid.
+- Publication withdrawal deferred: supported unpublish clears published_at, so republishing cannot preserve the existing fixture timestamp. Canon and legacy published test camera unchanged; new synthetic draft needs photo upload capability before this integration test.
+
 - Inventory→Reports integration: synthetic draft blocked for October2 only displays midnightOct2 through midnightOct3 PHT. Reports Oct2-3 counts one day of manual unavailability; adjacent Oct1-2 and Oct3-4 periods count zero, confirming both exclusion boundaries. Removed block through UI, reload verifies absence and Reports Oct2-3 returns zero. Fixture availability/meetup unchanged. Single-day label defect AUD070 corrected and one-/two-day displays verified.
 
 - Reports boundaries: reversed and equal dates return explicit validation with no misleading fallback metrics. Historical January-February before any inventory yields zero revenue and unavailable utilization with zero inventory duration, matching Calculation notes. Back/Forward exposed AUD069 (restored report/error with later edited filter values); after fix actual invalid and valid history transitions restore matching dates. No financial data changed.

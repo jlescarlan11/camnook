@@ -753,3 +753,4 @@
 - Fix: label the non-review link View booking details, matching its actual target and the closed state. Keep Review request for FOR_REVIEW and preserve the anchor/navigation and all booking behavior.
 - Verification: actual rejected detail shows the corrected label beside No action required; clicking reaches the existing detail fragment. Fresh screenshot inspected. Four existing page/decision tests, focused lint/typecheck pass. No copy-only test added. No record mutation; review/commit pending.
 - AUD074 independent read-only review found no actionable issue. Verified change ready to commit.
+- AUD074 committed as9089233. No push, merge or deployment.
