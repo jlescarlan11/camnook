@@ -19,5 +19,16 @@ or migration-history repairs were performed by recovery.
 
 The application now recognizes both the old and normalized conflict responses.
 Existing SQL assertions were aligned with the two exact API conflict messages.
-The repository now contains 94 migrations. Application to hosted environments
+While recovery was in progress, Development recorded another migration,
+`20260926033850_normalize_contract_signing_api_conflicts.sql`. Read-only recovery
+run 36215743520 retrieved it with artifact SHA-256
+`3d3aca40b91debb5d366606ce5ab33a0528c5df6d23b6e414f7ec9f3777213fa`.
+It similarly translates three named signing conflicts to P0001 while preserving
+the invoker security model and all other errors. Its SQL was restored with only
+trailing blank lines removed, and the signing action and existing SQL assertions
+were aligned with the normalized responses.
+
+The historical launch-evidence file's repository inventory count was updated;
+its historical Production observations and NO_GO decision were not changed.
+The repository now contains 95 migrations. Application to hosted environments
 and exact-revision promotion must run through `.github/workflows/release.yml`.

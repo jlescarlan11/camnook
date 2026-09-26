@@ -81,7 +81,12 @@ export async function signContract(
     if (message === "contract_deadline_elapsed") {
       return { error: "expired", status: "stale" };
     }
-    if (result.error.code === "40001") {
+    if (result.error.code === "40001"
+      || (result.error.code === "P0001" && [
+        "contract_version_stale",
+        "contract_signature_stale",
+        "contract_not_signable",
+      ].includes(message))) {
       return { error: "stale", status: "stale" };
     }
     return { error: "unknown", status: "indeterminate" };

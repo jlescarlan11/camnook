@@ -528,7 +528,8 @@ begin
     from api.sign_contract(current_setting('test.contract_v1')::uuid, true);
     raise exception 'superseded version was signed';
   exception
-    when serialization_failure then null;
+    when sqlstate 'P0001' then
+      if sqlerrm <> 'contract_version_stale' then raise; end if;
   end;
 
   if not exists (
@@ -853,7 +854,8 @@ begin
     from api.sign_contract('56000000-0000-4000-8000-000000000001', true);
     raise exception 'expired contract version was signed';
   exception
-    when serialization_failure then null;
+    when sqlstate 'P0001' then
+      if sqlerrm <> 'contract_version_stale' then raise; end if;
   end;
 end;
 $$;
