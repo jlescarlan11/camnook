@@ -1,11 +1,11 @@
 # Continuous application audit — Windows checkpoint 2026-09-26
 
-- Goal active. Browser-first exploration, focused fixes, verification and branch commits remain authorized. Production read-only; no push, merge, deployment, real payment, real-user contact or privilege grants.
+- Goal paused at the user's explicit stop-and-finalize request. Do not resume exploration unless requested. Production read-only; no push, merge, deployment, real payment, real-user contact or privilege grants.
 - Workspace D:\camnook; branch codex/app-audit-2026-09-26-windows; base e4487ec. Preserve unrelated untracked docs/superpowers/plans/2026-09-24-residential-location-autofill.md.
 - Runtime: pinned Node24.19.0 through pnpm dlx. System Node22 unchanged. Development server http://127.0.0.1:3000, exec session21571. Tests via scripts/run-vitest.mjs; lint/typecheck/build via pinned Node.
 - Vercel access restored and rechecked for the latest reauthentication request: jlescarlan11-6349 can inspect lester-s-projects4/camnook, matching repository project ID. No further login needed.
 - Ignored local configuration is restored. Hosted Development public variables point at Production; local uses verified Preview public Development values plus allowlisted Development server settings. Target ekmoiepalelqpmemvrkl; Production iegcixcevvkryfwfotqz must not be mutated. No hosted environment changes. Credentials remain in ignored files only.
-- Browser controller: cua_repl, existing Chrome John lester profile/browser2. localTab1818902682 currently signed out after guest recovery checks; Supabase dashboard1818902687 retained. The supported Development session helper establishes existing identities without email or role grants. Supabase MCP account is unrelated; do not use it for CamNook.
+- Browser controller: cua_repl, existing Chrome John lester profile/browser2. Existing Development owner session was restored immediately before the stop request; localTab1818902682 last navigated to the catalog. The supported Development session helper establishes existing identities without email or role grants. Supabase MCP account is unrelated; do not use it for CamNook.
 
 ## Verified commits
 
@@ -35,7 +35,7 @@ Latest full suite at AUD071:1167 tests passed/14 skipped across164 passed/4 skip
 ## Current coverage and next action
 
 - After AUD071 commit, invalid page=0 history link recovered through Enter-submitted renter filter. Settings required template-version validation focused the missing field; no template/GCash changes. Settings→handoff editor and stale-save recovery passed. Coverage evidence saved in coverage.md.
-- Exact next action: restore the existing owner session with the supported helper, open booking history and apply a renter/status filter. Exercise its displayed load-error recovery with temporary Development-only fault instrumentation, clearing the ignored marker without source changes before Apply filters retry. Verify applied fields, fresh authenticated read and restored results; remove instrumentation and verify no product diff. This new history-specific failure path has not been browser-exercised. Catalog expected/unexpected-error retries now pass; do not repeat them.
+- Deferred next action, only if the user resumes: open owner booking history and apply a renter/status filter; exercise its displayed load-error recovery with temporary Development-only fault instrumentation, clearing the ignored marker without source changes before Apply filters retry. Verify applied fields, fresh authenticated read and restored results; remove instrumentation and verify no product diff. Owner session restoration began before stop, but this history failure test was not started. Catalog expected/unexpected-error retries already pass; do not repeat them.
 - User explicitly answered Keep uploads blocked for now. Respect that preference: no further file-permission prompt, upload attempt or alternate upload workaround. AUD061 and actual photo/publication/receipt/evidence paths remain deferred. Ignored12MiB synthetic JPEG exists; no file selected/uploaded. Other non-upload audit work remains available.
 - Long-lived Development documents twice stalled on client navigation around recompilation/build; fresh reload restored normal links. No console error captured. Separate HMR from product behavior before classifying a defect.
 - Browser caveats: fill('') selects text without clearing; use Ctrl+A/Backspace. Sanitized tel extraction can omit visible value; inspect screenshot. Latest viewport override was ineffective, so current checks claim actual1021px only; earlier measured320/390/1440 evidence remains valid. Grammarly/Quillbot injected hydration warnings are not application defects.
@@ -48,3 +48,16 @@ Latest full suite at AUD071:1167 tests passed/14 skipped across164 passed/4 skip
 - Latest Vercel check again confirms jlescarlan11-6349 and lester-s-projects4/camnook. Existing authentication already satisfies reauthentication request; no repeated login or configuration overwrite needed.
 - Renter counterpart and checkout privacy follow-up passed. Privacy draft survived the separate notice tab and reload; manually restored original synthetic name without saving, then signed out. Current localTab is guest catalog. Owner restoration is next; no persisted fixture changes or cleanup pending.
 - Controlled local catalog failure and thrown-error tests both restored actual listings through their rendered retry controls. Fresh reads recorded after clearing ignored markers, without source edits/server restart during the retry. Temporary source instrumentation removed and git diff confirms no product change; both markers absent. Coverage table reconciled so old completed paths are no longer listed as pending.
+
+## Final stop checkpoint
+
+- User requested stop and finalize. No history fault hook was added and no new test or fixture mutation was started. Latest audit checkpoint before integration bb9acd7; latest product fix9089233.
+- Preserve unrelated untracked residential-location-autofill plan. No temporary test instrumentation remains in product source, no failure marker remains, and no fixture cleanup is pending.
+- Leave the local Development server available for inspection. No background audit, push, merge or deployment. Upload-dependent work remains deferred by the user's explicit preference; new history mobile verification and later signed/paid lifecycle integration remain incomplete.
+
+## User-authorized main integration
+
+- User subsequently requested committing and pushing all changes to main. This authorizes integration only; continuous audit remains paused and uploads remain blocked.
+- Include the previously untracked residential-location-autofill plan unchanged, as part of the explicit all-changes request. No implementation work is inferred from its checklist.
+- Fresh origin/main is e4487ec and is an ancestor of this audit branch. Main requires a pull request, Application and database / Database concurrency checks, and one separate approval of the latest push. Follow protection and the exact-SHA release workflow; do not bypass requirements.
+- Stop this audit's local development server during final build verification to avoid concurrent .next writes. Preserve local ignored configuration and synthetic data. Full pre-push gate, independent cumulative review, PR and hosted checks are the integration steps.
