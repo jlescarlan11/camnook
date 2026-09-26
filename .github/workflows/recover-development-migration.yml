@@ -1,0 +1,65 @@
+name: Recover Development migration source
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration_version:
+        description: Applied Development migration version to recover for review
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: camnook-release
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    name: Read recorded Development migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: development
+    env:
+      EXPECTED_PROJECT_ID: ekmoiepalelqpmemvrkl
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      MIGRATION_VERSION: ${{ inputs.migration_version }}
+    steps:
+      - name: Check out recovery tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.114.0
+
+      - name: Fetch recorded source without changing database history
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$SUPABASE_PROJECT_ID" = "$EXPECTED_PROJECT_ID"
+          [[ "$MIGRATION_VERSION" =~ ^[0-9]{14}$ ]]
+          recovery="$RUNNER_TEMP/migration-recovery"
+          mkdir -p "$recovery/supabase" "$RUNNER_TEMP/recovered-source"
+          cp supabase/config.toml "$recovery/supabase/config.toml"
+          supabase link --project-ref "$SUPABASE_PROJECT_ID" --workdir "$recovery" --yes
+          supabase migration list --linked --workdir "$recovery"
+          supabase migration fetch --linked --workdir "$recovery" --yes
+          mapfile -t files < <(find "$recovery/supabase/migrations" -maxdepth 1 -type f -name "${MIGRATION_VERSION}_*.sql")
+          test "${#files[@]}" -eq 1
+          filename="$(basename "${files[0]}")"
+          [[ "$filename" =~ ^${MIGRATION_VERSION}_[a-z0-9_]+\.sql$ ]]
+          test -s "${files[0]}"
+          cp -- "${files[0]}" "$RUNNER_TEMP/recovered-source/$filename"
+          sha256sum "$RUNNER_TEMP/recovered-source/$filename"
+          echo "Recorded source recovered for review. No migration or history repair was applied."
+
+      - name: Save recovered source for repository reconciliation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: recovered-development-migration
+          path: ${{ runner.temp }}/recovered-source/*.sql
+          if-no-files-found: error
+          retention-days: 1
