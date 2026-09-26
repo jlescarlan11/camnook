@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { PortfolioPeriodForm } from "./portfolio-period-form";
 
 import type {
   OwnerOperationsDashboard,
@@ -286,7 +287,7 @@ export function OwnerPortfolioPanel({
     <section className="mt-12 border-t border-stone-300 pt-10" aria-labelledby="portfolio-heading">
       <div className="flex flex-wrap items-end justify-between gap-5">
         <h2 className="text-3xl font-semibold" id="portfolio-heading">Performance</h2>
-        <form className="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-[1fr_1fr_auto]" method="get">
+        <PortfolioPeriodForm periodKey={`${period.startDate}:${period.endDateExclusive}`}>
           <label className="text-sm font-medium text-stone-700">
             Start date
             <input
@@ -313,7 +314,7 @@ export function OwnerPortfolioPanel({
           >
             Apply period
           </button>
-        </form>
+        </PortfolioPeriodForm>
       </div>
 
       {invalidPeriod ? (
