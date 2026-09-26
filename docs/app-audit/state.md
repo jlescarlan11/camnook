@@ -19,8 +19,10 @@
 - 400140f AUD069 Reports Back/Forward date restoration.
 - 00955a6 AUD070 singular-day report label.
 - aec0682 AUD071 closed-booking history navigation, renter/status filters, paginated minimal RLS reads. Shared AppliedFiltersForm preserves Reports history restoration.
+- c00670c AUD072 Enter runs public-place search without submitting the save form.
+- e21ab3c AUD073 accessible meetup map pin name and coordinate-entry guidance.
 
-Latest verification:1167 tests passed/14 skipped across164 passed/4 skipped files (213.18s); focused lint/typecheck and optimized build pass. AUD071 has24 focused checks and independent read-only review. Actual owner browser filtering/no-match/Back/Forward/reload/detail checks pass; renter direct access denied, owner restored. Build/test logs are ignored under .git/audit-booking-history-{build,tests}.log. Nothing pushed or deployed.
+Latest full suite at AUD071:1167 tests passed/14 skipped across164 passed/4 skipped files (213.18s), with optimized build. AUD072 then passed16 focused form/action tests, lint/typecheck, independent review and actual blank/save-ready browser search checks. AUD073 label-only change passed lint/typecheck, review and actual accessible-name/keyboard/coordinate checks; no new label-only tests. No persisted meetup changes. Build/test logs are ignored under .git/audit-booking-history-{build,tests}.log. Nothing pushed or deployed.
 
 ## Fixtures and cleanup
 
@@ -32,10 +34,10 @@ Latest verification:1167 tests passed/14 skipped across164 passed/4 skipped file
 ## Current coverage and next action
 
 - After AUD071 commit, invalid page=0 history link recovered through Enter-submitted renter filter. Settings required template-version validation focused the missing field; no template/GCash changes. Settings→handoff editor and stale-save recovery passed. Coverage evidence saved in coverage.md.
-- Exact next action: localTab1818902682 now shows /admin/meetup-places: one existing public Development meetup, Edit place disclosure, Archive place, and Add meetup place form. Inspect edit/assignment navigation and test recoverable validation using only marked Development fixtures. Check prior coverage before repeating a completed variation.
+- Exact next action: localTab1818902682 now shows owner history filtered to Expired, after restoring the existing owner session. Open CamNook Development Test Camera — CamNook Development Smoke Renter (bookingad42084c-0c31-44ba-9cce-13cd24f6ea5a) via its visible link; inspect expired detail/action/recovery, then the Rejected filter and its closed-record path. These are read-only checks. Prior meetup create/edit/stale-save/assignment/archive recovery is already covered; do not repeat it.
 - AUD061 upload-size check remains blocked by Chrome extension file-upload permission (Allow access to file URLs). Do not bypass/retry unchanged. Ignored12MiB synthetic JPEG exists; no file selected/uploaded. Other audit work remains available.
 - Long-lived Development documents twice stalled on client navigation around recompilation/build; fresh reload restored normal links. No console error captured. Separate HMR from product behavior before classifying a defect.
 - Browser caveats: fill('') selects text without clearing; use Ctrl+A/Backspace. Sanitized tel extraction can omit visible value; inspect screenshot. Latest viewport override was ineffective, so current checks claim actual1021px only; earlier measured320/390/1440 evidence remains valid. Grammarly/Quillbot injected hydration warnings are not application defects.
 
-- AUD072 verified: Enter searches public places without saving the outer form, retaining draft/confirmation.16 focused tests/lint/typecheck/browser and independent review pass. No persisted meetup changes. Exact next action after commit: inspect the meetup map marker's keyboard/accessible behavior; rendered tree currently exposes an unnamed button, but do not classify until checking DOM and interaction evidence.
-- AUD072 committed asc00670c. AUD073 label/guidance fix verified by actual browser accessible name, keyboard focus and coordinate entry; lint/typecheck/review pass. Local meetup page reloaded with no unsaved draft or cleanup pending. Commit AUD073, then inspect archived-place/assignment recovery without altering the existing place shared by other fixtures.
+- Latest sign-out/history boundary passes: from native-GET filtered owner history, account Sign out reaches login; Back to account and Back again to filtered history each redirect to sign-in without showing protected records. Supported helper restored the existing owner, and Expired history now loads two records. No cleanup pending; local and Development dashboard tabs retained.
+- Closed-record review complete: Expired and Rejected show correct immutable outcomes and no decisions. AUD074 details-link wording verified by browser/four existing tests/lint/typecheck/review; no data changed. Commit next, then investigate the previously ineffective browser viewport capability for meaningful mobile history coverage.

@@ -745,3 +745,11 @@
 - Cause/fix: the Leaflet DivIcon marker omits a title. Add the supported marker title Meetup location pin and mention the existing latitude/longitude entry alternative in the map instructions. Installed Leaflet1.9.4 source confirms title reaches the marker element; no map movement/save logic changes.
 - Focused lint/typecheck pass; browser verification pending. No new test for this label-only change; verify the actual rendered accessibility tree. No data mutation.
 - AUD073 browser verification passes: exact role/name locator resolves the visible Meetup location pin, including after coordinate changes. Tab from the marker focuses Zoom in; fresh screenshot confirms visible focus and revised guidance. Coordinates update the map/View on map while Save remains disabled until confirmation. Reload discards the unsaved draft; existing single meetup unchanged. Lint/typecheck/independent review pass; no cleanup pending. Commit pending.
+- AUD073 committed ase21ab3c. No push, merge or deployment.
+
+## AUD-074 — Closed booking summary offers a nonexistent current action
+
+- Severity: low wording mismatch. Expired and rejected owner records correctly say No action required, but the primary link says View current action and navigates to the full booking-details article.
+- Fix: label the non-review link View booking details, matching its actual target and the closed state. Keep Review request for FOR_REVIEW and preserve the anchor/navigation and all booking behavior.
+- Verification: actual rejected detail shows the corrected label beside No action required; clicking reaches the existing detail fragment. Fresh screenshot inspected. Four existing page/decision tests, focused lint/typecheck pass. No copy-only test added. No record mutation; review/commit pending.
+- AUD074 independent read-only review found no actionable issue. Verified change ready to commit.
