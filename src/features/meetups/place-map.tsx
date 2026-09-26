@@ -38,6 +38,7 @@ export function PlaceMap({
         tiles.on("tileerror", () => setFailed(true));
         const pin = L.marker([latitude, longitude], {
           draggable: true,
+          title: "Meetup location pin",
           icon: L.divIcon({
             className: "camnook-map-pin",
             html: '<span aria-hidden="true">●</span>',
@@ -61,7 +62,8 @@ export function PlaceMap({
   return (
     <div className="space-y-2">
       <p className="text-sm text-stone-600">
-        Click the public entrance or drag the pin. Confirm the position below.
+        Click the public entrance or drag the pin. You can also enter latitude
+        and longitude below. Confirm the position before saving.
       </p>
       {process.env.NEXT_PUBLIC_GEOAPIFY_MAP_KEY ? (
         <div
