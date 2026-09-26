@@ -57,7 +57,8 @@ begin
       'pin_accuracy_meters', null, 'pin_consent_version', null
     ));
     raise exception 'changed address retained a stale pin';
-  exception when sqlstate '40001' then null;
+  exception when sqlstate 'P0001' then
+    if sqlerrm <> 'kyc_pin_reconfirmation_required' then raise; end if;
   end;
 
   if api.get_my_kyc_profile_v2() ->> 'house_number' <> '12'
@@ -111,7 +112,8 @@ begin
       'pin_accuracy_meters', null, 'pin_consent_version', null
     ));
     raise exception 'stale address revision unexpectedly saved';
-  exception when sqlstate '40001' then null;
+  exception when sqlstate 'P0001' then
+    if sqlerrm <> 'kyc_address_revision_conflict' then raise; end if;
   end;
 end;
 $$;

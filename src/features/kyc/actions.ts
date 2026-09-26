@@ -243,10 +243,15 @@ export async function saveKycProfile(
     },
   });
   if (result.error) {
+    const addressConflict = result.error.code === "40001"
+      || (result.error.code === "P0001" && [
+        "kyc_address_revision_conflict",
+        "kyc_pin_reconfirmation_required",
+      ].includes(result.error.message));
     return {
       error: result.error.code === "42501"
         ? "suspended"
-        : result.error.code === "40001"
+        : addressConflict
           ? "pin_reconfirmation"
           : result.error.code === "22023"
             ? "invalid"
