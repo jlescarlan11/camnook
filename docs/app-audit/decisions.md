@@ -122,3 +122,9 @@ Stopped immediately on “stop and finalize.” Preserve carry-forward work unco
 ## User-authorized integration after stop
 
 User explicitly requested committing and pushing all audit changes to main. Finish only the pending verification/integration; continuous exploration remains stopped. Reconfirmed origin/main is accae35. Carry residual reviewed changes forward rather than merging obsolete audit implementations over newer features. Use GitHub's protected-main and exact-SHA release path, preserving required checks/review. Unrelated original-checkout notes remain outside this change.
+
+### Integration test-runner concurrency
+
+The mandatory pre-push command used Vitest's default nine workers on this ten-core shared development machine. It failed53 tests across26 files, predominantly5s interaction timeouts and downstream cleanup failures; the same full suite had just passed all1139 tests with one worker and unchanged timeouts/assertions. Make file execution serial in Vitest's default configuration so the mandatory hook uses the proven resource profile. Keep file isolation, all assertions, opt-in skips, and existing timeouts unchanged. Real database concurrency tests remain separate and unchanged.
+
+The serial default rerun also encountered interaction timeouts while the16GB host reported about35GB swap use. Stopped only this audit's confirmed port3100 server after browser checks and interrupted the already-failing redundant verification. A focused follow-up passed7/8 tests, with the stale-meetup review test still exceeding5s. Do not claim these attempts passed or relax assertions/timeouts. The mandatory pre-push gate must complete successfully before upload.
