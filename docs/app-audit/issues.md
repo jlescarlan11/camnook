@@ -709,3 +709,10 @@
 - Evidence: repeated actual browser Back/Forward checks and screenshot show January1-February1 fields beside the equal-date error for September27. The GET form's uncontrolled inputs retain edits across reconciliation and full-document history restoration.
 - Fix/acceptance: a small client form wrapper resets to the applied period when a cached document is restored (pageshow persisted=true), and remounts the form when the applied period changes. Ordinary pageshow and same-period rerenders retain pending input. Keep GET query names, all period validation, report data and calculations unchanged.
 - Verification: two period-change regressions fail before the form key; cached-document regression fails before the restoration listener.18 focused portfolio tests/lint/typecheck pass. Real browser Back now restores equal September27 inputs/error; Forward restores May1-June1, and a separate valid September→BackMay check matches both date fields and Calculation notes. Screenshot inspected. Full suite1147passed/14skipped across162passed/4skipped files (217.25s), optimized build and independent read-only review pass. No database mutations in this cycle. Commit pending.
+- AUD069 committed as400140f.
+
+## AUD-070 — Single-day report durations use a plural label
+
+- Severity: low. Reports for October2-3 show 1 days in camera inventory duration and, with a synthetic single-day block, Manual unavailability.
+- Cause/fix: the duration formatter unconditionally appends days. Select day when the already-formatted displayed count is1, including values rounded to1; preserve numeric formatting and all calculations.
+- Verification: actual Reports show1 day for October2-3 and2 days for October2-4.18 existing portfolio tests and focused lint pass; no added copy-only test. The synthetic block was removed and reload-verified; Reports returned to zero manual unavailability. No pending cleanup. Commit pending.

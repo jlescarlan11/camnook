@@ -594,7 +594,8 @@ function formatDuration(seconds: number) {
   if (seconds === 0) return "0 hours";
   const hours = seconds / 3600;
   if (hours < 24) return `${percentageFormatter.format(hours)} hr`;
-  return `${percentageFormatter.format(hours / 24)} days`;
+  const days = percentageFormatter.format(hours / 24);
+  return `${days} ${days === "1" ? "day" : "days"}`;
 }
 
 function yesNo(value: boolean) {

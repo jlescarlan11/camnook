@@ -1,5 +1,7 @@
 # Coverage
 
+- Inventory→Reports integration: synthetic draft blocked for October2 only displays midnightOct2 through midnightOct3 PHT. Reports Oct2-3 counts one day of manual unavailability; adjacent Oct1-2 and Oct3-4 periods count zero, confirming both exclusion boundaries. Removed block through UI, reload verifies absence and Reports Oct2-3 returns zero. Fixture availability/meetup unchanged. Single-day label defect AUD070 corrected and one-/two-day displays verified.
+
 - Reports boundaries: reversed and equal dates return explicit validation with no misleading fallback metrics. Historical January-February before any inventory yields zero revenue and unavailable utilization with zero inventory duration, matching Calculation notes. Back/Forward exposed AUD069 (restored report/error with later edited filter values); after fix actual invalid and valid history transitions restore matching dates. No financial data changed.
 
 - Post-AUD068 independent-form check: changed synthetic draft availability to Tuesday14:00 without saving, then removed and restored its meetup assignment through the other form. Both saves retain the unsaved Tuesday/time values. Reload proves persisted availability remains Monday09:00/17:00 and restored meetup remains assigned. No cross-form overwrite or draft loss observed; no cleanup pending.
