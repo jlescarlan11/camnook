@@ -133,8 +133,10 @@ function value(formData: FormData, key: string) {
 }
 
 function safeReturnTo(value: string) {
-  // Account editing intentionally returns to this section; login strips anchors.
-  if (value === "/account#default-address") return value;
+  // Only the profile editor's exact destination preserves its section anchor.
+  if (value === "/account#default-address" || value === "/account/profile?saved=1#renter-details") {
+    return "/account/profile?saved=1#renter-details";
+  }
   return sanitizeReturnTo(value);
 }
 
@@ -255,6 +257,7 @@ export async function saveKycProfile(
   }
 
   revalidatePath("/account");
+  revalidatePath("/account/profile");
   revalidatePath("/checkout");
   redirect(safeReturnTo(parsed.data.returnTo));
 }

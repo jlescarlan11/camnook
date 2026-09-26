@@ -63,9 +63,20 @@ describe("renter booking projection", () => {
       profile: { accountStatus: "active", legalName: "Maria Santos" },
       status: "success",
     });
-    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith("get_my_account_overview");
-    expect(rpc).toHaveBeenCalledWith("get_my_kyc_profile_v2");
+    expect(rpc).not.toHaveBeenCalledWith("get_my_kyc_profile_v2");
+    expect(await loadAccountOverview(context)).not.toHaveProperty("kycProfile");
+  });
+
+  it("loads rentals even when the KYC service would reject", async () => {
+    const rpc = vi.fn().mockImplementation((name: string) => {
+      if (name === "get_my_kyc_profile_v2") throw new Error("KYC unavailable");
+      return Promise.resolve({ data: { bookings: [], profile: null, is_admin: false }, error: null });
+    });
+    await expect(loadAccountOverview({
+      supabase: { schema: () => ({ rpc }) }, user: { id: "renter" },
+    } as never)).resolves.toMatchObject({ status: "success", bookings: [] });
   });
 
   it("rejects unexpected private fields in the account snapshot", async () => {

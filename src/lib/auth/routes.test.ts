@@ -7,6 +7,12 @@ import {
 } from "./routes";
 
 describe("authentication route policy", () => {
+  it("preserves the dedicated profile destination through sign-in", () => {
+    expect(isProtectedRoute("/account/profile")).toBe(true);
+    expect(sanitizeReturnTo("/account/profile")).toBe("/account/profile");
+    expect(loginPath("/account/profile")).toBe("/login?next=%2Faccount%2Fprofile");
+    expect(sanitizeReturnTo("/accounts")).toBe("/account");
+  });
   it.each([
     "/account",
     "/account/bookings",

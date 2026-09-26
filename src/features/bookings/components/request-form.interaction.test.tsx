@@ -9,7 +9,22 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 import { testMeetupPlace } from "@/features/meetups/place-fixture.test-helper";
 import { RequestForm } from "./request-form";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+it("links a KYC-required recovery to the dedicated profile editor", async () => {
+  vi.mocked(requestBooking).mockResolvedValue({ status: "error", error: "kyc_required" });
+  render(<RequestForm meetupPlaces={[testMeetupPlace]} camera="test"
+    profile={{ legalName: "Sample Renter", phone: "09170000000" }}
+    schedule={{ handoffTime: "09:00", pickupDate: "2099-01-01", returnDate: "2099-01-03", policyVersion: "2" }}
+    summary={{ cameraName: "Test camera", dates: "Jan 1–3", handoffTime: "9 AM", rentalAmount: "₱1,000", securityDeposit: "₱500", totalDue: "₱1,500" }} />);
+  await userEvent.click(screen.getByRole("radio", { name: /Public mall entrance/ }));
+  await userEvent.type(screen.getByLabelText("Purpose"), "Sample portrait shoot");
+  await userEvent.type(screen.getByLabelText("Shooting city"), "Cebu City");
+  await userEvent.click(screen.getByRole("button", { name: "Review rental request" }));
+  await userEvent.click(screen.getByRole("button", { name: "Submit rental request" }));
+  const link = await screen.findByRole("link", { name: "Review your renter details" });
+  expect(link.getAttribute("href")).toBe("/account/profile#renter-details");
+});
 
 it("keeps the meetup input labelled and submits only after reviewing the rental plans", async () => {
   vi.mocked(requestBooking).mockResolvedValue({ status: "error", error: "schedule_changed" });

@@ -16,7 +16,7 @@ export default async function Home() {
   const presentation = publicCatalogPresentation(await loadCatalog());
   return (
     <div className="min-h-screen bg-white text-[#081d3b]">
-      <SiteHeader />
+      <SiteHeader activeSection="cameras" />
       <main className="page-shell spotlight-catalog">
         <header className="spotlight-intro">
           <h1>Make room for your next shot.</h1>

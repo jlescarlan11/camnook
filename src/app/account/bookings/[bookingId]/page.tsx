@@ -56,7 +56,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-950">
-      <SiteHeader />
+      <SiteHeader activeSection="rentals" activeSectionCurrent="location" />
       <main className="page-shell py-8 sm:py-12">
         <Link className="inline-flex min-h-11 items-center font-medium text-[#0b4f9c] underline decoration-[#c9dcfb] underline-offset-4" href="/account">Back to your rentals</Link>
         {result.status === "error" || result.status === "inconsistent" ? (

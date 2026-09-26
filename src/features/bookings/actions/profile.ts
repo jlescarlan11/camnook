@@ -63,6 +63,7 @@ export async function saveProfile(
   }
 
   revalidatePath("/account");
+  revalidatePath("/account/profile");
   revalidatePath("/checkout");
   return { status: "success" };
 }

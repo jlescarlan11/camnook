@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { requireUser } from "@/lib/auth/require-user";
 import type { Database } from "@/types/database.generated";
-import { kycProfileSchema, projectKycProfile } from "@/features/kyc/types";
+import { projectProfile, safeProfileSchema } from "@/features/account/profile";
 
 import { projectContractHistorySnapshot } from "../../contracts/data";
 import {
@@ -67,11 +67,6 @@ const safeBookingRowSchema = z.object({
 const publicCameraIdentitySchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
-}).strict();
-const safeProfileSchema = z.object({
-  account_status: z.enum(["active", "suspended"]),
-  legal_name: z.string().min(1),
-  phone: z.string().min(1),
 }).strict();
 
 const bookingDetailContextSchema = z.object({
@@ -140,13 +135,9 @@ export function projectBooking(
 }
 
 export async function loadAccountOverview(context: UserContext) {
-  const [result, kycResult] = await Promise.all([
-    context.supabase.schema("api").rpc("get_my_account_overview"),
-    context.supabase.schema("api").rpc("get_my_kyc_profile_v2"),
-  ]);
+  const result = await context.supabase.schema("api").rpc("get_my_account_overview");
   const parsed = accountOverviewSchema.safeParse(result.data);
-  const kyc = kycProfileSchema.safeParse(kycResult.data);
-  if (result.error || !parsed.success || kycResult.error || !kyc.success) return { status: "error" } as const;
+  if (result.error || !parsed.success) return { status: "error" } as const;
 
   if (parsed.data.bookings.some(
     ({ booking, meetup }) => booking.meetup_snapshot_required && !meetup,
@@ -163,14 +154,9 @@ export async function loadAccountOverview(context: UserContext) {
       ),
     ),
     profile: parsed.data.profile
-      ? {
-          accountStatus: parsed.data.profile.account_status,
-          legalName: parsed.data.profile.legal_name,
-          phone: parsed.data.profile.phone,
-        }
+      ? projectProfile(parsed.data.profile)
       : null,
     isAdmin: parsed.data.is_admin,
-    kycProfile: kyc.data ? projectKycProfile(kyc.data) : null,
     status: "success" as const,
   };
 }

@@ -129,6 +129,9 @@ describe("booking actions", () => {
     vi.mocked(requireUser).mockResolvedValue({ supabase: rpcClient(rpc), user: { id: "user-1" } } as never);
     await expect(saveProfile({ status: "idle" }, fields({}))).resolves.toEqual({ status: "success" });
     expect(rpc).toHaveBeenCalledWith("ensure_profile", { p_legal_name: "Maria Santos", p_phone: "+639171234567" });
+    expect(revalidatePath).toHaveBeenCalledWith("/account/profile");
+    expect(revalidatePath).toHaveBeenCalledWith("/account");
+    expect(revalidatePath).toHaveBeenCalledWith("/checkout");
   });
 
   it("silently saves name and phone before creating a saved-place request", async () => {

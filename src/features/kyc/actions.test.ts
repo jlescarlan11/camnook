@@ -8,6 +8,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/require-user", () => ({ requireUser: vi.fn() }));
 
 import { requireUser } from "@/lib/auth/require-user";
+import { revalidatePath } from "next/cache";
 
 import { saveKycProfile } from "./actions";
 
@@ -67,7 +68,11 @@ describe("renter KYC action", () => {
 
   it.each([
     ["/checkout?camera=test&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3", "/checkout?camera=test&pickupDate=2099-08-24&returnDate=2099-08-26&handoffTime=09%3A00&policyVersion=3"],
-    ["/account#default-address", "/account#default-address"],
+    ["/account#default-address", "/account/profile?saved=1#renter-details"],
+    ["/account/profile?saved=1#renter-details", "/account/profile?saved=1#renter-details"],
+    ["/account/profile", "/account/profile"],
+    ["/account/profile?saved=1#other", "/account/profile?saved=1"],
+    ["https://evil.test/account/profile?saved=1#renter-details", "/account"],
     ["/account/bookings/new?camera=test", "/account/bookings/new?camera=test"],
     ["//evil.test/checkout", "/account"],
     ["/accounts", "/account"],
@@ -76,6 +81,9 @@ describe("renter KYC action", () => {
     const rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
     vi.mocked(requireUser).mockResolvedValue({ supabase: { schema: () => ({ rpc }) }, user: { id: "renter" } } as never);
     await expect(saveKycProfile({ status: "idle" }, fields({ returnTo }))).rejects.toThrow(`redirect:${expected}`);
+    expect(revalidatePath).toHaveBeenCalledWith("/account/profile");
+    expect(revalidatePath).toHaveBeenCalledWith("/account");
+    expect(revalidatePath).toHaveBeenCalledWith("/checkout");
   });
 
   it("saves the required KYC fields and private pin through the actor-owned RPC", async () => {

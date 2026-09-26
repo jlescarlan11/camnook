@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { logout } from "@/features/auth/actions";
-import { AccountProfile } from "@/features/bookings/components/account-profile";
-import { SiteHeader } from "@/features/bookings/components/site-header";
+import { AccountPageShell } from "@/features/account/components/account-page-shell";
 import { presentCustomerBookingStatus } from "@/features/bookings/customer-status";
 import { loadAccountOverview } from "@/features/bookings/data/account";
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
-import { KycProfileForm } from "@/features/kyc/kyc-profile-form";
 import { requirePageUser } from "@/lib/auth/require-user";
 
 export const dynamic = "force-dynamic";
@@ -15,30 +12,18 @@ export const metadata: Metadata = { title: "Your rentals | CamNook" };
 
 export default async function AccountPage() {
   const context = await requirePageUser("/account");
-  const account = await loadAccountOverview(context);
+  const account = await loadAccountOverview(context).catch(() => ({ status: "error" as const }));
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-950">
-      <SiteHeader />
-      <main className="page-shell py-10 sm:py-14">
-        <header className="flex flex-wrap items-center justify-between gap-6 border-b border-stone-200 pb-6">
-          <div>
-            <h1 className="page-title">Rentals</h1>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {account.status === "success" && account.isAdmin ? <Link className="button-secondary" href="/admin">Owner area</Link> : null}
-            <form action={logout}><button className="button-secondary" type="submit">Sign out</button></form>
-          </div>
-        </header>
-
+    <AccountPageShell title="Your rentals" activeSection="rentals" isAdmin={account.status === "success" && account.isAdmin}>
         {account.status === "error" ? (
           <section className="mt-8 rounded-xl border border-red-200 bg-red-50 p-6 text-red-900" role="alert">
-            <h2 className="text-xl font-semibold">Account details unavailable</h2>
-            <p className="mt-2 leading-7">We couldn’t load your profile or requests. Please retry before submitting another request.</p>
+            <h2 className="text-xl font-semibold">Rentals unavailable</h2>
+            <p className="mt-2 leading-7">We couldn’t load your bookings. Please retry before submitting another request.</p>
             <Link className="mt-3 inline-block font-semibold underline" href="/account">Try again</Link>
           </section>
         ) : (
-          <div className="mt-10 grid grid-cols-1 items-start gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,.75fr)]">
+          <div className="mt-10">
             <section aria-labelledby="bookings-heading">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="section-heading" id="bookings-heading">Your bookings</h2>
@@ -77,21 +62,11 @@ export default async function AccountPage() {
               )}
             </section>
 
-            <aside className="space-y-8">
-              <section className="surface p-6" aria-labelledby="profile-heading">
-                <h2 className="text-xl font-semibold" id="profile-heading">Profile</h2>
-                <p className="mt-1 break-all text-sm text-stone-500">{context.user.email}</p>
-                <AccountProfile profile={account.profile} />
-              </section>
-              <section className="surface p-6" aria-labelledby="default-address-heading" id="default-address">
-                <h2 className="text-xl font-semibold" id="default-address-heading">Renter details</h2>
-                <p className="mt-2 text-sm text-stone-600">Required before your first request.</p>
-                <KycProfileForm kyc={account.kycProfile} profile={account.profile} returnTo="/account#default-address" />
-              </section>
-            </aside>
           </div>
         )}
-      </main>
-    </div>
+      <p className="mt-8 text-sm text-stone-600" id="default-address">
+        Manage renter details in <Link className="font-semibold text-[#0b4f9c] underline underline-offset-4" href="/account/profile#renter-details">Profile</Link>.
+      </p>
+    </AccountPageShell>
   );
 }

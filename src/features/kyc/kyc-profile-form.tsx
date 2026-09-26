@@ -175,7 +175,7 @@ function ProfileForm({
         </p>
       ) : null}
       <button className={checkout ? "checkout-primary" : "min-h-12 rounded-xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-60"} disabled={pending} type="submit">
-        {checkout ? pending ? "Saving your details…" : step === 1 ? "Continue to address" : "Save and continue to review" : pending ? "Saving KYC…" : kyc ? "Update KYC details" : "Save KYC details"}
+        {checkout ? pending ? "Saving your details…" : step === 1 ? "Continue to address" : "Save and continue to review" : pending ? "Saving details…" : kyc ? "Update renter details" : "Save renter details"}
         {checkout && !pending ? <ArrowRightIcon aria-hidden="true" /> : null}
       </button>
     </form>

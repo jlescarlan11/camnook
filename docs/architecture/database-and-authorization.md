@@ -380,6 +380,14 @@ cannot come from different commits than the booking list. The new-booking page,
 which needs only the profile prerequisite, performs one exact safe-column profile
 read and no longer fetches the renter's booking, camera, or meetup history.
 
+The rentals page at `/account` uses that overview snapshot without requesting
+KYC. The separate `/account/profile` page reads only its authenticated user's
+`account_status, legal_name, phone` columns from `public.profiles`, plus the
+existing owner-scoped KYC RPC. It explicitly filters `user_id` even for admins.
+Required-read failures suppress the editor; an unavailable optional `is_admin`
+lookup only suppresses the Owner area link. Both profile save paths invalidate
+`/account/profile`, `/account`, and `/checkout`.
+
 The admin landing page composes its operations queues, optional portfolio period,
 minimized handoff-policy summaries, and GCash recipient configuration in one
 sole-admin snapshot. Valid periods therefore use one Data API request instead of
