@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", () => ({ useSearchParams: vi.fn() }));
 vi.mock("@/features/auth/actions", () => ({ logout: vi.fn() }));
 vi.mock("@/lib/auth/require-user", () => ({ requirePageUser: vi.fn() }));
 vi.mock("@/features/account/data/profile", () => ({ loadProfilePage: vi.fn() }));
@@ -12,9 +13,14 @@ vi.mock("@/features/kyc/kyc-profile-form", () => ({
 import { requirePageUser } from "@/lib/auth/require-user";
 import { loadProfilePage } from "@/features/account/data/profile";
 import ProfilePage from "./page";
+import { useSearchParams } from "next/navigation";
 
-const renderPage = async (saved?: string | string[]) =>
-  renderToStaticMarkup(await ProfilePage({ searchParams: Promise.resolve({ saved }) }));
+const renderPage = async (saved?: string | string[]) => {
+  const query = new URLSearchParams();
+  for (const value of saved === undefined ? [] : Array.isArray(saved) ? saved : [saved]) query.append("saved", value);
+  vi.mocked(useSearchParams).mockReturnValue(query as ReturnType<typeof useSearchParams>);
+  return renderToStaticMarkup(await ProfilePage());
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
