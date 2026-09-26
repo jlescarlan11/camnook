@@ -99,6 +99,17 @@ describe("ResidentialMap fallbacks", () => {
     expect(onDraftChange).not.toHaveBeenCalled();
   });
 
+  it("announces a pin-only location attempt immediately and ignores it after a newer address action",()=>{
+    let success!:PositionCallback;
+    Object.defineProperty(navigator,"geolocation",{configurable:true,value:{getCurrentPosition:(ok:PositionCallback)=>{success=ok;}}});
+    const onDraftChange=vi.fn();const onInteractionStart=vi.fn();
+    const view=render(<ResidentialMap initialPin={null} mapKey="" invalidationKey={0} onInteractionStart={onInteractionStart} onDraftChange={onDraftChange}/>);
+    fireEvent.click(screen.getByRole("button",{name:"Use my location"}));
+    expect(onInteractionStart).toHaveBeenCalledTimes(1);
+    view.rerender(<ResidentialMap initialPin={null} mapKey="" invalidationKey={1} onInteractionStart={onInteractionStart} onDraftChange={onDraftChange}/>);
+    act(()=>success({coords:{latitude:10.33,longitude:123.9,accuracy:20}} as GeolocationPosition));
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
   it("removes earlier suggestions when the query changes and the next lookup fails", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ suggestions: [{ label: "Old Cebu result", latitude: 10.31, longitude: 123.89 }] })))

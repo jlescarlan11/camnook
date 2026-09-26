@@ -4,7 +4,10 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { readCheckoutDraft, writeCheckoutDraft } from "@/features/kyc/checkout-draft";
 
-import type { PsgcChoice } from "./types";
+import type { AddressPath, PsgcChoice } from "./types";
+import { FRIENDLY_AREA_BY_LOCALITY } from "./address-presentation";
+import { ShoppingAreaSelector } from "./shopping-area-selector";
+import { restoredAddress } from "./address-selection";
 
 type Selection = { code: string; name: string; type: PsgcChoice["type"] };
 const EMPTY_PATH: Selection[] = [];
@@ -34,11 +37,6 @@ async function fetchAreaChoices(parent: string | null, signal: AbortSignal): Pro
 // PSGC correctly places highly urbanized cities directly below their region.
 // The address form presents these cities inside the geographic area people use
 // in everyday addresses, while the submitted barangay code remains canonical.
-const FRIENDLY_AREA_BY_LOCALITY: Readonly<Record<string, string>> = {
-  "0730600000": "0702200000", // City of Cebu -> Cebu
-  "0731100000": "0702200000", // City of Lapu-Lapu -> Cebu
-  "0731300000": "0702200000", // City of Mandaue -> Cebu
-};
 
 function sortChoices(choices: PsgcChoice[]) {
   return [...choices].sort((left, right) =>
@@ -86,23 +84,34 @@ export function psgcLevelLabel(index: number, choices: PsgcChoice[]) {
   return "City or municipality";
 }
 
-export function PsgcAreaSelector({
+export type PsgcAreaSelectorProps = {
+  initialPath?: AddressPath;
+  draftKey?: string;
+  errorId?: string;
+  invalid?: boolean;
+  name?: string;
+  presentation?: "official" | "shopping";
+  externalSelection?: {requestId:number; release:string; path:AddressPath};
+  onExternalSelectionApplied?: (requestId:number)=>void;
+  onManualSelectionChange?: ()=>void;
+  onSelectionChange?: (selection: Selection | null, release: string | null) => void;
+};
+export function PsgcAreaSelector(props: PsgcAreaSelectorProps) {
+  return props.presentation === "shopping"
+    ? <ShoppingAreaSelector {...props}/>
+    : <OfficialPsgcAreaSelector {...props}/>;
+}
+function OfficialPsgcAreaSelector({
   initialPath = EMPTY_PATH,
   name = "psgcAreaCode",
   draftKey,
   errorId,
   invalid = false,
   onSelectionChange,
-}: {
-  initialPath?: Selection[];
-  draftKey?: string;
-  errorId?: string;
-  invalid?: boolean;
-  name?: string;
-  onSelectionChange?: (selection: Selection | null, release: string | null) => void;
-}) {
+  onManualSelectionChange,
+}: PsgcAreaSelectorProps) {
   const id = useId();
-  const [restorePath] = useState(() => readCheckoutDraft<Selection[]>(draftKey) ?? initialPath);
+  const [restorePath] = useState(() => restoredAddress(readCheckoutDraft<unknown>(draftKey), initialPath).path);
   const choicesCache = useRef(new Map<string, AreaChoices>());
   const activeRequest = useRef<AbortController | null>(null);
   const requestGate = useRef(createLatestRequestGate());
@@ -184,6 +193,7 @@ export function PsgcAreaSelector({
   useEffect(() => () => { activeRequest.current?.abort(); requestGate.current.begin(); }, []);
 
   async function select(levelIndex: number, code: string) {
+    onManualSelectionChange?.();
     retrySelection.current = { levelIndex, code };
     activeRequest.current?.abort();
     const controller = new AbortController();

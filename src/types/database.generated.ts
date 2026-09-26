@@ -84,6 +84,10 @@ export type Database = {
       }
       get_my_meetup_origin: { Args: never; Returns: Json }
       get_my_meetup_origin_for_routing: { Args: never; Returns: Json }
+      list_psgc_address_reference: {
+        Args: never
+        Returns: Json
+      }
       list_psgc_area_choices: {
         Args: { p_parent_code?: string }
         Returns: Json

@@ -7,9 +7,11 @@ import { CheckoutProgress } from "@/features/bookings/components/checkout-progre
 import { cloneElement, startTransition, useActionState, useEffect, useRef, useState, type FormEvent, type ReactElement, useSyncExternalStore } from "react";
 
 import { PsgcAreaSelector } from "@/features/locations/psgc-area-selector";
+import type { AddressLocationResult } from "@/features/locations/types";
 
 import { saveKycProfile, type KycActionState } from "./actions";
-import { ResidentialPinPicker } from "./residential-pin-picker";
+import { ResidentialPinPicker, type DraftPin } from "./residential-pin-picker";
+import { AddressLocationControl } from "./address-location-control";
 import type { KycProfile } from "./types";
 
 import { readCheckoutDraft, writeCheckoutDraft } from "./checkout-draft";
@@ -45,6 +47,16 @@ function ProfileForm({
   draftKey,
 }: FormProps) {
   const [draft] = useState(() => readCheckoutDraft<Record<string, string>>(draftKey));
+  const formRef = useRef<HTMLFormElement>(null);
+  const [addressEditRevision, setAddressEditRevision] = useState(Number(draft?.addressEditRevision) || 0);
+  const revision = useRef(addressEditRevision);
+  const [locationInvalidation, setLocationInvalidation] = useState(0);
+  const [mapInvalidation, setMapInvalidation] = useState(0);
+  const locationSequence = useRef(0);
+  const pendingPin = useRef<{requestId:number;pin:DraftPin} | null>(null);
+  const [externalSelection,setExternalSelection] = useState<{requestId:number;release:string;path:AddressLocationResult["path"]}>();
+  const [suggestedPin,setSuggestedPin] = useState<{requestId:number;pin:DraftPin}>();
+  const [pinError,setPinError] = useState(false);
   const [step, setStep] = useState<1 | 2>(initialStep);
   const [state, action, pending] = useActionState(async (previous: KycActionState, data: FormData) => {
     let result: KycActionState;
@@ -85,25 +97,47 @@ function ProfileForm({
   const legacyAddress = kyc?.addressFormatVersion === 1 ? kyc.addressLine1 : "";
   const initialStreetName = submitted?.streetName ?? kyc?.streetName ?? "";
 
-  function trackAddressChange(event: FormEvent<HTMLFormElement>) {
-    const values = new FormData(event.currentTarget);
+  function persistDetails() {
+    if (!formRef.current) return;
+    const values = new FormData(formRef.current);
     writeCheckoutDraft(draftKey, Object.fromEntries([
       "legalName", "birthDate", "phone", "houseNumber", "streetName", "building",
       "postalCode", "addressDetails", "legacyAddressLine1",
-    ].map((name) => [name, values.get(name) ?? ""])));
+    ].map((name) => [name, values.get(name) ?? ""]).concat([["addressEditRevision",String(revision.current)]])));
+  }
+  function invalidateLocation() {
+    setLocationInvalidation(n=>n+1);
+    setExternalSelection(undefined);
+    pendingPin.current=null;
+  }
+  function markAddressChanged() {
+    setAddressChanged(true);
+    revision.current++;
+    setAddressEditRevision(revision.current);
+    persistDetails();
+  }
+  function trackAddressChange(event: FormEvent<HTMLFormElement>) {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
     if ([
       "addressDetails", "building", "houseNumber", "legacyAddressLine1",
       "postalCode", "psgcAreaCode", "streetName",
-    ].includes(target.name)) setAddressChanged(true);
+    ].includes(target.name)) {
+      invalidateLocation();
+      markAddressChanged();
+    } else persistDetails();
   }
 
   return (
-    <form className={checkout ? "checkout-kyc" : "mt-6 space-y-5"} onChange={trackAddressChange}
+    <form ref={formRef} className={checkout ? "checkout-kyc" : "mt-6 space-y-5"} onChange={trackAddressChange}
       noValidate={checkout} onSubmit={(event) => {
         event.preventDefault();
+        invalidateLocation();
         if (pending) return;
+        setMapInvalidation(n=>n+1);
+        if ((!checkout || step === 2) && new FormData(event.currentTarget).get("pinConfirmationRequired") === "1") {
+          event.preventDefault();setPinError(true);return;
+        }
         if (checkout && step === 1) {
           if (validateDetails()) setStep(2);
           return;
@@ -132,7 +166,21 @@ function ProfileForm({
       </div>
       <div hidden={checkout && step !== 2} className={checkout ? "checkout-address-fields" : "space-y-5"}>
         <div>
-          <PsgcAreaSelector errorId={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined} initialPath={kyc?.path} draftKey={draftKey ? `${draftKey}:area` : undefined} invalid={Boolean(state.fieldErrors?.psgcAreaCode)} onSelectionChange={() => setAddressChanged(true)} />
+          <AddressLocationControl invalidationKey={locationInvalidation} disabled={pending}
+            onStart={()=>{setExternalSelection(undefined);pendingPin.current=null;setMapInvalidation(n=>n+1);}}
+            onResult={(result,pin)=>{
+            const requestId=++locationSequence.current;
+            if (!result.path.length) {setSuggestedPin({requestId,pin});return;}
+            pendingPin.current={requestId,pin};
+            setExternalSelection({requestId,release:result.release,path:result.path});
+          }}/>
+          <PsgcAreaSelector presentation="shopping" externalSelection={externalSelection}
+            onExternalSelectionApplied={requestId=>{
+              if (pendingPin.current?.requestId === requestId) {
+                setSuggestedPin(pendingPin.current);pendingPin.current=null;
+              }
+            }} onManualSelectionChange={invalidateLocation}
+            errorId={state.fieldErrors?.psgcAreaCode ? "kyc-area-error" : undefined} initialPath={kyc?.path} draftKey={draftKey ? `${draftKey}:area` : undefined} invalid={Boolean(state.fieldErrors?.psgcAreaCode)} onSelectionChange={markAddressChanged} />
           {state.fieldErrors?.psgcAreaCode ? <p className="mt-2 text-sm text-red-700" id="kyc-area-error" role="alert">{state.fieldErrors.psgcAreaCode}</p> : null}
         </div>
         <fieldset className="space-y-4 rounded-xl border border-stone-200 p-4">
@@ -163,7 +211,11 @@ function ProfileForm({
         <ResidentialPinPicker
           draftKey={draftKey ? `${draftKey}:pin` : undefined}
           addressChanged={addressChanged || Boolean(draft)}
-          error={state.fieldErrors?.residentialPin}
+          addressEditRevision={addressEditRevision}
+          suggestedPin={suggestedPin}
+          mapInvalidationKey={mapInvalidation}
+          onManualPinChange={()=>{invalidateLocation();setPinError(false);}}
+          error={pinError ? "Confirm your residential map pin before saving." : state.fieldErrors?.residentialPin}
           initialPin={kyc?.residentialPin ?? null}
         />
       </div>

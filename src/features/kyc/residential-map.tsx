@@ -16,15 +16,20 @@ export function ResidentialMap({
   initialPin,
   mapKey,
   onDraftChange,
+  onInteractionStart,
+  invalidationKey = 0,
 }: {
   initialPin: DraftPin | null;
   mapKey: string;
   onDraftChange: (pin: DraftPin) => void;
+  onInteractionStart?: () => void;
+  invalidationKey?: number;
 }) {
   const mapView = useRef<import("leaflet").Map | null>(null);
   const pinMarker = useRef<import("leaflet").Marker | null>(null);
   const latestPin = useRef(initialPin);
-  const [locating, setLocating] = useState(false);
+  const [locatingKey, setLocatingKey] = useState<number | null>(null);
+  const locating = locatingKey === invalidationKey;
   const container = useRef<HTMLDivElement>(null);
   const callback = useRef(onDraftChange);
   const searchRequest = useRef(0);
@@ -36,6 +41,16 @@ export function ResidentialMap({
   const [latitude, setLatitude] = useState(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
   const [longitude, setLongitude] = useState(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
   const [coordinateError, setCoordinateError] = useState(false);
+  useEffect(()=>()=>{pinRequest.current++;searchRequest.current++;},[invalidationKey]);
+  const [displayedPin,setDisplayedPin] = useState(initialPin);
+  // A new parent-supplied candidate must also update the keyboard fallback.
+  // Adjust during render so children never expose coordinates from the old pin.
+  if (displayedPin !== initialPin) {
+    setDisplayedPin(initialPin);
+    setLatitude(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
+    setLongitude(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
+    setCoordinateError(false);
+  }
 
   useEffect(() => () => {
     // Geolocation cannot be aborted. Invalidate its callback when the editor
@@ -59,7 +74,7 @@ export function ResidentialMap({
   function selectPin(pin: DraftPin) {
     pinRequest.current += 1;
     latestPin.current = pin;
-    setLocating(false);
+    setLocatingKey(null);
     setCoordinateError(false);
     if (mapView.current && pinMarker.current) {
       pinMarker.current.setLatLng([pin.latitude, pin.longitude]).addTo(mapView.current);
@@ -67,13 +82,6 @@ export function ResidentialMap({
     }
     onDraftChange(pin);
   }
-
-  useEffect(() => () => {
-    // Geolocation cannot be aborted. Invalidate its callback when the editor
-    // closes so it cannot publish a private pin after cancellation.
-    pinRequest.current += 1;
-    searchRequest.current += 1;
-  }, []);
 
   useEffect(() => { callback.current = onDraftChange; }, [onDraftChange]);
 
@@ -107,7 +115,7 @@ export function ResidentialMap({
       if (latestPin.current) marker.addTo(map);
       const choose = (lat: number, lng: number) => {
         const request = ++pinRequest.current;
-        setLocating(false);
+        setLocatingKey(null);
         setCoordinateError(false);
         if (!isPhilippineCoordinate(lat, lng)) {
           const previous = latestPin.current ?? CEBU_CENTER;
@@ -150,6 +158,7 @@ export function ResidentialMap({
     // another provider reservation for an unchanged, still-pending request.
     if (pendingSearch.current?.query === queryValue &&
       pendingSearch.current.request === searchRequest.current) return;
+    onInteractionStart?.();
     const request = ++searchRequest.current;
     setSuggestions([]);
     if (queryValue.length < 3) {
@@ -197,17 +206,18 @@ export function ResidentialMap({
   }
 
   function useLocation() {
+    onInteractionStart?.();
     if (!navigator.geolocation) {
       setStatus("Location is not available in this browser. Search for your address or place the pin manually.");
       return;
     }
     const request = ++pinRequest.current;
-    setLocating(true);
+    setLocatingKey(invalidationKey);
     setStatus("Finding your location…");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (request !== pinRequest.current) return;
-        setLocating(false);
+        setLocatingKey(null);
         const next = {
           accuracyMeters: position.coords.accuracy,
           label: "Device location",
@@ -226,7 +236,7 @@ export function ResidentialMap({
       },
       () => {
         if (request !== pinRequest.current) return;
-        setLocating(false);
+        setLocatingKey(null);
         setStatus("Location is unavailable. Search for your address or tap the map to place your pin.");
       },
       { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
@@ -283,6 +293,7 @@ export function ResidentialMap({
             id="residential-map-search"
             maxLength={300}
             onChange={(event) => {
+              onInteractionStart?.();
               searchRequest.current += 1;
               setQuery(event.target.value);
               setSuggestions([]);
@@ -314,8 +325,8 @@ export function ResidentialMap({
       }}>
         <legend className="text-sm font-medium">Keyboard pin placement</legend>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">Latitude<input aria-describedby={coordinateError ? "residential-map-status" : undefined} aria-invalid={coordinateError ? true : undefined} className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => { setLatitude(event.target.value); if (coordinateError) { setCoordinateError(false); setStatus(""); } }} value={latitude} /></label>
-          <label className="text-sm">Longitude<input aria-describedby={coordinateError ? "residential-map-status" : undefined} aria-invalid={coordinateError ? true : undefined} className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => { setLongitude(event.target.value); if (coordinateError) { setCoordinateError(false); setStatus(""); } }} value={longitude} /></label>
+          <label className="text-sm">Latitude<input aria-describedby={coordinateError ? "residential-map-status" : undefined} aria-invalid={coordinateError ? true : undefined} className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => { onInteractionStart?.(); pinRequest.current++; setLocatingKey(null); setLatitude(event.target.value); if (coordinateError) { setCoordinateError(false); setStatus(""); } }} value={latitude} /></label>
+          <label className="text-sm">Longitude<input aria-describedby={coordinateError ? "residential-map-status" : undefined} aria-invalid={coordinateError ? true : undefined} className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2" inputMode="decimal" onChange={(event) => { onInteractionStart?.(); pinRequest.current++; setLocatingKey(null); setLongitude(event.target.value); if (coordinateError) { setCoordinateError(false); setStatus(""); } }} value={longitude} /></label>
         </div>
         <button className="mt-2 min-h-11 rounded-xl border border-stone-300 px-4 py-2 font-medium" onClick={placeCoordinates} type="button">Place pin at coordinates</button>
       </fieldset>

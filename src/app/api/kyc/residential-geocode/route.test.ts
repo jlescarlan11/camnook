@@ -17,6 +17,7 @@ import { claimGeoapifyProviderBudget } from "@/features/meetups/provider-budget"
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
 
 import { POST } from "./route";
+import { reference, cebuPath, children } from "@/features/locations/address-fixtures.test-support";
 
 function request(body: unknown) {
   return new Request("https://camnook.test/api/kyc/residential-geocode", {
@@ -77,5 +78,27 @@ describe("residential geocoding route", () => {
     const response = await POST(request({ mode: "search", query: "Mango Avenue" }));
     expect(response.status).toBe(503);
     expect(GeoapifyAdapter).not.toHaveBeenCalled();
+  });
+
+  it("returns a canonical address from one provider request", async () => {
+    const rpc = vi.fn(async (name: string, args?: {p_parent_code?:string}) => ({error:null, data:
+      name === "list_psgc_address_reference" ? reference :
+      name === "list_psgc_area_choices" ? children(args!.p_parent_code!) :
+      {release:reference.release,current:true,active:true,path:cebuPath},
+    }));
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({user:{id:"user-1"},supabase:{schema:()=>({rpc})}} as never);
+    vi.mocked(GeoapifyAdapter).mockImplementation(function () {
+      return { reverseGeocodeAddressAreas: async()=>({countryCode:"PH",city:"Cebu City",suburb:"Lahug"}) } as never;
+    });
+    const response = await POST(request({mode:"address",latitude:10.33,longitude:123.9,accuracyMeters:15}));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({outcome:"complete",path:cebuPath});
+    expect(claimGeoapifyProviderBudget).toHaveBeenCalledExactlyOnceWith("user-1",1);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+  it("handles an auth outage without spending provider budget", async () => {
+    vi.mocked(getAuthenticatedUser).mockRejectedValue(new Error("private outage"));
+    expect((await POST(request({mode:"address",latitude:10.33,longitude:123.9,accuracyMeters:15}))).status).toBe(503);
+    expect(claimGeoapifyProviderBudget).not.toHaveBeenCalled();
   });
 });

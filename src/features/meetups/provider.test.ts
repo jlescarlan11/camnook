@@ -273,6 +273,18 @@ describe("GeoapifyAdapter", () => {
     expect(JSON.stringify(result)).not.toContain("provider-only");
   });
 
+  it("returns structured administrative hints even without a formatted address", async () => {
+    const request = vi.fn().mockResolvedValue(response(mcp({ results: [{
+      country_code: "ph", city: "Cebu City", county: "Cebu", suburb: "Lahug",
+      lat: 10.33, lon: 123.9, distance: 12, internal: "private",
+    }] })));
+    const adapter = new GeoapifyAdapter({ apiKey: "secret", fetchImplementation: request, timeoutMs: 100 });
+    const result = await adapter.reverseGeocodeAddressAreas({latitude:10.33,longitude:123.9});
+    expect(result).toMatchObject({countryCode: "PH", city: "Cebu City", county:"Cebu", suburb:"Lahug", distanceMeters:12});
+    expect(JSON.stringify(result)).not.toContain("private");
+    expect(String(request.mock.calls[0][0])).not.toContain("10.33");
+  });
+
   it("accepts only an administrative centroid matching the resolved PSGC path", async () => {
     const request = vi.fn().mockResolvedValue(
       response(mcp({
