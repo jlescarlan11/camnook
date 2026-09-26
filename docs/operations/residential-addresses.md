@@ -115,6 +115,46 @@ when the configured exact revision is promoted, the structured fields are
 immediately active. Missing map configuration leaves the required written
 address path available.
 
+## Device-assisted address selection
+
+The shared checkout/account form presents Metro Manila, North Luzon, South
+Luzon, Visayas, and Mindanao. These are navigation groups only: saved KYC and
+contracts retain the canonical PSGC code, release, and official parent path.
+Metro Manila goes directly to city/municipality, with a district for Manila.
+Cebu's reviewed city aliases remain presentation-only.
+
+`api.list_psgc_address_reference()` is an authenticated, bounded read of the
+active non-barangay catalogue. The form lazy-loads barangays. Apply the additive
+`20260926024943_add_psgc_address_reference.sql` migration before publishing the
+application. Its rollback does not require removing the read RPC.
+
+“Use my current location” requests browser permission only on click and makes
+one authenticated POST reverse lookup using the existing Geoapify budget.
+Matching uses exact normalized names and canonical ancestry, never a nearest
+centroid or fuzzy first result. Accuracy or provider distance over 1,000 metres
+limits suggestions to locality. Unknown or conflicting names remain partial
+or unmatched. House, street, unit, and postal fields are never overwritten.
+The original GPS point becomes an unconfirmed draft, not a verified residence.
+Any later address or pin change requires confirmation again. Manual edits and
+save attempts cancel pending autofill; failures retain manual address entry.
+
+Implementation verification (2026-09-26): Development public-place samples
+returned Cebu City / Central Visayas for UP Cebu and Manila / Metro Manila for
+Rizal Park. Neither included a barangay hint; both therefore require manual
+barangay completion. Chrome extension checks used the verified John lester
+profile, an isolated local synthetic fixture, and no real GPS or saved renter
+data. Full/partial suggestions, permission denial, provider failure, typed-field
+preservation, pin reconfirmation, reload restoration, and a 390px viewport were
+checked. Live authenticated checkout and actual tile rendering remain release
+checks; the local fixture deliberately had no map key.
+
+The rollback-only hosted reference test is registered for both environments.
+The disposable database harness also runs the complete-address/pin regression;
+its constraint names are schema-qualified so it works outside the hosted
+search-path defaults. Local Supabase type generation requires the project's
+Supabase containers; if unavailable, verify the additive JSON RPC signature
+against its migration and regenerate on the next full local-stack check.
+
 ## Failure and recovery
 
 Missing configuration, budget denial, timeout, quota, network, malformed, empty,

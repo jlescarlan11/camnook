@@ -52,6 +52,15 @@ neither option is offered for a new or replacement address.
 
 ## Projection and authorization rules
 
+Residential address entry has a separate five-group presentation. The bounded
+authenticated `list_psgc_address_reference` RPC supplies current non-barangay
+nodes from one snapshot; children and final resolution must agree on release.
+Shopping group IDs are client-only navigation state, never persisted official
+regions. Reverse-geocoder hints are resolved through this graph using exact
+normalized matching and ancestry constraints. Ambiguity produces a partial
+path, and the original device point is offered only as an unconfirmed private
+residential draft. It never changes a routing origin or public meetup anchor.
+
 Public listing snapshots may expose only the area label, PSGC release/code, and
 an approximation label. They never expose private coordinates, provider
 references, device accuracy, consent, or provenance. Even when the camera uses a

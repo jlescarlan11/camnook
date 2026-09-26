@@ -12,6 +12,10 @@
     {
       "path": "supabase/tests/hosted/010_calendar_handoff_meetup.sql",
       "targets": ["development"]
+    },
+    {
+      "path": "supabase/tests/hosted/027_psgc_address_reference.sql",
+      "targets": ["development", "production"]
     }
   ]
 }

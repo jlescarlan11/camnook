@@ -46,6 +46,16 @@ generator, validate again, and regenerate.
 
 ## Verify and release
 
+Run the five-group coverage tests in `src/features/locations/address-presentation.test.ts`
+and compare every active region code with `ADDRESS_GROUPS`. The reviewed mapping
+puts Central Luzon in North Luzon, MIMAROPA in South Luzon, NIR in Visayas, and
+BARMM in Mindanao. Do not infer a shopping group for a new official region: the
+residential selector falls back to the official cascade until its grouping is
+reviewed. Check the bounded address-reference RPC, active ancestry, and saved
+Cebu/Manila restoration. Refresh the representative hosted reference smoke test
+if a canonical parent legitimately changes. Existing shopping groups must never
+be written as official PSGC parents.
+
 Replay the complete migration chain in a disposable database and run the
 database tests. Verify the manifest counts, independent-city cascade, one
 ordinary province/city/barangay cascade, resolution of the new path, and that a

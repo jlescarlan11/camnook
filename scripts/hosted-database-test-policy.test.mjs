@@ -54,9 +54,11 @@ describe("hosted database test policy", () => {
       "supabase/tests/hosted/005_verification_policy_disabled.sql",
       "supabase/tests/hosted/006_verification_rls.sql",
       "supabase/tests/hosted/010_calendar_handoff_meetup.sql",
+      "supabase/tests/hosted/027_psgc_address_reference.sql",
     ]);
     expect(selectHostedTests("production")).toEqual([
       "supabase/tests/hosted/005_verification_policy_disabled.sql",
+      "supabase/tests/hosted/027_psgc_address_reference.sql",
     ]);
   });
 
