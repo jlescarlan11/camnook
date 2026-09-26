@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { PsgcAreaSelector } from "./psgc-area-selector";
@@ -7,7 +7,27 @@ import { cebuPath, children, reference } from "./address-fixtures.test-support";
 import { writeCheckoutDraft } from "@/features/kyc/checkout-draft";
 import { area } from "./address-fixtures.test-support";
 
-afterEach(() => {cleanup();vi.unstubAllGlobals();sessionStorage.clear();});
+afterEach(() => {cleanup();vi.useRealTimers();vi.unstubAllGlobals();sessionStorage.clear();});
+it.each(["reference", "barangays"] as const)("offers retry after a stalled %s lookup without accepting incomplete data", async kind => {
+  vi.useFakeTimers();
+  let stalled = true;
+  vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit) => {
+    if (stalled && (kind === "reference" || !url.includes("view="))) {
+      return new Promise<Response>((_resolve, reject) => {
+        init.signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      });
+    }
+    return Promise.resolve(Response.json(url.includes("view=") ? reference : children("0730600000")));
+  }));
+  const view = render(<PsgcAreaSelector presentation="shopping" initialPath={cebuPath}/>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+  expect(view.container.querySelector<HTMLInputElement>('[name="psgcAreaCode"]')?.value).toBe("");
+  const retry = screen.getByRole("button", { name: "Retry area lookup" });
+  stalled = false;
+  await act(async () => { fireEvent.click(retry); });
+  expect((screen.getByLabelText("Barangay") as HTMLSelectElement).value).toBe("0730600041");
+  expect(view.container.querySelector<HTMLInputElement>('[name="psgcAreaCode"]')?.value).toBe("0730600041");
+});
 it("falls back to official regions with a version-2 draft when a new region is introduced",async()=>{
   const next={...reference,nodes:[...reference.nodes,area("2000000000","New official region","region",null)]};
   writeCheckoutDraft("unknown-region",{version:2,groupId:"visayas",canonicalPath:cebuPath,release:reference.release});

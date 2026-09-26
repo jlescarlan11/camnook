@@ -8,6 +8,25 @@ import type { PsgcAreaSelectorProps } from "./psgc-area-selector";
 
 const EMPTY_PATH: AddressPath = [];
 const inputClass = "min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2";
+
+async function fetchAreaData(url: string, signal: AbortSignal): Promise<unknown> {
+  // A deadline aborts only this read, so callers can distinguish a retryable
+  // timeout from a superseded selection or unmounted component.
+  const request = new AbortController();
+  const abort = () => request.abort();
+  const timeout = setTimeout(abort, 20_000);
+  signal.addEventListener("abort", abort, { once: true });
+  if (signal.aborted) request.abort();
+  try {
+    const response = await fetch(url, { signal: request.signal, cache: "no-cache" });
+    if (!response.ok) throw new Error("reference_unavailable");
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener("abort", abort);
+  }
+}
+
 export function ShoppingAreaSelector({initialPath = EMPTY_PATH, draftKey, name = "psgcAreaCode", errorId, invalid,
   onSelectionChange, onManualSelectionChange, externalSelection, onExternalSelectionApplied,
 }: PsgcAreaSelectorProps) {
@@ -33,9 +52,7 @@ export function ShoppingAreaSelector({initialPath = EMPTY_PATH, draftKey, name =
     const key = ref.release + ":" + parent;
     const cached = cache.current.get(key);
     if (cached) return cached;
-    const response = await fetch("/api/locations/psgc?parent=" + parent, {signal, cache:"no-cache"});
-    if (!response.ok) throw new Error("reference_unavailable");
-    const payload = psgcChoicesSchema.parse(await response.json());
+    const payload = psgcChoicesSchema.parse(await fetchAreaData("/api/locations/psgc?parent=" + parent, signal));
     if (payload.release !== ref.release) throw new Error("reference_changed");
     cache.current.set(key,payload.choices);
     return payload.choices;
@@ -50,9 +67,7 @@ export function ShoppingAreaSelector({initialPath = EMPTY_PATH, draftKey, name =
     controller.current = active;
     async function load() {
       try {
-        const response = await fetch("/api/locations/psgc?view=address-reference",{signal:active.signal,cache:"no-cache"});
-        if (!response.ok) throw new Error("reference_unavailable");
-        const ref = addressReferenceSchema.parse(await response.json());
+        const ref = addressReferenceSchema.parse(await fetchAreaData("/api/locations/psgc?view=address-reference", active.signal));
         const selection = await prepareAddressSelection(ref,retryPath.current,parent=>leafChoices(ref,parent,active.signal));
         if (active.signal.aborted || request !== requestId.current) return;
         setReference(ref); setPath(selection.path); setBarangays(selection.barangays);
@@ -77,9 +92,7 @@ export function ShoppingAreaSelector({initialPath = EMPTY_PATH, draftKey, name =
         let ref = reference!;
         if (ref.release !== externalSelection!.release) {
           cache.current.clear();
-          const response = await fetch("/api/locations/psgc?view=address-reference",{signal:active.signal,cache:"no-cache"});
-          if (!response.ok) throw new Error("reference_unavailable");
-          ref = addressReferenceSchema.parse(await response.json());
+          ref = addressReferenceSchema.parse(await fetchAreaData("/api/locations/psgc?view=address-reference", active.signal));
         }
         if (ref.release !== externalSelection!.release) throw new Error("reference_changed");
         const next = await prepareAddressSelection(ref,externalSelection!.path,parent=>leafChoices(ref,parent,active.signal));

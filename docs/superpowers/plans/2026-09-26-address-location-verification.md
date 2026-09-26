@@ -18,6 +18,14 @@ merge. Hosted migrations and promotion must use the existing release workflow.
 - Ran the requested global `npm i -g vercel@latest`; verified Vercel CLI
   **60.1.3** (previous installed version: 59.23.2). The release workflow's pinned
   toolchain was not changed.
+- Integration review identified one further Important issue: the shopping
+  selector needed main's 20-second PSGC timeout/retry behavior. Reference,
+  barangay, and release-refresh reads now share that deadline. Two stalled-read
+  tests were RED→GREEN; 25 selector/autofill/map tests passed afterward. The
+  reviewer rechecked the fix and reported no remaining integration findings.
+- The review was source-only, not a live-device check or GitHub approval.
+  Real PostgreSQL acceptance/concurrency, lint, and typecheck passed on the
+  first rebase. Full pre-push and GitHub checks validate the final revision.
 
 ## Delivered behavior
 
