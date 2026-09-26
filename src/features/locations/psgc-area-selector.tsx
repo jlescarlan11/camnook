@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { readCheckoutDraft, writeCheckoutDraft } from "@/features/kyc/checkout-draft";
 
 import type { PsgcChoice } from "./types";
+import { FRIENDLY_AREA_BY_LOCALITY } from "./address-presentation";
 
 type Selection = { code: string; name: string; type: PsgcChoice["type"] };
 const EMPTY_PATH: Selection[] = [];
@@ -34,11 +35,6 @@ async function fetchAreaChoices(parent: string | null, signal: AbortSignal): Pro
 // PSGC correctly places highly urbanized cities directly below their region.
 // The address form presents these cities inside the geographic area people use
 // in everyday addresses, while the submitted barangay code remains canonical.
-const FRIENDLY_AREA_BY_LOCALITY: Readonly<Record<string, string>> = {
-  "0730600000": "0702200000", // City of Cebu -> Cebu
-  "0731100000": "0702200000", // City of Lapu-Lapu -> Cebu
-  "0731300000": "0702200000", // City of Mandaue -> Cebu
-};
 
 function sortChoices(choices: PsgcChoice[]) {
   return [...choices].sort((left, right) =>

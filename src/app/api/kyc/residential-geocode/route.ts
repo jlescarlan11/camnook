@@ -4,10 +4,18 @@ import { getResidentialGeocodingConfig } from "@/features/meetups/config";
 import { GeoapifyAdapter, ProviderBoundaryError } from "@/features/meetups/provider";
 import { claimGeoapifyProviderBudget } from "@/features/meetups/provider-budget";
 import { getAuthenticatedUser } from "@/lib/auth/require-user";
+import { addressReferenceReaders, loadAddressReference } from "@/features/locations/address-reference";
+import { matchAddressAreas } from "@/features/locations/address-matcher";
 
 const MAX_REQUEST_BYTES = 2_048;
 
 const requestSchema = z.discriminatedUnion("mode", [
+  z.object({
+    latitude: z.number().finite().min(4).max(22),
+    longitude: z.number().finite().min(116).max(127),
+    accuracyMeters: z.number().finite().positive().max(50_000),
+    mode: z.literal("address"),
+  }).strict(),
   z.object({
     mode: z.literal("search"),
     query: z.string().trim().min(3).max(300)
@@ -26,7 +34,9 @@ const responseHeaders = {
 };
 
 export async function POST(request: Request) {
-  const context = await getAuthenticatedUser();
+  let context: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try { context = await getAuthenticatedUser(); }
+  catch { return json({ error: "unavailable" }, 503); }
   if (!context) return json({ error: "unauthorized" }, 401);
 
   const body = await readBoundedBody(request);
@@ -40,6 +50,12 @@ export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) return json({ error: "invalid" }, 400);
 
+  let reference;
+  if (parsed.data.mode === "address") {
+    try { reference = await loadAddressReference(context.supabase); }
+    catch { return json({ error: "reference_unavailable" }, 503); }
+  }
+
   const config = getResidentialGeocodingConfig();
   if (!config || !(await claimGeoapifyProviderBudget(context.user.id, 1))) {
     return json({ error: "unavailable" }, 503);
@@ -50,6 +66,17 @@ export async function POST(request: Request) {
     timeoutMs: config.timeoutMs,
   });
   try {
+    if (parsed.data.mode === "address" && reference) {
+      const hints = await adapter.reverseGeocodeAddressAreas(parsed.data);
+      if (hints.countryCode !== "PH") return json({ error: "outside_philippines" }, 422);
+      try {
+        const result = await matchAddressAreas({
+          hints, accuracyMeters: parsed.data.accuracyMeters, reference,
+          ...addressReferenceReaders(context.supabase),
+        });
+        return json(result, 200);
+      } catch { return json({ error: "reference_unavailable" }, 503); }
+    }
     if (parsed.data.mode === "search") {
       const suggestions = await adapter.searchResidentialAddresses(
         parsed.data.query,

@@ -17,6 +17,24 @@ function authorize(data: unknown, error: unknown = null) {
 describe("authenticated PSGC choices route", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("returns the address catalogue separately from parent choices", async () => {
+    const rpc = authorize({release: "2026-q2", nodes: [{
+      code: "1300000000", name: "NCR", type: "region", city_class: null,
+      has_children: true, parentCode: null,
+    }]});
+    const response = await GET(new Request("https://camnook.example/api/locations/psgc?view=address-reference"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).nodes[0].code).toBe("1300000000");
+    expect(rpc).toHaveBeenCalledWith("list_psgc_address_reference");
+    expect(response.headers.get("cache-control")).toBe("private, max-age=300");
+  });
+  it("rejects mixed query modes", async () => {
+    const rpc = authorize(null);
+    const response = await GET(new Request("https://camnook.example/api/locations/psgc?view=address-reference&parent=1300000000"));
+    expect(response.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("denies unauthenticated reference discovery", async () => {
     vi.mocked(requireUser).mockRejectedValue(new Error("private auth detail"));
     const response = await GET(new Request("https://camnook.example/api/locations/psgc"));

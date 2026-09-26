@@ -129,6 +129,14 @@ const residentialSearchResponseSchema = z.object({
   })).max(5),
 });
 
+const administrativeHintsSchema = z.object({
+  country_code: z.string().trim().length(2),
+  city: providerCityPartSchema.optional(), municipality: providerCityPartSchema.optional(),
+  state: providerCityPartSchema.optional(), county: providerCityPartSchema.optional(),
+  suburb: providerCityPartSchema.optional(), village: providerCityPartSchema.optional(),
+  district: providerCityPartSchema.optional(), formatted: residentialLabelSchema.optional(),
+  distance: z.number().finite().nonnegative().optional(),
+});
 const residentialReverseResponseSchema = z.object({
   results: z.array(
     z.object({
@@ -419,6 +427,21 @@ export class GeoapifyAdapter {
       throw new ProviderBoundaryError("empty");
     }
     return { label: label.replace(/\s+/g, " ") };
+  }
+
+  async reverseGeocodeAddressAreas(position: Coordinate) {
+    const payload = await this.requestTool("reverse_geocode_coordinates", {
+      country_codes: ["ph"], lang: "en", lat: position.latitude, lon: position.longitude, limit: 1,
+    });
+    const parsed = z.object({results: z.array(administrativeHintsSchema).max(1)}).safeParse(payload);
+    if (!parsed.success) throw new ProviderBoundaryError("malformed");
+    const result = parsed.data.results[0];
+    if (!result) throw new ProviderBoundaryError("empty");
+    return {
+      countryCode: result.country_code.toUpperCase(), city: result.city, municipality: result.municipality,
+      state: result.state, county: result.county, suburb: result.suburb, village: result.village,
+      district: result.district, label: result.formatted, distanceMeters: result.distance,
+    };
   }
 
   async geocodeAreaCentroid(input: {
