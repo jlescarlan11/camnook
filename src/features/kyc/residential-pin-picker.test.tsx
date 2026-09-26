@@ -32,6 +32,35 @@ import { ResidentialPinPicker } from "./residential-pin-picker";
 
 afterEach(cleanup);
 
+it("requires confirmation again after another address edit in the same form", () => {
+  const view = render(<ResidentialPinPicker addressChanged addressEditRevision={1} initialPin={null}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Choose synthetic point"}));
+  fireEvent.click(screen.getByRole("button",{name:"Confirm this pin"}));
+  expect(hidden(view.container,"pinOperation")?.value).toBe("set");
+  view.rerender(<ResidentialPinPicker addressChanged addressEditRevision={2} initialPin={null}/>);
+  expect(hidden(view.container,"pinOperation")?.value).not.toBe("set");
+  expect(hidden(view.container,"pinConfirmationRequired")?.value).toBe("1");
+  fireEvent.click(screen.getByRole("button",{name:"Confirm this pin"}));
+  expect(hidden(view.container,"pinOperation")?.value).toBe("set");
+});
+it("invalidates confirmation on a new manual selection even at the same coordinates",()=>{
+  const view=render(<ResidentialPinPicker addressChanged={false} initialPin={null}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Choose synthetic point"}));
+  fireEvent.click(screen.getByRole("button",{name:"Confirm this pin"}));
+  fireEvent.click(screen.getByRole("button",{name:"Choose synthetic point"}));
+  expect(hidden(view.container,"pinConfirmationRequired")?.value).toBe("1");
+});
+it("stages suggested GPS coordinates without submitting them until confirmation", () => {
+  const pin = {latitude:10.33,longitude:123.9,accuracyMeters:20,label:"Device location",source:"device_gps" as const};
+  const view = render(<ResidentialPinPicker addressChanged addressEditRevision={1} initialPin={null} suggestedPin={{requestId:1,pin}}/>);
+  expect(hidden(view.container,"pinLatitude")?.value).toBe("");
+  fireEvent.click(screen.getByRole("button",{name:"Confirm this pin"}));
+  expect(hidden(view.container,"pinLatitude")?.value).toBe("10.33");
+  expect(hidden(view.container,"pinAccuracyMeters")?.value).toBe("20");
+  view.rerender(<ResidentialPinPicker addressChanged addressEditRevision={1} initialPin={null} suggestedPin={{requestId:2,pin}}/>);
+  expect(hidden(view.container,"pinLatitude")?.value).toBe("");
+});
+
 function hidden(container: HTMLElement, name: string) {
   return container.querySelector<HTMLInputElement>(`input[name="${name}"]`);
 }

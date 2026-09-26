@@ -36,6 +36,15 @@ export function ResidentialMap({
   const [latitude, setLatitude] = useState(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
   const [longitude, setLongitude] = useState(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
   const [coordinateError, setCoordinateError] = useState(false);
+  const [displayedPin,setDisplayedPin] = useState(initialPin);
+  // A new parent-supplied candidate must also update the keyboard fallback.
+  // Adjust during render so children never expose coordinates from the old pin.
+  if (displayedPin !== initialPin) {
+    setDisplayedPin(initialPin);
+    setLatitude(String(initialPin?.latitude ?? CEBU_CENTER.latitude));
+    setLongitude(String(initialPin?.longitude ?? CEBU_CENTER.longitude));
+    setCoordinateError(false);
+  }
 
   useEffect(() => () => {
     // Geolocation cannot be aborted. Invalidate its callback when the editor

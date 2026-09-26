@@ -34,7 +34,7 @@ export default function GovernmentIdPrivacyNoticePage() {
 
             <section>
               <h2 className="text-xl font-semibold text-stone-950">Private residential map pin</h2>
-              <p className="mt-2">The map loads only after the renter asks to add or adjust a pin. Address search or reverse lookup sends the entered query or selected coordinates to Geoapify. Choosing “Use my location” also requires the browser’s permission. CamNook stores only a confirmed pin with its selection method, optional device accuracy, and confirmation time.</p>
+              <p className="mt-2">Address search or reverse lookup sends the entered query or selected coordinates to Geoapify. “Use my current location” asks for browser permission, suggests matching Philippine address areas, and stages an unconfirmed map pin. Review the suggested areas and complete any missing details; your current location may not be your residence. CamNook stores only a confirmed pin with its selection method, optional device accuracy, and confirmation time.</p>
               <p className="mt-2">The application exposes the pin only to the signed-in renter; restricted database operators and backup systems may process it for service operation and recovery. Removing it hard-deletes the active pin record. Infrastructure backups may retain an earlier copy until the configured Supabase backup lifecycle expires. CamNook does not expose the pin in public profiles, booking responses, rental agreements, meetup routing, analytics, or ordinary logs.</p>
             </section>
 

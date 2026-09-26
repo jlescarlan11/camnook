@@ -73,6 +73,7 @@ it("moves the marker and view without rebuilding the map or tiles", async () => 
   expect(leaflet.map).toHaveBeenCalledOnce();
   expect(leaflet.tileLayer).toHaveBeenCalledOnce();
   expect(leaflet.view.remove).not.toHaveBeenCalled();
+  expect((screen.getByLabelText("Latitude") as HTMLInputElement).value).toBe("10.32");
   expect(screen.getByRole("button", { name: "Use my location" }).parentElement?.contains(screen.getByRole("application"))).toBe(true);
   fireEvent.click(screen.getByText("Enter coordinates instead"));
   expect(screen.getByLabelText("Latitude")).toBeTruthy();
