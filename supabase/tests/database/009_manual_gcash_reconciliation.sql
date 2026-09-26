@@ -243,6 +243,60 @@ begin
 end;
 $$;
 
+-- Exercise the canonical +63 format sent by the application without changing
+-- the local-format fixture used by the reconciliation scenarios below.
+savepoint canonical_recipient_validation;
+
+do $$
+declare
+  saved jsonb;
+  retried jsonb;
+  invalid_account text;
+begin
+  saved := api.configure_gcash_recipient(
+    'CamNook Approved Recipient', '+639171234567', true, gen_random_uuid()
+  );
+  if api.get_gcash_recipient_configuration_admin() ->> 'recipient_account' <> '+639171234567' then
+    raise exception 'canonical Philippine recipient did not persist';
+  end if;
+  retried := api.configure_gcash_recipient(
+    'CamNook Approved Recipient', '+639171234567', true, gen_random_uuid()
+  );
+  if retried <> saved then
+    raise exception 'canonical recipient retry created a new version';
+  end if;
+
+  foreach invalid_account in array array[
+    '639171234567', '9171234567', '+63917123456', '+6391712345678',
+    '+638171234567', '+63917123456x', chr(92) || '639171234567'
+  ] loop
+    begin
+      perform api.configure_gcash_recipient(
+        'CamNook Approved Recipient', invalid_account, true, gen_random_uuid()
+      );
+      raise exception 'invalid recipient accepted: %', invalid_account;
+    exception when sqlstate '22023' then null;
+    end;
+  end loop;
+  if api.get_gcash_recipient_configuration_admin() ->> 'version' <> saved ->> 'version' then
+    raise exception 'invalid recipient changed the saved version';
+  end if;
+end;
+$$;
+
+set local role postgres;
+do $$
+begin
+  if (select count(*) from private.audit_logs
+      where action = 'configure_gcash_recipient' and outcome = 'success') <> 2 then
+    raise exception 'canonical retries or invalid inputs created extra audit events';
+  end if;
+end;
+$$;
+
+rollback to savepoint canonical_recipient_validation;
+release savepoint canonical_recipient_validation;
+
 set local role postgres;
 
 do $$
