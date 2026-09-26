@@ -187,26 +187,36 @@ async function check(env) {
     "Development dependencies ready. Browser flow verification is still a separate check.",
   );
 }
+export function startDevelopmentServer() {
+  // Package-manager shims are not executable by shell-free spawn on Windows.
+  // Retain the Node runtime that already passed the local setup checks.
+  const child = spawnSync(
+    process.execPath,
+    [require.resolve("next/dist/bin/next"), "dev", "--hostname", "127.0.0.1", "--port", "3000"],
+    { stdio: "inherit", env: process.env },
+  );
+  if (child.error)
+    throw new Error(`Could not start the local Next.js server: ${child.error.message}`);
+  return child.status ?? 1;
+}
+export function pullDevelopmentEnvironment(destination) {
+  const packageManager = process.env.npm_execpath;
+  if (!packageManager)
+    throw new Error("Run pnpm dev:setup so the package-manager entry point is available.");
+  const pull = spawnSync(
+    process.execPath,
+    [packageManager, "dlx", "vercel@59.23.2", "env", "pull", destination, "--environment=development", "--yes"],
+    { stdio: "inherit" },
+  );
+  if (pull.status !== 0)
+    throw new Error("Could not pull Development configuration.");
+}
 async function main() {
   const command = process.argv[2];
   if (command === "setup") {
     mkdirSync(".vercel/local-development", { recursive: true, mode: 0o700 });
     const destination = ".vercel/local-development/downloaded.env";
-    const pull = spawnSync(
-      "pnpm",
-      [
-        "dlx",
-        "vercel@59.23.2",
-        "env",
-        "pull",
-        destination,
-        "--environment=development",
-        "--yes",
-      ],
-      { stdio: "inherit" },
-    );
-    if (pull.status !== 0)
-      throw new Error("Could not pull Development configuration.");
+    pullDevelopmentEnvironment(destination);
     chmodSync(destination, 0o600);
     const env = composeDevelopment(
       readEnv(".env.local"),
@@ -232,12 +242,7 @@ async function main() {
   if (command === "check") return check(process.env);
   if (command === "start") {
     await check(process.env);
-    const child = spawnSync(
-      "pnpm",
-      ["exec", "next", "dev", "--hostname", "127.0.0.1", "--port", "3000"],
-      { stdio: "inherit", env: process.env },
-    );
-    process.exitCode = child.status ?? 1;
+    process.exitCode = startDevelopmentServer();
     return;
   }
   throw new Error(

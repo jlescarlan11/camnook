@@ -128,3 +128,28 @@ User explicitly requested committing and pushing all audit changes to main. Fini
 The mandatory pre-push command used Vitest's default nine workers on this ten-core shared development machine. It failed53 tests across26 files, predominantly5s interaction timeouts and downstream cleanup failures; the same full suite had just passed all1139 tests with one worker and unchanged timeouts/assertions. Make file execution serial in Vitest's default configuration so the mandatory hook uses the proven resource profile. Keep file isolation, all assertions, opt-in skips, and existing timeouts unchanged. Real database concurrency tests remain separate and unchanged.
 
 The serial default rerun also encountered interaction timeouts while the16GB host reported about35GB swap use. Stopped only this audit's confirmed port3100 server after browser checks and interrupted the already-failing redundant verification. A focused follow-up passed7/8 tests, with the stale-meetup review test still exceeding5s. Do not claim these attempts passed or relax assertions/timeouts. The mandatory pre-push gate must complete successfully before upload.
+
+## 2026-09-26 Windows resume
+
+- Resume continuous exploration under renewed authorization, keeping historical evidence in Git and existing audit files. Dedicated branch from e4487ec; preserve unrelated untracked plan.
+- Use the existing Chrome profile and cua_repl as the primary browser controller. Production is read-only; synthetic mutations require Development.
+- Use pinned Node24.19.0 from isolated pnpm cache instead of changing system Node22 globally.
+- User explicitly requested recovery of Development configuration from Vercel and CLI reauthentication. Verify CamNook team/project and Development Supabase target before using recovered settings; never expose or commit credentials.
+
+- AUD063 uses the existing Tailwind single-column minmax utility for the Profile form's intrinsic sizing issue. Retain desktop columns and checkout behavior; verify actual browser geometry rather than adding a class-string test.
+
+- Browser observation caveat: sanitized text/DOM extraction omitted the synthetic tel input value even though the rendered screenshot showed it correctly. Verify suspected input defects visually before filing; Grammarly extension also injected body attributes causing a development hydration warning, not an application defect.
+
+- AUD064 applies the same intrinsic-size correction only to two independently browser-reproduced checkout grids. Browser screenshots and geometry cover CSS behavior; existing interaction tests cover unchanged validation/draft transitions.
+
+- AUD065 uses npm_execpath from the documented pnpm script invocation and process.execPath, preserving executable and argument boundaries without adding a shell. Local Vercel link is ignored machine state; exclude the CLI-injected OIDC token from active app environment files.
+- AUD066 includes existing cancellation work in the summary's count map and adds a destination to the already-rendered queue. No new workflow, queue schema, permissions, fees, or state transitions. The user's explicit autonomous-fix authority supersedes a redundant per-fix design approval; bounded scope and observable acceptance were stated before implementation.
+- AUD067 keeps acknowledgement lifecycle in a small Profile-only client wrapper. Installed Next docs explicitly support history.replaceState integration with useSearchParams; removing only saved avoids a server navigation, preserving uncontrolled drafts and the fragment. Do not infer completion from a pre-existing success banner; await the current result and inspect persistence.
+
+- AUD071 adds a separate read-only history destination alongside current work queues. Existing public table grants/RLS and authenticated Server Component reads support a minimized joined summary; no privileged client, RPC, schema change or financial aggregation is needed. Pagination uses21 fetched rows/20 displayed, with deterministic requested_at/id ordering. Reuse the existing cached-document filter reset in a shared AppliedFiltersForm so Reports and history keep applied fields aligned after browser navigation.
+
+- AUD072 shares the existing public-place search routine between button and keyboard; prevent Enter from falling through to the enclosing save form. Preserve input-method composition and pending-search guard. Keep explicit save/confirmation semantics and server actions unchanged.
+
+- Defer actual unpublish/republish on the existing Canon fixture: repository SQL confirms unpublish clears published_at and publication writes a new timestamp and audit event. Use a separate ready synthetic fixture once browser uploads are available, preserving existing baseline data. This is a test-fixture dependency, not an application defect.
+- User explicitly chose to keep uploads blocked. Do not request the extension permission again or substitute an upload workaround. Continue independent non-upload checks; record the resulting photo/publication/receipt/evidence coverage limits.
+- For controlled local failure tests, temporary Development-only loader instrumentation reads an ignored marker and records only whether a simulated failure or real read occurred. Clear the marker without editing source or restarting the server before pressing the actual retry control, so HMR does not stand in for recovery. Remove all instrumentation afterward and verify a clean product diff. These results demonstrate rendered recovery under simulation, not a hosted outage.

@@ -108,7 +108,7 @@ export default async function AdminBookingPage({ params }: AdminBookingPageProps
           <section className="surface mt-6 grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="p-6 sm:p-8">
             <h1 className="text-3xl font-semibold tracking-tight">{result.booking.state === "FOR_REVIEW" ? "Review request" : ownerActionTitle(result.booking.state)}</h1>
-            <a className="button-primary mt-5" href="#current-owner-action">{result.booking.state === "FOR_REVIEW" ? "Review request" : "View current action"}</a></div>
+            <a className="button-primary mt-5" href="#current-owner-action">{result.booking.state === "FOR_REVIEW" ? "Review request" : "View booking details"}</a></div>
             <dl className="border-t border-stone-200 bg-[#edf5ff] p-6 lg:border-l lg:border-t-0 sm:p-8"><DetailValue label="Pickup" value={formatManilaDateTime(result.booking.pickupAt)} /><DetailValue label="Return" value={formatManilaDateTime(result.booking.returnAt)} /></dl>
           </section>
           <article className="surface mt-6 p-6 sm:p-8" id="current-owner-action">

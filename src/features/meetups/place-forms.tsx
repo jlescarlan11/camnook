@@ -68,6 +68,23 @@ export function MeetupPlaceForm({
     setValues((v) => ({ ...v, [key]: value }));
     setConfirmed(false);
   };
+  async function search() {
+    if (searching) return;
+    setSearching(true);
+    setResults([]);
+    setSearchError("");
+    try {
+      const result = await searchMeetupPlaces(query);
+      setResults(result.places);
+      setSearchError(result.error ?? (result.places.length
+        ? ""
+        : "No places found. Try another name or position the pin manually."));
+    } catch {
+      setSearchError("Search unavailable. You can enter a place and position its pin manually.");
+    } finally {
+      setSearching(false);
+    }
+  }
   return (
     <form className="space-y-5" onSubmit={(event) => {
       event.preventDefault();
@@ -86,6 +103,12 @@ export function MeetupPlaceForm({
             className={input}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void search();
+              }
+            }}
             maxLength={200}
           />
         </label>
@@ -93,26 +116,7 @@ export function MeetupPlaceForm({
           className="button-secondary mt-3"
           type="button"
           disabled={searching}
-          onClick={async () => {
-            setSearching(true);
-            setResults([]);
-            try {
-              const r = await searchMeetupPlaces(query);
-              setResults(r.places);
-              setSearchError(
-                r.error ??
-                  (r.places.length
-                    ? ""
-                    : "No places found. Try another name or position the pin manually."),
-              );
-            } catch {
-              setSearchError(
-                "Search unavailable. You can enter a place and position its pin manually.",
-              );
-            } finally {
-              setSearching(false);
-            }
-          }}
+          onClick={search}
         >
           {searching ? "Searching…" : "Search places"}
         </button>

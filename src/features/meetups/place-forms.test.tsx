@@ -11,10 +11,36 @@ vi.mock("./place-actions", () => ({
 }));
 import { assignCameraMeetupPlaces, saveMeetupPlace, searchMeetupPlaces } from "./place-actions";
 import { CameraMeetupPlacesForm, MeetupPlaceForm } from "./place-forms";
+import { testMeetupPlace } from "./place-fixture.test-helper";
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
 });
+it.each([false, true])("Enter searches without saving a place (save-ready: %s)", async (ready) => {
+  vi.mocked(searchMeetupPlaces).mockResolvedValue({ places: [{ address: "Search result entrance", city: "Cebu City", latitude: 10.318116, longitude: 123.904833 }] });
+  vi.mocked(saveMeetupPlace).mockResolvedValue({ status: "success", message: "Meetup place saved." });
+  render(<MeetupPlaceForm place={ready ? { ...testMeetupPlace, source: "manual_pin" } : undefined} />);
+  if (ready) await userEvent.click(screen.getByRole("checkbox"));
+  await userEvent.type(screen.getByLabelText("Find a public place"), "Ayala Center Cebu{Enter}");
+  expect(searchMeetupPlaces).toHaveBeenCalledExactlyOnceWith("Ayala Center Cebu");
+  expect(saveMeetupPlace).not.toHaveBeenCalled();
+  expect(await screen.findByRole("button", { name: "Search result entrance" })).toBeTruthy();
+  expect((screen.getByLabelText("Place name") as HTMLInputElement).value).toBe(ready ? testMeetupPlace.name : "");
+  expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(ready);
+});
+
+it("does not send duplicate searches when Enter repeats during a pending search", async () => {
+  let finish!: (result: Awaited<ReturnType<typeof searchMeetupPlaces>>) => void;
+  vi.mocked(searchMeetupPlaces).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  render(<MeetupPlaceForm />);
+  await userEvent.type(screen.getByLabelText("Find a public place"), "Ayala{Enter}{Enter}");
+  expect(searchMeetupPlaces).toHaveBeenCalledTimes(1);
+  expect((screen.getByRole("button", { name: "Searching…" }) as HTMLButtonElement).disabled).toBe(true);
+  finish({ places: [] });
+  await screen.findByText("No places found. Try another name or position the pin manually.");
+  expect(saveMeetupPlace).not.toHaveBeenCalled();
+});
+
 it("keeps the same creation reference on failure and resets only after success", async () => {
   vi.mocked(saveMeetupPlace)
     .mockResolvedValueOnce({ status: "error", message: "Retry this save." })

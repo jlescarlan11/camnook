@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountPageShell } from "@/features/account/components/account-page-shell";
+import { ProfileSaveFeedback } from "@/features/account/components/profile-save-feedback";
 import { loadProfilePage } from "@/features/account/data/profile";
 import { KycProfileForm } from "@/features/kyc/kyc-profile-form";
 import { requirePageUser } from "@/lib/auth/require-user";
@@ -8,14 +9,9 @@ import { requirePageUser } from "@/lib/auth/require-user";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Profile | CamNook" };
 
-export default async function ProfilePage({ searchParams }: {
-  searchParams: Promise<{ saved?: string | string[] }>;
-}) {
+export default async function ProfilePage() {
   const context = await requirePageUser("/account/profile");
-  const [account, query] = await Promise.all([
-    loadProfilePage(context).catch(() => ({ status: "error" as const, isAdmin: false })),
-    searchParams,
-  ]);
+  const account = await loadProfilePage(context).catch(() => ({ status: "error" as const, isAdmin: false }));
   return (
     <AccountPageShell title="Profile" activeSection="profile" isAdmin={account.isAdmin}>
       <div className="mx-auto mt-8 max-w-4xl space-y-8">
@@ -45,12 +41,9 @@ export default async function ProfilePage({ searchParams }: {
             <section className="surface scroll-mt-6 p-5 sm:p-8" id="renter-details" aria-labelledby="renter-details-heading">
               <h2 className="text-xl font-semibold" id="renter-details-heading">Renter details</h2>
               <p className="mt-2 text-sm text-stone-600">Required before your first request. Keep these details up to date for your rentals.</p>
-              {query.saved === "1" ? (
-                <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
-                  Your renter details were saved.
-                </p>
-              ) : null}
-              <KycProfileForm kyc={account.kycProfile} profile={account.profile} returnTo="/account/profile?saved=1#renter-details" />
+              <ProfileSaveFeedback>
+                <KycProfileForm kyc={account.kycProfile} profile={account.profile} returnTo="/account/profile?saved=1#renter-details" />
+              </ProfileSaveFeedback>
             </section>
           </>
         )}

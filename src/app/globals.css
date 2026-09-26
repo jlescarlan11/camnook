@@ -322,7 +322,7 @@ body:has(dialog[open]) { overflow: hidden; }
 .checkout-progress :is(a, button):hover { color: var(--blue-strong); text-decoration: underline; text-underline-offset: 4px; }
 .checkout-section-title, .checkout-request h2 { font-size: 32px; line-height: 1.2; font-weight: 650; letter-spacing: -.035em; }
 .checkout-section-intro { margin-top: 10px; font-size: 15px; color: var(--ink-muted); line-height: 1.65; }
-.checkout-personal-fields { margin-top: 34px; display: grid; gap: 26px; }
+.checkout-personal-fields { margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; }
 .checkout-personal-fields[hidden], .checkout-address-fields[hidden] { display: none; }
 .checkout-kyc label { font-size: 16px; font-weight: 500; }
 .checkout-kyc input:not([type="hidden"]), .checkout-kyc select, .checkout-request :is(input:not([type="hidden"]), textarea) { border-radius: 8px; border-color: #bcc7d5; min-height: 54px; font-size: 16px; }

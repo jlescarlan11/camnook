@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { formatManilaDateTime } from "@/features/bookings/manila-time";
+import { PortfolioPeriodForm } from "./portfolio-period-form";
 
 import type {
   OwnerOperationsDashboard,
@@ -18,7 +19,7 @@ const percentageFormatter = new Intl.NumberFormat("en-PH", {
   minimumFractionDigits: 0,
 });
 
-const requiredQueueLinks = [
+const queueLinks = [
   ["review", "Booking review"],
   ["signature", "Contract signature"],
   ["payment", "Payment review"],
@@ -28,6 +29,7 @@ const requiredQueueLinks = [
   ["issue_review", "Issue review"],
   ["held_deposit", "Held deposits"],
   ["pending_refund", "Pending refunds"],
+  ["cancellation", "Cancellation review"],
 ] as const;
 
 export function OwnerOperationsPanel({
@@ -38,7 +40,11 @@ export function OwnerOperationsPanel({
   mode?: "full" | "overview";
 }) {
   const { queues } = dashboard;
-  const actionableCount = Object.values(dashboard.queue_counts).reduce((sum, count) => sum + count, 0) + dashboard.supporting_queue_counts.cancellation;
+  const queueCounts = {
+    ...dashboard.queue_counts,
+    cancellation: dashboard.supporting_queue_counts.cancellation,
+  };
+  const actionableCount = Object.values(queueCounts).reduce((sum, count) => sum + count, 0);
 
   return (
     <>
@@ -53,8 +59,8 @@ export function OwnerOperationsPanel({
           aria-label="Operations queue summary"
           className="mt-5 grid gap-3 sm:grid-cols-3"
         >
-          {requiredQueueLinks.filter(([key]) => dashboard.queue_counts[key] > 0).map(([key, label]) => {
-            const count = dashboard.queue_counts[key];
+          {queueLinks.filter(([key]) => queueCounts[key] > 0).map(([key, label]) => {
+            const count = queueCounts[key];
             const content = <>
               <span className="block text-2xl font-semibold">
                 {count}
@@ -281,7 +287,7 @@ export function OwnerPortfolioPanel({
     <section className="mt-12 border-t border-stone-300 pt-10" aria-labelledby="portfolio-heading">
       <div className="flex flex-wrap items-end justify-between gap-5">
         <h2 className="text-3xl font-semibold" id="portfolio-heading">Performance</h2>
-        <form className="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-[1fr_1fr_auto]" method="get">
+        <PortfolioPeriodForm periodKey={`${period.startDate}:${period.endDateExclusive}`}>
           <label className="text-sm font-medium text-stone-700">
             Start date
             <input
@@ -308,7 +314,7 @@ export function OwnerPortfolioPanel({
           >
             Apply period
           </button>
-        </form>
+        </PortfolioPeriodForm>
       </div>
 
       {invalidPeriod ? (
@@ -390,7 +396,7 @@ function SupportingQueues({
 }) {
   if (dashboard.supporting_queue_counts.cancellation === 0) return null;
   return (
-    <section className="mt-10" aria-labelledby="supporting-queues-heading">
+    <section className="mt-10" aria-labelledby="supporting-queues-heading" id="queue-cancellation">
       <h2 className="text-2xl font-semibold" id="supporting-queues-heading">Cancellation review</h2>
       <div className="mt-5 grid gap-5">
         <SupportingList
@@ -588,7 +594,8 @@ function formatDuration(seconds: number) {
   if (seconds === 0) return "0 hours";
   const hours = seconds / 3600;
   if (hours < 24) return `${percentageFormatter.format(hours)} hr`;
-  return `${percentageFormatter.format(hours / 24)} days`;
+  const days = percentageFormatter.format(hours / 24);
+  return `${days} ${days === "1" ? "day" : "days"}`;
 }
 
 function yesNo(value: boolean) {

@@ -11,6 +11,25 @@ import {
 } from "./test-fixtures";
 
 describe("owner dashboard presentation", () => {
+  it("includes pending cancellations in the work summary and links their queue", () => {
+    const dashboard = {
+      ...emptyOwnerOperationsDashboard,
+      supporting_queue_counts: {
+        ...emptyOwnerOperationsDashboard.supporting_queue_counts,
+        cancellation: 1,
+      },
+    };
+    const overview = renderToStaticMarkup(<OwnerOperationsPanel dashboard={dashboard} mode="overview" />);
+    const full = renderToStaticMarkup(<OwnerOperationsPanel dashboard={dashboard} />);
+
+    expect(overview).toContain('href="/admin/bookings#queue-cancellation"');
+    expect(overview).toContain("Cancellation review");
+    expect(overview).toContain("1 item needs attention.");
+    expect(full).toContain('href="#queue-cancellation"');
+    expect(full).toContain('id="queue-cancellation"');
+    expect(full).not.toContain("All clear");
+  });
+
   it("links only populated queues and preserves their destination from the overview", () => {
     const dashboard = { ...emptyOwnerOperationsDashboard, queue_counts: { ...emptyOwnerOperationsDashboard.queue_counts, review: 1 } };
     const overview = renderToStaticMarkup(<OwnerOperationsPanel dashboard={dashboard} mode="overview" />);
@@ -35,6 +54,8 @@ describe("owner dashboard presentation", () => {
 
     expect(operations).toContain("All clear");
     expect(operations).not.toContain("Booking review");
+    expect(operations).not.toContain("Cancellation review");
+    expect(operations).not.toContain('href="#queue-cancellation"');
     expect(portfolio).toContain("Calculation notes");
     expect(portfolio).toContain("Revenue excludes deposits");
     expect(`${operations}${portfolio}`).not.toMatch(

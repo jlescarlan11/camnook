@@ -637,3 +637,120 @@
 - Cause/fix: meetup save/archive/assignment/search awaited authorization without a form/search recovery result. A module-local helper catches authorization acquisition only and returns safe access guidance; mutations, revalidation and provider requests remain gated by a verified owner context.
 - Acceptance: failed auth never mutates or spends search budget; draft fields/confirmation survive; search finishes with guidance; restored owner can retry; archive cleanup persists.
 - Verification: five regressions fail before implementation; 155 meetup/auth tests pass, two opt-in provider checks skipped. Lint/typecheck/optimized build and independent review pass. Real signed-out save retains every field and checked confirmation; signed-out search returns access guidance and re-enables Search. Restored owner creates the retained synthetic place, reload confirms it, then Archive removes it and a second reload confirms absence. Place was never assigned to a camera; existing Ayala place unchanged. Recovery screenshot inspected: `aud060-meetup-recovery-guidance.png`.
+
+## AUD-062 — Windows local startup silently exits after successful checks
+
+- Severity: medium for development/test availability; no hosted behavior affected.
+- Reproduction: restored verified Development configuration on Windows; run the documented local start script with Node24.19.0. All dependency checks pass, then exit1 without a Next server or explanation. Direct isolated spawn of pnpm returns ENOENT/status null.
+- Cause: shell-free spawnSync cannot execute the Windows package-manager shim; launch errors were discarded.
+- Acceptance: same checked environment and loopback3000, current Node runtime and installed Next CLI; report spawn failures; propagate server failure/signal exit; browser loads actual Development catalog.
+- Fix: launch the installed Next entry point through process.execPath, with explicit spawn error handling.
+- Verification: extracted unchanged launcher reproduces two failing regression cases (command target and swallowed spawn failure); all7 startup/configuration tests pass after fix. Actual launcher reports Ready and Chrome renders both Development listings at127.0.0.1:3000. Focused lint and diff whitespace check pass. Full post-fix suite running; commit pending.
+
+- AUD062 final verification: full post-fix suite1131 passed/14 skipped across159 passed/4 skipped files (221.30s). Real Development startup and browser catalog verified; no Next route changes. Build baseline remains pending. Diff reviewed: only launcher target/error handling and relevant records/tests; no credentials or unrelated plan included.
+
+## AUD-063 — Profile personal fields overflow narrow screens
+
+- Severity: medium.320px Profile requires horizontal scrolling; name, birthdate, and mobile controls extend beyond their card and viewport.
+- Browser reproduction: synthetic renter Profile, both initial/saved and invalid-name states, viewport320x800. clientWidth305/scrollWidth358, personal field right357.39. Fresh screenshots visibly show clipped controls and horizontal scrollbar.
+- Cause: personal-details grid has an implicit auto column below sm; native input intrinsic size expands that track. This is inside the new Profile form, distinct from AUD005's former outer Account grid.
+- Acceptance/fix: use Tailwind grid-cols-1 (minmax(0,1fr)) below sm, preserving sm:grid-cols-2. No behavioral or business-rule change.
+- Verification: actual browser after fix320px305/305 and390px375/375; desktop1440px1425/1425 with name and birthdate side by side (405.2px each). Fresh screenshots inspected at all three sizes. Invalid-name recovery preserves all address selects/pin; corrected original synthetic details save and persist after reload.10 focused Profile/KYC tests, lint/typecheck pass. No new assertion mirroring a CSS class; browser geometry is the regression evidence. Commit pending.
+
+- AUD062 committed as422ecec. Subsequent optimized build baseline passes on this checkout with Development public configuration; no deployment.
+
+## AUD-064 — Checkout personal/contact fields overflow narrow screens
+
+- Severity: medium. Actual Development checkout at320px overflows on Your details and Your rental plans: client305/scroll345. Address step already fits305/305. Screenshots show clipped name/mobile/date fields.
+- Cause: each affected form uses an implicit auto grid column, retaining native input intrinsic width, matching AUD063 at separate checkout containers.
+- Fix: explicit minmax(0,1fr) for checkout-personal-fields and grid-cols-1 for request contact grid; preserve sm two-column contacts and all form behavior.
+- Verification: both affected steps fit305/305 at320px and375/375 at390px; desktop1425/1425 retains side-by-side rental-plan contacts and full-width personal details. Fresh settled screenshots inspected. Details→Address→save returns same schedule; browser Back and Review→Edit preserve draft meetup/purpose/city. Missing meetup blocks review and focuses radio; long-purpose review fits320px. No booking submitted.29 focused checkout/request tests, lint/typecheck and optimized build pass. Commit pending.
+
+## AUD-065 — Windows Development setup cannot launch its download command
+
+- Severity: medium for local setup. After successful Vercel reauthentication, the setup script immediately reports Could not pull Development configuration without invoking Vercel.
+- Cause: a second shell-free spawn of the Windows pnpm shim, in the configuration-download path (separate from AUD062's server launch).
+- Acceptance/fix: invoke pnpm's JavaScript entry point supplied by npm_execpath through the current Node runtime; preserve fixed Development pull arguments, argument boundaries, errors, and credential target validation. Direct invocation without package-manager context gives the documented pnpm dev:setup instruction.
+- Verification: extracted old behavior fails the command/invocation tests;10 focused configuration/startup tests pass after fix. Actual pnpm dev:setup under Node24.19.0 downloads CamNook Development values and passes database, search, tile and origin checks. Focused lint/diff checks pass; full suite1134passed/14skipped across159passed/4skipped files (221.88s). Local app remains accessible. Commit pending.
+
+- AUD064 committed as7f7ce73.
+- AUD065 committed as24d732e.
+
+## AUD-066 — Owner Work summary omits pending cancellations
+
+- Severity: medium. Real owner Today shows8 items needing attention but only6 Booking review in Work; Bookings contains2 pending cancellation requests that have no summary link. Cancellation-only work consequently produces an empty summary.
+- Cause: summary links read only queue_counts while the attention total also includes supporting_queue_counts.cancellation. The existing cancellation section has no queue anchor.
+- Fix/acceptance: include cancellation in the same displayed count map used for the total, show its summary link only when populated, and add the existing section's target anchor. Preserve all decision rules and data contracts.
+- Verification: new cancellation-only regression fails before fix and passes after;18 focused portfolio/resolution tests, lint and typecheck pass. Actual Today shows6 review +2 cancellation links; its cancellation link lands at the visible queue. After accepting only the new synthetic audit booking's cancellation, summary updates to5+1; the in-page link also reaches the queue. Settled screenshots inspected. Empty state remains covered. Commit pending.
+- AUD066 committed as1497529. Renter session independently verifies cancelled/accepted, zero fee/refund, no remaining action; fixture cleanup complete.
+- AUD061 remains unverified on current code: Chrome file chooser rejected setFiles before selection with Not allowed. Followed controller guidance requesting extension Allow access to file URLs; no upload attempted and no product fix inferred from this tooling failure.
+
+## AUD-067 — Profile displays an old save notice during later edits and errors
+
+- Severity: medium. After saving Profile, the saved=1 URL flag keeps the server-rendered success banner visible while the renter edits again and even when the next save is invalid. The old banner cannot confirm the current attempt's outcome.
+- Cause: the acknowledgement is rendered solely from a persistent query parameter, outside the form's interaction lifecycle.
+- Fix/acceptance: a small client feedback wrapper clears only the saved flag on editor interaction/change/submission, using documented Next native-history integration without navigation or form replacement. A successful server redirect supplies a fresh acknowledgement. Preserve other query parameters, fragment, draft values, all validation, and checkout behavior.
+- Verification: change/submit regressions fail before fix; pin interaction also covered. Browser: saved notice disappears on whitespace-name edit, invalid save shows only correction guidance, correction to original name produces a new success notice, and pin Adjust→Cancel clears the old notice without changing the pin. Final reload confirms original synthetic name, birthdate, house, empty building, address details and pin. Lint/typecheck and optimized build pass; final focused count recorded in coverage. Commit pending.
+- AUD067 committed as34e10b8;30 focused tests across6 files pass.
+- Historical owner-access blocker resolved through Supabase dashboard reauthentication and the existing Development owner session; AUD061 is now blocked only by the browser file-upload permission noted above.
+
+## AUD-068 — Publish offers a failing action without the missing-photo recovery path
+
+- Severity: medium for owner setup. A new Development draft with valid availability, meetup assignment, price and deposit but zero photos displays Publish camera. Clicking it returns Complete every readiness item before publishing, while the only recovery link leads to availability, which is already complete.
+- Browser evidence: created explicitly marked unpublished fixture86e689cc-5168-4469-a10d-2678b115088c through Add camera; saved Monday09:00/17:00 and existing public Development meetup. Publish checklist shows only Photos incomplete. Actual publish attempt is rejected by the existing server guard. Screenshot inspected; no publication occurred.
+- Cause: preview gates its action only on ready.meetups, despite computing all five readiness checks. Its fixed recovery link cannot reach the photo control.
+- Fix/acceptance: offer publication only when all displayed readiness items pass; show editing links for the missing photo, availability/meetup, or price/deposit requirements. Add a stable photo-form fragment target. Retain the published listing branch and authoritative server validation.
+- Verification: photo-only and availability-only regressions fail before the change; five page cases and eleven existing form/publication cases pass afterward. Browser reload shows Add photos and no Publish action; following it displays the photo chooser and preserves saved camera values. Disabling fixture availability adds its recovery link; restoring availability removes that completed requirement's link. Inventory confirms Draft. Focused lint/typecheck, optimized build, and independent read-only review pass. Full suite1143passed/14skipped,161passed/4skipped files (216.46s). No photos uploaded; fixture remains an unpublished Development draft. Commit pending.
+- AUD068 committed as1045c19. No push, merge, or deployment.
+
+## AUD-069 — Reports history restores dates that disagree with the displayed report
+
+- Severity: medium. On Reports, submit equal bounds2026-09-27, correct to a valid historical period, then press Back. URL/error return to the invalid period, but visible inputs still show the later valid period. This also risks showing a valid report beside dates for a different period.
+- Evidence: repeated actual browser Back/Forward checks and screenshot show January1-February1 fields beside the equal-date error for September27. The GET form's uncontrolled inputs retain edits across reconciliation and full-document history restoration.
+- Fix/acceptance: a small client form wrapper resets to the applied period when a cached document is restored (pageshow persisted=true), and remounts the form when the applied period changes. Ordinary pageshow and same-period rerenders retain pending input. Keep GET query names, all period validation, report data and calculations unchanged.
+- Verification: two period-change regressions fail before the form key; cached-document regression fails before the restoration listener.18 focused portfolio tests/lint/typecheck pass. Real browser Back now restores equal September27 inputs/error; Forward restores May1-June1, and a separate valid September→BackMay check matches both date fields and Calculation notes. Screenshot inspected. Full suite1147passed/14skipped across162passed/4skipped files (217.25s), optimized build and independent read-only review pass. No database mutations in this cycle. Commit pending.
+- AUD069 committed as400140f.
+
+## AUD-070 — Single-day report durations use a plural label
+
+- Severity: low. Reports for October2-3 show 1 days in camera inventory duration and, with a synthetic single-day block, Manual unavailability.
+- Cause/fix: the duration formatter unconditionally appends days. Select day when the already-formatted displayed count is1, including values rounded to1; preserve numeric formatting and all calculations.
+- Verification: actual Reports show1 day for October2-3 and2 days for October2-4.18 existing portfolio tests and focused lint pass; no added copy-only test. The synthetic block was removed and reload-verified; Reports returned to zero manual unavailability. No pending cleanup. Commit pending.
+- AUD070 committed as00955a6.
+
+## AUD-071 — Owner cannot find bookings after they leave the work queues
+
+- Severity: medium. The new synthetic cancellation remains available at its owner detail URL, but Back to bookings returns only current work queues. There is no history/search route to recover cancelled, rejected, expired, or completed records.
+- Reproduction: open Bookings as the Development owner; inspect all navigation and queues; cancelled fixture2fc499fa-654c-46ee-b3c0-e2c99d9ec34e is absent. Its known detail URL correctly shows CANCELLED, proving the record and authorization still exist.
+- Fix/acceptance: add Booking history from the queues, with renter-name/status filters, newest-request ordering, twenty records per page, and links to existing owner detail. Authenticate as owner before reading minimal identity/status/schedule summaries through the existing user-scoped Supabase client and RLS. Invalid filters/read failures must not appear as empty results; pagination retains filters; applying filters starts on page1.
+- Implementation: read-only Server Component and minimized joined query. No schema, grant, booking state, financial, or Production changes. Extract the already-verified cached-history form restoration into AppliedFiltersForm and reuse it in Reports and history.
+- Verification:24 focused tests pass (query shape/filter/pagination/error validation, owner guard, navigation, existing report restoration); focused lint/typecheck and optimized build pass. Actual browser owner navigation lists closed records; case-insensitive renter+Cancelled search finds the synthetic fixture, Completed gives no matches, Back/Forward restores the selected statuses/results, reload retains filters, and the result opens the persisted cancelled detail. Fresh screenshot inspected at actual1021px viewport. Renter direct access shows Access denied with no records; owner session restored. Independent read-only review found no actionable issues.
+- Navigation caveat: two client transitions stalled in the long-lived development document around recompilation/build; a fresh document restored normal link navigation. No console error captured; not classified as a history defect. Recheck outside HMR before claiming a separate defect.
+- Full suite and commit pending. No fixture mutations or cleanup pending.
+- Full suite passes:1167 tests passed/14 skipped across164 passed/4 skipped files (213.18s). Build includes the dynamic history route. AUD071 verified; commit pending.
+- AUD071 committed asaec0682. No push, merge or deployment. Product worktree clean; preserved unrelated plan remains.
+
+## AUD-072 — Public-place search does not respond to Enter
+
+- Severity: medium keyboard workflow failure. In Add meetup place, type Ayala Center Cebu in Find a public place and press Enter: no search starts. Clicking Search places with the same query returns public-place results.
+- Cause: search exists only on a type=button click handler inside the place-saving form. Enter does not invoke it and can target the outer form when a completed draft is saveable.
+- Fix: share a guarded search function between the button and search input Enter handler. Prevent default outer-form submission for non-composing Enter, suppress duplicate pending searches, retain draft/confirmation and current error recovery. No server action, permissions, data or provider changes.
+- Verification: three new regression cases fail before the fix, then16 focused place-form/action tests pass. They cover blank and save-ready forms without saving, draft/confirmation preservation, repeated pending Enter, and the existing button-search path. Focused lint/typecheck/diff check and independent read-only review pass.
+- Actual browser: Enter starts the live search, returns Ayala public-place results, and selecting one fills address/city/pin in an unsaved new draft. A completed existing edit with confirmation checked also searches, preserves its fields/confirmation, and shows no save acknowledgement. Reload discards unsaved UI state and retains the original single meetup. Fresh screenshot inspected. No persisted fixture changes or cleanup pending. Commit pending.
+- AUD072 committed asc00670c. No push, merge or deployment.
+
+## AUD-073 — Meetup map pin has no accessible name
+
+- Severity: low accessibility. Actual rendered meetup map exposes its marker as an unnamed button. DOM attributes confirm role=button/tabindex=0 with no title/aria-label; its only dot is aria-hidden. Keyboard/assistive-technology users cannot identify the focused control.
+- Cause/fix: the Leaflet DivIcon marker omits a title. Add the supported marker title Meetup location pin and mention the existing latitude/longitude entry alternative in the map instructions. Installed Leaflet1.9.4 source confirms title reaches the marker element; no map movement/save logic changes.
+- Focused lint/typecheck pass; browser verification pending. No new test for this label-only change; verify the actual rendered accessibility tree. No data mutation.
+- AUD073 browser verification passes: exact role/name locator resolves the visible Meetup location pin, including after coordinate changes. Tab from the marker focuses Zoom in; fresh screenshot confirms visible focus and revised guidance. Coordinates update the map/View on map while Save remains disabled until confirmation. Reload discards the unsaved draft; existing single meetup unchanged. Lint/typecheck/independent review pass; no cleanup pending. Commit pending.
+- AUD073 committed ase21ab3c. No push, merge or deployment.
+
+## AUD-074 — Closed booking summary offers a nonexistent current action
+
+- Severity: low wording mismatch. Expired and rejected owner records correctly say No action required, but the primary link says View current action and navigates to the full booking-details article.
+- Fix: label the non-review link View booking details, matching its actual target and the closed state. Keep Review request for FOR_REVIEW and preserve the anchor/navigation and all booking behavior.
+- Verification: actual rejected detail shows the corrected label beside No action required; clicking reaches the existing detail fragment. Fresh screenshot inspected. Four existing page/decision tests, focused lint/typecheck pass. No copy-only test added. No record mutation; review/commit pending.
+- AUD074 independent read-only review found no actionable issue. Verified change ready to commit.
+- AUD074 committed as9089233. No push, merge or deployment.

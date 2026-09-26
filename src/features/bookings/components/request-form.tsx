@@ -184,7 +184,7 @@ function RequestFormContent({
               {scheduleError} <Link className="font-semibold underline" href={returnHref ?? "/"}>Choose another schedule</Link>.
             </div>
           ) : null}
-          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Field error={state.fieldErrors?.legalName} errorId="request-legal-name-error" label="Name">
               <input aria-describedby={state.fieldErrors?.legalName ? "request-legal-name-error" : undefined} aria-invalid={state.fieldErrors?.legalName ? true : undefined} autoComplete="name" className={inputClass} maxLength={160} name="legalName" onChange={(event) => update("legalName", event.target.value)} required value={values.legalName} />
             </Field>

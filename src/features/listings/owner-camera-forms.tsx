@@ -69,7 +69,7 @@ function CameraPhotoFormContent({ cameraId, cameraName, photoCount }: CameraPhot
     }
     return result;
   }, initial);
-  return <form className="mt-6 rounded-xl border border-stone-200 p-5" onSubmit={(event) => {
+  return <form id="camera-photos" className="mt-6 scroll-mt-6 rounded-xl border border-stone-200 p-5" onSubmit={(event) => {
     event.preventDefault();
     if (pending || !selection) return;
     const data = new FormData(event.currentTarget);
