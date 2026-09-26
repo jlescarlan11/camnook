@@ -137,3 +137,7 @@ The serial default rerun also encountered interaction timeouts while the16GB hos
 - User explicitly requested recovery of Development configuration from Vercel and CLI reauthentication. Verify CamNook team/project and Development Supabase target before using recovered settings; never expose or commit credentials.
 
 - AUD063 uses the existing Tailwind single-column minmax utility for the Profile form's intrinsic sizing issue. Retain desktop columns and checkout behavior; verify actual browser geometry rather than adding a class-string test.
+
+- Browser observation caveat: sanitized text/DOM extraction omitted the synthetic tel input value even though the rendered screenshot showed it correctly. Verify suspected input defects visually before filing; Grammarly extension also injected body attributes causing a development hydration warning, not an application defect.
+
+- AUD064 applies the same intrinsic-size correction only to two independently browser-reproduced checkout grids. Browser screenshots and geometry cover CSS behavior; existing interaction tests cover unchanged validation/draft transitions.

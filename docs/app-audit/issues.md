@@ -658,3 +658,10 @@
 - Verification: actual browser after fix320px305/305 and390px375/375; desktop1440px1425/1425 with name and birthdate side by side (405.2px each). Fresh screenshots inspected at all three sizes. Invalid-name recovery preserves all address selects/pin; corrected original synthetic details save and persist after reload.10 focused Profile/KYC tests, lint/typecheck pass. No new assertion mirroring a CSS class; browser geometry is the regression evidence. Commit pending.
 
 - AUD062 committed as422ecec. Subsequent optimized build baseline passes on this checkout with Development public configuration; no deployment.
+
+## AUD-064 — Checkout personal/contact fields overflow narrow screens
+
+- Severity: medium. Actual Development checkout at320px overflows on Your details and Your rental plans: client305/scroll345. Address step already fits305/305. Screenshots show clipped name/mobile/date fields.
+- Cause: each affected form uses an implicit auto grid column, retaining native input intrinsic width, matching AUD063 at separate checkout containers.
+- Fix: explicit minmax(0,1fr) for checkout-personal-fields and grid-cols-1 for request contact grid; preserve sm two-column contacts and all form behavior.
+- Verification: both affected steps fit305/305 at320px and375/375 at390px; desktop1425/1425 retains side-by-side rental-plan contacts and full-width personal details. Fresh settled screenshots inspected. Details→Address→save returns same schedule; browser Back and Review→Edit preserve draft meetup/purpose/city. Missing meetup blocks review and focuses radio; long-purpose review fits320px. No booking submitted.29 focused checkout/request tests, lint/typecheck and optimized build pass. Commit pending.

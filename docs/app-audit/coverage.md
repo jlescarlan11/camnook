@@ -164,3 +164,7 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 - AUD062: repaired startup launches real Development app on Windows using Node24.19.0. Actual catalog loads; full post-fix suite1131pass/14skip. Synthetic Profile initial values and invalid-name recovery inspected; all address selections retained.320px Profile overflow found for next cycle.
 
 - AUD063 Profile responsive verification: before320px client305/scroll358; after320px305/305,390px375/375,1440px1425/1425. Screenshots confirm fields fit mobile and remain two columns on desktop. Real synthetic invalid-name recovery, correction save and full reload pass without changing stored values.10 focused tests and lint/typecheck pass. Optimized build baseline passed immediately before this one-class change.
+
+- AUD063 committed asd14c46c. Continue into renter rental history and checkout. Existing expired-pickup request shows correct next-action guidance; Choose new dates returns to catalog. No booking state changed.
+
+- AUD064: both checkout Details and rental-plan contact fields fixed from305/345 to305/305 at320px,375/375 at390px; desktop1425/1425. Address fits unchanged. Missing meetup validation/focus, long-purpose review, edit/back draft persistence and same-schedule address-save redirect verified.29 focused tests, lint/typecheck/build pass. No new rental request.
