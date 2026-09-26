@@ -55,6 +55,7 @@ it("fills the shopping area, preserves typed details, and requires pin reconfirm
   fireEvent.submit(view.container.querySelector("form")!);
   expect(saveKycProfile).not.toHaveBeenCalled();
   expect(screen.getByText("Confirm your residential map pin before saving.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Adjust map pin"}));
   fireEvent.click(screen.getByRole("button",{name:"Confirm this pin"}));
   expect(data().get("pinConfirmationRequired")).toBe("0");
   view.unmount();

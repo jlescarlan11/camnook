@@ -54,9 +54,9 @@ export function ResidentialPinPicker({
   const [confirmedRevision,setConfirmedRevision] = useState(restored?.confirmedRevision ?? 0);
   const [dismissedSuggestion,setDismissedSuggestion] = useState<number | null>(null);
   const hasSuggestion = Boolean(suggestedPin && suggestedPin.requestId !== dismissedSuggestion);
-  const editorOpen = open || hasSuggestion;
   const activeDraft = hasSuggestion ? suggestedPin!.pin : draft;
   const draftChanged = JSON.stringify(activeDraft) !== JSON.stringify(selected);
+  const editorOpen = open || hasSuggestion || draftChanged;
   const confirmationCurrent = operation === "set" && confirmedRevision === addressEditRevision && !draftChanged && !hasSuggestion;
   const needsConfirmation = Boolean(activeDraft && (hasSuggestion || draftChanged ||
     (operation === "set" && !confirmationCurrent) || (addressChanged && initialPin && operation === "keep")));

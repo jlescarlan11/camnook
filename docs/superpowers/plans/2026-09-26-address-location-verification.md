@@ -1,7 +1,23 @@
 # Address location implementation verification
 
-Date: 2026-09-26. Branch: `codex/address-location`, base `922738e`.
-No push, merge, deployment, or hosted database migration was performed.
+Date: 2026-09-26. Branch: `codex/address-location`, original base `922738e`.
+The initial implementation checks below predate integration. At the user's
+request, the branch was subsequently rebased onto main `d0ff1e1` for a PR and
+merge. Hosted migrations and promotion must use the existing release workflow.
+
+## Integration follow-up
+
+- Preserved main's indeterminate-save recovery, request deduplication, map
+  cancellation, collapsible pin editor, and automatic SQL-test discovery.
+- Updated feature tests to reopen the editor before reconfirming a pin.
+- Reproduced and fixed a restored GPS draft being hidden by a saved pin's
+  collapsed editor. Unconfirmed changed drafts remain visible until confirmed
+  or cancelled; confirmed pins still collapse.
+- Repository migration inventory is now 94; historical Production evidence is
+  unchanged.
+- Ran the requested global `npm i -g vercel@latest`; verified Vercel CLI
+  **60.1.3** (previous installed version: 59.23.2). The release workflow's pinned
+  toolchain was not changed.
 
 ## Delivered behavior
 
@@ -87,5 +103,5 @@ repository test settings are unchanged.
 Before shipping: regenerate types with the local Supabase stack, apply the
 additive migration through the verified release workflow, admit the exact SHA,
 and verify authenticated checkout/account and tiles after promotion. The
-installed Vercel CLI reported 59.4.0 → 60.1.3; update it before release with
-`npm i -g vercel@latest` (not changed by this task).
+global Vercel CLI update is complete; production retains its reviewed workflow
+toolchain.

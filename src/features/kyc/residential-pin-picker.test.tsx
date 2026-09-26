@@ -40,6 +40,7 @@ it("requires confirmation again after another address edit in the same form", ()
   view.rerender(<ResidentialPinPicker addressChanged addressEditRevision={2} initialPin={null}/>);
   expect(hidden(view.container,"pinOperation")?.value).not.toBe("set");
   expect(hidden(view.container,"pinConfirmationRequired")?.value).toBe("1");
+  fireEvent.click(screen.getByRole("button",{name:"Adjust map pin"}));
   fireEvent.click(screen.getByRole("button",{name:"Confirm this pin"}));
   expect(hidden(view.container,"pinOperation")?.value).toBe("set");
 });
@@ -47,6 +48,7 @@ it("invalidates confirmation on a new manual selection even at the same coordina
   const view=render(<ResidentialPinPicker addressChanged={false} initialPin={null}/>);
   fireEvent.click(screen.getByRole("button",{name:"Choose synthetic point"}));
   fireEvent.click(screen.getByRole("button",{name:"Confirm this pin"}));
+  fireEvent.click(screen.getByRole("button",{name:"Adjust map pin"}));
   fireEvent.click(screen.getByRole("button",{name:"Choose synthetic point"}));
   expect(hidden(view.container,"pinConfirmationRequired")?.value).toBe("1");
 });
@@ -64,6 +66,23 @@ it("stages suggested GPS coordinates without submitting them until confirmation"
 function hidden(container: HTMLElement, name: string) {
   return container.querySelector<HTMLInputElement>(`input[name="${name}"]`);
 }
+
+it("keeps a restored unconfirmed GPS draft visible over a saved pin", () => {
+  sessionStorage.clear();
+  const initialPin = { latitude: 10.31, longitude: 123.89, accuracyMeters: 12,
+    confirmedAt: "2026-09-09T00:00:00Z", source: "device_gps" as const };
+  const pin = { latitude: 10.33, longitude: 123.9, accuracyMeters: 20,
+    label: "Device location", source: "device_gps" as const };
+  const first = render(<ResidentialPinPicker addressChanged initialPin={initialPin}
+    draftKey="staged-saved-pin" suggestedPin={{ requestId: 1, pin }} />);
+  first.unmount();
+  const restored = render(<ResidentialPinPicker addressChanged initialPin={initialPin}
+    draftKey="staged-saved-pin" />);
+  expect(hidden(restored.container, "pinLatitude")?.value).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "Confirm this pin" }));
+  expect(hidden(restored.container, "pinLatitude")?.value).toBe("10.33");
+  sessionStorage.clear();
+});
 
 describe("ResidentialPinPicker", () => {
   it("describes a server validation error from the labelled pin control region", () => {
