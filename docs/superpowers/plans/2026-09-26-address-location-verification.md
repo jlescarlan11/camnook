@@ -2,7 +2,7 @@
 
 Date: 2026-09-26. Branch: `codex/address-location`, original base `922738e`.
 The initial implementation checks below predate integration. At the user's
-request, the branch was subsequently rebased onto main `d0ff1e1` for a PR and
+request, the branch was subsequently rebased onto main `7cb960a` for a PR and
 merge. Hosted migrations and promotion must use the existing release workflow.
 
 ## Integration follow-up
@@ -13,7 +13,7 @@ merge. Hosted migrations and promotion must use the existing release workflow.
 - Reproduced and fixed a restored GPS draft being hidden by a saved pin's
   collapsed editor. Unconfirmed changed drafts remain visible until confirmed
   or cancelled; confirmed pins still collapse.
-- Repository migration inventory is now 94; historical Production evidence is
+- Repository migration inventory is now 96; historical Production evidence is
   unchanged.
 - Ran the requested global `npm i -g vercel@latest`; verified Vercel CLI
   **60.1.3** (previous installed version: 59.23.2). The release workflow's pinned
