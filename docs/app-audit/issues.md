@@ -637,3 +637,14 @@
 - Cause/fix: meetup save/archive/assignment/search awaited authorization without a form/search recovery result. A module-local helper catches authorization acquisition only and returns safe access guidance; mutations, revalidation and provider requests remain gated by a verified owner context.
 - Acceptance: failed auth never mutates or spends search budget; draft fields/confirmation survive; search finishes with guidance; restored owner can retry; archive cleanup persists.
 - Verification: five regressions fail before implementation; 155 meetup/auth tests pass, two opt-in provider checks skipped. Lint/typecheck/optimized build and independent review pass. Real signed-out save retains every field and checked confirmation; signed-out search returns access guidance and re-enables Search. Restored owner creates the retained synthetic place, reload confirms it, then Archive removes it and a second reload confirms absence. Place was never assigned to a camera; existing Ayala place unchanged. Recovery screenshot inspected: `aud060-meetup-recovery-guidance.png`.
+
+## AUD-062 — Windows local startup silently exits after successful checks
+
+- Severity: medium for development/test availability; no hosted behavior affected.
+- Reproduction: restored verified Development configuration on Windows; run the documented local start script with Node24.19.0. All dependency checks pass, then exit1 without a Next server or explanation. Direct isolated spawn of pnpm returns ENOENT/status null.
+- Cause: shell-free spawnSync cannot execute the Windows package-manager shim; launch errors were discarded.
+- Acceptance: same checked environment and loopback3000, current Node runtime and installed Next CLI; report spawn failures; propagate server failure/signal exit; browser loads actual Development catalog.
+- Fix: launch the installed Next entry point through process.execPath, with explicit spawn error handling.
+- Verification: extracted unchanged launcher reproduces two failing regression cases (command target and swallowed spawn failure); all7 startup/configuration tests pass after fix. Actual launcher reports Ready and Chrome renders both Development listings at127.0.0.1:3000. Focused lint and diff whitespace check pass. Full post-fix suite running; commit pending.
+
+- AUD062 final verification: full post-fix suite1131 passed/14 skipped across159 passed/4 skipped files (221.30s). Real Development startup and browser catalog verified; no Next route changes. Build baseline remains pending. Diff reviewed: only launcher target/error handling and relevant records/tests; no credentials or unrelated plan included.

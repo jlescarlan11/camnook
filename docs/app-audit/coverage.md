@@ -154,3 +154,11 @@ Screenshots alone do not prove accessibility compliance. Synthetic or simulated 
 
 - Final integration verification: actual320px checkout review has305px usable and scroll width; fresh screenshots confirm complete meetup text and long unbroken purpose wrapping, with usable Edit/Submit controls. Normal viewport restored; no rental request submitted. Synthetic camera meetup add/save/reload and remove/save/reload both retain matching checkbox state; original empty assignments restored. Signed-out owner search returns inline authorization guidance and retains its query.
 - Fresh integration suite:159 files/1139 tests pass,3 opt-in skips; no failures. Fresh disposable PostgreSQL applies all97 migrations and passes SQL008/009/022. Frozen launch-evidence structure validates; its historical NO_GO is not relabeled as current hosted verification.
+
+## 2026-09-26 Windows resume
+
+- Public Production read-only: catalog → Canon EOS R50 detail → date dialog. Past dates and weekends disabled by current policy. Selected Sept28–29 and09:00; schedule appears in URL; Continue to checkout redirects guest to login with full schedule in next parameter. No OTP, booking, or other Production write attempted.
+- Desktop screenshot inspected for camera details and guest sign-in; no visual defect observed in these states.
+- Baseline on e4487ec with Node24.19.0: lint/typecheck pass; full suite1128pass,14skip across158pass/4skip files (327.89s). Build and local authenticated journeys pending configuration.
+
+- AUD062: repaired startup launches real Development app on Windows using Node24.19.0. Actual catalog loads; full post-fix suite1131pass/14skip. Synthetic Profile initial values and invalid-name recovery inspected; all address selections retained.320px Profile overflow found for next cycle.

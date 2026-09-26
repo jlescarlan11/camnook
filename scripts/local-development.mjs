@@ -187,6 +187,18 @@ async function check(env) {
     "Development dependencies ready. Browser flow verification is still a separate check.",
   );
 }
+export function startDevelopmentServer() {
+  // Package-manager shims are not executable by shell-free spawn on Windows.
+  // Retain the Node runtime that already passed the local setup checks.
+  const child = spawnSync(
+    process.execPath,
+    [require.resolve("next/dist/bin/next"), "dev", "--hostname", "127.0.0.1", "--port", "3000"],
+    { stdio: "inherit", env: process.env },
+  );
+  if (child.error)
+    throw new Error(`Could not start the local Next.js server: ${child.error.message}`);
+  return child.status ?? 1;
+}
 async function main() {
   const command = process.argv[2];
   if (command === "setup") {
@@ -232,12 +244,7 @@ async function main() {
   if (command === "check") return check(process.env);
   if (command === "start") {
     await check(process.env);
-    const child = spawnSync(
-      "pnpm",
-      ["exec", "next", "dev", "--hostname", "127.0.0.1", "--port", "3000"],
-      { stdio: "inherit", env: process.env },
-    );
-    process.exitCode = child.status ?? 1;
+    process.exitCode = startDevelopmentServer();
     return;
   }
   throw new Error(
