@@ -728,3 +728,12 @@
 - Navigation caveat: two client transitions stalled in the long-lived development document around recompilation/build; a fresh document restored normal link navigation. No console error captured; not classified as a history defect. Recheck outside HMR before claiming a separate defect.
 - Full suite and commit pending. No fixture mutations or cleanup pending.
 - Full suite passes:1167 tests passed/14 skipped across164 passed/4 skipped files (213.18s). Build includes the dynamic history route. AUD071 verified; commit pending.
+- AUD071 committed asaec0682. No push, merge or deployment. Product worktree clean; preserved unrelated plan remains.
+
+## AUD-072 — Public-place search does not respond to Enter
+
+- Severity: medium keyboard workflow failure. In Add meetup place, type Ayala Center Cebu in Find a public place and press Enter: no search starts. Clicking Search places with the same query returns public-place results.
+- Cause: search exists only on a type=button click handler inside the place-saving form. Enter does not invoke it and can target the outer form when a completed draft is saveable.
+- Fix: share a guarded search function between the button and search input Enter handler. Prevent default outer-form submission for non-composing Enter, suppress duplicate pending searches, retain draft/confirmation and current error recovery. No server action, permissions, data or provider changes.
+- Verification: three new regression cases fail before the fix, then16 focused place-form/action tests pass. They cover blank and save-ready forms without saving, draft/confirmation preservation, repeated pending Enter, and the existing button-search path. Focused lint/typecheck/diff check and independent read-only review pass.
+- Actual browser: Enter starts the live search, returns Ayala public-place results, and selecting one fills address/city/pin in an unsaved new draft. A completed existing edit with confirmation checked also searches, preserves its fields/confirmation, and shows no save acknowledgement. Reload discards unsaved UI state and retains the original single meetup. Fresh screenshot inspected. No persisted fixture changes or cleanup pending. Commit pending.
