@@ -1,6 +1,7 @@
 # Residential Location Autofill Design
 
-**Status:** Draft for review  
+**Status:** Draft for review
+
 **Date:** 2026-09-24
 
 ## Goal
